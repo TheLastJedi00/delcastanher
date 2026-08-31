@@ -1,0 +1,67 @@
+<div class="min-h-screen flex flex-col font-sans text-slate-800 bg-brand-light">
+  <!-- Header Minimalista -->
+  <nav class="bg-white border-b border-slate-100">
+    <div class="max-w-6xl mx-auto px-4 py-4">
+      <a routerLink="/" class="inline-flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <svg class="w-5 h-5 text-brand-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        <img src="assets/logo.jpg" alt="Delcastanher Logo" class="h-8 object-contain rounded-md shadow-sm">
+      </a>
+    </div>
+  </nav>
+
+  <div class="flex-1 flex items-center justify-center p-4">
+  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+    <div class="text-center mb-8">
+      <h1 class="text-2xl font-bold text-brand-blue mb-2">Imersão RH Estratégico</h1>
+      <p class="text-slate-500">Acesse sua conta para continuar</p>
+    </div>
+
+    @if (!showRecover) {
+      <!-- Login Form (Task 3.1) -->
+      <form (submit)="$event.preventDefault()" class="flex flex-col gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">E-mail</label>
+          <input type="email" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal" placeholder="seu@email.com">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Senha</label>
+          <input type="password" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal" placeholder="••••••••">
+        </div>
+        
+        <div class="flex justify-end">
+          <button type="button" (click)="toggleRecover()" class="text-sm text-brand-teal hover:underline">Esqueci minha senha</button>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-2">
+          <button type="button" (click)="doLogin('aluno')" class="w-full bg-brand-blue hover:bg-slate-800 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            Entrar como Aluno
+          </button>
+          <button type="button" (click)="doLogin('admin')" class="w-full bg-brand-teal hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            Entrar como Admin
+          </button>
+        </div>
+      </form>
+    } @else {
+      <!-- Recuperação de Senha (Task 3.2) -->
+      <form (submit)="$event.preventDefault(); toggleRecover()" class="flex flex-col gap-4">
+        <h2 class="font-bold text-lg text-brand-blue">Recuperar Senha</h2>
+        <p class="text-sm text-slate-600 mb-2">Informe seu e-mail para enviarmos as instruções de recuperação.</p>
+        
+        <div>
+          <label class="block text-sm font-medium mb-1">E-mail</label>
+          <input type="email" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal" placeholder="seu@email.com">
+        </div>
+
+        <div class="mt-4 flex flex-col gap-2">
+          <button type="submit" class="w-full bg-brand-teal hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            Enviar Instruções
+          </button>
+          <button type="button" (click)="toggleRecover()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-lg transition-colors">
+            Voltar ao Login
+          </button>
+        </div>
+      </form>
+    }
+  </div>
+  </div>
+</div>

@@ -1,0 +1,224 @@
+<div class="min-h-screen flex bg-slate-50 font-sans text-slate-800">
+  
+  <!-- Sidebar Admin -->
+  <aside class="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex h-screen sticky top-0">
+    <div class="p-6 border-b border-slate-200">
+      <a routerLink="/" class="flex items-center gap-2 mb-6">
+        <img src="assets/logo.jpg" alt="Delcastanher Logo" class="h-8 object-contain rounded-md shadow-sm">
+        <span class="font-bold text-brand-blue">Administração</span>
+      </a>
+    </div>
+    
+    <div class="flex-1 p-4 space-y-2">
+      <button (click)="setTab('visao-geral')"
+        class="w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-3"
+        [class.bg-teal-50]="activeTab === 'visao-geral'"
+        [class.text-brand-teal]="activeTab === 'visao-geral'"
+        [class.text-slate-600]="activeTab !== 'visao-geral'"
+        [class.hover:bg-slate-100]="activeTab !== 'visao-geral'">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+        Visão Geral
+      </button>
+
+      <button (click)="setTab('aulas')"
+        class="w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-3"
+        [class.bg-teal-50]="activeTab === 'aulas'"
+        [class.text-brand-teal]="activeTab === 'aulas'"
+        [class.text-slate-600]="activeTab !== 'aulas'"
+        [class.hover:bg-slate-100]="activeTab !== 'aulas'">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        Gestão de Aulas
+      </button>
+
+      <button (click)="setTab('comunicacao')"
+        class="w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-3"
+        [class.bg-teal-50]="activeTab === 'comunicacao'"
+        [class.text-brand-teal]="activeTab === 'comunicacao'"
+        [class.text-slate-600]="activeTab !== 'comunicacao'"
+        [class.hover:bg-slate-100]="activeTab !== 'comunicacao'">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+        Disparos de E-mail
+      </button>
+
+      <button (click)="setTab('termos')"
+        class="w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-3"
+        [class.bg-teal-50]="activeTab === 'termos'"
+        [class.text-brand-teal]="activeTab === 'termos'"
+        [class.text-slate-600]="activeTab !== 'termos'"
+        [class.hover:bg-slate-100]="activeTab !== 'termos'">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Políticas & Termos
+      </button>
+    </div>
+  </aside>
+
+  <main class="flex-1 flex flex-col h-screen overflow-y-auto">
+    <!-- Header Alinhado com o resto da aplicação -->
+    <header class="bg-white border-b border-slate-200 p-4 md:px-8 flex justify-between items-center sticky top-0 z-10">
+      <div class="flex items-center gap-2">
+        <h1 class="font-bold text-lg text-brand-blue">Painel de Controle</h1>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="text-sm font-medium hidden sm:block">Lidiane Delcastanher</span>
+        <div class="w-10 h-10 bg-brand-teal rounded-full text-white flex items-center justify-center font-bold">LD</div>
+        <a routerLink="/login" class="text-sm font-bold text-red-500 hover:text-red-700 ml-2">Sair</a>
+      </div>
+    </header>
+
+    <div class="p-6 md:p-8 max-w-6xl mx-auto w-full">
+      
+      @if (activeTab === 'visao-geral') {
+        <!-- KPIs e Visão Geral -->
+        <h2 class="text-2xl font-bold text-brand-blue mb-6">Visão Geral e Alunos</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 border-t-4 border-t-brand-teal">
+            <p class="text-slate-500 text-sm font-medium mb-1">Total de Vendas / Faturamento</p>
+            <p class="text-3xl font-bold text-brand-blue">{{ kpis.sales }}</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 border-t-4 border-t-brand-teal">
+            <p class="text-slate-500 text-sm font-medium mb-1">Alunos Ativos</p>
+            <p class="text-3xl font-bold text-brand-blue">{{ kpis.activeStudents }}</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 border-t-4 border-t-brand-teal">
+            <p class="text-slate-500 text-sm font-medium mb-1">Taxa de Engajamento</p>
+            <p class="text-3xl font-bold text-brand-blue">{{ kpis.engagementRate }}</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-6 border-b border-slate-200 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-brand-blue">Alunos Matriculados</h3>
+            <input type="text" placeholder="Buscar aluno..." class="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-brand-teal">
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
+                  <th class="p-4 font-medium">Nome e E-mail</th>
+                  <th class="p-4 font-medium">Data Matrícula</th>
+                  <th class="p-4 font-medium text-center">Módulo Atual</th>
+                  <th class="p-4 font-medium">Progresso</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (student of students; track student.id) {
+                  <tr class="border-b border-slate-100 hover:bg-slate-50">
+                    <td class="p-4">
+                      <p class="font-bold text-brand-blue">{{ student.name }}</p>
+                      <p class="text-xs text-slate-500">{{ student.email }}</p>
+                    </td>
+                    <td class="p-4 text-sm text-slate-600">{{ student.enrollmentDate }}</td>
+                    <td class="p-4 text-center font-medium text-brand-teal">{{ student.currentModule }} / 12</td>
+                    <td class="p-4">
+                      <div class="flex items-center gap-2">
+                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[150px]">
+                          <div class="bg-brand-teal h-2 rounded-full" [style.width.%]="student.progress"></div>
+                        </div>
+                        <span class="text-xs font-bold text-slate-600">{{ student.progress }}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      @if (activeTab === 'aulas') {
+        <!-- Gestão de Aulas -->
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold text-brand-blue">Gerenciamento de Aulas e Módulos</h2>
+          <button class="bg-brand-teal text-white px-4 py-2 rounded-lg font-medium hover:bg-teal-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Nova Aula
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div class="border-b border-slate-100 pb-6 mb-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Adicionar/Editar Conteúdo</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Título da Aula</label>
+                <input type="text" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Módulo Vinculado</label>
+                <select class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal">
+                  <option>1. Fundamentos do RH Estratégico</option>
+                  <option>2. Diagnóstico Organizacional</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="mt-4">
+              <label class="block text-sm font-medium mb-1">URL do Vídeo (Vimeo/YouTube)</label>
+              <input type="url" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal" placeholder="https://...">
+            </div>
+
+            <div class="mt-4">
+              <label class="block text-sm font-medium mb-1">Upload de Materiais Complementares (PDF/XLS)</label>
+              <div class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer">
+                <svg class="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                <p class="text-sm text-slate-600">Arraste os arquivos aqui ou clique para selecionar</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="flex justify-end gap-3">
+            <button class="px-6 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">Cancelar</button>
+            <button class="px-6 py-2 bg-brand-blue text-white rounded-lg hover:bg-slate-800 transition-colors">Salvar Aula</button>
+          </div>
+        </div>
+      }
+
+      @if (activeTab === 'comunicacao') {
+        <!-- Disparos de Email -->
+        <h2 class="text-2xl font-bold text-brand-blue mb-6">Disparo de E-mails</h2>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-1">Segmentação de Alunos</label>
+            <select class="w-full md:w-1/2 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal">
+              <option>Todos os Alunos Ativos</option>
+              <option>Alunos que não acessam há 7 dias</option>
+              <option>Alunos que concluíram o curso</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-1">Assunto do E-mail</label>
+            <input type="text" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal" placeholder="Novidade na plataforma!">
+          </div>
+          <div class="mb-6">
+            <label class="block text-sm font-medium mb-1">Corpo da Mensagem</label>
+            <textarea class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal h-40" placeholder="Olá aluno..."></textarea>
+          </div>
+          <div class="flex justify-end gap-3">
+            <button class="px-6 py-2 border border-brand-teal text-brand-teal rounded-lg hover:bg-teal-50 transition-colors">Enviar Teste</button>
+            <button class="px-6 py-2 bg-brand-teal text-white rounded-lg hover:bg-teal-700 transition-colors">Disparar Campanha</button>
+          </div>
+        </div>
+      }
+
+      @if (activeTab === 'termos') {
+        <!-- Políticas e Termos -->
+        <h2 class="text-2xl font-bold text-brand-blue mb-6">Políticas de Privacidade e Termos de Uso</h2>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div class="flex border-b border-slate-200 mb-6">
+            <button class="px-4 py-2 border-b-2 border-brand-teal font-bold text-brand-teal">Termos de Uso</button>
+            <button class="px-4 py-2 font-medium text-slate-500 hover:text-slate-800">Política de Privacidade</button>
+          </div>
+          <div class="mb-6">
+            <label class="block text-sm font-medium mb-1">Conteúdo Jurídico</label>
+            <textarea class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-teal h-64 font-mono text-sm" placeholder="1. Aceitação dos Termos..."></textarea>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500">Última atualização: 31/08/2026</span>
+            <button class="px-6 py-2 bg-brand-blue text-white rounded-lg hover:bg-slate-800 transition-colors">Atualizar Documento</button>
+          </div>
+        </div>
+      }
+
+    </div>
+  </main>
+</div>
