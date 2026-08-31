@@ -30,6 +30,7 @@ export class Trilha {
   ];
 
   activeModule: Module = this.modules[2]; // Currently learning
+  showMobileModules = false;
 
   get progressPercentage(): number {
     return Math.round((this.modules.filter(m => m.completed).length / this.modules.length) * 100);
@@ -37,5 +38,6 @@ export class Trilha {
 
   setActiveModule(mod: Module) {
     this.activeModule = mod;
+    this.showMobileModules = false;
   }
 }
