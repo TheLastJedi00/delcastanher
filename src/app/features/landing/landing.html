@@ -6,11 +6,13 @@
       <a routerLink="/" class="flex items-center">
         <img src="assets/logo.jpg" alt="Delcastanher Logo" class="h-10 object-contain rounded-lg shadow-sm">
       </a>
-      <div class="hidden md:flex items-center gap-8 font-medium text-sm">
-        <a href="#metodo" class="text-slate-600 hover:text-brand-teal transition-colors">Método</a>
-        <a href="#mentora" class="text-slate-600 hover:text-brand-teal transition-colors">A Mentora</a>
-        <a href="#trilha" class="text-slate-600 hover:text-brand-teal transition-colors">Trilha</a>
-        <a routerLink="/login" class="px-5 py-2 bg-brand-blue text-white rounded-lg hover:bg-slate-800 transition-colors">Área do Aluno</a>
+      <div class="flex items-center gap-4">
+        <div class="hidden md:flex items-center gap-8 font-medium text-sm">
+          <a href="#metodo" class="text-slate-600 hover:text-brand-teal transition-colors">Método</a>
+          <a href="#mentora" class="text-slate-600 hover:text-brand-teal transition-colors">A Mentora</a>
+          <a href="#trilha" class="text-slate-600 hover:text-brand-teal transition-colors">Trilha</a>
+        </div>
+        <a routerLink="/login" class="px-5 py-2 bg-brand-blue text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium">Área do Aluno</a>
       </div>
     </div>
   </nav>
@@ -35,7 +37,7 @@
           </button>
         </div>
       </div>
-      <div class="w-full md:w-1/2 relative animate-fade-in">
+      <div class="hidden md:block w-full md:w-1/2 relative animate-fade-in">
         <div class="absolute inset-0 bg-brand-teal rounded-full blur-3xl opacity-20 transform translate-x-5 translate-y-5"></div>
         <img src="assets/aula1.jpeg" alt="Lidiane palestrando" class="relative z-10 rounded-2xl shadow-2xl object-cover w-full h-[500px]">
       </div>
