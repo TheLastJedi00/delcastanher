@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
+let logoInstances = 0;
+
 type LogoSize = 'sm' | 'md' | 'lg';
 type LogoVariant = 'default' | 'light';
 
@@ -54,8 +56,7 @@ const SIZES: Record<LogoSize, string> = {
 })
 export class Logo {
   /** Identificador unico por instancia, para nao colidir os ids dos gradientes. */
-  protected readonly uid = `${Logo.counter++}`;
-  private static counter = 0;
+  protected readonly uid = `${logoInstances++}`;
 
   readonly size = input<LogoSize>('md');
   readonly variant = input<LogoVariant>('default');

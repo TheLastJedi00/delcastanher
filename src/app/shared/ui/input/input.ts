@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, model } from '@angular/core';
 
+let inputInstances = 0;
+
 @Component({
   selector: 'ui-input',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,6 +36,7 @@ import { ChangeDetectionStrategy, Component, computed, input, model } from '@ang
     }
   `,
 })
+
 export class Input {
   readonly label = input('');
   readonly placeholder = input('');
@@ -44,8 +47,7 @@ export class Input {
   readonly mono = input(false);
   readonly value = model('');
 
-  protected readonly id = input(`ui-input-${Input.counter++}`);
-  private static counter = 0;
+  protected readonly id = input(`ui-input-${inputInstances++}`);
 
   protected readonly classes = computed(() =>
     [
