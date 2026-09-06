@@ -86,7 +86,7 @@ import { RouterOutlet, RouterLink } from '@angular/router';
               </svg>
             </button>
             <a routerLink="/ava" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <img src="assets/logo.jpg" alt="Delcastanher Logo" class="h-8 object-contain rounded-md shadow-sm">
+              <img src="assets/logo-delcastanher.svg" alt="Delcastanher Logo" class="h-8 w-8 object-contain">
               <span class="font-bold text-brand-blue hidden sm:block">Ambiente do Aluno</span>
             </a>
           </div>
