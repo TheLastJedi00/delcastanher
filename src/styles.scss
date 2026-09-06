@@ -2,7 +2,124 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-brand-light text-slate-900;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+@layer base {
+  *,
+  *::before,
+  *::after {
+    @apply transition-colors duration-200;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-brand-surface text-slate-800 antialiased;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  ::selection {
+    @apply bg-brand-teal/20 text-brand-navy;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-teal ring-offset-2 ring-offset-brand-surface;
+  }
+
+  /* Scrollbar personalizada */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-brand-navy/15 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-navy/25;
+  }
+}
+
+@layer components {
+  /* Glassmorphism */
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(36, 71, 121, 0.08);
+  }
+
+  .glass-dark {
+    @apply bg-brand-navy/80 backdrop-blur-xl text-white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(36, 71, 121, 0.25);
+  }
+
+  .glass-teal {
+    @apply bg-brand-teal/10 backdrop-blur-lg;
+    border: 1px solid rgba(22, 138, 145, 0.2);
+  }
+
+  /* Bordas com gradiente */
+  .border-gradient-brand {
+    border-image: linear-gradient(135deg, #244779, #168A91) 1;
+  }
+
+  /* Texto com gradiente */
+  .text-gradient-brand {
+    @apply bg-gradient-brand bg-clip-text text-transparent;
+  }
+
+  .text-gradient-teal {
+    @apply bg-gradient-teal bg-clip-text text-transparent;
+  }
+
+  /* Bolhas decorativas de fundo */
+  .blob-teal {
+    @apply absolute rounded-full bg-brand-teal/5 blur-3xl pointer-events-none;
+  }
+
+  .blob-navy {
+    @apply absolute rounded-full bg-brand-navy/5 blur-3xl pointer-events-none;
+  }
+
+  /* Container padrao de secao */
+  .section-container {
+    @apply max-w-6xl mx-auto px-4;
+  }
+}
+
+/* View Transitions entre rotas */
+::view-transition-old(root) {
+  animation: view-fade-out 0.25s ease-out both;
+}
+
+::view-transition-new(root) {
+  animation: view-fade-in 0.25s ease-in both;
+}
+
+@keyframes view-fade-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+
+@keyframes view-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
 }
