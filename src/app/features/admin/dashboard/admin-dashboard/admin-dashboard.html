@@ -1,224 +1,227 @@
-<div class="min-h-screen flex bg-brand-surface font-sans text-slate-800">
-  
-  <!-- Sidebar Admin -->
-  <aside class="w-64 bg-white border-r border-brand-navy/12 flex flex-col hidden md:flex h-screen sticky top-0">
-    <div class="p-6 border-b border-brand-navy/12">
-      <a routerLink="/" class="flex items-center gap-2 mb-6">
-        <img src="assets/logo-delcastanher.svg" alt="Delcastanher Logo" class="h-8 w-8 object-contain">
-        <span class="font-bold text-brand-navy">Administração</span>
-      </a>
-    </div>
-    
-    <div class="flex-1 p-4 space-y-2">
-      <button (click)="setTab('visao-geral')"
-        class="w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-3"
-        [class.bg-teal-50]="activeTab === 'visao-geral'"
-        [class.text-brand-teal]="activeTab === 'visao-geral'"
-        [class.text-slate-600]="activeTab !== 'visao-geral'"
-        [class.hover:bg-brand-navy/5]="activeTab !== 'visao-geral'">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-        Visão Geral
-      </button>
-
-      <button (click)="setTab('aulas')"
-        class="w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-3"
-        [class.bg-teal-50]="activeTab === 'aulas'"
-        [class.text-brand-teal]="activeTab === 'aulas'"
-        [class.text-slate-600]="activeTab !== 'aulas'"
-        [class.hover:bg-brand-navy/5]="activeTab !== 'aulas'">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        Gestão de Aulas
-      </button>
-
-      <button (click)="setTab('comunicacao')"
-        class="w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-3"
-        [class.bg-teal-50]="activeTab === 'comunicacao'"
-        [class.text-brand-teal]="activeTab === 'comunicacao'"
-        [class.text-slate-600]="activeTab !== 'comunicacao'"
-        [class.hover:bg-brand-navy/5]="activeTab !== 'comunicacao'">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-        Disparos de E-mail
-      </button>
-
-      <button (click)="setTab('termos')"
-        class="w-full text-left px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-3"
-        [class.bg-teal-50]="activeTab === 'termos'"
-        [class.text-brand-teal]="activeTab === 'termos'"
-        [class.text-slate-600]="activeTab !== 'termos'"
-        [class.hover:bg-brand-navy/5]="activeTab !== 'termos'">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-        Políticas & Termos
-      </button>
-    </div>
-  </aside>
-
-  <main class="flex-1 flex flex-col h-screen overflow-y-auto">
-    <!-- Header Alinhado com o resto da aplicação -->
-    <header class="bg-white border-b border-brand-navy/12 p-4 md:px-8 flex justify-between items-center sticky top-0 z-10">
-      <div class="flex items-center gap-2">
-        <h1 class="font-bold text-lg text-brand-navy">Painel de Controle</h1>
-      </div>
-      <div class="flex items-center gap-4">
-        <span class="text-sm font-medium hidden sm:block">Lidiane Delcastanher</span>
-        <div class="w-10 h-10 bg-brand-teal rounded-full text-white flex items-center justify-center font-bold">LD</div>
-        <a routerLink="/login" class="text-sm font-bold text-red-500 hover:text-red-700 ml-2">Sair</a>
-      </div>
-    </header>
-
-    <div class="p-6 md:p-8 max-w-6xl mx-auto w-full">
-      
-      @if (activeTab === 'visao-geral') {
-        <!-- KPIs e Visão Geral -->
-        <h2 class="text-2xl font-bold text-brand-navy mb-6">Visão Geral e Alunos</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div class="bg-white rounded-xl p-6 shadow-card border border-brand-navy/12 border-t-4 border-t-brand-teal">
-            <p class="text-slate-500 text-sm font-medium mb-1">Total de Vendas / Faturamento</p>
-            <p class="text-3xl font-bold text-brand-navy">{{ kpis.sales }}</p>
-          </div>
-          <div class="bg-white rounded-xl p-6 shadow-card border border-brand-navy/12 border-t-4 border-t-brand-teal">
-            <p class="text-slate-500 text-sm font-medium mb-1">Alunos Ativos</p>
-            <p class="text-3xl font-bold text-brand-navy">{{ kpis.activeStudents }}</p>
-          </div>
-          <div class="bg-white rounded-xl p-6 shadow-card border border-brand-navy/12 border-t-4 border-t-brand-teal">
-            <p class="text-slate-500 text-sm font-medium mb-1">Taxa de Engajamento</p>
-            <p class="text-3xl font-bold text-brand-navy">{{ kpis.engagementRate }}</p>
-          </div>
+<app-admin-layout [(activeTab)]="activeTab">
+  <ui-page-container maxWidth="xl">
+    @switch (activeTab()) {
+      @case ('visao-geral') {
+        <div class="mb-6">
+          <ui-section-header overline="Painel de controle" title="Visão Geral e Alunos" />
         </div>
 
-        <div class="bg-white rounded-xl shadow-card border border-brand-navy/12 overflow-hidden">
-          <div class="p-6 border-b border-brand-navy/12 flex justify-between items-center">
-            <h3 class="text-lg font-bold text-brand-navy">Alunos Matriculados</h3>
-            <input type="text" placeholder="Buscar aluno..." class="px-4 py-2 border border-brand-navy/12 rounded-lg text-sm focus:outline-none focus:border-brand-teal">
+        <div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <ui-stat-card label="Vendas / Faturamento" [value]="kpis.sales" trend="up" trendValue="+12% no mês">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </ui-stat-card>
+
+          <ui-stat-card label="Alunos Ativos" [value]="kpis.activeStudents" trend="up" trendValue="+18 esta semana">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          </ui-stat-card>
+
+          <ui-stat-card label="Taxa de Engajamento" [value]="kpis.engagementRate">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </ui-stat-card>
+        </div>
+
+        <ui-card variant="default" padding="none" [hover]="false">
+          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-brand-navy/8 p-6">
+            <h3 class="text-lg font-semibold text-brand-navy">Alunos Matriculados</h3>
+            <div class="w-full sm:w-64">
+              <ui-input placeholder="Buscar aluno..." [(value)]="search" />
+            </div>
           </div>
+
           <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full border-collapse text-left">
               <thead>
-                <tr class="bg-brand-surface text-slate-500 text-sm border-b border-brand-navy/12">
-                  <th class="p-4 font-medium">Nome e E-mail</th>
-                  <th class="p-4 font-medium">Data Matrícula</th>
-                  <th class="p-4 font-medium text-center">Módulo Atual</th>
-                  <th class="p-4 font-medium">Progresso</th>
+                <tr class="border-b border-brand-navy/8 bg-brand-surface text-xs uppercase tracking-widest text-brand-steel">
+                  <th scope="col" class="p-4 font-bold">Nome e E-mail</th>
+                  <th scope="col" class="p-4 font-bold">Data Matrícula</th>
+                  <th scope="col" class="p-4 text-center font-bold">Módulo Atual</th>
+                  <th scope="col" class="p-4 font-bold">Progresso</th>
                 </tr>
               </thead>
               <tbody>
-                @for (student of students; track student.id) {
-                  <tr class="border-b border-brand-navy/8 hover:bg-brand-surface">
+                @for (student of filteredStudents(); track student.id) {
+                  <tr class="border-b border-brand-navy/8 transition-colors hover:bg-brand-teal/5">
                     <td class="p-4">
-                      <p class="font-bold text-brand-navy">{{ student.name }}</p>
-                      <p class="text-xs text-slate-500">{{ student.email }}</p>
+                      <div class="flex items-center gap-3">
+                        <ui-avatar [initials]="student.initials" size="sm" />
+                        <div class="min-w-0">
+                          <p class="font-bold text-brand-navy">{{ student.name }}</p>
+                          <p class="text-xs text-brand-steel">{{ student.email }}</p>
+                        </div>
+                      </div>
                     </td>
                     <td class="p-4 text-sm text-slate-600">{{ student.enrollmentDate }}</td>
-                    <td class="p-4 text-center font-medium text-brand-teal">{{ student.currentModule }} / 12</td>
+                    <td class="p-4 text-center text-sm font-bold text-brand-teal">
+                      {{ student.currentModule }} / 12
+                    </td>
                     <td class="p-4">
-                      <div class="flex items-center gap-2">
-                        <div class="w-full bg-brand-navy/5 rounded-full h-2 max-w-[150px]">
-                          <div class="bg-brand-teal h-2 rounded-full" [style.width.%]="student.progress"></div>
-                        </div>
-                        <span class="text-xs font-bold text-slate-600">{{ student.progress }}%</span>
+                      <div class="max-w-[200px]">
+                        <ui-progress-bar
+                          [value]="student.progress"
+                          variant="gradient"
+                          [showLabel]="true"
+                          [label]="'Progresso de ' + student.name" />
                       </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="4" class="p-8 text-center text-sm text-brand-steel">
+                      Nenhum aluno encontrado para "{{ search() }}".
                     </td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
-        </div>
+        </ui-card>
       }
 
-      @if (activeTab === 'aulas') {
-        <!-- Gestão de Aulas -->
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-brand-navy">Gerenciamento de Aulas e Módulos</h2>
-          <button class="bg-brand-teal text-white px-4 py-2 rounded-lg font-medium hover:bg-teal-700 transition-colors flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+      @case ('aulas') {
+        <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <ui-section-header overline="Conteúdo" title="Gerenciamento de Aulas" />
+          <ui-button variant="primary">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
             Nova Aula
-          </button>
+          </ui-button>
         </div>
 
-        <div class="bg-white rounded-xl shadow-card border border-brand-navy/12 p-6">
-          <div class="border-b border-brand-navy/8 pb-6 mb-6">
-            <h3 class="text-lg font-bold text-slate-800 mb-4">Adicionar/Editar Conteúdo</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1">Título da Aula</label>
-                <input type="text" class="w-full px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal">
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Módulo Vinculado</label>
-                <select class="w-full px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal">
-                  <option>1. Fundamentos do RH Estratégico</option>
-                  <option>2. Diagnóstico Organizacional</option>
-                </select>
-              </div>
-            </div>
-            
-            <div class="mt-4">
-              <label class="block text-sm font-medium mb-1">URL do Vídeo (Vimeo/YouTube)</label>
-              <input type="url" class="w-full px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal" placeholder="https://...">
-            </div>
+        <ui-card variant="default" padding="lg" [hover]="false">
+          <h3 class="mb-6 text-lg font-semibold text-brand-navy">Adicionar / Editar Conteúdo</h3>
 
-            <div class="mt-4">
-              <label class="block text-sm font-medium mb-1">Upload de Materiais Complementares (PDF/XLS)</label>
-              <div class="border-2 border-dashed border-brand-navy/12 rounded-lg p-6 text-center hover:bg-brand-surface transition-colors cursor-pointer">
-                <svg class="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <ui-input label="Título da Aula" [(value)]="lessonTitle" />
+            <div>
+              <label for="admin-modulo" class="mb-2 block text-xs font-bold uppercase tracking-widest text-brand-steel">
+                Módulo Vinculado
+              </label>
+              <select
+                id="admin-modulo"
+                class="w-full rounded-xl border border-brand-navy/10 bg-white/80 px-4 py-2.5 text-sm text-slate-800 outline-none transition-all duration-200 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
+                <option>1. Fundamentos do RH Estratégico</option>
+                <option>2. Diagnóstico Organizacional</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <ui-input label="URL do Vídeo (Vimeo/YouTube)" type="url" placeholder="https://..." [(value)]="lessonVideoUrl" />
+          </div>
+
+          <div class="mt-4">
+            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-brand-steel">
+              Materiais Complementares (PDF/XLS)
+            </p>
+            <ui-card variant="outline" padding="lg">
+              <div class="cursor-pointer rounded-xl border-2 border-dashed border-brand-navy/12 p-6 text-center transition-colors hover:border-brand-teal hover:bg-brand-teal/5">
+                <svg class="mx-auto mb-2 h-8 w-8 text-brand-steel" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
                 <p class="text-sm text-slate-600">Arraste os arquivos aqui ou clique para selecionar</p>
               </div>
-            </div>
+            </ui-card>
           </div>
-          
-          <div class="flex justify-end gap-3">
-            <button class="px-6 py-2 border border-brand-navy/12 rounded-lg text-slate-600 hover:bg-brand-surface transition-colors">Cancelar</button>
-            <button class="px-6 py-2 bg-brand-navy text-white rounded-lg hover:bg-slate-800 transition-colors">Salvar Aula</button>
+
+          <div class="mt-6 flex justify-end gap-3">
+            <ui-button variant="outline">Cancelar</ui-button>
+            <ui-button variant="secondary">Salvar Aula</ui-button>
           </div>
-        </div>
+        </ui-card>
       }
 
-      @if (activeTab === 'comunicacao') {
-        <!-- Disparos de Email -->
-        <h2 class="text-2xl font-bold text-brand-navy mb-6">Disparo de E-mails</h2>
-        <div class="bg-white rounded-xl shadow-card border border-brand-navy/12 p-6">
-          <div class="mb-4">
-            <label class="block text-sm font-medium mb-1">Segmentação de Alunos</label>
-            <select class="w-full md:w-1/2 px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal">
+      @case ('comunicacao') {
+        <div class="mb-6">
+          <ui-section-header overline="Comunicação" title="Disparo de E-mails" />
+        </div>
+
+        <ui-card variant="default" padding="lg" [hover]="false">
+          <div class="mb-4 md:w-1/2">
+            <label for="admin-segmento" class="mb-2 block text-xs font-bold uppercase tracking-widest text-brand-steel">
+              Segmentação de Alunos
+            </label>
+            <select
+              id="admin-segmento"
+              class="w-full rounded-xl border border-brand-navy/10 bg-white/80 px-4 py-2.5 text-sm text-slate-800 outline-none transition-all duration-200 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
               <option>Todos os Alunos Ativos</option>
               <option>Alunos que não acessam há 7 dias</option>
               <option>Alunos que concluíram o curso</option>
             </select>
           </div>
+
           <div class="mb-4">
-            <label class="block text-sm font-medium mb-1">Assunto do E-mail</label>
-            <input type="text" class="w-full px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal" placeholder="Novidade na plataforma!">
+            <ui-input label="Assunto do E-mail" placeholder="Novidade na plataforma!" [(value)]="emailSubject" />
           </div>
+
           <div class="mb-6">
-            <label class="block text-sm font-medium mb-1">Corpo da Mensagem</label>
-            <textarea class="w-full px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal h-40" placeholder="Olá aluno..."></textarea>
+            <ui-input
+              label="Corpo da Mensagem"
+              placeholder="Olá aluno..."
+              [multiline]="true"
+              [rows]="8"
+              [(value)]="emailBody" />
           </div>
-          <div class="flex justify-end gap-3">
-            <button class="px-6 py-2 border border-brand-teal text-brand-teal rounded-lg hover:bg-teal-50 transition-colors">Enviar Teste</button>
-            <button class="px-6 py-2 bg-brand-teal text-white rounded-lg hover:bg-teal-700 transition-colors">Disparar Campanha</button>
+
+          <div class="flex flex-wrap justify-end gap-3">
+            <ui-button variant="outline">Enviar Teste</ui-button>
+            <ui-button variant="primary">Disparar Campanha</ui-button>
           </div>
-        </div>
+        </ui-card>
       }
 
-      @if (activeTab === 'termos') {
-        <!-- Políticas e Termos -->
-        <h2 class="text-2xl font-bold text-brand-navy mb-6">Políticas de Privacidade e Termos de Uso</h2>
-        <div class="bg-white rounded-xl shadow-card border border-brand-navy/12 p-6">
-          <div class="flex border-b border-brand-navy/12 mb-6">
-            <button class="px-4 py-2 border-b-2 border-brand-teal font-bold text-brand-teal">Termos de Uso</button>
-            <button class="px-4 py-2 font-medium text-slate-500 hover:text-slate-800">Política de Privacidade</button>
-          </div>
-          <div class="mb-6">
-            <label class="block text-sm font-medium mb-1">Conteúdo Jurídico</label>
-            <textarea class="w-full px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal h-64 font-mono text-sm" placeholder="1. Aceitação dos Termos..."></textarea>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">Última atualização: 31/08/2026</span>
-            <button class="px-6 py-2 bg-brand-navy text-white rounded-lg hover:bg-slate-800 transition-colors">Atualizar Documento</button>
-          </div>
+      @case ('termos') {
+        <div class="mb-6">
+          <ui-section-header overline="Jurídico" title="Políticas e Termos de Uso" />
         </div>
-      }
 
-    </div>
-  </main>
-</div>
+        <ui-card variant="default" padding="lg" [hover]="false">
+          <div class="mb-6 flex gap-2 border-b border-brand-navy/8">
+            <button
+              type="button"
+              (click)="setLegalTab('termos')"
+              class="border-b-2 px-4 py-2 text-sm font-bold transition-colors"
+              [class.border-brand-teal]="legalTab() === 'termos'"
+              [class.text-brand-teal]="legalTab() === 'termos'"
+              [class.border-transparent]="legalTab() !== 'termos'"
+              [class.text-brand-steel]="legalTab() !== 'termos'">
+              Termos de Uso
+            </button>
+            <button
+              type="button"
+              (click)="setLegalTab('privacidade')"
+              class="border-b-2 px-4 py-2 text-sm font-bold transition-colors"
+              [class.border-brand-teal]="legalTab() === 'privacidade'"
+              [class.text-brand-teal]="legalTab() === 'privacidade'"
+              [class.border-transparent]="legalTab() !== 'privacidade'"
+              [class.text-brand-steel]="legalTab() !== 'privacidade'">
+              Política de Privacidade
+            </button>
+          </div>
+
+          <ui-input
+            label="Conteúdo Jurídico"
+            placeholder="1. Aceitação dos Termos..."
+            [multiline]="true"
+            [rows]="14"
+            [mono]="true"
+            [(value)]="legalContent" />
+
+          <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <ui-badge variant="success" label="Publicado" />
+              <span class="text-xs text-brand-steel">Última atualização: 31/08/2026</span>
+            </div>
+            <ui-button variant="secondary">Atualizar Documento</ui-button>
+          </div>
+        </ui-card>
+      }
+    }
+  </ui-page-container>
+</app-admin-layout>

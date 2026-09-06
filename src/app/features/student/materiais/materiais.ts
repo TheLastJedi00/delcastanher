@@ -1,36 +1,61 @@
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { BackLink } from '../../../shared/ui/back-link/back-link';
+import { Card } from '../../../shared/ui/card/card';
+import { FileType, MaterialItem } from '../../../shared/ui/material-item/material-item';
+import { PageContainer } from '../../../shared/ui/page-container/page-container';
+import { SectionHeader } from '../../../shared/ui/section-header/section-header';
+
+interface Material {
+  fileName: string;
+  fileType: FileType;
+  fileSize: string;
+  moduleLabel: string;
+}
 
 @Component({
   selector: 'app-materiais',
-  imports: [RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageContainer, BackLink, SectionHeader, Card, MaterialItem],
   template: `
-    <div class="p-6 md:p-8 max-w-5xl mx-auto w-full animate-fade-in">
-      <a routerLink="/ava" class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-teal transition-colors mb-6">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-        Voltar ao Hub
-      </a>
-      <h1 class="text-2xl font-bold text-brand-navy mb-6">Central de Materiais</h1>
-      <div class="bg-white rounded-xl shadow-card border border-brand-navy/12 p-6">
-        <p class="text-slate-600 mb-6">Encontre aqui todos os templates e planilhas disponibilizados nos módulos.</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a href="#" class="flex items-center gap-4 p-4 border border-brand-navy/12 rounded-lg hover:border-brand-teal transition-colors group">
-            <div class="w-10 h-10 bg-red-50 text-red-500 rounded flex items-center justify-center font-bold">PDF</div>
-            <div>
-              <p class="font-bold text-sm group-hover:text-brand-teal">Slides: O RH que sua empresa precisa</p>
-              <p class="text-xs text-slate-500">Módulo 1 • 2.4 MB</p>
-            </div>
-          </a>
-          <a href="#" class="flex items-center gap-4 p-4 border border-brand-navy/12 rounded-lg hover:border-brand-teal transition-colors group">
-            <div class="w-10 h-10 bg-green-50 text-green-600 rounded flex items-center justify-center font-bold">XLS</div>
-            <div>
-              <p class="font-bold text-sm group-hover:text-brand-teal">Planilha de Diagnóstico Organizacional</p>
-              <p class="text-xs text-slate-500">Módulo 2 • 850 KB</p>
-            </div>
-          </a>
-        </div>
+    <ui-page-container maxWidth="lg">
+      <div class="mb-6">
+        <ui-back-link />
       </div>
-    </div>
-  `
+
+      <div class="mb-6">
+        <ui-section-header
+          overline="Downloads"
+          title="Central de Materiais"
+          subtitle="Encontre aqui todos os templates e planilhas disponibilizados nos módulos." />
+      </div>
+
+      <ui-card variant="default" padding="lg" [hover]="false">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          @for (material of materials; track material.fileName) {
+            <ui-material-item
+              [fileName]="material.fileName"
+              [fileType]="material.fileType"
+              [fileSize]="material.fileSize"
+              [moduleLabel]="material.moduleLabel" />
+          }
+        </div>
+      </ui-card>
+    </ui-page-container>
+  `,
 })
-export class Materiais {}
+export class Materiais {
+  readonly materials: Material[] = [
+    {
+      fileName: 'Slides: O RH que sua empresa precisa',
+      fileType: 'pdf',
+      fileSize: '2.4 MB',
+      moduleLabel: 'Módulo 1',
+    },
+    {
+      fileName: 'Planilha de Diagnóstico Organizacional',
+      fileType: 'xls',
+      fileSize: '850 KB',
+      moduleLabel: 'Módulo 2',
+    },
+  ];
+}
