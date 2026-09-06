@@ -1,35 +1,62 @@
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { AnimateOnScroll } from '../../../shared/directives/animate-on-scroll';
+import { ArticleCard } from '../../../shared/ui/article-card/article-card';
+import { BackLink } from '../../../shared/ui/back-link/back-link';
+import { PageContainer } from '../../../shared/ui/page-container/page-container';
+import { SectionHeader } from '../../../shared/ui/section-header/section-header';
+
+interface Article {
+  title: string;
+  summary: string;
+  imageUrl: string;
+  readTime: string;
+}
 
 @Component({
   selector: 'app-artigos',
-  imports: [RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageContainer, BackLink, SectionHeader, ArticleCard, AnimateOnScroll],
   template: `
-    <div class="p-6 md:p-8 max-w-5xl mx-auto w-full animate-fade-in">
-      <a routerLink="/ava" class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-teal transition-colors mb-6">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-        Voltar ao Hub
-      </a>
-      <h1 class="text-2xl font-bold text-brand-navy mb-6">Artigos e Leituras Recomenadadas</h1>
-      <div class="grid grid-cols-1 gap-6">
-        <a href="#" class="bg-white rounded-xl shadow-card border border-brand-navy/12 p-6 flex flex-col md:flex-row gap-6 hover:shadow-glass transition-shadow group">
-          <img src="assets/aula2.jpeg" class="w-full md:w-48 h-32 object-cover rounded-lg">
-          <div>
-            <h2 class="text-xl font-bold text-brand-navy mb-2 group-hover:text-brand-teal transition-colors">Como estruturar um plano de cargos e salários sem engessar a empresa</h2>
-            <p class="text-slate-600 text-sm mb-4">Descubra os passos fundamentais para criar uma matriz salarial que motive os colaboradores e respeite o caixa da empresa...</p>
-            <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Leitura: 5 min</span>
-          </div>
-        </a>
-        <a href="#" class="bg-white rounded-xl shadow-card border border-brand-navy/12 p-6 flex flex-col md:flex-row gap-6 hover:shadow-glass transition-shadow group">
-          <img src="assets/aula3.jpeg" class="w-full md:w-48 h-32 object-cover rounded-lg">
-          <div>
-            <h2 class="text-xl font-bold text-brand-navy mb-2 group-hover:text-brand-teal transition-colors">People Analytics: Onde começar?</h2>
-            <p class="text-slate-600 text-sm mb-4">Aprenda a analisar os dados do seu RH para prever turnover e identificar potenciais líderes na sua organização...</p>
-            <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Leitura: 8 min</span>
-          </div>
-        </a>
+    <ui-page-container maxWidth="lg">
+      <div class="mb-6">
+        <ui-back-link />
       </div>
-    </div>
-  `
+
+      <div class="mb-6">
+        <ui-section-header
+          overline="Conteúdo complementar"
+          title="Artigos e Leituras Recomendadas" />
+      </div>
+
+      <div class="grid grid-cols-1 gap-6">
+        @for (article of articles; track article.title; let i = $index) {
+          <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+            <ui-article-card
+              [title]="article.title"
+              [summary]="article.summary"
+              [imageUrl]="article.imageUrl"
+              [readTime]="article.readTime" />
+          </div>
+        }
+      </div>
+    </ui-page-container>
+  `,
 })
-export class Artigos {}
+export class Artigos {
+  readonly articles: Article[] = [
+    {
+      title: 'Como estruturar um plano de cargos e salários sem engessar a empresa',
+      summary:
+        'Descubra os passos fundamentais para criar uma matriz salarial que motive os colaboradores e respeite o caixa da empresa.',
+      imageUrl: 'assets/aula2.jpeg',
+      readTime: '5 min',
+    },
+    {
+      title: 'People Analytics: Onde começar?',
+      summary:
+        'Aprenda a analisar os dados do seu RH para prever turnover e identificar potenciais líderes na sua organização.',
+      imageUrl: 'assets/aula3.jpeg',
+      readTime: '8 min',
+    },
+  ];
+}

@@ -1,42 +1,61 @@
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { Avatar } from '../../../shared/ui/avatar/avatar';
+import { BackLink } from '../../../shared/ui/back-link/back-link';
+import { Button } from '../../../shared/ui/button/button';
+import { Card } from '../../../shared/ui/card/card';
+import { Input } from '../../../shared/ui/input/input';
+import { PageContainer } from '../../../shared/ui/page-container/page-container';
+import { SectionHeader } from '../../../shared/ui/section-header/section-header';
 
 @Component({
   selector: 'app-perfil',
-  imports: [RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageContainer, BackLink, SectionHeader, Card, Avatar, Input, Button],
   template: `
-    <div class="p-6 md:p-8 max-w-3xl mx-auto w-full animate-fade-in">
-      <a routerLink="/ava" class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-teal transition-colors mb-6">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-        Voltar ao Hub
-      </a>
-      <h1 class="text-2xl font-bold text-brand-navy mb-6">Meu Perfil</h1>
-      <div class="bg-white p-8 rounded-xl shadow-card border border-brand-navy/12">
-        <form class="flex flex-col gap-6">
-          <div class="flex items-center gap-6 mb-4">
-            <div class="w-24 h-24 bg-brand-teal rounded-full text-white flex items-center justify-center font-bold text-2xl shadow-card">LD</div>
-            <button type="button" class="text-sm font-bold text-brand-teal hover:underline">Alterar foto</button>
+    <ui-page-container maxWidth="sm">
+      <div class="mb-6">
+        <ui-back-link />
+      </div>
+
+      <div class="mb-6">
+        <ui-section-header overline="Sua conta" title="Meu Perfil" />
+      </div>
+
+      <ui-card variant="default" padding="lg" [hover]="false">
+        <form (submit)="$event.preventDefault(); save()" class="flex flex-col gap-6">
+          <div class="flex items-center gap-6">
+            <ui-avatar initials="LD" size="lg" />
+            <ui-button variant="ghost" size="sm">Alterar foto</ui-button>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">Nome Completo</label>
-              <input type="text" value="Lidiane Delcastanher" class="w-full px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">E-mail</label>
-              <input type="email" value="lidiane@delcastanher.com" class="w-full px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal">
-            </div>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <ui-input label="Nome Completo" [(value)]="name" />
+            <ui-input label="E-mail" type="email" [(value)]="email" />
           </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Cargo / Empresa</label>
-            <input type="text" value="CEO - Delcastanher Serviços" class="w-full px-4 py-2 border border-brand-navy/12 rounded-lg focus:outline-none focus:border-brand-teal">
-          </div>
-          <div class="flex justify-end mt-4">
-            <button type="button" class="px-6 py-2 bg-brand-teal text-white rounded-lg hover:bg-teal-700 font-bold transition-colors shadow-card">Salvar Alterações</button>
+
+          <ui-input label="Cargo / Empresa" [(value)]="role" />
+
+          @if (saved()) {
+            <p class="rounded-xl bg-state-success/10 px-4 py-3 text-sm font-medium text-state-success">
+              Alterações salvas.
+            </p>
+          }
+
+          <div class="flex justify-end">
+            <ui-button variant="primary" type="submit">Salvar Alterações</ui-button>
           </div>
         </form>
-      </div>
-    </div>
-  `
+      </ui-card>
+    </ui-page-container>
+  `,
 })
-export class Perfil {}
+export class Perfil {
+  readonly name = signal('Lidiane Delcastanher');
+  readonly email = signal('lidiane@delcastanher.com');
+  readonly role = signal('CEO - Delcastanher Serviços');
+  readonly saved = signal(false);
+
+  save() {
+    this.saved.set(true);
+  }
+}
