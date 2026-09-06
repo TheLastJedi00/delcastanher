@@ -36,7 +36,7 @@
 
           <!-- Seletor de perfil -->
           <div class="mb-6">
-            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-brand-steel">Entrar como</p>
+            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Entrar como</p>
             <div class="grid grid-cols-2 gap-1 rounded-xl bg-brand-navy/5 p-1" role="group" aria-label="Selecionar perfil de acesso">
               <button
                 type="button"
@@ -46,7 +46,7 @@
                 [class.bg-gradient-brand]="role() === 'aluno'"
                 [class.text-white]="role() === 'aluno'"
                 [class.shadow-card]="role() === 'aluno'"
-                [class.text-brand-steel]="role() !== 'aluno'">
+                [class.text-slate-500]="role() !== 'aluno'">
                 Aluno
               </button>
               <button
@@ -57,7 +57,7 @@
                 [class.bg-gradient-brand]="role() === 'admin'"
                 [class.text-white]="role() === 'admin'"
                 [class.shadow-card]="role() === 'admin'"
-                [class.text-brand-steel]="role() !== 'admin'">
+                [class.text-slate-500]="role() !== 'admin'">
                 Administrador
               </button>
             </div>
@@ -71,7 +71,7 @@
               <button
                 type="button"
                 (click)="toggleRecover()"
-                class="text-sm font-medium text-brand-teal transition-colors hover:text-brand-navy">
+                class="text-sm font-medium text-brand-teal-deep transition-colors hover:text-brand-navy">
                 Esqueci minha senha
               </button>
             </div>

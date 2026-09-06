@@ -9,7 +9,7 @@ import { RouterLink } from '@angular/router';
   template: `
     <a
       [routerLink]="link()"
-      class="group inline-flex items-center gap-2 text-sm font-bold text-brand-steel hover:text-brand-teal transition-colors">
+      class="group inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-brand-teal-deep transition-colors">
       <svg
         class="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1"
         fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

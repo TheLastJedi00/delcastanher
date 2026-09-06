@@ -6,8 +6,8 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-gradient-brand text-white shadow-card hover:shadow-glow-teal',
   secondary: 'bg-brand-navy text-white shadow-card hover:bg-brand-navy-light',
-  ghost: 'text-brand-teal hover:bg-brand-teal/5',
-  outline: 'border border-brand-teal text-brand-teal hover:bg-brand-teal/5',
+  ghost: 'text-brand-teal-deep hover:bg-brand-teal/5',
+  outline: 'border border-brand-teal text-brand-teal-deep hover:bg-brand-teal/5',
   danger: 'bg-state-danger text-white shadow-card hover:brightness-110',
 };
 

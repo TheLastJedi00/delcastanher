@@ -10,7 +10,7 @@ import { GlassCard } from '../glass-card/glass-card';
     <ui-glass-card padding="md">
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
-          <p class="text-xs font-bold uppercase tracking-widest text-brand-steel mb-2">{{ label() }}</p>
+          <p class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{{ label() }}</p>
           <p class="text-3xl font-extrabold tracking-tight text-brand-navy tabular-nums">{{ value() }}</p>
 
           @if (trend()) {
@@ -30,7 +30,7 @@ import { GlassCard } from '../glass-card/glass-card';
           }
         </div>
 
-        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-teal/10 text-brand-teal">
+        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-teal/10 text-brand-teal-deep">
           <ng-content />
         </span>
       </div>

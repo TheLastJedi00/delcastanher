@@ -18,13 +18,13 @@ const TYPE_STYLES: Record<FileType, string> = {
       class="group flex items-center gap-4 rounded-xl border border-brand-navy/12 bg-white/60 p-4 transition-all duration-200 hover:border-brand-teal hover:shadow-card-hover hover:-translate-y-0.5">
       <span [class]="iconClasses()">{{ fileType().toUpperCase() }}</span>
       <span class="min-w-0">
-        <span class="block truncate text-sm font-bold text-brand-navy transition-colors group-hover:text-brand-teal">
+        <span class="block truncate text-sm font-bold text-brand-navy transition-colors group-hover:text-brand-teal-deep">
           {{ fileName() }}
         </span>
-        <span class="block text-xs text-brand-steel">{{ meta() }}</span>
+        <span class="block text-xs text-slate-500">{{ meta() }}</span>
       </span>
       <svg
-        class="ml-auto w-4 h-4 shrink-0 text-brand-steel transition-all duration-200 group-hover:text-brand-teal group-hover:translate-y-0.5"
+        class="ml-auto w-4 h-4 shrink-0 text-slate-500 transition-all duration-200 group-hover:text-brand-teal-deep group-hover:translate-y-0.5"
         fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
       </svg>

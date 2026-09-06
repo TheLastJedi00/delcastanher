@@ -23,7 +23,7 @@ const FILLS: Record<ProgressVariant, string> = {
       <div [class]="fillClasses()" [style.width.%]="clamped()"></div>
     </div>
     @if (showLabel()) {
-      <span class="text-xs font-bold text-brand-steel tabular-nums shrink-0">{{ clamped() }}%</span>
+      <span class="text-xs font-bold text-slate-500 tabular-nums shrink-0">{{ clamped() }}%</span>
     }
   `,
 })

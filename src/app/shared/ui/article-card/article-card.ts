@@ -16,7 +16,7 @@ import { Badge } from '../badge/badge';
           class="h-40 w-full shrink-0 rounded-xl object-cover md:h-32 md:w-48" />
       }
       <span class="min-w-0">
-        <span class="mb-2 block text-lg font-bold leading-snug text-brand-navy transition-colors group-hover:text-brand-teal md:text-xl">
+        <span class="mb-2 block text-lg font-bold leading-snug text-brand-navy transition-colors group-hover:text-brand-teal-deep md:text-xl">
           {{ title() }}
         </span>
         <span class="mb-4 block text-sm leading-relaxed text-slate-600">{{ summary() }}</span>

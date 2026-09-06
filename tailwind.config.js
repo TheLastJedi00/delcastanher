@@ -10,6 +10,9 @@ module.exports = {
           navy: '#244779',
           'navy-light': '#2D5A9A',
           teal: '#168A91',
+          // Variante escurecida do teal para TEXTO pequeno sobre superficie clara:
+          // o #168A91 fica em 4.1:1 sobre branco e nao atinge o AA de 4.5:1.
+          'teal-deep': '#12777E',
           'teal-light': '#28C3D9',
           steel: '#5F91AD',
           surface: '#F8FAFC',

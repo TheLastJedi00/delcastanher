@@ -8,7 +8,7 @@ let inputInstances = 0;
   host: { class: 'block w-full' },
   template: `
     @if (label()) {
-      <label [attr.for]="id()" class="block text-xs font-bold uppercase tracking-widest text-brand-steel mb-2">
+      <label [attr.for]="id()" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
         {{ label() }}
       </label>
     }
