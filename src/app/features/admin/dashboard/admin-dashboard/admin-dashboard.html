@@ -37,7 +37,7 @@
           <div class="overflow-x-auto">
             <table class="w-full border-collapse text-left">
               <thead>
-                <tr class="border-b border-brand-navy/8 bg-brand-surface text-xs uppercase tracking-widest text-brand-steel">
+                <tr class="border-b border-brand-navy/8 bg-brand-surface text-xs uppercase tracking-widest text-slate-500">
                   <th scope="col" class="p-4 font-bold">Nome e E-mail</th>
                   <th scope="col" class="p-4 font-bold">Data Matrícula</th>
                   <th scope="col" class="p-4 text-center font-bold">Módulo Atual</th>
@@ -52,12 +52,12 @@
                         <ui-avatar [initials]="student.initials" size="sm" />
                         <div class="min-w-0">
                           <p class="font-bold text-brand-navy">{{ student.name }}</p>
-                          <p class="text-xs text-brand-steel">{{ student.email }}</p>
+                          <p class="text-xs text-slate-500">{{ student.email }}</p>
                         </div>
                       </div>
                     </td>
                     <td class="p-4 text-sm text-slate-600">{{ student.enrollmentDate }}</td>
-                    <td class="p-4 text-center text-sm font-bold text-brand-teal">
+                    <td class="p-4 text-center text-sm font-bold text-brand-teal-deep">
                       {{ student.currentModule }} / 12
                     </td>
                     <td class="p-4">
@@ -72,7 +72,7 @@
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="4" class="p-8 text-center text-sm text-brand-steel">
+                    <td colspan="4" class="p-8 text-center text-sm text-slate-500">
                       Nenhum aluno encontrado para "{{ search() }}".
                     </td>
                   </tr>
@@ -100,7 +100,7 @@
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <ui-input label="Título da Aula" [(value)]="lessonTitle" />
             <div>
-              <label for="admin-modulo" class="mb-2 block text-xs font-bold uppercase tracking-widest text-brand-steel">
+              <label for="admin-modulo" class="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">
                 Módulo Vinculado
               </label>
               <select
@@ -117,12 +117,12 @@
           </div>
 
           <div class="mt-4">
-            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-brand-steel">
+            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
               Materiais Complementares (PDF/XLS)
             </p>
             <ui-card variant="outline" padding="lg">
               <div class="cursor-pointer rounded-xl border-2 border-dashed border-brand-navy/12 p-6 text-center transition-colors hover:border-brand-teal hover:bg-brand-teal/5">
-                <svg class="mx-auto mb-2 h-8 w-8 text-brand-steel" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <svg class="mx-auto mb-2 h-8 w-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <p class="text-sm text-slate-600">Arraste os arquivos aqui ou clique para selecionar</p>
@@ -144,7 +144,7 @@
 
         <ui-card variant="default" padding="lg" [hover]="false">
           <div class="mb-4 md:w-1/2">
-            <label for="admin-segmento" class="mb-2 block text-xs font-bold uppercase tracking-widest text-brand-steel">
+            <label for="admin-segmento" class="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">
               Segmentação de Alunos
             </label>
             <select
@@ -188,9 +188,9 @@
               (click)="setLegalTab('termos')"
               class="border-b-2 px-4 py-2 text-sm font-bold transition-colors"
               [class.border-brand-teal]="legalTab() === 'termos'"
-              [class.text-brand-teal]="legalTab() === 'termos'"
+              [class.text-brand-teal-deep]="legalTab() === 'termos'"
               [class.border-transparent]="legalTab() !== 'termos'"
-              [class.text-brand-steel]="legalTab() !== 'termos'">
+              [class.text-slate-500]="legalTab() !== 'termos'">
               Termos de Uso
             </button>
             <button
@@ -198,9 +198,9 @@
               (click)="setLegalTab('privacidade')"
               class="border-b-2 px-4 py-2 text-sm font-bold transition-colors"
               [class.border-brand-teal]="legalTab() === 'privacidade'"
-              [class.text-brand-teal]="legalTab() === 'privacidade'"
+              [class.text-brand-teal-deep]="legalTab() === 'privacidade'"
               [class.border-transparent]="legalTab() !== 'privacidade'"
-              [class.text-brand-steel]="legalTab() !== 'privacidade'">
+              [class.text-slate-500]="legalTab() !== 'privacidade'">
               Política de Privacidade
             </button>
           </div>
@@ -216,7 +216,7 @@
           <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
               <ui-badge variant="success" label="Publicado" />
-              <span class="text-xs text-brand-steel">Última atualização: 31/08/2026</span>
+              <span class="text-xs text-slate-500">Última atualização: 31/08/2026</span>
             </div>
             <ui-button variant="secondary">Atualizar Documento</ui-button>
           </div>

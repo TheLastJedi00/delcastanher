@@ -23,10 +23,10 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
       </span>
 
       <span class="min-w-0">
-        <span class="block text-[11px] font-bold uppercase tracking-[0.15em] text-brand-steel mb-1">
+        <span class="block text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-1">
           Módulo {{ moduleNumber() }}
         </span>
-        <span class="block text-sm font-bold" [class.text-brand-teal]="active()" [class.text-brand-navy]="!active()">
+        <span class="block text-sm font-bold" [class.text-brand-teal-deep]="active()" [class.text-brand-navy]="!active()">
           {{ title() }}
         </span>
       </span>

@@ -30,7 +30,13 @@ export class AnimateOnScroll implements OnDestroy {
       const el = this.host.nativeElement as HTMLElement;
 
       const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      if (reduced || typeof IntersectionObserver === 'undefined') {
+      if (reduced) {
+        // Sem animacao nenhuma: o elemento so deixa de estar oculto.
+        el.classList.remove('opacity-0');
+        return;
+      }
+
+      if (typeof IntersectionObserver === 'undefined') {
         this.reveal(el);
         return;
       }
@@ -55,6 +61,9 @@ export class AnimateOnScroll implements OnDestroy {
   }
 
   private reveal(el: HTMLElement) {
+    // 'both' e obrigatorio: sem ele o elemento voltaria a ficar visivel durante o
+    // animationDelay do stagger, piscando antes da animacao comecar.
+    el.style.animationFillMode = 'both';
     el.classList.remove('opacity-0');
     for (const cls of this.animateOnScroll().split(' ').filter(Boolean)) {
       el.classList.add(cls);

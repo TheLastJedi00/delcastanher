@@ -7,7 +7,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
   template: `
     <div [class]="wrapperClasses()">
       @if (overline()) {
-        <p class="text-xs font-bold uppercase tracking-widest text-brand-teal mb-2">{{ overline() }}</p>
+        <p class="text-xs font-bold uppercase tracking-widest text-brand-teal-deep mb-2">{{ overline() }}</p>
       }
       <h2 class="text-3xl md:text-4xl font-bold tracking-tight text-brand-navy">{{ title() }}</h2>
       @if (subtitle()) {

@@ -60,8 +60,8 @@ export class SidebarLink {
             ? 'bg-white/10 text-white'
             : 'text-white/80 hover:bg-white/10 hover:text-white'
           : this.active()
-            ? 'bg-brand-teal/5 text-brand-teal'
-            : 'text-brand-steel hover:bg-brand-teal/5 hover:text-brand-teal',
+            ? 'bg-brand-teal/5 text-brand-teal-deep'
+            : 'text-slate-500 hover:bg-brand-teal/5 hover:text-brand-teal-deep',
     ]
       .filter(Boolean)
       .join(' ');

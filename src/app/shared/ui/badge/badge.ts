@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 export type BadgeVariant = 'teal' | 'navy' | 'success' | 'warning' | 'danger';
 
 const VARIANTS: Record<BadgeVariant, string> = {
-  teal: 'bg-brand-teal/10 text-brand-teal',
+  teal: 'bg-brand-teal/10 text-brand-teal-deep',
   navy: 'bg-brand-navy/10 text-brand-navy',
   success: 'bg-state-success/10 text-state-success',
   warning: 'bg-state-warning/10 text-state-warning',

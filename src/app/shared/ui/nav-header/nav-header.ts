@@ -25,7 +25,7 @@ export interface NavLink {
           @if (variant() !== 'landing') {
             <button
               type="button"
-              class="rounded-lg p-1 text-brand-steel transition-colors hover:text-brand-navy md:hidden"
+              class="rounded-lg p-1 text-slate-500 transition-colors hover:text-brand-navy md:hidden"
               aria-label="Abrir menu de navegação"
               (click)="menuToggle.emit()">
               <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -48,7 +48,7 @@ export interface NavLink {
             @for (item of navLinks(); track item.href) {
               <a
                 [href]="item.href"
-                class="group relative text-sm font-medium text-brand-steel transition-colors hover:text-brand-teal">
+                class="group relative text-sm font-medium text-slate-500 transition-colors hover:text-brand-teal-deep">
                 {{ item.label }}
                 <span
                   class="absolute -bottom-1 left-0 h-[2px] w-0 rounded-full bg-gradient-teal transition-all duration-300 group-hover:w-full"
@@ -66,7 +66,7 @@ export interface NavLink {
             </a>
           } @else {
             @if (userName()) {
-              <span class="hidden text-sm font-medium text-brand-steel sm:block">{{ userName() }}</span>
+              <span class="hidden text-sm font-medium text-slate-500 sm:block">{{ userName() }}</span>
             }
             <ui-avatar [initials]="userInitials()" size="sm" />
             @if (variant() === 'admin') {

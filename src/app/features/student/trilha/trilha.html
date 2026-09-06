@@ -2,14 +2,14 @@
   <!-- Barra de módulos (mobile) -->
   <div class="glass z-10 flex shrink-0 items-center justify-between p-4 md:hidden">
     <div class="flex items-center gap-2">
-      <span class="text-[11px] font-bold uppercase tracking-[0.15em] text-brand-steel">Módulo</span>
+      <span class="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">Módulo</span>
       <span class="font-bold text-brand-navy">{{ activeModule().id }}</span>
     </div>
     <button
       type="button"
       (click)="toggleMobileModules()"
       [attr.aria-expanded]="showMobileModules()"
-      class="flex items-center gap-1 text-sm font-bold text-brand-teal">
+      class="flex items-center gap-1 text-sm font-bold text-brand-teal-deep">
       <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
       </svg>
@@ -83,7 +83,7 @@
               aprenderá como posicionar o departamento como um parceiro de negócios, focando em
               resultados tangíveis.
             </p>
-            <h3 class="mt-6 text-sm font-bold uppercase tracking-widest text-brand-teal">
+            <h3 class="mt-6 text-sm font-bold uppercase tracking-widest text-brand-teal-deep">
               Resultado Esperado
             </h3>
             <p class="mt-2 leading-relaxed">
@@ -96,7 +96,7 @@
 
       <ui-card variant="default" padding="lg" [hover]="false">
         <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-brand-navy md:text-xl">
-          <svg class="h-5 w-5 text-brand-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <svg class="h-5 w-5 text-brand-teal-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
           Materiais Complementares
