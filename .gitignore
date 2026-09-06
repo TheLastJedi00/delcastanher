@@ -1,13 +1,11 @@
-# See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
-
 # Compiled output
-/dist
+front/dist/
+front/out-tsc/
 /tmp
-/out-tsc
 /bazel-out
 
 # Node
-/node_modules
+front/node_modules/
 npm-debug.log
 yarn-error.log
 
@@ -28,8 +26,10 @@ yarn-error.log
 !.vscode/extensions.json
 .history/*
 
+# Angular CLI cache
+front/.angular/cache
+
 # Miscellaneous
-/.angular/cache
 .sass-cache/
 /connect.lock
 /coverage
@@ -41,6 +41,3 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
-
-*libs
-dist/
