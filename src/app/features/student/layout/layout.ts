@@ -5,7 +5,7 @@ import { RouterOutlet, RouterLink } from '@angular/router';
   selector: 'app-student-layout',
   imports: [RouterOutlet, RouterLink],
   template: `
-    <div class="h-screen flex overflow-hidden font-sans text-slate-800 bg-brand-light">
+    <div class="h-screen flex overflow-hidden font-sans text-slate-800 bg-brand-surface">
       
       <!-- Overlay para mobile -->
       <div 
@@ -19,7 +19,7 @@ import { RouterOutlet, RouterLink } from '@angular/router';
 
       <!-- Aside expansível -->
       <aside 
-        class="bg-brand-blue text-white transition-all duration-300 flex flex-col z-50 h-full shadow-xl fixed md:relative md:translate-x-0"
+        class="bg-brand-navy text-white transition-all duration-300 flex flex-col z-50 h-full shadow-xl fixed md:relative md:translate-x-0"
         [class.w-64]="isExpanded()" 
         [class.w-16]="!isExpanded()"
         [class.-translate-x-full]="!isExpanded()"
@@ -78,21 +78,21 @@ import { RouterOutlet, RouterLink } from '@angular/router';
       <!-- Conteúdo principal -->
       <main class="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         <!-- Header minimalista só para mobile e logotipo -->
-        <nav class="bg-white border-b border-slate-100 flex-shrink-0 h-[65px] flex items-center px-4 justify-between sticky top-0 z-30 shadow-sm">
+        <nav class="bg-white border-b border-brand-navy/8 flex-shrink-0 h-[65px] flex items-center px-4 justify-between sticky top-0 z-30 shadow-card">
           <div class="flex items-center gap-3">
-            <button class="md:hidden p-1 text-slate-600 hover:text-brand-blue" (click)="toggle()">
+            <button class="md:hidden p-1 text-slate-600 hover:text-brand-navy" (click)="toggle()">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
               </svg>
             </button>
             <a routerLink="/ava" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <img src="assets/logo-delcastanher.svg" alt="Delcastanher Logo" class="h-8 w-8 object-contain">
-              <span class="font-bold text-brand-blue hidden sm:block">Ambiente do Aluno</span>
+              <span class="font-bold text-brand-navy hidden sm:block">Ambiente do Aluno</span>
             </a>
           </div>
           <div class="flex items-center gap-3">
             <span class="text-sm font-medium hidden sm:block text-slate-600">Lidiane Delcastanher</span>
-            <div class="w-8 h-8 bg-brand-teal rounded-full text-white flex items-center justify-center font-bold shadow-sm text-xs">LD</div>
+            <div class="w-8 h-8 bg-brand-teal rounded-full text-white flex items-center justify-center font-bold shadow-card text-xs">LD</div>
           </div>
         </nav>
         
