@@ -7,3 +7,9 @@
 # Caso encontrar discrepância no context.md ou nas tasks.md
 - Executar caminho lógico focado em manutenção fácil e escalabilidade
 - Destacar decisões tomadas no topo do PR aberto
+# Caso de Fix.md
+- Ler fix.md atual
+- Caso spec encerrado e mergede na main, abrir branch fix/<bug-name> e abrir PR contra a main
+- Caso PR ainda aberto contra a main, salvar correção em um commit fix na branch dona do PR aberto
+- Iniciar  correção
+- Caso encontrar incoerências no fix.md corrigir as incoerências e destacar as alterações tomadas no PR

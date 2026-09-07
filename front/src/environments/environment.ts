@@ -5,5 +5,5 @@ export const environment = {
    * TODO: apontar para o dominio do backend quando ele for publicado; hoje o
    * `api/` so roda localmente e o front na Vercel nao tem esse destino.
    */
-  apiUrl: '/api',
+  apiUrl: 'https://delcastanher-api-gamma.vercel.app',
 };
