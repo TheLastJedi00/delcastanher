@@ -24,6 +24,13 @@ npm install
 cp .env.example .env   # preencha as credenciais do Firebase
 ```
 
+As variáveis estão documentadas no `.env.example`. Uma delas muda de
+comportamento entre ambientes: **`CORS_ORIGINS`** (lista de origens do front,
+separadas por vírgula) é opcional em desenvolvimento — assume
+`http://localhost:4200` — e **obrigatória em produção**. Sem ela a API falha na
+subida, de propósito: cair no `localhost` silenciosamente deixaria o front
+publicado bloqueado pelo navegador, um sintoma bem mais caro de diagnosticar.
+
 ## Rodando
 
 ```bash
