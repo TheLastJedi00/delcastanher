@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { UserService } from '../../../core/services/user.service';
 import { AnimateOnScroll } from '../../../shared/directives/animate-on-scroll';
 import { GlassCard } from '../../../shared/ui/glass-card/glass-card';
 import { PageContainer } from '../../../shared/ui/page-container/page-container';
@@ -20,7 +21,7 @@ interface HubCard {
     <ui-page-container maxWidth="xl">
       <div class="mb-10">
         <ui-section-header
-          overline="Bem-vindo(a), Lidiane"
+          [overline]="greeting()"
           title="Hub de Aprendizado"
           subtitle="O que você deseja fazer hoje?" />
       </div>
@@ -46,6 +47,11 @@ interface HubCard {
   `,
 })
 export class Hub {
+  private readonly users = inject(UserService);
+
+  /** Saudacao com o nome vindo do banco, preenchido no onboarding. */
+  readonly greeting = computed(() => `Bem-vindo(a), ${this.users.displayName()}`);
+
   readonly cards: HubCard[] = [
     {
       title: 'Meu Perfil',

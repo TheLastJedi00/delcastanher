@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { UserService } from '../../../core/services/user.service';
 import { NavHeader } from '../../../shared/ui/nav-header/nav-header';
 import { Sidebar, SidebarNavItem } from '../../../shared/ui/sidebar/sidebar';
 
@@ -21,8 +22,8 @@ import { Sidebar, SidebarNavItem } from '../../../shared/ui/sidebar/sidebar';
           variant="app"
           label="Ambiente do Aluno"
           homeLink="/ava"
-          userName="Lidiane Delcastanher"
-          userInitials="LD"
+          [userName]="users.displayName()"
+          [userInitials]="users.initials()"
           (menuToggle)="sidebarExpanded.set(true)" />
 
         <div class="relative flex min-h-0 flex-1 flex-col">
@@ -33,6 +34,9 @@ import { Sidebar, SidebarNavItem } from '../../../shared/ui/sidebar/sidebar';
   `,
 })
 export class StudentLayout {
+  /** O cabecalho le o nome e as iniciais direto do perfil persistido. */
+  protected readonly users = inject(UserService);
+
   readonly sidebarExpanded = signal(false);
 
   readonly links: SidebarNavItem[] = [
