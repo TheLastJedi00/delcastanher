@@ -1,14 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { UserService } from '../../../core/services/user.service';
-import { Avatar } from '../../../shared/ui/avatar/avatar';
-import { BackLink } from '../../../shared/ui/back-link/back-link';
-import { Button } from '../../../shared/ui/button/button';
-import { Card } from '../../../shared/ui/card/card';
-import { Input } from '../../../shared/ui/input/input';
-import { PageContainer } from '../../../shared/ui/page-container/page-container';
-import { SectionHeader } from '../../../shared/ui/section-header/section-header';
+import { UserService } from '../../core/services/user.service';
+import { Avatar } from '../../shared/ui/avatar/avatar';
+import { BackLink } from '../../shared/ui/back-link/back-link';
+import { Button } from '../../shared/ui/button/button';
+import { Card } from '../../shared/ui/card/card';
+import { Input } from '../../shared/ui/input/input';
+import { PageContainer } from '../../shared/ui/page-container/page-container';
+import { SectionHeader } from '../../shared/ui/section-header/section-header';
 
 /** Aceita o endereco com ou sem protocolo; a API normaliza para https://. */
 const LINKEDIN = /^(https?:\/\/)?([\w-]+\.)*linkedin\.com\/.+$/i;

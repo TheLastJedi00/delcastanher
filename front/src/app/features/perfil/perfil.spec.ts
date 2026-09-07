@@ -2,8 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { environment } from '../../../../environments/environment';
-import { UserProfile } from '../../../core/services/user.service';
+import { environment } from '../../../environments/environment';
+import { UserProfile } from '../../core/services/user.service';
 import { Perfil } from './perfil';
 
 const ME = `${environment.apiUrl}/users/me`;

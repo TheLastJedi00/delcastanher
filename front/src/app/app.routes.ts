@@ -23,7 +23,7 @@ export const routes: Routes = [
     children: [
       { path: '', loadComponent: () => import('./features/student/hub/hub').then(m => m.Hub) },
       { path: 'trilha', loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha) },
-      { path: 'perfil', loadComponent: () => import('./features/student/perfil/perfil').then(m => m.Perfil) },
+      { path: 'perfil', loadComponent: () => import('./features/perfil/perfil').then(m => m.Perfil) },
       { path: 'materiais', loadComponent: () => import('./features/student/materiais/materiais').then(m => m.Materiais) },
       { path: 'artigos', loadComponent: () => import('./features/student/artigos/artigos').then(m => m.Artigos) }
     ]
