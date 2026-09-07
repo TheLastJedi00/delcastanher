@@ -62,6 +62,16 @@
               Entrar
             </ui-button>
           </form>
+
+          <p class="mt-6 border-t border-brand-navy/10 pt-6 text-center text-sm text-slate-500">
+            Ainda não tem acesso?
+            <button
+              type="button"
+              (click)="openCreateAccount()"
+              class="font-bold text-brand-teal-deep transition-colors hover:text-brand-navy">
+              Criar nova conta
+            </button>
+          </p>
         } @else {
           <div class="mb-6">
             <h2 class="mb-2 text-2xl font-bold tracking-tight text-brand-navy">Recuperar senha</h2>
@@ -75,11 +85,19 @@
 
             @if (recoverSent()) {
               <p class="rounded-xl bg-state-success/10 px-4 py-3 text-sm font-medium text-state-success">
-                Instruções enviadas. Verifique sua caixa de entrada.
+                {{ recoverMessage() }}
               </p>
             }
 
-            <ui-button variant="primary" type="submit" [fullWidth]="true">Enviar instruções</ui-button>
+            @if (errorMessage()) {
+              <p role="alert" class="rounded-xl bg-state-danger/10 px-4 py-3 text-sm font-medium text-state-danger">
+                {{ errorMessage() }}
+              </p>
+            }
+
+            <ui-button variant="primary" type="submit" [fullWidth]="true" [loading]="isLoading()">
+              Enviar instruções
+            </ui-button>
             <ui-button variant="outline" (click)="toggleRecover()" [fullWidth]="true">Voltar ao login</ui-button>
           </form>
         }
@@ -88,6 +106,10 @@
   </main>
 </div>
 
+@if (showCreateAccount()) {
+  <app-create-account-modal (closed)="closeCreateAccount()" />
+}
+
 @if (isLoading()) {
-  <ui-loading-overlay message="Entrando" />
+  <ui-loading-overlay [message]="showRecover() ? 'Enviando' : 'Entrando'" />
 }

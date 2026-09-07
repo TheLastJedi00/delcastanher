@@ -4,6 +4,7 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { FirebaseService } from '../firebase/firebase.service';
 
@@ -41,7 +42,11 @@ describe('AuthService', () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const moduleRef = await Test.createTestingModule({
-      providers: [AuthService, { provide: FirebaseService, useValue: firebaseMock }],
+      providers: [
+        AuthService,
+        { provide: FirebaseService, useValue: firebaseMock },
+        { provide: ConfigService, useValue: { get: () => undefined } },
+      ],
     }).compile();
 
     service = moduleRef.get(AuthService);

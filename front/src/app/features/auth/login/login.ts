@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { CreateAccountModal } from '../create-account-modal/create-account-modal';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { Button } from '../../../shared/ui/button/button';
 import { Input } from '../../../shared/ui/input/input';
@@ -10,7 +11,7 @@ import { Logo } from '../../../shared/ui/logo/logo';
 @Component({
   selector: 'app-login',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Logo, Button, Input, BackLink, LoadingOverlay],
+  imports: [Logo, Button, Input, BackLink, LoadingOverlay, CreateAccountModal],
   templateUrl: './login.html',
 })
 export class Login {
@@ -22,6 +23,10 @@ export class Login {
   readonly password = signal('');
   readonly recoverEmail = signal('');
   readonly recoverSent = signal(false);
+  readonly recoverMessage = signal('');
+
+  /** Controla a abertura do formulario modal de criacao de conta. */
+  readonly showCreateAccount = signal(false);
 
   /** Bloqueia a tela enquanto a requisicao de login esta em andamento. */
   readonly isLoading = signal(false);
@@ -30,6 +35,14 @@ export class Login {
   readonly canSubmit = computed(
     () => this.email().trim().length > 0 && this.password().length > 0 && !this.isLoading(),
   );
+
+  openCreateAccount() {
+    this.showCreateAccount.set(true);
+  }
+
+  closeCreateAccount() {
+    this.showCreateAccount.set(false);
+  }
 
   toggleRecover() {
     this.showRecover.update(v => !v);
@@ -58,6 +71,25 @@ export class Login {
   }
 
   sendRecover() {
-    this.recoverSent.set(true);
+    const email = this.recoverEmail().trim();
+
+    if (!email || this.isLoading()) {
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
+    this.auth.requestPasswordReset(email).subscribe({
+      next: message => {
+        this.isLoading.set(false);
+        this.recoverMessage.set(message);
+        this.recoverSent.set(true);
+      },
+      error: (message: string) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(message);
+      },
+    });
   }
 }

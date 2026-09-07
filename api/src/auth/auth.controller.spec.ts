@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { VerifyDto } from './dto/verify.dto';
+import { AccountDto } from './dto/account.dto';
 import { AuthSession } from './auth.types';
 
 const SESSION: AuthSession = {
@@ -20,7 +21,12 @@ async function errorsFor<T extends object>(cls: new () => T, payload: unknown) {
 
 describe('AuthController', () => {
   let controller: AuthController;
-  const authService = { login: jest.fn(), verify: jest.fn() };
+  const authService = {
+    login: jest.fn(),
+    verify: jest.fn(),
+    requestAccount: jest.fn(),
+    requestPasswordReset: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -57,6 +63,37 @@ describe('AuthController', () => {
 
       await expect(controller.verify({ idToken: 'id-token' })).resolves.toEqual(SESSION.user);
       expect(authService.verify).toHaveBeenCalledWith('id-token');
+    });
+  });
+
+  describe('POST /auth/account', () => {
+    it('delega a criacao de conta ao AuthService', async () => {
+      authService.requestAccount.mockResolvedValue({ message: 'ok' });
+
+      await expect(controller.requestAccount({ email: 'novo@delcastanher.com' })).resolves.toEqual({
+        message: 'ok',
+      });
+      expect(authService.requestAccount).toHaveBeenCalledWith('novo@delcastanher.com');
+    });
+  });
+
+  describe('POST /auth/password-reset', () => {
+    it('delega o reenvio do link ao AuthService', async () => {
+      authService.requestPasswordReset.mockResolvedValue({ message: 'ok' });
+
+      await controller.requestPasswordReset({ email: 'existente@delcastanher.com' });
+
+      expect(authService.requestPasswordReset).toHaveBeenCalledWith('existente@delcastanher.com');
+    });
+  });
+
+  describe('AccountDto', () => {
+    it('aceita e normaliza um e-mail valido', () => {
+      expect(plainToInstance(AccountDto, { email: ' A@B.com ' }).email).toBe('a@b.com');
+    });
+
+    it('rejeita e-mail invalido', async () => {
+      expect((await errorsFor(AccountDto, { email: 'x' })).map(e => e.property)).toContain('email');
     });
   });
 

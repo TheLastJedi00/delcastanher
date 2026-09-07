@@ -62,6 +62,23 @@ export class AuthService {
       );
   }
 
+  /** Solicita a criacao de conta: o Firebase envia o link de definicao de senha. */
+  requestAccount(email: string): Observable<string> {
+    return this.postEmail('/auth/account', email);
+  }
+
+  /** Reenvia o link de definicao de senha para uma conta existente. */
+  requestPasswordReset(email: string): Observable<string> {
+    return this.postEmail('/auth/password-reset', email);
+  }
+
+  private postEmail(path: string, email: string): Observable<string> {
+    return this.http.post<{ message: string }>(`${environment.apiUrl}${path}`, { email }).pipe(
+      map(response => response.message),
+      catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
+    );
+  }
+
   logout(): void {
     this.session.set(null);
     localStorage.removeItem(STORAGE_KEY);

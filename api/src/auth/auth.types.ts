@@ -17,3 +17,8 @@ export interface AuthSession {
   expiresIn: number;
   user: AuthUser;
 }
+
+/** Resposta dos fluxos que disparam e-mail (criar conta / recuperar senha). */
+export interface AccountRequestResult {
+  message: string;
+}
