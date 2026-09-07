@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { CreateAccountModal } from '../create-account-modal/create-account-modal';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { Button } from '../../../shared/ui/button/button';
 import { Input } from '../../../shared/ui/input/input';
@@ -10,7 +11,7 @@ import { Logo } from '../../../shared/ui/logo/logo';
 @Component({
   selector: 'app-login',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Logo, Button, Input, BackLink, LoadingOverlay],
+  imports: [Logo, Button, Input, BackLink, LoadingOverlay, CreateAccountModal],
   templateUrl: './login.html',
 })
 export class Login {

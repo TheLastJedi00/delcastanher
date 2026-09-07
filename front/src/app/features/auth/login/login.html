@@ -98,6 +98,10 @@
   </main>
 </div>
 
+@if (showCreateAccount()) {
+  <app-create-account-modal (closed)="closeCreateAccount()" />
+}
+
 @if (isLoading()) {
   <ui-loading-overlay message="Entrando" />
 }
