@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input, model } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, forwardRef, input, model, signal } from '@angular/core';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
 let inputInstances = 0;
 
@@ -6,6 +7,9 @@ let inputInstances = 0;
   selector: 'ui-input',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full' },
+  providers: [
+    { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => Input), multi: true },
+  ],
   template: `
     @if (label()) {
       <label [attr.for]="id()" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
@@ -19,16 +23,20 @@ let inputInstances = 0;
         [rows]="rows()"
         [placeholder]="placeholder()"
         [class]="classes()"
+        [disabled]="isDisabled()"
         [value]="value()"
-        (input)="onInput($event)"></textarea>
+        (input)="onInput($event)"
+        (blur)="onBlur()"></textarea>
     } @else {
       <input
         [id]="id()"
         [type]="type()"
         [placeholder]="placeholder()"
         [class]="classes()"
+        [disabled]="isDisabled()"
         [value]="value()"
-        (input)="onInput($event)" />
+        (input)="onInput($event)"
+        (blur)="onBlur()" />
     }
 
     @if (error()) {
@@ -37,7 +45,12 @@ let inputInstances = 0;
   `,
 })
 
-export class Input {
+/**
+ * Campo de texto da plataforma. Alem do `[(value)]`, implementa
+ * ControlValueAccessor: o mesmo componente atende as telas em signals e as
+ * que usam Reactive Forms, sem uma segunda versao do input.
+ */
+export class Input implements ControlValueAccessor {
   readonly label = input('');
   readonly placeholder = input('');
   readonly type = input('text');
@@ -48,6 +61,26 @@ export class Input {
   readonly value = model('');
 
   protected readonly id = input(`ui-input-${inputInstances++}`);
+  protected readonly isDisabled = signal(false);
+
+  private onChange: (value: string) => void = () => undefined;
+  private onTouched: () => void = () => undefined;
+
+  writeValue(value: string | null): void {
+    this.value.set(value ?? '');
+  }
+
+  registerOnChange(fn: (value: string) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.isDisabled.set(isDisabled);
+  }
 
   protected readonly classes = computed(() =>
     [
@@ -58,12 +91,20 @@ export class Input {
         ? 'border-state-danger focus:border-state-danger focus:ring-state-danger/20'
         : 'border-brand-navy/10 focus:border-brand-teal',
       this.mono() ? 'font-mono' : '',
+      this.isDisabled() ? 'cursor-not-allowed opacity-60' : '',
     ]
       .filter(Boolean)
       .join(' ')
   );
 
   protected onInput(event: Event) {
-    this.value.set((event.target as HTMLInputElement | HTMLTextAreaElement).value);
+    const value = (event.target as HTMLInputElement | HTMLTextAreaElement).value;
+
+    this.value.set(value);
+    this.onChange(value);
+  }
+
+  protected onBlur() {
+    this.onTouched();
   }
 }
