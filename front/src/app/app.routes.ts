@@ -31,7 +31,16 @@ export const routes: Routes = [
   {
     path: 'admin',
     canActivate: [authGuard, onboardingGuard],
-    loadComponent: () => import('./features/admin/dashboard/admin-dashboard/admin-dashboard').then(m => m.AdminDashboard),
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/admin/dashboard/admin-dashboard/admin-dashboard').then(m => m.AdminDashboard),
+      },
+      {
+        path: 'perfil',
+        loadComponent: () => import('./features/admin/perfil/admin-perfil').then(m => m.AdminPerfil),
+      }
+    ]
   },
   { path: '**', redirectTo: '' }
 ];

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UserService } from '../../core/services/user.service';
@@ -39,7 +39,7 @@ function messageFor(control: AbstractControl, required: string): string {
   template: `
     <ui-page-container maxWidth="sm">
       <div class="mb-6">
-        <ui-back-link />
+        <ui-back-link [link]="backLink()" [label]="backLabel()" />
       </div>
 
       <div class="mb-6">
@@ -97,6 +97,10 @@ function messageFor(control: AbstractControl, required: string): string {
   `,
 })
 export class Perfil {
+  /** Destino do "voltar": cada shell devolve o usuario para a sua home. */
+  readonly backLink = input('/ava');
+  readonly backLabel = input('Voltar ao Hub');
+
   private readonly fb = inject(NonNullableFormBuilder);
 
   protected readonly users = inject(UserService);
