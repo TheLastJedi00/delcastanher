@@ -1,0 +1,32 @@
+// Schema do banco Neon (PostgreSQL). A URL de conexao vive em `prisma7.config.ts`,
+// que le `DATABASE_URL` do ambiente.
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // Sem extensao nos imports internos: o build do Nest e o Jest resolvem
+  // arquivos .ts, e o especificador "./enums.js" quebraria os dois.
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Perfil do usuario na plataforma. O `id` e o proprio UID do Firebase Auth,
+/// que continua sendo a fonte de verdade da autenticacao: aqui ficam apenas os
+/// dados de perfil e o estado do onboarding.
+model User {
+  id                  String   @id
+  email               String   @unique
+  name                String?
+  bio                 String?
+  phone               String?
+  linkedin            String?
+  onboardingCompleted Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("users")
+}
