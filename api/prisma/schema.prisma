@@ -10,3 +10,20 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+/// Perfil do usuario na plataforma. O `id` e o proprio UID do Firebase Auth,
+/// que continua sendo a fonte de verdade da autenticacao: aqui ficam apenas os
+/// dados de perfil e o estado do onboarding.
+model User {
+  id                  String   @id
+  email               String   @unique
+  name                String?
+  bio                 String?
+  phone               String?
+  linkedin            String?
+  onboardingCompleted Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("users")
+}
