@@ -34,10 +34,14 @@ describe('authInterceptor', () => {
 
   afterEach(() => backend.verify());
 
-  /** Faz o login pela propria API para que a sessao fique no estado real. */
+  /**
+   * Faz o login pela propria API para que a sessao fique no estado real. O
+   * login tambem sincroniza o perfil, por isso a segunda chamada.
+   */
   function login(): void {
     auth.login('aluno@delcastanher.com', 'senha').subscribe();
     backend.expectOne(`${environment.apiUrl}/auth/login`).flush(SESSION);
+    backend.expectOne(`${environment.apiUrl}/users/me`).flush({ onboardingCompleted: true });
   }
 
   it('nao envia Authorization quando nao ha sessao', () => {

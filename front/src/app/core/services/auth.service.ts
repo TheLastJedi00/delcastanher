@@ -1,7 +1,8 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, catchError, map, tap, throwError } from 'rxjs';
+import { Observable, catchError, map, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { UserService } from './user.service';
 
 export type Role = 'aluno' | 'admin';
 
@@ -46,6 +47,7 @@ export const HOME_BY_ROLE: Record<Role, string> = {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly users = inject(UserService);
   private readonly session = signal<StoredSession | null>(this.readStoredSession());
 
   readonly user = computed(() => this.session()?.user ?? null);
@@ -60,7 +62,9 @@ export class AuthService {
       .post<AuthSessionResponse>(`${environment.apiUrl}/auth/login`, { email, password })
       .pipe(
         tap(response => this.storeSession(response)),
-        map(response => response.user),
+        // O perfil do banco chega antes do redirecionamento: as telas internas
+        // e o onboardingGuard ja encontram o estado carregado.
+        switchMap(response => this.users.loadProfile().pipe(map(() => response.user))),
         catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
       );
   }
@@ -84,6 +88,7 @@ export class AuthService {
 
   logout(): void {
     this.session.set(null);
+    this.users.clear();
     localStorage.removeItem(STORAGE_KEY);
   }
 
