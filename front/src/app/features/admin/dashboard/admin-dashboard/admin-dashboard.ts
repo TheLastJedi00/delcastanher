@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
-import { AdminLayout, AdminTab } from '../../../../shared/layouts/admin-layout/admin-layout';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { ADMIN_TABS, AdminLayout, AdminTab } from '../../../../shared/layouts/admin-layout/admin-layout';
 import { Avatar } from '../../../../shared/ui/avatar/avatar';
 import { Badge } from '../../../../shared/ui/badge/badge';
 import { Button } from '../../../../shared/ui/button/button';
@@ -9,6 +10,11 @@ import { PageContainer } from '../../../../shared/ui/page-container/page-contain
 import { ProgressBar } from '../../../../shared/ui/progress-bar/progress-bar';
 import { SectionHeader } from '../../../../shared/ui/section-header/section-header';
 import { StatCard } from '../../../../shared/ui/stat-card/stat-card';
+
+/** Aba pedida pela URL, caindo na visao geral quando o valor nao existe. */
+function toTab(value: string | null): AdminTab {
+  return ADMIN_TABS.some(tab => tab.id === value) ? (value as AdminTab) : 'visao-geral';
+}
 
 interface Student {
   id: number;
@@ -38,7 +44,13 @@ interface Student {
   templateUrl: './admin-dashboard.html',
 })
 export class AdminDashboard {
-  readonly activeTab = signal<AdminTab>('visao-geral');
+  /**
+   * A aba inicial pode vir por query param: e assim que o /admin/perfil, que
+   * e outra rota, devolve o usuario para a aba escolhida na sidebar.
+   */
+  readonly activeTab = signal<AdminTab>(
+    toTab(inject(ActivatedRoute).snapshot.queryParamMap.get('tab')),
+  );
   readonly search = signal('');
   readonly legalTab = signal<'termos' | 'privacidade'>('termos');
 

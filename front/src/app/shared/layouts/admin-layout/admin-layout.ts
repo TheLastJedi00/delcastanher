@@ -13,6 +13,15 @@ export const ADMIN_TABS: SidebarNavItem[] = [
 ];
 
 /**
+ * Itens da sidebar do painel: as abas do dashboard mais o Meu Perfil, que e
+ * uma rota propria — por isso vai com `link`, e nao com `id`.
+ */
+export const ADMIN_NAV: SidebarNavItem[] = [
+  ...ADMIN_TABS,
+  { icon: 'user', label: 'Meu Perfil', link: '/admin/perfil' },
+];
+
+/**
  * Shell do painel administrativo: sidebar clara + header admin + conteudo.
  * As secoes do admin sao abas (nao rotas), entao o conteudo chega por
  * projecao e a aba ativa e um model bidirecional.
@@ -50,7 +59,8 @@ export class AdminLayout {
   /** O cabecalho le o nome e as iniciais direto do perfil persistido. */
   protected readonly users = inject(UserService);
 
-  protected readonly tabs = ADMIN_TABS;
-  readonly activeTab = model<AdminTab>('visao-geral');
+  protected readonly tabs = ADMIN_NAV;
+  /** Vazio nas telas do painel que nao sao aba, como o Meu Perfil. */
+  readonly activeTab = model<AdminTab | ''>('visao-geral');
   readonly sidebarExpanded = model(false);
 }
