@@ -57,3 +57,9 @@ As modificações de frontend visam criar a barreira do Onboarding e permitir o 
 - **Integração de Leitura (Dashboard e Meu Perfil):**
   - A tela de **Dashboard** e a tela de **Meu Perfil** deverão consumir os dados salvos para exibir informações dinâmicas do registro do aluno (operação de *read*).
   - A interface deverá utilizar esses dados para personalizar a experiência da plataforma, como, por exemplo, saudar o aluno pelo nome preenchido no banco de dados.
+
+- **Edição dos Próprios Dados (Meu Perfil, aluno e admin):**
+  - A tela de **Meu Perfil** deve permitir que o usuário **altere os próprios dados** já persistidos (nome, bio, telefone e LinkedIn), e não apenas visualizá-los. O e-mail vem do Firebase Auth e permanece somente leitura.
+  - A tela precisa estar acessível para **os dois perfis da plataforma**: o aluno, dentro do ambiente `/ava`, e o administrador, dentro do painel `/admin`. Hoje ela existe apenas na área do aluno.
+  - A edição é sempre sobre a **própria conta**: mesmo o administrador altera apenas o seu registro por esta tela. A especificação não prevê edição do cadastro de terceiros.
+  - O salvamento reutiliza a mesma rota de atualização de usuário usada pelo Onboarding, com retorno visual de sucesso e de erro, e o estado global da aplicação deve refletir a alteração imediatamente (nome e iniciais no cabeçalho).

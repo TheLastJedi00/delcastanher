@@ -37,8 +37,17 @@
 - [x] **Task 6.2:** Subir a API em `localhost:3000` e o front em `localhost:4200` e validar no Chrome: primeiro acesso → bloqueio pelo guard → onboarding → hub personalizado → edição no Meu Perfil → reload mantendo os dados.
 - [x] **Task 6.3:** Abrir o PR contra a `main` destacando no topo as decisões tomadas.
 
+## Fase 7: Meu Perfil editável para aluno e admin (`feat/perfil-compartilhado`)
+- [ ] **Task 7.1:** Mover o componente `Perfil` de `features/student/perfil` para `features/perfil` (junto com o spec), sem mudança de comportamento: ele deixa de ser uma tela do aluno para ser a tela de conta de qualquer perfil. Ajustar os imports e a rota `/ava/perfil`.
+- [ ] **Task 7.2:** Reestruturar a rota `/admin` para uma rota com filhos (`''` → `AdminDashboard`, `perfil` → nova tela) e criar o `/admin/perfil`, que renderiza o mesmo componente `Perfil` dentro do `AdminLayout`, preservando a identidade visual de cada área.
+- [ ] **Task 7.3:** Dar acesso à tela pelo painel administrativo: entrada "Meu Perfil" no menu do admin (sidebar e/ou cabeçalho), mantendo os caminhos que o aluno já usa (card do Hub e sidebar).
+- [ ] **Task 7.4:** Spec de API antes da implementação, fixando que `PATCH /users/me` grava sempre sobre o usuário da sessão — inclusive quando a `role` é `admin` — e que não existe rota para editar o cadastro de terceiros. Só implementar se o spec apontar alguma lacuna; a expectativa é que o backend atual já atenda.
+- [ ] **Task 7.5:** Rodar `npm test` (api) e `ng test` (front), subir os dois projetos e validar no Chrome com uma conta `aluno` e uma conta `admin` (usar `npm run role -- --promote <email>` para promover a conta de teste): editar os dados, ver o cabeçalho refletir a alteração e recarregar a URL direto mantendo o que foi salvo.
+
 ## Decisões tomadas (discrepâncias do context.md)
 - **Autenticação das rotas de usuário:** o `context.md` fala em "usuário autenticado no momento", mas a API ainda não tinha nenhum guard — só o endpoint `POST /auth/verify`. Foi definida a criação de um `FirebaseAuthGuard` reaproveitando o `AuthService.verify`, mais um interceptor no front para enviar o `idToken`.
 - **Criação do registro no Neon:** usuários já existentes no Firebase não têm linha no banco. O `GET /users/me` faz upsert pelo UID, o que garante o requisito de que "inclusive usuários pré-existentes" passem pelo onboarding sem depender de migração de dados.
 - **Verbo de atualização:** escolhido `PATCH` (atualização parcial) em vez de `PUT`, atendendo tanto ao onboarding quanto à edição pontual no Meu Perfil.
 - **Tela de Dashboard:** o projeto não tem uma tela chamada "Dashboard" para o aluno; a leitura dinâmica foi aplicada ao **Hub** (`/ava`), que é a tela inicial equivalente.
+- **Meu Perfil compartilhado entre os perfis:** a tela nasceu dentro da área do aluno (`/ava/perfil`), mas o requisito de edição vale para aluno e admin. Em vez de duplicar o componente, ele sobe para `features/perfil` e é montado nos dois shells — cada área mantém sua navegação e sua identidade visual, e existe um único formulário de perfil na plataforma.
+- **Backend sem mudança para a Fase 7:** `PATCH /users/me` já opera sobre o usuário da sessão, seja qual for a `role`. A fase entra com um spec que fixa essa garantia, não com código novo de API.
