@@ -8,3 +8,10 @@
 - comece a executar as fases sendo uma branch feat/<> por fase e um commit por task dessa fase
 - ao fim das fases faça o merge das feats em uma branch release/<nome-da-spec>
 - suba a branch em localhost 4200 caso front e 300 caso backend
+# Caso comando: Fix
+- Leia o relatório do bug ou logs no propt
+- crie um fix.md na spec atual
+- estruture o relatório e pelo menos 2 posssíveis causas a não ser que sej apor um motivo claro e óbvio
+- cria lista de taks para correção de forma detalhada
+- revise a lista de taks criada para ver se há coerência
+- corrija se necessário
