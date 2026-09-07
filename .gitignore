@@ -44,3 +44,14 @@ Thumbs.db
 
 # Material de apoio das specs (nao versionado)
 *libs
+
+# Admin SDK
+admin-sdk
+
+# Backend (api)
+api/node_modules/
+api/dist/
+api/coverage/
+api/.env
+api/.env.*.local
+api/admin-sdk.json
