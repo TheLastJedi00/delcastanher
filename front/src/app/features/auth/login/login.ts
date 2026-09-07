@@ -23,6 +23,9 @@ export class Login {
   readonly recoverEmail = signal('');
   readonly recoverSent = signal(false);
 
+  /** Controla a abertura do formulario modal de criacao de conta. */
+  readonly showCreateAccount = signal(false);
+
   /** Bloqueia a tela enquanto a requisicao de login esta em andamento. */
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
@@ -30,6 +33,14 @@ export class Login {
   readonly canSubmit = computed(
     () => this.email().trim().length > 0 && this.password().length > 0 && !this.isLoading(),
   );
+
+  openCreateAccount() {
+    this.showCreateAccount.set(true);
+  }
+
+  closeCreateAccount() {
+    this.showCreateAccount.set(false);
+  }
 
   toggleRecover() {
     this.showRecover.update(v => !v);

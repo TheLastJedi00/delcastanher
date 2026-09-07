@@ -62,6 +62,16 @@
               Entrar
             </ui-button>
           </form>
+
+          <p class="mt-6 border-t border-brand-navy/10 pt-6 text-center text-sm text-slate-500">
+            Ainda não tem acesso?
+            <button
+              type="button"
+              (click)="openCreateAccount()"
+              class="font-bold text-brand-teal-deep transition-colors hover:text-brand-navy">
+              Criar nova conta
+            </button>
+          </p>
         } @else {
           <div class="mb-6">
             <h2 class="mb-2 text-2xl font-bold tracking-tight text-brand-navy">Recuperar senha</h2>
