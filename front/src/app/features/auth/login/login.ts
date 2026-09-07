@@ -23,6 +23,7 @@ export class Login {
   readonly password = signal('');
   readonly recoverEmail = signal('');
   readonly recoverSent = signal(false);
+  readonly recoverMessage = signal('');
 
   /** Controla a abertura do formulario modal de criacao de conta. */
   readonly showCreateAccount = signal(false);
@@ -70,6 +71,25 @@ export class Login {
   }
 
   sendRecover() {
-    this.recoverSent.set(true);
+    const email = this.recoverEmail().trim();
+
+    if (!email || this.isLoading()) {
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
+    this.auth.requestPasswordReset(email).subscribe({
+      next: message => {
+        this.isLoading.set(false);
+        this.recoverMessage.set(message);
+        this.recoverSent.set(true);
+      },
+      error: (message: string) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(message);
+      },
+    });
   }
 }
