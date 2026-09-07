@@ -1,55 +1,81 @@
 # Relatório de Bug: ERR_REQUIRE_ESM com jwks-rsa e jose
 
 ## Descrição
-Ao validar tokens (`POST /auth/verify` e qualquer caminho que carregue
-`firebase-admin/lib/utils/jwt.js`), a API quebrava com `[ERR_REQUIRE_ESM]`.
-A cadeia é `firebase-admin@14` → `jwks-rsa@^4.0.1` → `jose@^6.1.3`.
-O `jwks-rsa@4.1.0` importa o `jose` de forma síncrona no topo de
-`src/utils.js` (`const jose = require('jose')`), e o `jose@6` é distribuído
-**apenas** como ES Module.
+A API quebra ao carregar `firebase-admin/lib/utils/jwt.js` — caminho usado por
+`verifyIdToken`, ou seja, `POST /auth/verify`:
 
-## Causa (revisada)
-A causa não é o pacote `jwks-rsa` em si — é a **versão do Node.js**.
-O suporte a `require()` de módulos ESM (sem top-level await) entrou no Node
-**22.12**. Em runtimes anteriores, o `require('jose')` do `jwks-rsa` estoura
-`ERR_REQUIRE_ESM`; a partir do 22.12 ele funciona sem nenhuma alteração no
-pacote.
+```
+Error [ERR_REQUIRE_ESM]: require() of ES Module
+  /var/task/api/node_modules/jose/dist/webapi/index.js from
+  /var/task/api/node_modules/jwks-rsa/src/utils.js not supported.
+```
 
-Verificação feita neste ambiente (Node **v24.15.0**), com o `node_modules`
-restaurado ao conteúdo original publicado no npm:
+A cadeia é `firebase-admin@14` → `jwks-rsa@^4.0.1` → `jose@^6.1.3`. O
+`jwks-rsa@4.1.0` importa o `jose` de forma síncrona no topo de `src/utils.js`
+(`const jose = require('jose')`) e o `jose@6` é publicado **apenas** como ESM.
+
+## Causa
+`require()` de um módulo ESM só funciona onde o loader implementa esse suporte.
+Dois ambientes **não** implementam:
+
+- Node.js **< 22.12** (o suporte a `require(esm)` entrou nessa versão);
+- o **runtime serverless da Vercel**, que usa um loader próprio
+  (`/opt/rust/nodejs.js`, com cache de bytecode) sem `require(esm)` — **em
+  qualquer versão de Node**. É daí que vem o erro em produção.
+
+Por isso o bug some no dev local (Node 24) e permanece no deploy: não é uma
+questão de atualizar o Node.
+
+## Correção aplicada
+`overrides` no `api/package.json` fixando `jose@^5.10.0` **apenas para o
+`jwks-rsa`**:
+
+```json
+"overrides": {
+  "jwks-rsa": {
+    "jose": "^5.10.0"
+  }
+}
+```
+
+O `jose@5` publica build **CJS e ESM** (tem a chave `require` no `exports`),
+então o `require('jose')` do `jwks-rsa` resolve em qualquer loader, sem tocar
+em `node_modules`. As quatro funções que o `jwks-rsa` usa — `importJWK` e
+`exportSPKI` (`src/utils.js`), `decodeJwt` e `decodeProtectedHeader`
+(`src/integrations/passport.js`) — têm a mesma assinatura na v5. O `override` é
+escopado: nenhum outro pacote muda de versão (o `firebase-admin` não depende de
+`jose` direto, só via `jwks-rsa`).
+
+- [x] Reverter o patch manual em `api/node_modules/jwks-rsa/src/utils.js`
+- [x] Adicionar o `overrides` escopado e regravar o `package-lock.json`
+- [x] Documentar a razão e a condição de remoção em `api/README.md`
+- [x] Validar sob um loader sem `require(esm)`
+
+## Validação
+O flag `--no-experimental-require-module` desliga o `require(esm)` do Node e
+reproduz exatamente o comportamento do loader da Vercel. Antes do `override`,
+com `jose@6`, `require('jose')` falha com `ERR_REQUIRE_ESM` — o erro do deploy,
+reproduzido localmente. Depois do `override`, com `jose@5.10.0`:
 
 - `require('jose')` → OK
 - `require('firebase-admin/lib/utils/jwt.js')` → OK
-- `jwksClient(...).getSigningKeys()` (chama `retrieveSigningKeys`) → OK
-- `npm test` → 5 suítes / 49 testes passando
-- API de pé em `localhost:3000` e `POST /auth/verify` respondendo `401` de
-  token inválido (comportamento esperado), sem `ERR_REQUIRE_ESM`
+- `jwksClient(...).getSigningKeys()` → OK, 4 chaves, com o SPKI real gerado
+  (exercita `importJWK` + `exportSPKI`, o trecho que estourava)
+- `npm run build` → OK; `npm test` → 5 suítes / 49 testes passando
+- `node dist/main` com o flag, respondendo em `localhost:3000`:
+  `POST /auth/verify` devolve o `401` de token inválido (esperado), sem
+  `ERR_REQUIRE_ESM` no log
 
-## Incoerências do relatório anterior (corrigidas)
-1. **A correção anterior não era versionável.** A edição foi feita em
-   `api/node_modules/jwks-rsa/src/utils.js`, que está no `.gitignore`. Ela se
-   perdia em qualquer `npm ci`/`npm install` limpo e não valia para mais
-   ninguém do time nem para CI/deploy — ou seja, o bug continuava aberto.
-2. **O diagnóstico parava na dependência.** Tratava o `jwks-rsa` como
-   defeituoso, quando o pacote está correto para os runtimes que ele suporta;
-   o que faltava era o piso de versão do Node.
-3. **A conclusão declarava sucesso sem reprodução.** O erro não reproduz no
-   Node 24 nem antes nem depois do patch, então o patch não era o que fazia a
-   aplicação funcionar.
-
-## Correção aplicada
-- [x] Reverter `api/node_modules/jwks-rsa/src/utils.js` ao original do npm
-      (nada de patch em `node_modules`)
-- [x] Declarar o piso de runtime em `api/package.json`: `engines.node >= 22.12.0`
-- [x] Criar `api/.npmrc` com `engine-strict=true`, para o `npm install` falhar
-      cedo e com mensagem clara em Node antigo, em vez de quebrar em runtime
-- [x] Criar `.nvmrc` na raiz fixando o Node 24 para o time e para CI
-- [x] Documentar o requisito e o porquê em `api/README.md`
-- [x] Revalidar: `npm test` verde e API respondendo em `localhost:3000`
-
-## Conclusão
-A correção passou a viver no repositório, não no `node_modules`. Sobrevive a
-instalação limpa, vale para CI/deploy e dispensa `patch-package`. Se no futuro
-for necessário rodar em Node < 22.12, o caminho é atualizar o `jwks-rsa` para
-uma versão que faça `import()` dinâmico ou fixar `jose@5` (dual CJS/ESM) via
-`overrides` — nunca editar `node_modules`.
+## Incoerências corrigidas ao longo do fix
+1. **Patch em `node_modules` (1ª tentativa).** A edição em
+   `api/node_modules/jwks-rsa/src/utils.js` está no `.gitignore`: some em
+   qualquer `npm ci`, não vale para CI/deploy nem para o time. Era exatamente
+   por isso que a produção continuava quebrada. Revertido.
+2. **Piso de versão do Node (2ª tentativa).** `engines.node >= 22.12` +
+   `engine-strict` + `.nvmrc` corrigiam o sintoma **só no dev local**. Os logs
+   da Vercel mostraram que o loader dela não faz `require(esm)` em versão
+   nenhuma, então o piso não resolvia produção — e o `engine-strict` ainda
+   adicionava risco de falha de install no deploy. Revertido.
+3. **Conclusão sem reprodução.** As duas primeiras tentativas foram dadas como
+   resolvidas sem reproduzir o erro. Agora existe um comando que reproduz
+   (`node --no-experimental-require-module`) e que valida a correção.
