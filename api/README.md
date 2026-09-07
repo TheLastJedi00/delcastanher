@@ -1,3 +1,44 @@
+# API — Imersão RH Estratégico
+
+Backend NestJS responsável pela autenticação via Firebase.
+
+## Configuração
+
+```bash
+npm install
+cp .env.example .env   # preencha as credenciais do Firebase
+```
+
+## Rodando
+
+```bash
+npm run start:dev      # http://localhost:3000
+npm test               # suíte unitária
+```
+
+## Usuários de teste
+
+O projeto Firebase não vem com usuários, então o login não pode ser exercitado
+numa instalação limpa. O script abaixo cria (ou atualiza) as contas de teste com
+a custom claim `role` — é idempotente e pode ser rodado quantas vezes precisar:
+
+```bash
+npm run seed:users
+```
+
+| E-mail | Perfil | Senha |
+|---|---|---|
+| `aluno@delcastanher.com` | `aluno` | `Delcas@2026` |
+| `admin@delcastanher.com` | `admin` | `Delcas@2026` |
+
+Para usar outra senha: `SEED_PASSWORD='OutraSenha@123' npm run seed:users`.
+
+> O script **redefine a senha** de contas já existentes. Por isso ele se recusa a
+> rodar com `NODE_ENV=production` a menos que você passe `--force`. Confira o
+> projeto Firebase que ele imprime antes de confirmar.
+
+---
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
