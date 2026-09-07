@@ -16,26 +16,22 @@ npm run start:dev      # http://localhost:3000
 npm test               # suíte unitária
 ```
 
-## Usuários de teste
+## Gerenciando o perfil de um usuário
 
-O projeto Firebase não vem com usuários, então o login não pode ser exercitado
-numa instalação limpa. O script abaixo cria (ou atualiza) as contas de teste com
-a custom claim `role` — é idempotente e pode ser rodado quantas vezes precisar:
+O perfil de acesso vem da custom claim `role` do Firebase — quem não tem a claim
+é tratado como `aluno`. Para promover ou rebaixar alguém:
 
 ```bash
-npm run seed:users
+npm run role -- --promote usuario@exemplo.com   # torna admin
+npm run role -- --revoke  usuario@exemplo.com   # volta a ser aluno
 ```
 
-| E-mail | Perfil | Senha |
-|---|---|---|
-| `aluno@delcastanher.com` | `aluno` | `Delcas@2026` |
-| `admin@delcastanher.com` | `admin` | `Delcas@2026` |
+O script atua apenas sobre contas **já existentes**: não cria usuário nem altera
+senha. Contas novas nascem pelo fluxo "Criar nova conta" da tela de login
+(`POST /auth/account`), que envia o link de definição de senha por e-mail.
 
-Para usar outra senha: `SEED_PASSWORD='OutraSenha@123' npm run seed:users`.
-
-> O script **redefine a senha** de contas já existentes. Por isso ele se recusa a
-> rodar com `NODE_ENV=production` a menos que você passe `--force`. Confira o
-> projeto Firebase que ele imprime antes de confirmar.
+> A claim só passa a valer no próximo token. Quem já estiver logado mantém o
+> perfil antigo até a sessão expirar — peça para sair e entrar de novo.
 
 ---
 
