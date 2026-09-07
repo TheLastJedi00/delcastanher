@@ -34,35 +34,6 @@
             <p class="text-sm text-slate-500">Entre para continuar sua jornada</p>
           </div>
 
-          <!-- Seletor de perfil -->
-          <div class="mb-6">
-            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Entrar como</p>
-            <div class="grid grid-cols-2 gap-1 rounded-xl bg-brand-navy/5 p-1" role="group" aria-label="Selecionar perfil de acesso">
-              <button
-                type="button"
-                (click)="setRole('aluno')"
-                [attr.aria-pressed]="role() === 'aluno'"
-                class="rounded-lg px-4 py-2 text-sm font-bold transition-all duration-200"
-                [class.bg-gradient-brand]="role() === 'aluno'"
-                [class.text-white]="role() === 'aluno'"
-                [class.shadow-card]="role() === 'aluno'"
-                [class.text-slate-500]="role() !== 'aluno'">
-                Aluno
-              </button>
-              <button
-                type="button"
-                (click)="setRole('admin')"
-                [attr.aria-pressed]="role() === 'admin'"
-                class="rounded-lg px-4 py-2 text-sm font-bold transition-all duration-200"
-                [class.bg-gradient-brand]="role() === 'admin'"
-                [class.text-white]="role() === 'admin'"
-                [class.shadow-card]="role() === 'admin'"
-                [class.text-slate-500]="role() !== 'admin'">
-                Administrador
-              </button>
-            </div>
-          </div>
-
           <form (submit)="$event.preventDefault(); doLogin()" class="flex flex-col gap-4">
             <ui-input label="E-mail" type="email" placeholder="seu@email.com" [(value)]="email" />
             <ui-input label="Senha" type="password" placeholder="••••••••" [(value)]="password" />
@@ -76,7 +47,20 @@
               </button>
             </div>
 
-            <ui-button variant="primary" type="submit" [fullWidth]="true">Entrar</ui-button>
+            @if (errorMessage()) {
+              <p role="alert" class="rounded-xl bg-state-danger/10 px-4 py-3 text-sm font-medium text-state-danger">
+                {{ errorMessage() }}
+              </p>
+            }
+
+            <ui-button
+              variant="primary"
+              type="submit"
+              [fullWidth]="true"
+              [loading]="isLoading()"
+              [disabled]="!canSubmit()">
+              Entrar
+            </ui-button>
           </form>
         } @else {
           <div class="mb-6">
@@ -103,3 +87,7 @@
     </div>
   </main>
 </div>
+
+@if (isLoading()) {
+  <ui-loading-overlay message="Entrando" />
+}
