@@ -1,0 +1,12 @@
+// Schema do banco Neon (PostgreSQL). A URL de conexao vive em `prisma7.config.ts`,
+// que le `DATABASE_URL` do ambiente.
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
