@@ -2,10 +2,9 @@ import 'dotenv/config';
 import { defineConfig } from 'prisma/config';
 
 /**
- * Configuracao do Prisma CLI. A `DATABASE_URL` do Neon e a conexao "pooled"
- * (pgbouncer), otima para a aplicacao mas incompativel com o statement cache
- * usado pelas migrations — por isso as migrations usam a conexao direta
- * (`DATABASE_URL_UNPOOLED`) quando ela existe.
+ * Configuracao do Prisma CLI (migrations e generate). A `DATABASE_URL` do Neon
+ * passa pelo pgbouncer; quando a conexao direta (`DATABASE_URL_UNPOOLED`)
+ * existe, e ela que atende as migrations, que precisam de sessao dedicada.
  */
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -13,8 +12,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: process.env['DATABASE_URL'],
-    directUrl: process.env['DATABASE_URL_UNPOOLED'] ?? process.env['DATABASE_URL'],
-    shadowDatabaseUrl: process.env['SHADOW_DATABASE_URL'],
+    url: process.env['DATABASE_URL_UNPOOLED'] ?? process.env['DATABASE_URL'],
   },
 });

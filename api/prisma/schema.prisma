@@ -3,8 +3,11 @@
 // Docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // Sem extensao nos imports internos: o build do Nest e o Jest resolvem
+  // arquivos .ts, e o especificador "./enums.js" quebraria os dois.
+  importFileExtension = ""
 }
 
 datasource db {
