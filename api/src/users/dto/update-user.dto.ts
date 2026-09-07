@@ -13,20 +13,20 @@ const trim = ({ value }: { value: unknown }) =>
 export class UpdateUserDto {
   @Transform(trim)
   @IsString()
-  @IsNotEmpty({ message: 'Informe seu nome completo.' })
   @MaxLength(120, { message: 'O nome deve ter no maximo 120 caracteres.' })
+  @IsNotEmpty({ message: 'Informe seu nome completo.' })
   name!: string;
 
   @Transform(trim)
   @IsString()
-  @IsNotEmpty({ message: 'Escreva uma bio.' })
   @MaxLength(600, { message: 'A bio deve ter no maximo 600 caracteres.' })
+  @IsNotEmpty({ message: 'Escreva uma bio.' })
   bio!: string;
 
   @Transform(trim)
   @IsString()
-  @IsNotEmpty({ message: 'Informe um telefone.' })
   @MaxLength(30, { message: 'O telefone deve ter no maximo 30 caracteres.' })
+  @IsNotEmpty({ message: 'Informe um telefone.' })
   phone!: string;
 
   @Transform(trim)

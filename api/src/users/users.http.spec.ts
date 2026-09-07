@@ -46,7 +46,12 @@ async function buildApp(users: Partial<Record<keyof UsersService, jest.Mock>>) {
   const app = moduleRef.createNestApplication();
 
   app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      stopAtFirstError: true,
+    }),
   );
   await app.init();
 
@@ -73,11 +78,13 @@ describe('Users (HTTP)', () => {
     const update = jest.fn();
     app = await buildApp({ update });
 
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .patch('/users/me')
       .send({ name: 'So o nome' })
       .expect(400);
 
+    // Uma mensagem por campo, e a que orienta o usuario a preencher.
+    expect(response.body.message).toEqual(['Escreva uma bio.', 'Informe um telefone.']);
     expect(update).not.toHaveBeenCalled();
   });
 

@@ -12,6 +12,21 @@ interface ProfileData {
   linkedin: string | null;
 }
 
+/**
+ * O DTO aceita o LinkedIn sem protocolo, por ser como as pessoas costumam
+ * copiar o endereco. Guardar sempre com https:// deixa o link utilizavel em um
+ * href direto, sem que cada tela precise se lembrar disso.
+ */
+function normalizeLink(value?: string): string | null {
+  const link = value?.trim();
+
+  if (!link) {
+    return null;
+  }
+
+  return /^https?:\/\//i.test(link) ? link : `https://${link}`;
+}
+
 function isComplete(profile: ProfileData): boolean {
   return Boolean(profile.name && profile.bio && profile.phone);
 }
@@ -47,7 +62,7 @@ export class UsersService {
       name: dto.name?.trim() ?? '',
       bio: dto.bio?.trim() ?? '',
       phone: dto.phone?.trim() ?? '',
-      linkedin: dto.linkedin?.trim() || null,
+      linkedin: normalizeLink(dto.linkedin),
     };
 
     const data = { ...profile, onboardingCompleted: isComplete(profile) };

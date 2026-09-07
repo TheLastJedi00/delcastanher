@@ -72,6 +72,14 @@ describe('UsersService', () => {
       );
     });
 
+    it('completa o protocolo do linkedin informado sem https', async () => {
+      const { service, upsert } = await build(jest.fn().mockResolvedValue({ id: 'uid-123' }));
+
+      await service.update(FIREBASE_USER, { ...ONBOARDING, linkedin: 'linkedin.com/in/aluno' });
+
+      expect(upsert.mock.calls[0][0].update.linkedin).toBe('https://linkedin.com/in/aluno');
+    });
+
     it('normaliza o linkedin ausente para null em vez de undefined', async () => {
       const { service, upsert } = await build(jest.fn().mockResolvedValue({ id: 'uid-123' }));
 
