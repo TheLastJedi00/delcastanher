@@ -8,6 +8,7 @@ import { Logo } from '../logo/logo';
  */
 @Component({
   selector: 'ui-loading-overlay',
+  host: { class: 'fixed inset-0 z-50 flex items-center justify-center' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Logo],
   template: `
