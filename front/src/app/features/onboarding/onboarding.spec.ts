@@ -50,7 +50,7 @@ describe('Onboarding', () => {
 
     backend.expectNone(ME);
     expect(component.errors().name).toBe('Informe seu nome completo.');
-    expect(component.errors().bio).toBe('Escreva um resumo da sua atuacao.');
+    expect(component.errors().bio).toBe('Escreva um resumo da sua atuação.');
     expect(component.errors().phone).toBe('Informe um telefone para contato.');
     expect(fixture.nativeElement.textContent).toContain('Informe seu nome completo.');
   });
@@ -61,7 +61,7 @@ describe('Onboarding', () => {
     component.submit();
 
     backend.expectNone(ME);
-    expect(component.errors().linkedin).toBe('Informe um endereco valido do LinkedIn.');
+    expect(component.errors().linkedin).toBe('Informe um endereço válido do LinkedIn.');
   });
 
   it('limpa o aviso quando o campo e corrigido', () => {

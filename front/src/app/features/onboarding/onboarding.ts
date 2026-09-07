@@ -18,10 +18,10 @@ function messageFor(control: AbstractControl, required: string): string {
   if (control.hasError('maxlength')) {
     const { requiredLength } = control.getError('maxlength') as { requiredLength: number };
 
-    return `Use no maximo ${requiredLength} caracteres.`;
+    return `Use no máximo ${requiredLength} caracteres.`;
   }
 
-  return control.hasError('pattern') ? 'Informe um endereco valido do LinkedIn.' : '';
+  return control.hasError('pattern') ? 'Informe um endereço válido do LinkedIn.' : '';
 }
 
 /** Aceita o endereco com ou sem protocolo; a API normaliza para https://. */
@@ -58,13 +58,13 @@ const LINKEDIN = /^(https?:\/\/)?([\w-]+\.)*linkedin\.com\/.+$/i;
           <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-5">
             <ui-input
               label="Nome Completo"
-              placeholder="Como voce quer ser chamado(a)"
+              placeholder="Como você quer ser chamado(a)"
               formControlName="name"
               [error]="errors().name" />
 
             <ui-input
               label="Bio / Resumo Profissional"
-              placeholder="Conte em poucas linhas sua atuacao em RH"
+              placeholder="Conte em poucas linhas sua atuação em RH"
               [multiline]="true"
               [rows]="4"
               formControlName="bio"
@@ -137,7 +137,7 @@ export class Onboarding {
 
     return {
       name: messageFor(name, 'Informe seu nome completo.'),
-      bio: messageFor(bio, 'Escreva um resumo da sua atuacao.'),
+      bio: messageFor(bio, 'Escreva um resumo da sua atuação.'),
       phone: messageFor(phone, 'Informe um telefone para contato.'),
       linkedin: messageFor(linkedin, ''),
     };

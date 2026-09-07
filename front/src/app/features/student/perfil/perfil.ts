@@ -21,10 +21,10 @@ function messageFor(control: AbstractControl, required: string): string {
   if (control.hasError('maxlength')) {
     const { requiredLength } = control.getError('maxlength') as { requiredLength: number };
 
-    return `Use no maximo ${requiredLength} caracteres.`;
+    return `Use no máximo ${requiredLength} caracteres.`;
   }
 
-  return control.hasError('pattern') ? 'Informe um endereco valido do LinkedIn.' : '';
+  return control.hasError('pattern') ? 'Informe um endereço válido do LinkedIn.' : '';
 }
 
 /**
@@ -76,7 +76,7 @@ function messageFor(control: AbstractControl, required: string): string {
 
           @if (saved()) {
             <p class="rounded-xl bg-state-success/10 px-4 py-3 text-sm font-medium text-state-success">
-              Alteracoes salvas.
+              Alterações salvas.
             </p>
           }
 
@@ -132,7 +132,7 @@ export class Perfil {
 
     return {
       name: messageFor(name, 'Informe seu nome completo.'),
-      bio: messageFor(bio, 'Escreva um resumo da sua atuacao.'),
+      bio: messageFor(bio, 'Escreva um resumo da sua atuação.'),
       phone: messageFor(phone, 'Informe um telefone para contato.'),
       linkedin: messageFor(linkedin, ''),
     };

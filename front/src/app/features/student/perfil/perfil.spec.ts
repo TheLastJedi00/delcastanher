@@ -85,7 +85,7 @@ describe('Perfil', () => {
 
     expect(component.isSaving()).toBeFalse();
     expect(component.saved()).toBeTrue();
-    expect(fixture.nativeElement.textContent).toContain('Alteracoes salvas.');
+    expect(fixture.nativeElement.textContent).toContain('Alterações salvas.');
     // O estado global acompanha, entao o cabecalho ja mostra o novo nome.
     expect(fixture.nativeElement.textContent).toContain('Nome Atualizado');
   });
