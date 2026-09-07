@@ -25,7 +25,10 @@ const VALID_BODY = {
  * troca o guard por um que injeta um usuario fixo: o que se testa aqui e o
  * contrato HTTP das rotas, nao a verificacao do token.
  */
-async function buildApp(users: Partial<Record<keyof UsersService, jest.Mock>>) {
+async function buildApp(
+  users: Partial<Record<keyof UsersService, jest.Mock>>,
+  sessionUser: AuthUser = USER,
+) {
   const moduleRef = await Test.createTestingModule({
     controllers: [UsersController],
     providers: [
@@ -36,7 +39,7 @@ async function buildApp(users: Partial<Record<keyof UsersService, jest.Mock>>) {
     .overrideGuard(FirebaseAuthGuard)
     .useValue({
       canActivate: (context: { switchToHttp: () => { getRequest: () => AuthenticatedRequest } }) => {
-        context.switchToHttp().getRequest().user = USER;
+        context.switchToHttp().getRequest().user = sessionUser;
 
         return true;
       },
@@ -107,5 +110,60 @@ describe('Users (HTTP)', () => {
       .expect(200);
 
     expect(response.body).toEqual(updated);
+  });
+
+  describe('escrita restrita a propria conta', () => {
+    const ADMIN: AuthUser = {
+      uid: 'uid-admin',
+      email: 'admin@delcastanher.com',
+      name: 'Admin Teste',
+      role: 'admin',
+    };
+
+    it('grava sobre o usuario da sessao tambem quando a role e admin', async () => {
+      const update = jest.fn().mockResolvedValue({ id: 'uid-admin' });
+      app = await buildApp({ update }, ADMIN);
+
+      await request(app.getHttpServer()).patch('/users/me').send(VALID_BODY).expect(200);
+
+      // O alvo da escrita vem da sessao, nunca do corpo da requisicao.
+      expect(update).toHaveBeenCalledWith(ADMIN, expect.objectContaining(VALID_BODY));
+    });
+
+    it('recusa um id de outro usuario enviado no corpo', async () => {
+      const update = jest.fn();
+      app = await buildApp({ update }, ADMIN);
+
+      await request(app.getHttpServer())
+        .patch('/users/me')
+        .send({ ...VALID_BODY, id: 'uid-de-outro' })
+        .expect(400);
+
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('recusa um email enviado no corpo: o e-mail vive no Firebase', async () => {
+      const update = jest.fn();
+      app = await buildApp({ update });
+
+      await request(app.getHttpServer())
+        .patch('/users/me')
+        .send({ ...VALID_BODY, email: 'outro@delcastanher.com' })
+        .expect(400);
+
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('recusa a conclusao do onboarding vinda do cliente', async () => {
+      const update = jest.fn();
+      app = await buildApp({ update });
+
+      await request(app.getHttpServer())
+        .patch('/users/me')
+        .send({ ...VALID_BODY, onboardingCompleted: true })
+        .expect(400);
+
+      expect(update).not.toHaveBeenCalled();
+    });
   });
 });
