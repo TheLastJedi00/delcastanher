@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, model } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, model } from '@angular/core';
+import { UserService } from '../../../core/services/user.service';
 import { NavHeader } from '../../ui/nav-header/nav-header';
 import { Sidebar, SidebarNavItem } from '../../ui/sidebar/sidebar';
 
@@ -36,8 +37,8 @@ export const ADMIN_TABS: SidebarNavItem[] = [
           variant="admin"
           label="Administração"
           homeLink="/admin"
-          userName="Lidiane Delcastanher"
-          userInitials="LD"
+          [userName]="users.displayName()"
+          [userInitials]="users.initials()"
           (menuToggle)="sidebarExpanded.set(true)" />
 
         <ng-content />
@@ -46,6 +47,9 @@ export const ADMIN_TABS: SidebarNavItem[] = [
   `,
 })
 export class AdminLayout {
+  /** O cabecalho le o nome e as iniciais direto do perfil persistido. */
+  protected readonly users = inject(UserService);
+
   protected readonly tabs = ADMIN_TABS;
   readonly activeTab = model<AdminTab>('visao-geral');
   readonly sidebarExpanded = model(false);
