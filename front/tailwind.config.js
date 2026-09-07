@@ -59,6 +59,9 @@ module.exports = {
         'shimmer': 'shimmer 2s infinite linear',
         'float': 'float 6s ease-in-out infinite',
         'pulse-soft': 'pulseSoft 3s ease-in-out infinite',
+        // Giro do logotipo no loading: 1s (padrao do animate-spin) fica agressivo
+        // para um simbolo de marca; 2.5s mantem a leitura da forma.
+        'spin-slow': 'spin 2.5s linear infinite',
         'gradient-shift': 'gradientShift 8s ease-in-out infinite',
       },
       keyframes: {

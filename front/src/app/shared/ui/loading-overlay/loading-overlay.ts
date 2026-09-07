@@ -17,7 +17,7 @@ import { Logo } from '../logo/logo';
   imports: [Logo],
   template: `
     <div class="flex flex-col items-center gap-5" role="status" aria-live="assertive">
-      <ui-logo size="lg" />
+      <ui-logo size="lg" class="animate-spin-slow motion-reduce:animate-pulse-soft" />
       <p class="text-sm font-bold uppercase tracking-widest text-brand-navy/70">{{ message() }}</p>
     </div>
   `,
