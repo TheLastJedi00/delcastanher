@@ -2,6 +2,17 @@
 
 Backend NestJS responsável pela autenticação via Firebase.
 
+## Requisitos
+
+**Node.js >= 22.12** (o repositório fixa a 24 no `.nvmrc`).
+
+O `firebase-admin` puxa `jwks-rsa@4`, que importa `jose@6` — um pacote
+somente-ESM — com `require()`. Só a partir do Node 22.12 o `require()` de
+módulos ESM é suportado; em versões anteriores a API quebra com
+`[ERR_REQUIRE_ESM]` ao validar tokens. O `engines` do `package.json` somado ao
+`engine-strict=true` do `.npmrc` faz o `npm install` falhar cedo e com mensagem
+clara em runtimes antigos.
+
 ## Configuração
 
 ```bash
