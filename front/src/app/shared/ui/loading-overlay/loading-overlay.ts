@@ -8,7 +8,11 @@ import { Logo } from '../logo/logo';
  */
 @Component({
   selector: 'ui-loading-overlay',
-  host: { class: 'fixed inset-0 z-50 flex items-center justify-center' },
+  host: {
+    class:
+      'fixed inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm animate-fade-in',
+    'aria-busy': 'true',
+  },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Logo],
   template: `
