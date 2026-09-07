@@ -1,203 +1,164 @@
-<div class="min-h-screen flex flex-col font-sans text-slate-800">
-  
-  <!-- Header / Navbar -->
-  <nav class="bg-white border-b border-slate-100 sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-      <a routerLink="/" class="flex items-center">
-        <img src="assets/logo.jpg" alt="Delcastanher Logo" class="h-10 object-contain rounded-lg shadow-sm">
-      </a>
-      <div class="flex items-center gap-4">
-        <div class="hidden md:flex items-center gap-8 font-medium text-sm">
-          <a href="#metodo" class="text-slate-600 hover:text-brand-teal transition-colors">Método</a>
-          <a href="#mentora" class="text-slate-600 hover:text-brand-teal transition-colors">A Mentora</a>
-          <a href="#trilha" class="text-slate-600 hover:text-brand-teal transition-colors">Trilha</a>
-        </div>
-        <a routerLink="/login" class="px-5 py-2 bg-brand-blue text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium">Área do Aluno</a>
-      </div>
-    </div>
-  </nav>
+<div class="flex min-h-screen flex-col text-slate-800">
+  <ui-nav-header variant="landing" [navLinks]="navLinks" />
 
-  <!-- Hero Section with gradient -->
-  <header class="bg-gradient-to-br from-teal-100 via-teal-50 to-white relative overflow-hidden">
-    <div class="max-w-6xl mx-auto px-4 py-16 md:py-24 flex flex-col md:flex-row items-center gap-12">
-      <div class="w-full md:w-1/2 z-10 animate-fade-in-up">
-        <span class="inline-block px-4 py-1 bg-brand-teal text-white rounded-full text-xs font-bold tracking-wider mb-6 uppercase">
+  <!-- Hero -->
+  <header class="relative overflow-hidden bg-gradient-hero">
+    <span class="blob-teal -left-24 top-10 h-96 w-96 animate-float bg-brand-teal-light/20" aria-hidden="true"></span>
+    <span class="blob-navy -right-32 bottom-0 h-[28rem] w-[28rem] animate-pulse-soft bg-white/10" aria-hidden="true"></span>
+
+    <div class="relative mx-auto flex max-w-6xl flex-col items-center gap-12 px-4 py-20 md:flex-row md:py-28">
+      <div class="z-10 w-full animate-fade-in-up md:w-1/2">
+        <span class="mb-6 inline-block rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-white backdrop-blur-md">
           Inspirando Perspectivas
         </span>
-        <h1 class="text-4xl md:text-6xl font-bold mb-6 text-brand-blue leading-tight">
+        <h1 class="mb-6 text-5xl font-extrabold leading-[1.05] tracking-tight text-white md:text-6xl lg:text-7xl">
           Estruture o RH da sua Empresa do Zero
         </h1>
-        <p class="text-lg md:text-xl mb-10 text-slate-600 font-light">
-          "O RH estratégico transforma negócios através das pessoas." <br>
+        <p class="mb-10 max-w-xl text-lg font-light leading-relaxed text-white/85 md:text-xl">
+          "O RH estratégico transforma negócios através das pessoas."
+          <br />
           Transforme seu departamento em um parceiro de resultados com a Imersão RH Estratégico.
         </p>
-        <div class="flex flex-col sm:flex-row gap-4">
-          <button class="bg-brand-teal hover:bg-teal-700 text-white font-bold py-4 px-8 rounded-lg text-lg transition-transform transform hover:-translate-y-1 shadow-lg">
-            Quero me Inscrever Agora
-          </button>
+        <div class="flex flex-col gap-4 sm:flex-row">
+          <a routerLink="/login">
+            <ui-button variant="primary" size="lg">Quero me Inscrever Agora</ui-button>
+          </a>
         </div>
       </div>
-      <div class="hidden md:block w-full md:w-1/2 relative animate-fade-in">
-        <div class="absolute inset-0 bg-brand-teal rounded-full blur-3xl opacity-20 transform translate-x-5 translate-y-5"></div>
-        <img src="assets/aula1.jpeg" alt="Lidiane palestrando" class="relative z-10 rounded-2xl shadow-2xl object-cover w-full h-[500px]">
+
+      <div class="relative hidden w-full md:block md:w-1/2">
+        <span class="blob-teal inset-6 bg-brand-teal-light/30" aria-hidden="true"></span>
+        <img
+          src="assets/aula1.jpeg"
+          alt="Lidiane Delcastanher palestrando para uma turma"
+          class="relative z-10 h-[500px] w-full animate-float rounded-3xl object-cover shadow-glass-lg" />
       </div>
     </div>
   </header>
 
-  <!-- Seção de Autoridade & Carreira -->
-  <section id="mentora" class="py-24 px-4 bg-white">
-    <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-16">
-      <div class="w-full md:w-5/12 relative group">
-        <div class="absolute inset-0 bg-brand-teal rounded-2xl transform translate-x-4 translate-y-4 opacity-20 transition-transform group-hover:translate-x-6 group-hover:translate-y-6"></div>
-        <img src="assets/nova_mentora.jpeg" alt="Lidiane Delcastanher" class="rounded-2xl relative z-10 w-full object-cover shadow-xl aspect-[4/5] transition-transform group-hover:-translate-y-2">
+  <!-- A Mentora -->
+  <section id="mentora" class="bg-white px-4 py-20 md:py-28">
+    <div class="mx-auto flex max-w-6xl flex-col items-center gap-16 md:flex-row">
+      <div class="group relative w-full md:w-5/12" animateOnScroll="animate-slide-in-left">
+        <div class="absolute inset-0 translate-x-4 translate-y-4 rounded-3xl bg-gradient-brand opacity-20 transition-transform duration-500 group-hover:translate-x-6 group-hover:translate-y-6"></div>
+        <img
+          src="assets/nova_mentora.jpeg"
+          alt="Lidiane Delcastanher"
+          class="relative z-10 aspect-[4/5] w-full rounded-3xl object-cover shadow-glass-lg transition-transform duration-500 group-hover:-translate-y-2" />
       </div>
-      
-      <div class="w-full md:w-7/12">
-        <h2 class="text-sm font-bold text-brand-teal uppercase tracking-widest mb-2">Quem será sua Mentora</h2>
-        <h3 class="text-4xl font-bold mb-6 text-brand-blue">Lidiane Delcastanher</h3>
-        <p class="text-lg leading-relaxed text-slate-600 mb-6">
-          Com <strong>+20 anos de experiência</strong>, atua de forma multisetorial (Indústria, Tecnologia e Setor Público) focada em reestruturação de RH e consolidação de culturas de performance.
+
+      <div class="w-full md:w-7/12" animateOnScroll="animate-fade-in-up">
+        <ui-section-header overline="Quem será sua Mentora" title="Lidiane Delcastanher" />
+
+        <p class="mb-6 mt-6 text-lg leading-relaxed text-slate-600">
+          Com <strong class="text-brand-navy">+20 anos de experiência</strong>, atua de forma multisetorial
+          (Indústria, Tecnologia e Setor Público) focada em reestruturação de RH e consolidação de culturas
+          de performance.
         </p>
-        <p class="text-lg leading-relaxed text-slate-600 mb-8">
-          Administradora com MBA em Gestão de Pessoas e Pós-Graduação em Performance Organizacional. 
-          É CEO da Delcastanher Serviços Administrativos e coautora do livro <i>"Trajetória e Cotidiano dos Líderes do Brasil"</i>.
+        <p class="mb-8 text-lg leading-relaxed text-slate-600">
+          Administradora com MBA em Gestão de Pessoas e Pós-Graduação em Performance Organizacional.
+          É CEO da Delcastanher Serviços Administrativos e coautora do livro
+          <i>"Trajetória e Cotidiano dos Líderes do Brasil"</i>.
         </p>
-        
-        <!-- Stats -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 pt-8 border-t border-slate-100">
-          <div class="transform hover:scale-105 transition-transform">
-            <p class="text-4xl font-black text-brand-teal mb-1">+20</p>
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Anos de Exp.</p>
-          </div>
-          <div class="transform hover:scale-105 transition-transform">
-            <p class="text-4xl font-black text-brand-teal mb-1">+50</p>
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Empresas</p>
-          </div>
-          <div class="transform hover:scale-105 transition-transform">
-            <p class="text-4xl font-black text-brand-teal mb-1">03</p>
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Setores</p>
-          </div>
-          <div class="transform hover:scale-105 transition-transform">
-            <p class="text-4xl font-black text-brand-teal mb-1">01</p>
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Livro Publicado</p>
-          </div>
+
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+          @for (stat of stats; track stat.label) {
+            <ui-glass-card padding="sm" [accent]="false">
+              <p class="mb-1 text-3xl font-extrabold tracking-tight text-gradient-brand">{{ stat.value }}</p>
+              <p class="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">{{ stat.label }}</p>
+            </ui-glass-card>
+          }
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Quote Section com gradient escuro -->
-  <section class="py-24 bg-gradient-to-r from-slate-900 via-brand-blue to-slate-900 text-white px-4 text-center">
-    <div class="max-w-4xl mx-auto">
-      <p class="text-3xl md:text-5xl font-light italic leading-tight mb-8">
-        "Liderança não é cargo. É influência.<br> 
-        Cultura forte gera resultados sustentáveis."
-      </p>
-      <div class="w-16 h-1 bg-brand-teal mx-auto mb-6"></div>
-      <p class="font-bold uppercase tracking-widest text-sm text-teal-200">Lidiane Delcastanher</p>
+  <!-- Citação -->
+  <section class="relative overflow-hidden bg-gradient-navy px-4 py-20 text-center md:py-28">
+    <span class="blob-teal left-1/4 top-0 h-72 w-72 animate-pulse-soft bg-brand-teal-light/20" aria-hidden="true"></span>
+
+    <div class="relative mx-auto max-w-4xl">
+      <div class="glass-dark rounded-3xl px-6 py-14 md:px-14">
+        <p class="mb-8 text-3xl font-light italic leading-tight text-white md:text-5xl">
+          "Liderança não é cargo. É influência.<br />
+          Cultura forte gera resultados sustentáveis."
+        </p>
+        <div class="mx-auto mb-6 h-1 w-16 rounded-full bg-gradient-teal"></div>
+        <p class="text-sm font-bold uppercase tracking-widest text-gradient-teal">Lidiane Delcastanher</p>
+      </div>
     </div>
   </section>
 
-  <!-- Proposta de Valor e Prova Social com mais fotos -->
-  <section id="metodo" class="py-24 px-4 bg-slate-50">
-    <div class="max-w-6xl mx-auto">
-      
-      <div class="flex flex-col md:flex-row items-center gap-16 mb-20">
-        <div class="w-full md:w-1/2">
-          <h2 class="text-sm font-bold text-brand-teal uppercase tracking-widest mb-2">Metodologia</h2>
-          <h3 class="text-3xl md:text-4xl font-bold mb-6 text-brand-blue">O Elo entre Pessoas e Resultados</h3>
-          <p class="text-lg text-slate-600 mb-6">Nossa abordagem é consultiva e prática. Mais do que teoria, entregamos experiência aplicada na transformação de pessoas, líderes e organizações.</p>
+  <!-- Método -->
+  <section id="metodo" class="bg-brand-surface px-4 py-20 md:py-28">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-20 flex flex-col items-center gap-16 md:flex-row">
+        <div class="w-full md:w-1/2" animateOnScroll="animate-fade-in-up">
+          <ui-section-header
+            overline="Metodologia"
+            title="O Elo entre Pessoas e Resultados"
+            subtitle="Nossa abordagem é consultiva e prática. Mais do que teoria, entregamos experiência aplicada na transformação de pessoas, líderes e organizações." />
         </div>
-        <div class="w-full md:w-1/2 grid grid-cols-2 gap-4">
-          <img src="assets/aula2.jpeg" alt="Metodologia na prática" class="rounded-xl shadow-md w-full h-48 object-cover hover:scale-105 transition-transform">
-          <img src="assets/aula1.jpeg" alt="Engajamento" class="rounded-xl shadow-md w-full h-48 object-cover mt-8 hover:scale-105 transition-transform">
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-24">
-        <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-100 hover:shadow-lg transition-all hover:-translate-y-2 group">
-          <div class="w-12 h-12 bg-teal-50 text-brand-teal rounded-xl flex items-center justify-center mb-6 group-hover:bg-brand-teal group-hover:text-white transition-colors">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-          </div>
-          <h4 class="font-bold text-xl mb-3 text-brand-blue">Pessoas</h4>
-          <p class="text-slate-600 text-sm leading-relaxed">Atração, seleção e retenção dos melhores talentos. O capital humano certo no lugar certo.</p>
-        </div>
-        <!-- outros cards omitidos para brevidade mas manterei a estrutura simplificada ou adicionarei todos -->
-        <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-100 hover:shadow-lg transition-all hover:-translate-y-2 group">
-          <div class="w-12 h-12 bg-teal-50 text-brand-teal rounded-xl flex items-center justify-center mb-6 group-hover:bg-brand-teal group-hover:text-white transition-colors">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
-          </div>
-          <h4 class="font-bold text-xl mb-3 text-brand-blue">Processos</h4>
-          <p class="text-slate-600 text-sm leading-relaxed">Desenho de fluxos claros, eficientes e escaláveis, utilizando gestão baseada em dados e People Analytics.</p>
-        </div>
-        <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-100 hover:shadow-lg transition-all hover:-translate-y-2 group">
-          <div class="w-12 h-12 bg-teal-50 text-brand-teal rounded-xl flex items-center justify-center mb-6 group-hover:bg-brand-teal group-hover:text-white transition-colors">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
-          </div>
-          <h4 class="font-bold text-xl mb-3 text-brand-blue">Cultura</h4>
-          <p class="text-slate-600 text-sm leading-relaxed">A importância da segurança psicológica, comunicação assertiva e pertencimento das equipes.</p>
-        </div>
-        <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-100 hover:shadow-lg transition-all hover:-translate-y-2 group">
-          <div class="w-12 h-12 bg-teal-50 text-brand-teal rounded-xl flex items-center justify-center mb-6 group-hover:bg-brand-teal group-hover:text-white transition-colors">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-          </div>
-          <h4 class="font-bold text-xl mb-3 text-brand-blue">Resultados</h4>
-          <p class="text-slate-600 text-sm leading-relaxed">Métricas e indicadores de RH. O alinhamento entre valores e as metas do negócio.</p>
+        <div class="grid w-full grid-cols-2 gap-4 md:w-1/2">
+          <img
+            src="assets/aula2.jpeg" alt="Metodologia na prática"
+            class="h-48 w-full rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
+          <img
+            src="assets/aula1.jpeg" alt="Engajamento da turma"
+            class="mt-8 h-48 w-full rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
         </div>
       </div>
 
-      <h3 class="text-2xl font-bold mb-10 text-brand-blue text-center">Empresas que confiam em nosso trabalho</h3>
-      <div class="flex flex-wrap justify-center items-center gap-10 opacity-50 grayscale hover:grayscale-0 transition-all">
-        <span class="text-2xl font-black text-slate-800">GRUPO FLEXÍVEL</span>
-        <span class="text-2xl font-black text-slate-800">JEC</span>
-        <span class="text-2xl font-black text-slate-800">AMCOM</span>
-        <span class="text-2xl font-black text-slate-800">MAGNA</span>
-        <span class="text-2xl font-black text-slate-800">GEOVENDAS</span>
-        <span class="text-2xl font-black text-slate-800">CRONUS</span>
+      <div class="mb-24 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+        @for (pillar of pillars; track pillar.title; let i = $index) {
+          <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+            <ui-glass-card padding="lg">
+              <span class="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow-teal">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" [attr.d]="pillar.icon" />
+                </svg>
+              </span>
+              <h3 class="mb-3 text-lg font-semibold text-brand-navy md:text-xl">{{ pillar.title }}</h3>
+              <p class="text-sm leading-relaxed text-slate-600">{{ pillar.description }}</p>
+            </ui-glass-card>
+          </div>
+        }
+      </div>
+
+      <h3 class="mb-10 text-center text-2xl font-bold text-brand-navy">
+        Empresas que confiam em nosso trabalho
+      </h3>
+      <div class="flex flex-wrap items-center justify-center gap-10">
+        @for (partner of partners; track partner) {
+          <span class="text-2xl font-black text-brand-navy/30 transition-all duration-300 hover:text-brand-navy">
+            {{ partner }}
+          </span>
+        }
       </div>
     </div>
   </section>
 
   <!-- Grade Curricular -->
-  <section id="trilha" class="py-24 px-4 bg-white relative overflow-hidden">
-    <!-- Decoração de Fundo -->
-    <div class="absolute top-0 right-0 w-64 h-64 bg-brand-teal rounded-full blur-3xl opacity-5 -translate-y-1/2 translate-x-1/3"></div>
-    <div class="max-w-5xl mx-auto relative z-10">
-      <div class="text-center mb-16">
-        <h2 class="text-sm font-bold text-brand-teal uppercase tracking-widest mb-2">Trilha de Aprendizado</h2>
-        <h3 class="text-3xl font-bold text-brand-blue">O que você vai aprender na Imersão</h3>
+  <section id="trilha" class="relative overflow-hidden bg-white px-4 py-20 md:py-28">
+    <span class="blob-teal -right-20 top-0 h-80 w-80" aria-hidden="true"></span>
+
+    <div class="relative mx-auto max-w-5xl">
+      <div class="mb-16">
+        <ui-section-header
+          align="center"
+          overline="Trilha de Aprendizado"
+          title="O que você vai aprender na Imersão" />
       </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-        @for (item of [
-          'Fundamentos do RH Estratégico', 'Diagnóstico Organizacional', 'Recrutamento e Seleção',
-          'Onboarding e Integração', 'Desenvolvimento e Treinamento', 'Gestão de Desempenho',
-          'Clima e Cultura', 'Cargos e Salários', 'Relações Trabalhistas',
-          'Comunicação Interna', 'Indicadores e Métricas', 'Plano de Ação Final'
-        ]; track $index) {
-          <div class="flex items-center gap-4 p-5 bg-white border border-slate-100 rounded-xl hover:border-brand-teal shadow-sm hover:shadow-md transition-all group hover:-translate-x-1 cursor-pointer">
-            <span class="w-10 h-10 rounded-full bg-slate-50 text-brand-teal flex items-center justify-center font-bold group-hover:bg-brand-teal group-hover:text-white transition-colors">
-              {{ $index + 1 }}
-            </span>
-            <span class="font-bold text-brand-blue">{{ item }}</span>
+
+      <div class="grid grid-cols-1 gap-x-8 md:grid-cols-2">
+        @for (item of curriculum; track item; let i = $index) {
+          <div animateOnScroll="animate-fade-in-up" [animateDelay]="(i % 6) * 80">
+            <ui-module-card [moduleNumber]="i + 1" [title]="item" />
           </div>
         }
       </div>
     </div>
   </section>
 
-  <!-- Rodapé (Footer) -->
-  <footer class="bg-brand-blue text-brand-light py-12 px-4 mt-auto">
-    <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-      <div class="text-center md:text-left flex flex-col items-center md:items-start gap-3">
-        <img src="assets/logo.jpg" alt="Delcastanher Logo" class="h-12 object-contain bg-white rounded-lg shadow-sm p-1">
-        <p class="text-sm opacity-70">Serviços Administrativos e Treinamentos</p>
-      </div>
-      <div class="flex gap-6">
-        <a href="#" class="text-sm hover:text-brand-teal transition-colors">LinkedIn</a>
-        <a href="#" class="text-sm hover:text-brand-teal transition-colors">Instagram</a>
-        <a href="#" class="text-sm hover:text-brand-teal transition-colors">Telefone: (47) 99290-8953</a>
-      </div>
-    </div>
-  </footer>
+  <ui-footer />
 </div>
