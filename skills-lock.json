@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "nestjs-expert": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-expert/SKILL.md",
+      "computedHash": "7b83be17282c0125e7cf9249524f6da6d3072ccdea42e08e5e80cb3a4bfaa764"
+    }
+  }
+}
