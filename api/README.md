@@ -4,14 +4,18 @@ Backend NestJS responsável pela autenticação via Firebase.
 
 ## Requisitos
 
-**Node.js >= 22.12** (o repositório fixa a 24 no `.nvmrc`).
+**Node.js >= 20.**
 
-O `firebase-admin` puxa `jwks-rsa@4`, que importa `jose@6` — um pacote
-somente-ESM — com `require()`. Só a partir do Node 22.12 o `require()` de
-módulos ESM é suportado; em versões anteriores a API quebra com
-`[ERR_REQUIRE_ESM]` ao validar tokens. O `engines` do `package.json` somado ao
-`engine-strict=true` do `.npmrc` faz o `npm install` falhar cedo e com mensagem
-clara em runtimes antigos.
+> **Nota sobre o `overrides` do `package.json`.** O `firebase-admin` puxa
+> `jwks-rsa@4`, que faz `require('jose')` no topo de `src/utils.js`. O `jose@6`
+> (o que o `jwks-rsa` pede) é somente-ESM, e `require()` de ESM não funciona em
+> Node < 22.12 **nem no runtime serverless da Vercel**, que usa um loader
+> próprio sem esse suporte — de onde vinha o `[ERR_REQUIRE_ESM]` em produção.
+> O `overrides` fixa `jose@^5.10.0` **apenas para o `jwks-rsa`**: a v5 publica
+> build CJS e ESM, então o `require()` resolve em qualquer loader. As quatro
+> funções que o `jwks-rsa` usa (`importJWK`, `exportSPKI`, `decodeJwt`,
+> `decodeProtectedHeader`) existem igual na v5. Só remova o `overrides` quando o
+> `jwks-rsa` passar a usar `import()` dinâmico.
 
 ## Configuração
 
