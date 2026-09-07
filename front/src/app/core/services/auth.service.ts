@@ -52,6 +52,9 @@ export class AuthService {
   readonly role = computed(() => this.user()?.role ?? null);
   readonly isAuthenticated = computed(() => this.session() !== null);
 
+  /** idToken vigente, usado pelo `authInterceptor` para autenticar a API. */
+  readonly idToken = computed(() => this.session()?.idToken ?? null);
+
   login(email: string, password: string): Observable<AuthUser> {
     return this.http
       .post<AuthSessionResponse>(`${environment.apiUrl}/auth/login`, { email, password })
