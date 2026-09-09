@@ -23,8 +23,8 @@ Stack do projeto (Angular standalone + signals + Tailwind), mantendo o Design Sy
 - [x] **Task 3.4:** Escrever `plans.spec.ts` (5 cards renderizados, Mini Curso sem CTA ativo).
 
 ## Fase 4: Integração no Site e Refinamentos para Conversão (Ads)
-- [ ] **Task 4.1:** Ligar as páginas ao site: link **Planos** no `navLinks` da landing, CTA do hero apontando para `/planos`, e links de `/planos` e do curso no `ui-footer`. Cross-link entre as duas páginas novas (card "Curso Individual" → `/cursos/imersao-rh`).
-- [ ] **Task 4.2:** Revisar a responsividade de todos os templates (mobile-first: CTA visível sem scroll no mobile, cards empilhados, grade curricular colapsada por padrão).
-- [ ] **Task 4.3:** Validar a gestão visual dos placeholders — `[CURSO A SER CADASTRADO]`, `[PREÇO]`, `[LINK DE CHECKOUT]` devem ter estilo próprio (tratamento visual de "pendente"), não quebrar o layout e não parecer erro para o visitante.
-- [ ] **Task 4.4:** Definir `title` e `meta description` por rota (`/planos` e `/cursos/:slug`) via `Title`/`Meta` do Angular, para as campanhas de Ads.
-- [ ] **Task 4.5:** Rodar `npm test` e `npm run build` no `front/` e corrigir regressões.
+- [x] **Task 4.1:** Ligar as páginas ao site: link **Planos** no `navLinks` da landing, CTA do hero apontando para `/planos`, e links de `/planos` e do curso no `ui-footer`. Cross-link entre as duas páginas novas (card "Curso Individual" → `/cursos/imersao-rh`).
+- [x] **Task 4.2:** Revisar a responsividade de todos os templates (mobile-first: CTA visível sem scroll no mobile, cards empilhados, grade curricular colapsada por padrão).
+- [x] **Task 4.3:** Validar a gestão visual dos placeholders — `[CURSO A SER CADASTRADO]`, `[PREÇO]`, `[LINK DE CHECKOUT]` devem ter estilo próprio (tratamento visual de "pendente"), não quebrar o layout e não parecer erro para o visitante.
+- [x] **Task 4.4:** Definir `title` e `meta description` por rota (`/planos` e `/cursos/:slug`) via `Title`/`Meta` do Angular, para as campanhas de Ads.
+- [x] **Task 4.5:** Rodar `npm test` e `npm run build` no `front/` e corrigir regressões.
