@@ -58,6 +58,12 @@ export class CourseDetail {
     isPlaceholder(this.course()?.offer.checkoutUrl)
   );
 
+  /**
+   * Destino dos CTAs de compra: o mockup interno de checkout (Spec 007).
+   * `offer.checkoutUrl` continua no mock como marcador do gateway real.
+   */
+  protected readonly checkoutLink = computed(() => ['/checkout', this.course()?.slug ?? '']);
+
   /** Modulos do curso no formato do ui-accordion. */
   protected readonly curriculumItems = computed<AccordionItem[]>(() =>
     (this.course()?.modules ?? []).map(module => ({
