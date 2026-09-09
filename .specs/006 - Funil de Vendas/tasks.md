@@ -9,12 +9,12 @@ Stack do projeto (Angular standalone + signals + Tailwind), mantendo o Design Sy
 - [x] **Task 1.4:** Criar o componente compartilhado **`ui-scarcity-banner`** (`shared/ui/scarcity-banner/`): faixa de urgência com textos placeholder (`[TURMA ENCERRA EM]`, `[VAGAS RESTANTES]`). Sem timer funcional nesta spec — ver decisão 2 do `context.md`. Com `.spec.ts`.
 
 ## Fase 2: Template de Curso Individual
-- [ ] **Task 2.1:** Criar `features/course-detail/` e registrar a rota lazy `cursos/:slug` em `app.routes.ts` (fora dos guards, pública). Resolver o curso pelo slug no mock e tratar slug inexistente com fallback amigável.
-- [ ] **Task 2.2:** Desenvolver a seção **Hero**: Promessa (Headline) em destaque e o "Problema que resolve", reutilizando `ui-nav-header` (variant landing), `bg-gradient-hero` e `ui-button`.
-- [ ] **Task 2.3:** Desenvolver a seção de **Resultados e Grade Curricular**: capacitações finais + módulos via `ui-accordion` (Task 1.2) e/ou `ui-module-card`.
-- [ ] **Task 2.4:** Desenvolver a seção de **Oferta (Bônus, Investimento e Garantias)**: aplicar a UI de gatilhos de Tempo e Escassez com `ui-scarcity-banner`, preço em placeholder e CTA apontando para `[LINK DE CHECKOUT]`.
-- [ ] **Task 2.5:** Desenvolver a seção de **FAQ**: iterar com `@for` sobre o mock de perguntas/respostas do produto usando `ui-accordion`.
-- [ ] **Task 2.6:** Fechar a página com `ui-footer` e escrever `course-detail.spec.ts` (renderização das seções, resolução por slug, fallback).
+- [x] **Task 2.1:** Criar `features/course-detail/` e registrar a rota lazy `cursos/:slug` em `app.routes.ts` (fora dos guards, pública). Resolver o curso pelo slug no mock e tratar slug inexistente com fallback amigável.
+- [x] **Task 2.2:** Desenvolver a seção **Hero**: Promessa (Headline) em destaque e o "Problema que resolve", reutilizando `ui-nav-header` (variant landing), `bg-gradient-hero` e `ui-button`.
+- [x] **Task 2.3:** Desenvolver a seção de **Resultados e Grade Curricular**: capacitações finais + módulos via `ui-accordion` (Task 1.2) e/ou `ui-module-card`.
+- [x] **Task 2.4:** Desenvolver a seção de **Oferta (Bônus, Investimento e Garantias)**: aplicar a UI de gatilhos de Tempo e Escassez com `ui-scarcity-banner`, preço em placeholder e CTA apontando para `[LINK DE CHECKOUT]`.
+- [x] **Task 2.5:** Desenvolver a seção de **FAQ**: iterar com `@for` sobre o mock de perguntas/respostas do produto usando `ui-accordion`.
+- [x] **Task 2.6:** Fechar a página com `ui-footer` e escrever `course-detail.spec.ts` (renderização das seções, resolução por slug, fallback).
 
 ## Fase 3: Página de Planos e Soluções
 - [ ] **Task 3.1:** Criar `features/plans/` e registrar a rota lazy pública `planos` em `app.routes.ts`.
