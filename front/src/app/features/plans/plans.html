@@ -1,0 +1,89 @@
+<div class="flex min-h-screen flex-col text-slate-800">
+  <ui-nav-header variant="landing" [navLinks]="navLinks" />
+
+  <main class="flex-1">
+    <!-- Hero -->
+    <header class="relative overflow-hidden bg-gradient-hero px-4 py-16 text-center md:py-20">
+      <span class="blob-teal -left-24 top-10 h-96 w-96 animate-float bg-brand-teal-light/20" aria-hidden="true"></span>
+      <span class="blob-navy -right-32 bottom-0 h-[28rem] w-[28rem] animate-pulse-soft bg-white/10" aria-hidden="true"></span>
+
+      <div class="relative mx-auto max-w-3xl animate-fade-in-up">
+        <span class="mb-6 inline-block rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-white backdrop-blur-md">
+          Planos e Soluções
+        </span>
+        <h1 class="mb-5 text-4xl font-extrabold leading-[1.1] tracking-tight text-white md:text-5xl">
+          Escolha como você quer estruturar o seu RH
+        </h1>
+        <p class="text-base font-light leading-relaxed text-white/85 md:text-lg">
+          Do primeiro curso à formação completa, com uma solução dedicada para empresas que vão
+          fazer essa virada com o time inteiro.
+        </p>
+      </div>
+    </header>
+
+    <!-- Grid de pacotes -->
+    <section id="planos" class="relative overflow-hidden bg-brand-surface px-4 py-20 md:py-28">
+      <span class="blob-teal -right-20 top-0 h-80 w-80" aria-hidden="true"></span>
+
+      <div class="relative mx-auto max-w-7xl">
+        <div class="mb-14" animateOnScroll="animate-fade-in-up">
+          <ui-section-header
+            align="center"
+            overline="Compare"
+            title="Os mesmos benefícios, lado a lado"
+            subtitle="Todos os cards listam os mesmos itens na mesma ordem — o que não está incluso aparece riscado, para a comparação ser honesta." />
+        </div>
+
+        <div class="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 xl:grid-cols-5">
+          @for (plan of plans(); track plan.id; let i = $index) {
+            <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 80">
+              <ui-plan-card
+                [name]="plan.name"
+                [audience]="plan.audience"
+                [description]="plan.description"
+                [price]="plan.price"
+                [priceNote]="plan.priceNote"
+                [highlights]="plan.highlights"
+                [benefits]="plan.benefits"
+                [ctaLabel]="plan.ctaLabel"
+                [ctaRouterLink]="plan.ctaRouterLink ?? ''"
+                [ctaHref]="plan.ctaHref ?? ''"
+                [badge]="plan.badge ?? ''"
+                [featured]="plan.featured"
+                [comingSoon]="plan.state === 'em-breve'" />
+            </div>
+          }
+        </div>
+
+        <p class="mx-auto mt-10 max-w-2xl text-center text-sm leading-relaxed text-slate-500">
+          <strong class="text-brand-navy">Trilhas</strong> aqui é o pacote comercial que agrupa
+          vários cursos por tema. Não confunda com a
+          <strong class="text-brand-navy">trilha de aprendizado</strong> da área do aluno, que é a
+          sua navegação dentro de um curso já comprado.
+        </p>
+      </div>
+    </section>
+
+    <!-- Dúvidas -->
+    <section id="duvidas" class="bg-white px-4 py-20 md:py-28">
+      <div class="mx-auto max-w-3xl text-center">
+        <ui-section-header
+          align="center"
+          overline="Ainda em dúvida"
+          title="Comece pelo curso e evolua depois"
+          subtitle="Quem entra por um curso individual pode migrar para uma trilha ou para a formação completa. Fale com a equipe para entender a condição do seu caso." />
+
+        <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <a routerLink="/cursos/imersao-rh">
+            <ui-button variant="primary" size="lg">Ver a Imersão RH Estratégico</ui-button>
+          </a>
+          <a href="https://wa.me/5547992908953">
+            <ui-button variant="outline" size="lg">Falar no WhatsApp</ui-button>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <ui-footer />
+</div>
