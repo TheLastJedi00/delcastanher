@@ -25,6 +25,7 @@ const SIZES: Record<ButtonSize, string> = {
     <button
       [type]="type()"
       [disabled]="disabled() || loading()"
+      [attr.aria-disabled]="disabled() || loading() ? true : null"
       [class]="classes()">
       @if (loading()) {
         <svg class="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
