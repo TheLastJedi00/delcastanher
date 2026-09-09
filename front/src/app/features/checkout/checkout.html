@@ -133,6 +133,10 @@
         </form>
       </div>
     </main>
+
+    @if (isProcessing()) {
+      <ui-loading-overlay message="Processando pagamento" />
+    }
   </div>
 } @else {
   <!-- Slug desconhecido: nao inventamos um pedido. -->
