@@ -16,6 +16,13 @@ export const routes: Routes = [
     loadComponent: () => import('./features/plans/plans').then(m => m.Plans),
   },
   {
+    // Mockup de checkout (Spec 007): rota publica, fora dos guards — nenhuma
+    // etapa autentica nem grava sessao.
+    path: 'checkout/:productSlug',
+    loadChildren: () =>
+      import('./features/checkout/checkout.routes').then(m => m.CHECKOUT_ROUTES),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login').then(m => m.Login),
   },
