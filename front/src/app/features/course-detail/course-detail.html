@@ -134,6 +134,118 @@
           </div>
         </div>
       </section>
+
+      <!-- Bônus -->
+      <section id="bonus" class="bg-brand-surface px-4 py-20 md:py-28">
+        <div class="mx-auto max-w-5xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="Bônus da turma"
+              title="O que vem junto e não é cobrado à parte"
+              subtitle="Disponível para quem entra nesta turma." />
+          </div>
+
+          <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+            @for (bonus of course.bonuses; track bonus.title; let i = $index) {
+              <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+                <ui-glass-card padding="lg">
+                  <span class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow-teal">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                    </svg>
+                  </span>
+                  <p class="mb-1 text-[11px] font-bold uppercase tracking-[0.15em] text-brand-teal-deep">
+                    Bônus {{ i + 1 }}
+                  </p>
+                  <h3 class="mb-2 text-lg font-bold text-brand-navy">{{ bonus.title }}</h3>
+                  <p class="mb-4 text-sm leading-relaxed text-slate-600">{{ bonus.description }}</p>
+                  <p class="flex items-center gap-2 text-sm font-bold text-slate-500">
+                    <span>Valor:</span>
+                    <ui-placeholder-text [value]="bonus.value" />
+                  </p>
+                </ui-glass-card>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Investimento -->
+      <section id="investimento" class="relative overflow-hidden bg-gradient-navy px-4 py-20 md:py-28">
+        <span class="blob-teal left-1/4 top-0 h-72 w-72 animate-pulse-soft bg-brand-teal-light/20" aria-hidden="true"></span>
+
+        <div class="relative mx-auto max-w-3xl">
+          <div class="mb-10 text-center">
+            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-brand-teal-light">Investimento</p>
+            <h2 class="text-3xl font-bold tracking-tight text-white md:text-4xl">
+              Quanto custa estruturar o RH do jeito certo
+            </h2>
+          </div>
+
+          <div class="overflow-hidden rounded-3xl shadow-glass-lg" animateOnScroll="animate-fade-in-up">
+            <ui-scarcity-banner
+              [deadline]="course.offer.scarcityDeadline"
+              [seats]="course.offer.scarcitySeats" />
+
+            <div class="bg-white px-6 py-10 text-center md:px-12">
+              <p class="mb-2 text-sm text-slate-500">
+                De <span class="line-through decoration-slate-400"><ui-placeholder-text [value]="course.offer.priceFrom" /></span> por
+              </p>
+
+              <p class="mb-2 text-4xl font-extrabold tracking-tight text-brand-navy md:text-5xl">
+                <ui-placeholder-text [value]="course.offer.price" />
+              </p>
+              <p class="mb-1 text-base font-bold text-brand-teal-deep">
+                <ui-placeholder-text [value]="course.offer.installments" />
+              </p>
+              <p class="mb-8 text-sm text-slate-500">{{ course.offer.priceNote }}</p>
+
+              <a [href]="course.offer.checkoutUrl" class="block">
+                <ui-button variant="primary" size="lg" [fullWidth]="true">{{ course.offer.ctaLabel }}</ui-button>
+              </a>
+
+              <p class="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+                <svg class="h-4 w-4 shrink-0 text-state-success" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Pagamento em ambiente seguro
+              </p>
+
+              <!-- Checkout ainda nao definido: o link fica visivel como pendente
+                   em vez de simular um destino que nao existe. -->
+              @if (checkoutPending()) {
+                <p class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+                  <span>Destino do botão:</span>
+                  <ui-placeholder-text [value]="course.offer.checkoutUrl" />
+                </p>
+              }
+            </div>
+          </div>
+
+          <!-- Garantias -->
+          <div class="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
+            @for (guarantee of course.guarantees; track guarantee.title; let i = $index) {
+              <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+                <div class="glass-dark h-full rounded-2xl p-6">
+                  <span class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-brand-teal-light">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M12 3l7 4v5c0 4.42-3.13 8.44-7 9-3.87-.56-7-4.58-7-9V7l7-4z" />
+                    </svg>
+                  </span>
+                  <h3 class="mb-2 flex flex-wrap items-center gap-2 text-base font-bold text-white">
+                    <span>{{ guarantee.title }}</span>
+                    @if (guarantee.highlight) {
+                      <ui-placeholder-text [value]="guarantee.highlight" tone="light" />
+                    }
+                  </h3>
+                  <p class="text-sm leading-relaxed text-white/75">{{ guarantee.description }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
     </main>
 
     <ui-footer />
