@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 
@@ -34,6 +35,8 @@ import { SectionHeader } from '../../shared/ui/section-header/section-header';
 })
 export class CourseDetail {
   private readonly route = inject(ActivatedRoute);
+  private readonly title = inject(Title);
+  private readonly meta = inject(Meta);
 
   /** Ancoras da propria pagina do curso; "Planos" navega pelo router. */
   protected readonly navLinks: NavLink[] = [
@@ -73,4 +76,22 @@ export class CourseDetail {
       content: item.answer,
     }))
   );
+
+  constructor() {
+    // Titulo e descricao por curso: as campanhas de Ads apontam direto para
+    // cada slug, entao o snippet precisa mudar junto com o produto.
+    effect(() => {
+      const course = this.course();
+
+      this.title.setTitle(
+        course?.metaTitle ?? 'Curso não encontrado | Delcastanher'
+      );
+      this.meta.updateTag({
+        name: 'description',
+        content:
+          course?.metaDescription ??
+          'Este curso não está disponível. Veja os planos e cursos abertos da Delcastanher.',
+      });
+    });
+  }
 }

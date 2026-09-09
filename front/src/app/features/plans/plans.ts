@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { Meta, Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 
-import { PLAN_BENEFITS, PLANS, Plan } from '../../core/mocks/plans.mock';
+import { PLANS_META, PLAN_BENEFITS, PLANS, Plan } from '../../core/mocks/plans.mock';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
@@ -41,4 +42,11 @@ export class Plans {
       })),
     }))
   );
+
+  constructor() {
+    // /planos e destino de campanha: titulo e descricao ficam com o mock,
+    // junto do resto do conteudo comercial da pagina.
+    inject(Title).setTitle(PLANS_META.title);
+    inject(Meta).updateTag({ name: 'description', content: PLANS_META.description });
+  }
 }
