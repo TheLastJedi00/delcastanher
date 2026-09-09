@@ -65,4 +65,12 @@ export class CourseDetail {
       marker: String(module.number).padStart(2, '0'),
     }))
   );
+
+  /** Perguntas do produto no formato do ui-accordion. */
+  protected readonly faqItems = computed<AccordionItem[]>(() =>
+    (this.course()?.faq ?? []).map(item => ({
+      title: item.question,
+      content: item.answer,
+    }))
+  );
 }
