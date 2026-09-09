@@ -34,7 +34,9 @@
             subtitle="Todos os cards listam os mesmos itens na mesma ordem — o que não está incluso aparece riscado, para a comparação ser honesta." />
         </div>
 
-        <div class="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 xl:grid-cols-5">
+        <!-- 5 colunas so no xl: abaixo disso o card fica estreito demais para a
+             lista comparavel de beneficios caber sem quebrar cada linha. -->
+        <div class="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           @for (plan of plans(); track plan.id; let i = $index) {
             <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 80">
               <ui-plan-card

@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
@@ -76,6 +77,13 @@ describe('CourseDetail', () => {
 
     it('fecha a página com o rodapé', () => {
       expect(el().querySelector('ui-footer')).not.toBeNull();
+    });
+
+    it('define title e meta description do curso para as campanhas', () => {
+      expect(TestBed.inject(Title).getTitle()).toBe(course.metaTitle);
+      expect(TestBed.inject(Meta).getTag('name="description"')!.content).toBe(
+        course.metaDescription
+      );
     });
 
     it('recalcula a página quando o slug da rota muda', () => {

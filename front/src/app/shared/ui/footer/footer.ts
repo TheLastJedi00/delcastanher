@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { DEFAULT_COURSE_SLUG } from '../../../core/mocks/courses.mock';
 import { Logo } from '../logo/logo';
 
 @Component({
   selector: 'ui-footer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Logo],
+  imports: [Logo, RouterLink],
   host: { class: 'block mt-auto' },
   template: `
     <footer class="relative overflow-hidden bg-gradient-navy px-4 py-14 text-white">
@@ -19,6 +21,19 @@ import { Logo } from '../logo/logo';
 
         <div class="flex flex-col items-center gap-4 md:items-end">
           <div class="flex flex-wrap justify-center gap-6">
+            <a
+              routerLink="/planos"
+              class="text-sm font-semibold text-white transition-colors hover:text-brand-teal-light">
+              Planos
+            </a>
+            <a
+              [routerLink]="'/cursos/' + defaultCourseSlug"
+              class="text-sm font-semibold text-white transition-colors hover:text-brand-teal-light">
+              Imersão RH Estratégico
+            </a>
+          </div>
+
+          <div class="flex flex-wrap justify-center gap-6">
             <a href="#" class="text-sm text-white/80 transition-colors hover:text-brand-teal-light">LinkedIn</a>
             <a href="#" class="text-sm text-white/80 transition-colors hover:text-brand-teal-light">Instagram</a>
             <a href="tel:+5547992908953" class="text-sm text-white/80 transition-colors hover:text-brand-teal-light">
@@ -31,4 +46,6 @@ import { Logo } from '../logo/logo';
     </footer>
   `,
 })
-export class Footer {}
+export class Footer {
+  protected readonly defaultCourseSlug = DEFAULT_COURSE_SLUG;
+}

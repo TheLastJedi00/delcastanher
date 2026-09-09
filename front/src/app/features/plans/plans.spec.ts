@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Meta, Title } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 
-import { PLAN_BENEFITS, PLANS } from '../../core/mocks/plans.mock';
+import { PLANS_META, PLAN_BENEFITS, PLANS } from '../../core/mocks/plans.mock';
 import { Plans } from './plans';
 
 describe('Plans', () => {
@@ -85,5 +86,10 @@ describe('Plans', () => {
 
   it('fecha a página com o rodapé', () => {
     expect(el().querySelector('ui-footer')).not.toBeNull();
+  });
+
+  it('define title e meta description da rota para as campanhas', () => {
+    expect(TestBed.inject(Title).getTitle()).toBe(PLANS_META.title);
+    expect(TestBed.inject(Meta).getTag('name="description"')!.content).toBe(PLANS_META.description);
   });
 });
