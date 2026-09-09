@@ -17,10 +17,10 @@ Stack do projeto (Angular standalone + signals + Tailwind), mantendo o Design Sy
 - [x] **Task 2.6:** Fechar a página com `ui-footer` e escrever `course-detail.spec.ts` (renderização das seções, resolução por slug, fallback).
 
 ## Fase 3: Página de Planos e Soluções
-- [ ] **Task 3.1:** Criar `features/plans/` e registrar a rota lazy pública `planos` em `app.routes.ts`.
-- [ ] **Task 3.2:** Desenvolver a grid de pacotes com `ui-plan-card`: **Curso Individual, Trilhas, Formação Completa** e **Empresas**, com os inclusos de cada plano claramente comparáveis (mesma ordem de benefícios em todos os cards).
-- [ ] **Task 3.3:** Incluir o card do produto de entrada (**Mini Curso**) no estado `em-breve`: badge "Em breve", visual atenuado e CTA desabilitado (`disabled` + `aria-disabled`, sem link).
-- [ ] **Task 3.4:** Escrever `plans.spec.ts` (5 cards renderizados, Mini Curso sem CTA ativo).
+- [x] **Task 3.1:** Criar `features/plans/` e registrar a rota lazy pública `planos` em `app.routes.ts`.
+- [x] **Task 3.2:** Desenvolver a grid de pacotes com `ui-plan-card`: **Curso Individual, Trilhas, Formação Completa** e **Empresas**, com os inclusos de cada plano claramente comparáveis (mesma ordem de benefícios em todos os cards).
+- [x] **Task 3.3:** Incluir o card do produto de entrada (**Mini Curso**) no estado `em-breve`: badge "Em breve", visual atenuado e CTA desabilitado (`disabled` + `aria-disabled`, sem link).
+- [x] **Task 3.4:** Escrever `plans.spec.ts` (5 cards renderizados, Mini Curso sem CTA ativo).
 
 ## Fase 4: Integração no Site e Refinamentos para Conversão (Ads)
 - [ ] **Task 4.1:** Ligar as páginas ao site: link **Planos** no `navLinks` da landing, CTA do hero apontando para `/planos`, e links de `/planos` e do curso no `ui-footer`. Cross-link entre as duas páginas novas (card "Curso Individual" → `/cursos/imersao-rh`).
