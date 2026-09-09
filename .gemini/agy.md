@@ -1,5 +1,6 @@
 # Caso comando: Formatar
 - reescreva o context .md de toda a spec pra que se mantenha o mesmo porém escrito seguindo a linguagem markdown
+- Pergunte se necessário pra que o context seja específico e objetivo
 # Caso comando: Taks
 - leia todo o context.md-
 - seguido a melhores diretrizes da stack atual para atingir todo o objetivo necessário para finalizar essa spec
