@@ -22,17 +22,17 @@
 
             <!-- CTA acima da dobra: no mobile o visitante de Ads decide sem rolar. -->
             <div class="mb-8 flex flex-col gap-3 sm:flex-row">
-              <a href="#investimento">
+              <a href="#investimento" class="w-full sm:w-auto">
                 <ui-button variant="primary" size="lg" [fullWidth]="true">{{ course.offer.ctaLabel }}</ui-button>
               </a>
-              <a href="#grade">
+              <a href="#grade" class="w-full sm:w-auto">
                 <ui-button variant="ghost" size="lg" [fullWidth]="true">
                   <span class="text-white">Ver a grade completa</span>
                 </ui-button>
               </a>
             </div>
 
-            <dl class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4">
               @for (item of course.format; track item.label) {
                 <div class="glass-dark rounded-2xl px-4 py-3">
                   <dt class="mb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">{{ item.label }}</dt>
@@ -122,9 +122,9 @@
           </div>
 
           <div animateOnScroll="animate-fade-in-up">
-            <!-- Colapsada por padrao (initialOpen 0): no mobile a grade inteira
-                 aberta empurraria a oferta para muito longe da dobra. -->
-            <ui-accordion [items]="curriculumItems()" [initialOpen]="0" />
+            <!-- Colapsada por padrao: com 12 modulos abertos a oferta ficaria a
+                 varias telas de distancia no mobile. -->
+            <ui-accordion [items]="curriculumItems()" />
           </div>
 
           <div class="mt-10 text-center">
