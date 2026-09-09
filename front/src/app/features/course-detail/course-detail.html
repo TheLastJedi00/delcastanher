@@ -1,0 +1,39 @@
+@if (course(); as course) {
+  <div class="flex min-h-screen flex-col text-slate-800">
+    <ui-nav-header variant="landing" />
+
+    <main class="flex-1">
+      <h1 class="sr-only">{{ course.name }}</h1>
+    </main>
+
+    <ui-footer />
+  </div>
+} @else {
+  <!-- Slug fora do catalogo: nao mostra 404 seco, devolve o visitante ao funil. -->
+  <div class="flex min-h-screen flex-col text-slate-800">
+    <ui-nav-header variant="landing" />
+
+    <main class="flex flex-1 items-center justify-center px-4 py-20">
+      <div class="mx-auto max-w-lg text-center">
+        <p class="mb-3 text-xs font-bold uppercase tracking-widest text-brand-teal-deep">Curso não encontrado</p>
+        <h1 class="mb-4 text-3xl font-extrabold tracking-tight text-brand-navy md:text-4xl">
+          Esse curso não está no ar
+        </h1>
+        <p class="mb-8 text-base leading-relaxed text-slate-600">
+          O endereço pode ter mudado ou a turma pode ter sido encerrada. Veja os planos e cursos
+          disponíveis agora.
+        </p>
+        <div class="flex flex-col justify-center gap-3 sm:flex-row">
+          <a routerLink="/planos">
+            <ui-button variant="primary" size="lg">Ver planos e cursos</ui-button>
+          </a>
+          <a routerLink="/">
+            <ui-button variant="outline" size="lg">Voltar para o início</ui-button>
+          </a>
+        </div>
+      </div>
+    </main>
+
+    <ui-footer />
+  </div>
+}
