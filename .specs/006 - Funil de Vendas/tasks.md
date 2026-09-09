@@ -3,10 +3,10 @@
 Stack do projeto (Angular standalone + signals + Tailwind), mantendo o Design System da Spec 002 e os componentes de `front/src/app/shared/ui/`. Spec 100% front-end: `api/` não é alterada.
 
 ## Fase 1: Preparação, Mocks e Componentes Base
-- [ ] **Task 1.1:** Criar os mocks tipados em `front/src/app/core/mocks/`: `courses.mock.ts` (indexado por slug, com promessa, problema, resultados, módulos, bônus, garantias, FAQ, depoimentos) e `plans.mock.ts` (4 pacotes + Mini Curso). Preços, novos cursos, depoimentos em vídeo, garantias e link de checkout entram como placeholders (`[PREÇO]`, `[CURSO A SER CADASTRADO]`, `[LINK DE CHECKOUT]`).
-- [ ] **Task 1.2:** Criar o componente compartilhado **`ui-accordion`** (`shared/ui/accordion/`) para grade curricular e FAQ — não existe hoje. Standalone, `OnPush`, estado com signals, acessível (`aria-expanded`/`aria-controls`), com `.spec.ts`.
-- [ ] **Task 1.3:** Criar o componente compartilhado **`ui-plan-card`** (`shared/ui/plan-card/`) para os cards de pacote: título, preço (aceitando placeholder), lista de inclusos, CTA e estados `destaque` e `em-breve`. Baseado no visual de `ui-glass-card`/`ui-card`, com `.spec.ts`.
-- [ ] **Task 1.4:** Criar o componente compartilhado **`ui-scarcity-banner`** (`shared/ui/scarcity-banner/`): faixa de urgência com textos placeholder (`[TURMA ENCERRA EM]`, `[VAGAS RESTANTES]`). Sem timer funcional nesta spec — ver decisão 2 do `context.md`. Com `.spec.ts`.
+- [x] **Task 1.1:** Criar os mocks tipados em `front/src/app/core/mocks/`: `courses.mock.ts` (indexado por slug, com promessa, problema, resultados, módulos, bônus, garantias, FAQ, depoimentos) e `plans.mock.ts` (4 pacotes + Mini Curso). Preços, novos cursos, depoimentos em vídeo, garantias e link de checkout entram como placeholders (`[PREÇO]`, `[CURSO A SER CADASTRADO]`, `[LINK DE CHECKOUT]`).
+- [x] **Task 1.2:** Criar o componente compartilhado **`ui-accordion`** (`shared/ui/accordion/`) para grade curricular e FAQ — não existe hoje. Standalone, `OnPush`, estado com signals, acessível (`aria-expanded`/`aria-controls`), com `.spec.ts`.
+- [x] **Task 1.3:** Criar o componente compartilhado **`ui-plan-card`** (`shared/ui/plan-card/`) para os cards de pacote: título, preço (aceitando placeholder), lista de inclusos, CTA e estados `destaque` e `em-breve`. Baseado no visual de `ui-glass-card`/`ui-card`, com `.spec.ts`.
+- [x] **Task 1.4:** Criar o componente compartilhado **`ui-scarcity-banner`** (`shared/ui/scarcity-banner/`): faixa de urgência com textos placeholder (`[TURMA ENCERRA EM]`, `[VAGAS RESTANTES]`). Sem timer funcional nesta spec — ver decisão 2 do `context.md`. Com `.spec.ts`.
 
 ## Fase 2: Template de Curso Individual
 - [ ] **Task 2.1:** Criar `features/course-detail/` e registrar a rota lazy `cursos/:slug` em `app.routes.ts` (fora dos guards, pública). Resolver o curso pelo slug no mock e tratar slug inexistente com fallback amigável.
