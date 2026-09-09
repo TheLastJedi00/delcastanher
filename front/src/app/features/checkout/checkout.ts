@@ -1,3 +1,4 @@
+import { NgOptimizedImage } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder } from '@angular/forms';
@@ -5,7 +6,11 @@ import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 
-import { CHECKOUT_DEMO_NOTICE, findCheckoutProductBySlug } from '../../core/mocks/checkout.mock';
+import {
+  CHECKOUT_DEMO_NOTICE,
+  CHECKOUT_PIX_CODE,
+  findCheckoutProductBySlug,
+} from '../../core/mocks/checkout.mock';
 import { Button } from '../../shared/ui/button/button';
 import { Logo } from '../../shared/ui/logo/logo';
 import { OrderSummary } from '../../shared/ui/order-summary/order-summary';
@@ -30,6 +35,7 @@ import { CheckoutStateService } from './checkout-state';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    NgOptimizedImage,
     Logo,
     Button,
     OrderSummary,
@@ -62,6 +68,9 @@ export class Checkout {
 
   protected readonly isCard = computed(() => this.method() === 'cartao');
 
+  protected readonly pixCode = CHECKOUT_PIX_CODE;
+  protected readonly pixCopied = signal(false);
+
   constructor() {
     this.title.setTitle('Checkout (demonstração) | Delcastanher');
     this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
@@ -79,8 +88,29 @@ export class Checkout {
     effect(() => this.state.setMethod(this.method()));
   }
 
-  /** Guarda os dados do comprador na jornada (nunca os do cartao). */
-  protected saveBuyer(): void {
+  /** Copia a chave PIX de demonstracao para a area de transferencia. */
+  protected async copyPixCode(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.pixCode);
+      this.pixCopied.set(true);
+    } catch {
+      // Sem permissao de clipboard a chave continua visivel e selecionavel na
+      // tela — o fluxo nao trava por causa da copia.
+      this.pixCopied.set(false);
+    }
+  }
+
+  /**
+   * Conclui a etapa de pagamento. Valida o que a tela exige, guarda os dados
+   * do comprador na jornada (nunca os do cartao) e segue para a simulacao.
+   */
+  protected submit(): void {
+    this.submitted.set(true);
+
+    if (this.buyerForm.invalid) {
+      return;
+    }
+
     this.state.setBuyer(readBuyer(this.buyerForm));
   }
 }
