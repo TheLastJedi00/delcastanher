@@ -58,6 +58,12 @@ describe('Login', () => {
     });
     fixture.detectChanges();
 
+    // O login so termina depois de sincronizar o perfil do banco.
+    expect(component.isLoading()).toBe(true);
+
+    http.expectOne(req => req.url.endsWith('/users/me')).flush({ onboardingCompleted: true });
+    fixture.detectChanges();
+
     expect(component.isLoading()).toBe(false);
   });
 
