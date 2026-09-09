@@ -7,6 +7,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/landing/landing').then(m => m.Landing),
   },
   {
+    path: 'cursos/:slug',
+    loadComponent: () => import('./features/course-detail/course-detail').then(m => m.CourseDetail),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login').then(m => m.Login),
   },

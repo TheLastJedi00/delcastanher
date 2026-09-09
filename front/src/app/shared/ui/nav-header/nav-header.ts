@@ -6,7 +6,14 @@ import { Logo } from '../logo/logo';
 
 export interface NavLink {
   label: string;
+  /** Ancora dentro da propria pagina (ex.: `#metodo`). */
   href: string;
+  /**
+   * Rota interna do app (ex.: `/planos`). Quando presente, o link navega pelo
+   * router em vez de recarregar a pagina inteira — o `href` continua servindo
+   * de fallback para as ancoras.
+   */
+  routerLink?: string;
 }
 
 @Component({
@@ -46,14 +53,25 @@ export interface NavLink {
         @if (variant() === 'landing' && navLinks().length) {
           <div class="hidden items-center gap-8 md:flex">
             @for (item of navLinks(); track item.href) {
-              <a
-                [href]="item.href"
-                class="group relative text-sm font-medium text-slate-500 transition-colors hover:text-brand-teal-deep">
-                {{ item.label }}
-                <span
-                  class="absolute -bottom-1 left-0 h-[2px] w-0 rounded-full bg-gradient-teal transition-all duration-300 group-hover:w-full"
-                  aria-hidden="true"></span>
-              </a>
+              @if (item.routerLink) {
+                <a
+                  [routerLink]="item.routerLink"
+                  class="group relative text-sm font-medium text-slate-500 transition-colors hover:text-brand-teal-deep">
+                  {{ item.label }}
+                  <span
+                    class="absolute -bottom-1 left-0 h-[2px] w-0 rounded-full bg-gradient-teal transition-all duration-300 group-hover:w-full"
+                    aria-hidden="true"></span>
+                </a>
+              } @else {
+                <a
+                  [href]="item.href"
+                  class="group relative text-sm font-medium text-slate-500 transition-colors hover:text-brand-teal-deep">
+                  {{ item.label }}
+                  <span
+                    class="absolute -bottom-1 left-0 h-[2px] w-0 rounded-full bg-gradient-teal transition-all duration-300 group-hover:w-full"
+                    aria-hidden="true"></span>
+                </a>
+              }
             }
           </div>
         }

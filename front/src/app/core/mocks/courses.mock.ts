@@ -16,6 +16,8 @@ export interface CourseBonus {
 
 export interface CourseGuarantee {
   title: string;
+  /** Dado destacado ao lado do titulo (ex.: prazo) — pode ser placeholder. */
+  highlight: string;
   description: string;
 }
 
@@ -260,12 +262,14 @@ const IMERSAO_RH: Course = {
   },
   guarantees: [
     {
-      title: 'Garantia incondicional de ' + PLACEHOLDER.guaranteePeriod,
+      title: 'Garantia incondicional de',
+      highlight: PLACEHOLDER.guaranteePeriod,
       description:
         'Se dentro do prazo você entender que a imersão não é para o seu momento, devolvemos o valor integral. O risco é nosso.',
     },
     {
       title: 'Acesso ao material da turma',
+      highlight: '',
       description:
         'O material de apoio e as gravações ficam disponíveis na área do aluno durante o período da turma.',
     },
