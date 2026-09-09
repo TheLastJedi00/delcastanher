@@ -24,6 +24,13 @@
     </header>
 
     <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:py-12">
+      @if (state.outcome(); as outcome) {
+        <app-checkout-result
+          [outcome]="outcome"
+          [product]="product"
+          [methodLabel]="state.methodLabel()"
+          (retry)="retry()" />
+      } @else {
       <h1 class="mb-8 text-2xl font-extrabold tracking-tight text-brand-navy md:text-3xl">
         Finalize sua inscrição
       </h1>
@@ -132,6 +139,7 @@
           </section>
         </form>
       </div>
+      }
     </main>
 
     @if (isProcessing()) {

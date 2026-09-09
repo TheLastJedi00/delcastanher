@@ -32,6 +32,7 @@ import {
 } from '../../shared/ui/payment-method-selector/payment-method-selector';
 import { CheckoutBuyerForm, createBuyerForm, readBuyer } from './checkout-buyer-form';
 import { CheckoutCardForm } from './checkout-card-form';
+import { CheckoutResult } from './checkout-result';
 import { CheckoutStateService } from './checkout-state';
 
 /** Duracao da simulacao de processamento. Exportada para os testes. */
@@ -58,6 +59,7 @@ export const PROCESSING_DELAY_MS = 1600;
     PaymentMethodSelector,
     CheckoutBuyerForm,
     CheckoutCardForm,
+    CheckoutResult,
   ],
   templateUrl: './checkout.html',
 })
