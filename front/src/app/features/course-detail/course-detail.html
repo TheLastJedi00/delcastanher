@@ -304,6 +304,31 @@
           </div>
         </div>
       </section>
+
+      <!-- Fechamento -->
+      <section class="relative overflow-hidden bg-gradient-hero px-4 py-16 text-center md:py-20">
+        <span class="blob-teal -right-20 top-0 h-72 w-72 bg-brand-teal-light/20" aria-hidden="true"></span>
+
+        <div class="relative mx-auto max-w-3xl">
+          <h2 class="mb-4 text-3xl font-extrabold tracking-tight text-white md:text-4xl">
+            A próxima turma da {{ course.name }} está aberta
+          </h2>
+          <p class="mb-8 flex flex-wrap items-center justify-center gap-2 text-base text-white/85">
+            <span>Inscrições até</span>
+            <ui-placeholder-text [value]="course.offer.scarcityDeadline" tone="light" />
+          </p>
+          <div class="flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <a [href]="course.offer.checkoutUrl">
+              <ui-button variant="primary" size="lg">{{ course.offer.ctaLabel }}</ui-button>
+            </a>
+            <a routerLink="/planos">
+              <ui-button variant="ghost" size="lg">
+                <span class="text-white">Comparar com os outros planos</span>
+              </ui-button>
+            </a>
+          </div>
+        </div>
+      </section>
     </main>
 
     <ui-footer />
