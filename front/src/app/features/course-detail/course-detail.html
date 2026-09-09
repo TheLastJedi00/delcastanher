@@ -79,6 +79,61 @@
           </ul>
         </div>
       </section>
+
+      <!-- Resultados esperados -->
+      <section id="resultados" class="relative overflow-hidden bg-brand-surface px-4 py-20 md:py-28">
+        <span class="blob-teal -right-20 top-0 h-80 w-80" aria-hidden="true"></span>
+
+        <div class="relative mx-auto max-w-5xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="Resultados esperados"
+              title="O que você será capaz de fazer ao final"
+              subtitle="Cada módulo entrega uma capacitação prática — não teoria solta." />
+          </div>
+
+          <ul class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            @for (outcome of course.outcomes; track outcome; let i = $index) {
+              <li animateOnScroll="animate-fade-in-up" [animateDelay]="(i % 4) * 80">
+                <div class="flex h-full items-start gap-3 rounded-2xl bg-white p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
+                  <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-brand text-white shadow-glow-teal">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                  <p class="text-sm leading-relaxed text-slate-600">{{ outcome }}</p>
+                </div>
+              </li>
+            }
+          </ul>
+        </div>
+      </section>
+
+      <!-- Grade curricular -->
+      <section id="grade" class="bg-white px-4 py-20 md:py-28">
+        <div class="mx-auto max-w-4xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="Grade curricular"
+              [title]="course.modules.length + ' módulos, do diagnóstico ao plano de ação'"
+              subtitle="Toque em um módulo para ver o conteúdo detalhado." />
+          </div>
+
+          <div animateOnScroll="animate-fade-in-up">
+            <!-- Colapsada por padrao (initialOpen 0): no mobile a grade inteira
+                 aberta empurraria a oferta para muito longe da dobra. -->
+            <ui-accordion [items]="curriculumItems()" [initialOpen]="0" />
+          </div>
+
+          <div class="mt-10 text-center">
+            <a href="#investimento">
+              <ui-button variant="primary" size="lg">{{ course.offer.ctaLabel }}</ui-button>
+            </a>
+          </div>
+        </div>
+      </section>
     </main>
 
     <ui-footer />

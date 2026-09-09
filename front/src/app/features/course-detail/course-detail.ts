@@ -5,6 +5,7 @@ import { map } from 'rxjs';
 
 import { findCourseBySlug } from '../../core/mocks/courses.mock';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
+import { Accordion, AccordionItem } from '../../shared/ui/accordion/accordion';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
@@ -17,6 +18,7 @@ import { SectionHeader } from '../../shared/ui/section-header/section-header';
   imports: [
     RouterLink,
     NavHeader,
+    Accordion,
     Footer,
     Button,
     SectionHeader,
@@ -42,4 +44,15 @@ export class CourseDetail {
 
   /** null quando o slug nao existe no mock — o template cai no fallback. */
   protected readonly course = computed(() => findCourseBySlug(this.slug()));
+
+  /** Modulos do curso no formato do ui-accordion. */
+  protected readonly curriculumItems = computed<AccordionItem[]>(() =>
+    (this.course()?.modules ?? []).map(module => ({
+      title: module.title,
+      subtitle: module.summary,
+      content: '',
+      bullets: module.topics,
+      marker: String(module.number).padStart(2, '0'),
+    }))
+  );
 }
