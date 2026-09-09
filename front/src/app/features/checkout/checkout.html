@@ -1,0 +1,84 @@
+@if (product(); as product) {
+  <div class="flex min-h-screen flex-col bg-slate-50 text-slate-800">
+    <!-- Aviso de demonstracao: fica no topo de tudo, em todas as etapas. -->
+    <p
+      role="note"
+      class="bg-brand-navy px-4 py-2.5 text-center text-xs font-semibold leading-relaxed text-white/90">
+      {{ demoNotice }}
+    </p>
+
+    <!-- Sem menu: no checkout a unica saida é voltar para o produto. -->
+    <header class="border-b border-brand-navy/8 bg-white">
+      <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
+        <a routerLink="/" class="inline-flex items-center gap-3" aria-label="Delcastanher, início">
+          <ui-logo size="sm" />
+          <span class="text-sm font-extrabold tracking-tight text-brand-navy">Delcastanher</span>
+        </a>
+        <span class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+          <svg class="h-4 w-4 shrink-0 text-state-success" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          Ambiente de demonstração
+        </span>
+      </div>
+    </header>
+
+    <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8 md:py-12">
+      <h1 class="mb-8 text-2xl font-extrabold tracking-tight text-brand-navy md:text-3xl">
+        Finalize sua inscrição
+      </h1>
+
+      <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <!-- No mobile o resumo vem primeiro: o comprador confere o que está
+             comprando antes de digitar qualquer dado. -->
+        <aside class="order-1 lg:order-2 lg:sticky lg:top-6">
+          <ui-order-summary
+            [name]="product.name"
+            [summary]="product.summary"
+            [price]="product.price"
+            [priceNote]="product.priceNote"
+            [kind]="product.kind === 'curso' ? 'Curso' : 'Plano'" />
+        </aside>
+
+        <form
+          class="order-2 flex flex-col gap-8 lg:order-1"
+          (submit)="$event.preventDefault(); saveBuyer()"
+          novalidate>
+          <section class="rounded-2xl border border-brand-navy/8 bg-white p-6 shadow-card md:p-8">
+            <h2 class="mb-6 text-lg font-extrabold tracking-tight text-brand-navy">Seus dados</h2>
+            <app-checkout-buyer-form [form]="buyerForm" [submitted]="submitted()" />
+          </section>
+
+          <section class="rounded-2xl border border-brand-navy/8 bg-white p-6 shadow-card md:p-8">
+            <h2 class="mb-6 text-lg font-extrabold tracking-tight text-brand-navy">Pagamento</h2>
+
+            <ui-payment-method-selector [(value)]="method" />
+
+            @if (isCard()) {
+              <div class="mt-6">
+                <app-checkout-card-form [submitted]="submitted()" />
+              </div>
+            }
+          </section>
+        </form>
+      </div>
+    </main>
+  </div>
+} @else {
+  <!-- Slug desconhecido: nao inventamos um pedido. -->
+  <main class="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-50 px-4 text-center">
+    <ui-logo size="lg" />
+    <div>
+      <h1 class="mb-2 text-2xl font-extrabold tracking-tight text-brand-navy">
+        Não encontramos este produto
+      </h1>
+      <p class="max-w-md text-sm leading-relaxed text-slate-500">
+        O link de compra pode ter expirado ou o produto não está mais disponível. Veja os planos
+        abertos e escolha o formato certo para o seu momento.
+      </p>
+    </div>
+    <a routerLink="/planos">
+      <ui-button variant="primary" size="lg">Ver os planos</ui-button>
+    </a>
+  </main>
+}
