@@ -1,9 +1,84 @@
 @if (course(); as course) {
   <div class="flex min-h-screen flex-col text-slate-800">
-    <ui-nav-header variant="landing" />
+    <ui-nav-header variant="landing" [navLinks]="navLinks" />
 
     <main class="flex-1">
-      <h1 class="sr-only">{{ course.name }}</h1>
+      <!-- Hero: promessa -->
+      <header class="relative overflow-hidden bg-gradient-hero">
+        <span class="blob-teal -left-24 top-10 h-96 w-96 animate-float bg-brand-teal-light/20" aria-hidden="true"></span>
+        <span class="blob-navy -right-32 bottom-0 h-[28rem] w-[28rem] animate-pulse-soft bg-white/10" aria-hidden="true"></span>
+
+        <div class="relative mx-auto flex max-w-6xl flex-col items-center gap-12 px-4 py-16 md:flex-row md:py-24">
+          <div class="z-10 w-full animate-fade-in-up md:w-7/12">
+            <span class="mb-6 inline-block rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-white backdrop-blur-md">
+              {{ course.overline }}
+            </span>
+            <h1 class="mb-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-white md:text-5xl lg:text-6xl">
+              {{ course.headline }}
+            </h1>
+            <p class="mb-8 max-w-xl text-base font-light leading-relaxed text-white/85 md:text-lg">
+              {{ course.subheadline }}
+            </p>
+
+            <!-- CTA acima da dobra: no mobile o visitante de Ads decide sem rolar. -->
+            <div class="mb-8 flex flex-col gap-3 sm:flex-row">
+              <a href="#investimento">
+                <ui-button variant="primary" size="lg" [fullWidth]="true">{{ course.offer.ctaLabel }}</ui-button>
+              </a>
+              <a href="#grade">
+                <ui-button variant="ghost" size="lg" [fullWidth]="true">
+                  <span class="text-white">Ver a grade completa</span>
+                </ui-button>
+              </a>
+            </div>
+
+            <dl class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              @for (item of course.format; track item.label) {
+                <div class="glass-dark rounded-2xl px-4 py-3">
+                  <dt class="mb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">{{ item.label }}</dt>
+                  <dd class="text-sm font-bold text-white">
+                    <ui-placeholder-text [value]="item.value" tone="light" />
+                  </dd>
+                </div>
+              }
+            </dl>
+          </div>
+
+          <div class="relative hidden w-full md:block md:w-5/12">
+            <span class="blob-teal inset-6 bg-brand-teal-light/30" aria-hidden="true"></span>
+            <img
+              src="assets/aula1.jpeg"
+              alt="Lidiane Delcastanher conduzindo a imersão para uma turma"
+              class="relative z-10 h-[460px] w-full animate-float rounded-3xl object-cover shadow-glass-lg" />
+          </div>
+        </div>
+      </header>
+
+      <!-- Problema que resolve -->
+      <section id="problema" class="bg-white px-4 py-20 md:py-28">
+        <div class="mx-auto max-w-5xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="O problema"
+              [title]="course.problem.title"
+              [subtitle]="course.problem.description" />
+          </div>
+
+          <ul class="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
+            @for (pain of course.problem.pains; track pain; let i = $index) {
+              <li animateOnScroll="animate-fade-in-up" [animateDelay]="i * 80">
+                <div class="flex h-full items-start gap-3 rounded-2xl border border-brand-navy/8 bg-brand-surface p-5">
+                  <svg class="mt-0.5 h-5 w-5 shrink-0 text-state-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                  </svg>
+                  <p class="text-sm leading-relaxed text-slate-600">{{ pain }}</p>
+                </div>
+              </li>
+            }
+          </ul>
+        </div>
+      </section>
     </main>
 
     <ui-footer />

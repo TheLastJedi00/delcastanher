@@ -4,18 +4,37 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 
 import { findCourseBySlug } from '../../core/mocks/courses.mock';
+import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
-import { NavHeader } from '../../shared/ui/nav-header/nav-header';
+import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
+import { PlaceholderText } from '../../shared/ui/placeholder-text/placeholder-text';
+import { SectionHeader } from '../../shared/ui/section-header/section-header';
 
 @Component({
   selector: 'app-course-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, NavHeader, Footer, Button],
+  imports: [
+    RouterLink,
+    NavHeader,
+    Footer,
+    Button,
+    SectionHeader,
+    PlaceholderText,
+    AnimateOnScroll,
+  ],
   templateUrl: './course-detail.html',
 })
 export class CourseDetail {
   private readonly route = inject(ActivatedRoute);
+
+  /** Ancoras da propria pagina do curso; "Planos" navega pelo router. */
+  protected readonly navLinks: NavLink[] = [
+    { label: 'O que você aprende', href: '#resultados' },
+    { label: 'Grade', href: '#grade' },
+    { label: 'Investimento', href: '#investimento' },
+    { label: 'Planos', href: '/planos', routerLink: '/planos' },
+  ];
 
   private readonly slug = toSignal(this.route.paramMap.pipe(map(params => params.get('slug'))), {
     initialValue: null,
