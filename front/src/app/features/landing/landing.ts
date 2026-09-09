@@ -34,6 +34,7 @@ export class Landing {
     { label: 'Método', href: '#metodo' },
     { label: 'A Mentora', href: '#mentora' },
     { label: 'Trilha', href: '#trilha' },
+    { label: 'Planos', href: '/planos', routerLink: '/planos' },
   ];
 
   readonly stats = [

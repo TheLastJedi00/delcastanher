@@ -1,3 +1,10 @@
+# Caso comando: Revisar (Ou caso não dê comando)
+- Avaliar padrão atual de projeto por specs anteriores
+- Rever spec atual
+- Encontrar incoerências no context.md e tasks.md
+- Corrigir incoerências óbvias
+- Perguntar caso incorência seja mais complexa
+- Corrigir no context.md e task.md
 # Caso comando: Executar
 - comece a executar as fases sendo uma branch feat/<> por fase e um commit por task dessa fase
 - Faça perguntas se necssário

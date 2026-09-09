@@ -1,0 +1,364 @@
+@if (course(); as course) {
+  <div class="flex min-h-screen flex-col text-slate-800">
+    <ui-nav-header variant="landing" [navLinks]="navLinks" />
+
+    <main class="flex-1">
+      <!-- Hero: promessa -->
+      <header class="relative overflow-hidden bg-gradient-hero">
+        <span class="blob-teal -left-24 top-10 h-96 w-96 animate-float bg-brand-teal-light/20" aria-hidden="true"></span>
+        <span class="blob-navy -right-32 bottom-0 h-[28rem] w-[28rem] animate-pulse-soft bg-white/10" aria-hidden="true"></span>
+
+        <div class="relative mx-auto flex max-w-6xl flex-col items-center gap-12 px-4 py-16 md:flex-row md:py-24">
+          <div class="z-10 w-full animate-fade-in-up md:w-7/12">
+            <span class="mb-6 inline-block rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-white backdrop-blur-md">
+              {{ course.overline }}
+            </span>
+            <h1 class="mb-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-white md:text-5xl lg:text-6xl">
+              {{ course.headline }}
+            </h1>
+            <p class="mb-8 max-w-xl text-base font-light leading-relaxed text-white/85 md:text-lg">
+              {{ course.subheadline }}
+            </p>
+
+            <!-- CTA acima da dobra: no mobile o visitante de Ads decide sem rolar. -->
+            <div class="mb-8 flex flex-col gap-3 sm:flex-row">
+              <a href="#investimento" class="w-full sm:w-auto">
+                <ui-button variant="primary" size="lg" [fullWidth]="true">{{ course.offer.ctaLabel }}</ui-button>
+              </a>
+              <a href="#grade" class="w-full sm:w-auto">
+                <ui-button variant="ghost" size="lg" [fullWidth]="true">
+                  <span class="text-white">Ver a grade completa</span>
+                </ui-button>
+              </a>
+            </div>
+
+            <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              @for (item of course.format; track item.label) {
+                <div class="glass-dark rounded-2xl px-4 py-3">
+                  <dt class="mb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">{{ item.label }}</dt>
+                  <dd class="text-sm font-bold text-white">
+                    <ui-placeholder-text [value]="item.value" tone="light" />
+                  </dd>
+                </div>
+              }
+            </dl>
+          </div>
+
+          <div class="relative hidden w-full md:block md:w-5/12">
+            <span class="blob-teal inset-6 bg-brand-teal-light/30" aria-hidden="true"></span>
+            <img
+              src="assets/aula1.jpeg"
+              alt="Lidiane Delcastanher conduzindo a imersão para uma turma"
+              class="relative z-10 h-[460px] w-full animate-float rounded-3xl object-cover shadow-glass-lg" />
+          </div>
+        </div>
+      </header>
+
+      <!-- Problema que resolve -->
+      <section id="problema" class="bg-white px-4 py-20 md:py-28">
+        <div class="mx-auto max-w-5xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="O problema"
+              [title]="course.problem.title"
+              [subtitle]="course.problem.description" />
+          </div>
+
+          <ul class="mx-auto grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
+            @for (pain of course.problem.pains; track pain; let i = $index) {
+              <li animateOnScroll="animate-fade-in-up" [animateDelay]="i * 80">
+                <div class="flex h-full items-start gap-3 rounded-2xl border border-brand-navy/8 bg-brand-surface p-5">
+                  <svg class="mt-0.5 h-5 w-5 shrink-0 text-state-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                  </svg>
+                  <p class="text-sm leading-relaxed text-slate-600">{{ pain }}</p>
+                </div>
+              </li>
+            }
+          </ul>
+        </div>
+      </section>
+
+      <!-- Resultados esperados -->
+      <section id="resultados" class="relative overflow-hidden bg-brand-surface px-4 py-20 md:py-28">
+        <span class="blob-teal -right-20 top-0 h-80 w-80" aria-hidden="true"></span>
+
+        <div class="relative mx-auto max-w-5xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="Resultados esperados"
+              title="O que você será capaz de fazer ao final"
+              subtitle="Cada módulo entrega uma capacitação prática — não teoria solta." />
+          </div>
+
+          <ul class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            @for (outcome of course.outcomes; track outcome; let i = $index) {
+              <li animateOnScroll="animate-fade-in-up" [animateDelay]="(i % 4) * 80">
+                <div class="flex h-full items-start gap-3 rounded-2xl bg-white p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover">
+                  <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-brand text-white shadow-glow-teal">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                  <p class="text-sm leading-relaxed text-slate-600">{{ outcome }}</p>
+                </div>
+              </li>
+            }
+          </ul>
+        </div>
+      </section>
+
+      <!-- Grade curricular -->
+      <section id="grade" class="bg-white px-4 py-20 md:py-28">
+        <div class="mx-auto max-w-4xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="Grade curricular"
+              [title]="course.modules.length + ' módulos, do diagnóstico ao plano de ação'"
+              subtitle="Toque em um módulo para ver o conteúdo detalhado." />
+          </div>
+
+          <div animateOnScroll="animate-fade-in-up">
+            <!-- Colapsada por padrao: com 12 modulos abertos a oferta ficaria a
+                 varias telas de distancia no mobile. -->
+            <ui-accordion [items]="curriculumItems()" />
+          </div>
+
+          <div class="mt-10 text-center">
+            <a href="#investimento">
+              <ui-button variant="primary" size="lg">{{ course.offer.ctaLabel }}</ui-button>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bônus -->
+      <section id="bonus" class="bg-brand-surface px-4 py-20 md:py-28">
+        <div class="mx-auto max-w-5xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="Bônus da turma"
+              title="O que vem junto e não é cobrado à parte"
+              subtitle="Disponível para quem entra nesta turma." />
+          </div>
+
+          <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+            @for (bonus of course.bonuses; track bonus.title; let i = $index) {
+              <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+                <ui-glass-card padding="lg">
+                  <span class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow-teal">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                    </svg>
+                  </span>
+                  <p class="mb-1 text-[11px] font-bold uppercase tracking-[0.15em] text-brand-teal-deep">
+                    Bônus {{ i + 1 }}
+                  </p>
+                  <h3 class="mb-2 text-lg font-bold text-brand-navy">{{ bonus.title }}</h3>
+                  <p class="mb-4 text-sm leading-relaxed text-slate-600">{{ bonus.description }}</p>
+                  <p class="flex items-center gap-2 text-sm font-bold text-slate-500">
+                    <span>Valor:</span>
+                    <ui-placeholder-text [value]="bonus.value" />
+                  </p>
+                </ui-glass-card>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Investimento -->
+      <section id="investimento" class="relative overflow-hidden bg-gradient-navy px-4 py-20 md:py-28">
+        <span class="blob-teal left-1/4 top-0 h-72 w-72 animate-pulse-soft bg-brand-teal-light/20" aria-hidden="true"></span>
+
+        <div class="relative mx-auto max-w-3xl">
+          <div class="mb-10 text-center">
+            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-brand-teal-light">Investimento</p>
+            <h2 class="text-3xl font-bold tracking-tight text-white md:text-4xl">
+              Quanto custa estruturar o RH do jeito certo
+            </h2>
+          </div>
+
+          <div class="overflow-hidden rounded-3xl shadow-glass-lg" animateOnScroll="animate-fade-in-up">
+            <ui-scarcity-banner
+              [deadline]="course.offer.scarcityDeadline"
+              [seats]="course.offer.scarcitySeats" />
+
+            <div class="bg-white px-6 py-10 text-center md:px-12">
+              <p class="mb-2 text-sm text-slate-500">
+                De <span class="line-through decoration-slate-400"><ui-placeholder-text [value]="course.offer.priceFrom" /></span> por
+              </p>
+
+              <p class="mb-2 text-4xl font-extrabold tracking-tight text-brand-navy md:text-5xl">
+                <ui-placeholder-text [value]="course.offer.price" />
+              </p>
+              <p class="mb-1 text-base font-bold text-brand-teal-deep">
+                <ui-placeholder-text [value]="course.offer.installments" />
+              </p>
+              <p class="mb-8 text-sm text-slate-500">{{ course.offer.priceNote }}</p>
+
+              <a [href]="course.offer.checkoutUrl" class="block">
+                <ui-button variant="primary" size="lg" [fullWidth]="true">{{ course.offer.ctaLabel }}</ui-button>
+              </a>
+
+              <p class="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+                <svg class="h-4 w-4 shrink-0 text-state-success" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Pagamento em ambiente seguro
+              </p>
+
+              <!-- Checkout ainda nao definido: o link fica visivel como pendente
+                   em vez de simular um destino que nao existe. -->
+              @if (checkoutPending()) {
+                <p class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+                  <span>Destino do botão:</span>
+                  <ui-placeholder-text [value]="course.offer.checkoutUrl" />
+                </p>
+              }
+            </div>
+          </div>
+
+          <!-- Garantias -->
+          <div class="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
+            @for (guarantee of course.guarantees; track guarantee.title; let i = $index) {
+              <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+                <div class="glass-dark h-full rounded-2xl p-6">
+                  <span class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-brand-teal-light">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M12 3l7 4v5c0 4.42-3.13 8.44-7 9-3.87-.56-7-4.58-7-9V7l7-4z" />
+                    </svg>
+                  </span>
+                  <h3 class="mb-2 flex flex-wrap items-center gap-2 text-base font-bold text-white">
+                    <span>{{ guarantee.title }}</span>
+                    @if (guarantee.highlight) {
+                      <ui-placeholder-text [value]="guarantee.highlight" tone="light" />
+                    }
+                  </h3>
+                  <p class="text-sm leading-relaxed text-white/75">{{ guarantee.description }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Depoimentos: espaço reservado até os vídeos existirem -->
+      <section id="depoimentos" class="bg-white px-4 py-20 md:py-28">
+        <div class="mx-auto max-w-5xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="Depoimentos"
+              title="Quem já passou pela imersão" />
+          </div>
+
+          <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+            @for (testimonial of course.testimonials; track $index; let i = $index) {
+              <figure animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+                <div class="flex h-full flex-col rounded-2xl border border-brand-navy/8 bg-brand-surface p-6">
+                  <div class="mb-4 flex aspect-video items-center justify-center rounded-xl border border-dashed border-brand-navy/20 bg-white">
+                    <svg class="h-10 w-10 text-brand-navy/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <blockquote class="mb-4 flex-1 text-sm leading-relaxed text-slate-600">
+                    <ui-placeholder-text [value]="testimonial.quote" />
+                  </blockquote>
+                  <figcaption class="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                    {{ testimonial.role }}
+                  </figcaption>
+                </div>
+              </figure>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section id="faq" class="relative overflow-hidden bg-brand-surface px-4 py-20 md:py-28">
+        <span class="blob-navy -left-20 bottom-0 h-80 w-80" aria-hidden="true"></span>
+
+        <div class="relative mx-auto max-w-3xl">
+          <div class="mb-12" animateOnScroll="animate-fade-in-up">
+            <ui-section-header
+              align="center"
+              overline="Dúvidas frequentes"
+              title="O que perguntam antes de se inscrever" />
+          </div>
+
+          <div animateOnScroll="animate-fade-in-up">
+            <ui-accordion [items]="faqItems()" />
+          </div>
+
+          <div class="mt-12 text-center">
+            <p class="mb-4 text-sm text-slate-600">Ainda com dúvida? Fale com a nossa equipe.</p>
+            <a href="https://wa.me/5547992908953">
+              <ui-button variant="outline" size="lg">Falar no WhatsApp</ui-button>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Fechamento -->
+      <section class="relative overflow-hidden bg-gradient-hero px-4 py-16 text-center md:py-20">
+        <span class="blob-teal -right-20 top-0 h-72 w-72 bg-brand-teal-light/20" aria-hidden="true"></span>
+
+        <div class="relative mx-auto max-w-3xl">
+          <h2 class="mb-4 text-3xl font-extrabold tracking-tight text-white md:text-4xl">
+            A próxima turma da {{ course.name }} está aberta
+          </h2>
+          <p class="mb-8 flex flex-wrap items-center justify-center gap-2 text-base text-white/85">
+            <span>Inscrições até</span>
+            <ui-placeholder-text [value]="course.offer.scarcityDeadline" tone="light" />
+          </p>
+          <div class="flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <a [href]="course.offer.checkoutUrl">
+              <ui-button variant="primary" size="lg">{{ course.offer.ctaLabel }}</ui-button>
+            </a>
+            <a routerLink="/planos">
+              <ui-button variant="ghost" size="lg">
+                <span class="text-white">Comparar com os outros planos</span>
+              </ui-button>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <ui-footer />
+  </div>
+} @else {
+  <!-- Slug fora do catalogo: nao mostra 404 seco, devolve o visitante ao funil. -->
+  <div class="flex min-h-screen flex-col text-slate-800">
+    <ui-nav-header variant="landing" />
+
+    <main class="flex flex-1 items-center justify-center px-4 py-20">
+      <div class="mx-auto max-w-lg text-center">
+        <p class="mb-3 text-xs font-bold uppercase tracking-widest text-brand-teal-deep">Curso não encontrado</p>
+        <h1 class="mb-4 text-3xl font-extrabold tracking-tight text-brand-navy md:text-4xl">
+          Esse curso não está no ar
+        </h1>
+        <p class="mb-8 text-base leading-relaxed text-slate-600">
+          O endereço pode ter mudado ou a turma pode ter sido encerrada. Veja os planos e cursos
+          disponíveis agora.
+        </p>
+        <div class="flex flex-col justify-center gap-3 sm:flex-row">
+          <a routerLink="/planos">
+            <ui-button variant="primary" size="lg">Ver planos e cursos</ui-button>
+          </a>
+          <a routerLink="/">
+            <ui-button variant="outline" size="lg">Voltar para o início</ui-button>
+          </a>
+        </div>
+      </div>
+    </main>
+
+    <ui-footer />
+  </div>
+}
