@@ -18,7 +18,7 @@ import { isPlaceholder } from '../../../core/mocks/placeholders';
         <svg class="h-3 w-3 shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
         </svg>
-        <span class="truncate">{{ value() }}</span>
+        <span class="min-w-0 break-words">{{ value() }}</span>
       </span>
     } @else {
       <span class="min-w-0">{{ value() }}</span>
@@ -34,8 +34,10 @@ export class PlaceholderText {
 
   protected readonly classes = computed(() =>
     [
-      'inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-dashed px-2 py-0.5',
-      'text-[0.85em] font-semibold uppercase tracking-wide',
+      // Sem truncate: o placeholder precisa ser lido inteiro em card estreito —
+      // "[CARGA H..." nao diz nada a quem esta cadastrando o dado depois.
+      'inline-flex min-w-0 items-start gap-1.5 rounded-lg border border-dashed px-2 py-0.5',
+      'text-left text-[0.85em] font-semibold uppercase leading-snug tracking-wide',
       this.tone() === 'light'
         ? 'border-white/40 bg-white/10 text-white/80'
         : 'border-brand-navy/25 bg-brand-navy/5 text-slate-500',
