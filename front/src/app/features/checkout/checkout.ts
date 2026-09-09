@@ -9,6 +9,8 @@ import { map } from 'rxjs';
 import {
   CHECKOUT_DEMO_NOTICE,
   CHECKOUT_PIX_CODE,
+  CHECKOUT_SCENARIOS,
+  CheckoutScenario,
   findCheckoutProductBySlug,
 } from '../../core/mocks/checkout.mock';
 import { Button } from '../../shared/ui/button/button';
@@ -71,6 +73,10 @@ export class Checkout {
   protected readonly pixCode = CHECKOUT_PIX_CODE;
   protected readonly pixCopied = signal(false);
 
+  /** Cenario que a simulacao vai devolver — escolhido, nunca sorteado. */
+  protected readonly scenarios = CHECKOUT_SCENARIOS;
+  protected readonly scenario = signal<CheckoutScenario>('aprovado');
+
   constructor() {
     this.title.setTitle('Checkout (demonstração) | Delcastanher');
     this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
@@ -86,6 +92,16 @@ export class Checkout {
     });
 
     effect(() => this.state.setMethod(this.method()));
+  }
+
+  protected scenarioClasses(scenario: CheckoutScenario): string {
+    return [
+      'rounded-xl border px-3 py-1.5 text-xs font-bold tracking-tight transition-colors',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2',
+      this.scenario() === scenario
+        ? 'border-brand-navy bg-brand-navy text-white'
+        : 'border-brand-navy/20 bg-white text-slate-600 hover:border-brand-navy/40',
+    ].join(' ');
   }
 
   /** Copia a chave PIX de demonstracao para a area de transferencia. */

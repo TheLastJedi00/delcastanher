@@ -93,6 +93,33 @@
               </div>
             }
 
+            <!-- Bloco de demonstracao: o cenario nao e sorteado, quem demonstra
+                 escolhe qual resposta do mock sera usada (decisao 4). -->
+            <fieldset class="mt-8 rounded-2xl border border-dashed border-brand-navy/25 bg-brand-navy/5 p-5">
+              <legend class="px-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Demonstração
+              </legend>
+
+              <p class="mb-4 text-xs leading-relaxed text-slate-600">
+                Escolha a resposta que o pagamento simulado deve devolver. Nenhuma cobrança é
+                enviada a gateway nenhum.
+              </p>
+
+              <div role="radiogroup" aria-label="Cenário da simulação" class="flex flex-wrap gap-2">
+                @for (option of scenarios; track option.value) {
+                  <button
+                    type="button"
+                    role="radio"
+                    [attr.aria-checked]="scenario() === option.value"
+                    [attr.tabindex]="scenario() === option.value ? 0 : -1"
+                    (click)="scenario.set(option.value)"
+                    [class]="scenarioClasses(option.value)">
+                    {{ option.label }}
+                  </button>
+                }
+              </div>
+            </fieldset>
+
             <div class="mt-8">
               <ui-button
                 variant="primary"
