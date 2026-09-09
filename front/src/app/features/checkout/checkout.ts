@@ -115,6 +115,15 @@ export class Checkout {
 
     effect(() => this.state.setMethod(this.method()));
 
+    // A tela de resultado substitui o formulario no meio da pagina: sem subir o
+    // scroll, no celular o comprador cai olhando para o rodape do card e nao ve
+    // o desfecho da simulacao.
+    effect(() => {
+      if (this.state.outcome()) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+
     // Sair da tela no meio do "processando" nao pode deixar um timer solto
     // mexendo no estado da jornada depois.
     inject(DestroyRef).onDestroy(() => {
