@@ -3,7 +3,7 @@
   <div class="glass z-10 flex shrink-0 items-center justify-between p-4 md:hidden">
     <div class="flex items-center gap-2">
       <span class="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">Módulo</span>
-      <span class="font-bold text-brand-navy">{{ activeModule().id }}</span>
+      <span class="font-bold text-brand-navy">{{ activeModule()?.order ?? '—' }}</span>
     </div>
     <button
       type="button"
@@ -34,10 +34,10 @@
     <div class="flex-1 overflow-y-auto">
       @for (module of modules(); track module.id) {
         <ui-module-card
-          [moduleNumber]="module.id"
+          [moduleNumber]="module.order"
           [title]="module.title"
           [completed]="module.completed"
-          [active]="activeModule().id === module.id"
+          [active]="activeModule()?.id === module.id"
           (selected)="setActiveModule(module.id)" />
       }
     </div>
@@ -50,67 +50,103 @@
         <ui-back-link link="/ava" />
       </div>
 
-      <div class="mb-6">
-        <ui-video-player
-          poster="assets/aula1.jpeg"
-          [title]="'Módulo ' + activeModule().id"
-          [subtitle]="activeModule().title" />
-      </div>
-
-      <div class="mb-6">
-        <ui-card variant="default" padding="lg" [hover]="false">
-          <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div class="mb-3">
-                <ui-badge
-                  [variant]="activeModule().completed ? 'success' : 'teal'"
-                  [label]="'Módulo ' + activeModule().id" />
-              </div>
-              <h2 class="text-2xl font-bold tracking-tight text-brand-navy md:text-3xl">
-                {{ activeModule().title }}
-              </h2>
-            </div>
-            <ui-button
-              [variant]="activeModule().completed ? 'outline' : 'primary'"
-              (click)="toggleCompleted()">
-              {{ activeModule().completed ? 'Concluída' : 'Marcar como Concluída' }}
-            </ui-button>
+      @if (error()) {
+        <div
+          class="mb-6 rounded-xl border border-state-danger/30 bg-state-danger/5 p-4"
+          role="alert">
+          <p class="text-sm text-slate-700">{{ error() }}</p>
+          <div class="mt-3">
+            <ui-button variant="outline" size="sm" (click)="reload()">Tentar novamente</ui-button>
           </div>
+        </div>
+      }
 
-          <div class="max-w-none text-slate-600">
-            <p class="leading-relaxed">
-              Nesta aula, abordaremos a visão estratégica e o papel fundamental do RH moderno. Você
-              aprenderá como posicionar o departamento como um parceiro de negócios, focando em
-              resultados tangíveis.
-            </p>
-            <h3 class="mt-6 text-sm font-bold uppercase tracking-widest text-brand-teal-deep">
-              Resultado Esperado
-            </h3>
-            <p class="mt-2 leading-relaxed">
-              Capacidade de diagnosticar o estado atual do RH e traçar um mapa de ações para
-              transformação estratégica, alinhado aos objetivos da empresa.
-            </p>
+      @if (activeModule(); as module) {
+        <div class="mb-6">
+          <ui-video-player
+            poster="assets/aula1.jpeg"
+            [title]="'Módulo ' + module.order"
+            [subtitle]="module.title" />
+        </div>
+
+        <div class="mb-6">
+          <ui-card variant="default" padding="lg" [hover]="false">
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div class="mb-3">
+                  <ui-badge
+                    [variant]="module.completed ? 'success' : 'teal'"
+                    [label]="'Módulo ' + module.order" />
+                </div>
+                <h2 class="text-2xl font-bold tracking-tight text-brand-navy md:text-3xl">
+                  {{ module.title }}
+                </h2>
+              </div>
+              <ui-button
+                [variant]="module.completed ? 'outline' : 'primary'"
+                [loading]="saving()"
+                (click)="toggleCompleted()">
+                {{ module.completed ? 'Concluída' : 'Marcar como Concluída' }}
+              </ui-button>
+            </div>
+
+            <div class="max-w-none text-slate-600">
+              <p class="leading-relaxed">{{ module.summary }}</p>
+              <h3 class="mt-6 text-sm font-bold uppercase tracking-widest text-brand-teal-deep">
+                Resultado Esperado
+              </h3>
+              <p class="mt-2 leading-relaxed">
+                Capacidade de diagnosticar o estado atual do RH e traçar um mapa de ações para
+                transformação estratégica, alinhado aos objetivos da empresa.
+              </p>
+            </div>
+          </ui-card>
+        </div>
+
+        @if (courseCompleted()) {
+          <div class="mb-6">
+            <ui-card variant="default" padding="lg" [hover]="false">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 class="text-lg font-semibold text-brand-navy">Trilha concluída</h3>
+                  <p class="mt-1 text-sm text-slate-500">
+                    Você concluiu todos os módulos e já pode emitir seu certificado.
+                  </p>
+                </div>
+                <a routerLink="/ava/certificado" class="shrink-0">
+                  <ui-button variant="primary">Ver meu certificado</ui-button>
+                </a>
+              </div>
+            </ui-card>
+          </div>
+        }
+
+        <ui-card variant="default" padding="lg" [hover]="false">
+          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-brand-navy md:text-xl">
+            <svg class="h-5 w-5 text-brand-teal-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Materiais Complementares
+          </h3>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            @for (material of materials; track material.fileName) {
+              <ui-material-item
+                [fileName]="material.fileName"
+                [fileType]="material.fileType"
+                [fileSize]="material.fileSize"
+                [moduleLabel]="'Módulo ' + module.order" />
+            }
           </div>
         </ui-card>
-      </div>
-
-      <ui-card variant="default" padding="lg" [hover]="false">
-        <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-brand-navy md:text-xl">
-          <svg class="h-5 w-5 text-brand-teal-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Materiais Complementares
-        </h3>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          @for (material of materials; track material.fileName) {
-            <ui-material-item
-              [fileName]="material.fileName"
-              [fileType]="material.fileType"
-              [fileSize]="material.fileSize"
-              [moduleLabel]="'Módulo ' + activeModule().id" />
-          }
-        </div>
-      </ui-card>
+      } @else if (loading()) {
+        <ui-card variant="default" padding="lg" [hover]="false">
+          <p class="text-sm text-slate-500">Carregando sua trilha…</p>
+        </ui-card>
+      } @else if (!error()) {
+        <ui-card variant="default" padding="lg" [hover]="false">
+          <p class="text-sm text-slate-500">Nenhum módulo disponível nesta trilha ainda.</p>
+        </ui-card>
+      }
     </div>
   </main>
 </div>
