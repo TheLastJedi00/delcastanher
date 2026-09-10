@@ -123,3 +123,53 @@
     animation: none !important;
   }
 }
+
+/*
+ * Impressao do certificado (Spec 008).
+ *
+ * O download do diploma e a impressao nativa do navegador — "salvar como PDF"
+ * e do proprio Chrome/Edge/Safari, sem lib de PDF no bundle. Para isso, ao
+ * imprimir tudo some da pagina menos o bloco marcado com `.print-area`:
+ * sidebar do AVA, cabecalho e botoes nao pertencem a um diploma.
+ */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Controles e avisos que nao fazem sentido no papel. */
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* Cores chapadas: sem isso o navegador descarta os fundos do diploma. */
+  .print-area {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+@page {
+  size: A4 landscape;
+  margin: 12mm;
+}
