@@ -2,6 +2,8 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, map, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { CertificateService } from './certificate.service';
+import { ProgressService } from './progress.service';
 import { UserService } from './user.service';
 
 export type Role = 'aluno' | 'admin';
@@ -48,6 +50,8 @@ export const HOME_BY_ROLE: Record<Role, string> = {
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly users = inject(UserService);
+  private readonly progress = inject(ProgressService);
+  private readonly certificates = inject(CertificateService);
   private readonly session = signal<StoredSession | null>(this.readStoredSession());
 
   readonly user = computed(() => this.session()?.user ?? null);
@@ -89,6 +93,10 @@ export class AuthService {
   logout(): void {
     this.session.set(null);
     this.users.clear();
+    // Progresso e certificado sao dados de aluno: sem limpar aqui, quem entrar
+    // em seguida no mesmo navegador veria a trilha da pessoa anterior.
+    this.progress.clear();
+    this.certificates.clear();
     localStorage.removeItem(STORAGE_KEY);
   }
 
