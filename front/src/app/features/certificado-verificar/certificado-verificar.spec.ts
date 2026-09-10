@@ -22,7 +22,13 @@ const VALID = {
 
 describe('CertificadoVerificar', () => {
   let fixture: ComponentFixture<CertificadoVerificar>;
-  let backend: HttpTestingController;
+  // Opcional de proposito: o teste da rota publica nao monta TestBed, e o
+  // Karma sorteia a ordem — sem isso o afterEach quebra quando ele vem antes
+  // do primeiro `create()`.
+  let backend: HttpTestingController | undefined;
+
+  /** Backend do teste corrente; so faz sentido depois de `create()`. */
+  const http = () => backend as HttpTestingController;
 
   const el = () => fixture.nativeElement as HTMLElement;
   const text = () => el().textContent ?? '';
@@ -63,7 +69,8 @@ describe('CertificadoVerificar', () => {
   };
 
   afterEach(() => {
-    backend.verify();
+    backend?.verify();
+    backend = undefined;
     TestBed.resetTestingModule();
   });
 
@@ -79,7 +86,7 @@ describe('CertificadoVerificar', () => {
     await create();
 
     // Sem requisicao pendente: a tela abre inerte, sem exigir sessao.
-    backend.expectNone(() => true);
+    http().expectNone(() => true);
     expect(text()).toContain('Confira a autenticidade');
   });
 
@@ -96,7 +103,7 @@ describe('CertificadoVerificar', () => {
     type('DELC-ABCD-2345');
     submit();
 
-    backend.expectOne(VERIFY_URL('DELC-ABCD-2345')).flush(VALID);
+    http().expectOne(VERIFY_URL('DELC-ABCD-2345')).flush(VALID);
     fixture.detectChanges();
 
     const rendered = text();
@@ -114,7 +121,7 @@ describe('CertificadoVerificar', () => {
     type('DELC-ABCD-2345');
     submit();
 
-    backend.expectOne(VERIFY_URL('DELC-ABCD-2345')).flush({ status: 'invalid', reason: 'revoked' });
+    http().expectOne(VERIFY_URL('DELC-ABCD-2345')).flush({ status: 'invalid', reason: 'revoked' });
     fixture.detectChanges();
 
     expect(text()).toContain('Certificado inválido');
@@ -126,7 +133,7 @@ describe('CertificadoVerificar', () => {
     type('DELC-ABCD-2345');
     submit();
 
-    backend.expectOne(VERIFY_URL('DELC-ABCD-2345')).flush({ status: 'invalid', reason: 'tampered' });
+    http().expectOne(VERIFY_URL('DELC-ABCD-2345')).flush({ status: 'invalid', reason: 'tampered' });
     fixture.detectChanges();
 
     expect(text()).toContain('não conferem com o registro original');
@@ -137,7 +144,7 @@ describe('CertificadoVerificar', () => {
     type('DELC-ZZZZ-9999');
     submit();
 
-    backend.expectOne(VERIFY_URL('DELC-ZZZZ-9999')).flush({ status: 'not_found' });
+    http().expectOne(VERIFY_URL('DELC-ZZZZ-9999')).flush({ status: 'not_found' });
     fixture.detectChanges();
 
     expect(text()).toContain('Código não encontrado');
@@ -148,7 +155,7 @@ describe('CertificadoVerificar', () => {
     type('  delc abcd 2345 ');
     submit();
 
-    const request = backend.expectOne(VERIFY_URL('delc abcd 2345'));
+    const request = http().expectOne(VERIFY_URL('delc abcd 2345'));
 
     expect(request.request.method).toBe('GET');
     request.flush({ status: 'not_found' });
@@ -159,7 +166,7 @@ describe('CertificadoVerificar', () => {
     type('DELC-ABCD-2345');
     submit();
 
-    const request = backend.expectOne(VERIFY_URL('DELC-ABCD-2345'));
+    const request = http().expectOne(VERIFY_URL('DELC-ABCD-2345'));
 
     expect(request.request.headers.has('Authorization')).toBe(false);
     request.flush(VALID);
@@ -170,7 +177,7 @@ describe('CertificadoVerificar', () => {
     type('DELC-ABCD-2345');
     submit();
 
-    backend
+    http()
       .expectOne(VERIFY_URL('DELC-ABCD-2345'))
       .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
     fixture.detectChanges();
@@ -184,7 +191,7 @@ describe('CertificadoVerificar', () => {
 
     expect(field().value).toBe('DELC-ABCD-2345');
 
-    backend.expectOne(VERIFY_URL('DELC-ABCD-2345')).flush(VALID);
+    http().expectOne(VERIFY_URL('DELC-ABCD-2345')).flush(VALID);
     fixture.detectChanges();
 
     expect(text()).toContain('Certificado válido');
