@@ -43,8 +43,11 @@ Aprimorar o Ambiente Virtual do Aluno para suportar retenção, clareza de progr
 9. **Download por impressão nativa, sem dependência nova.**
    O certificado é uma página com layout dedicado de `@media print` e um botão que chama `window.print()`; "salvar como PDF" é o próprio navegador. Nenhuma lib de PDF entra no bundle (mesma linha da Spec 007, que evitou dependência nova de máscara).
 
-10. **Carga horária e assinatura são conteúdo do curso, não do aluno.**
-    A carga horária vem do dado do curso (seed/mock), e a assinatura é uma imagem estática servida de `public/`, renderizada com `NgOptimizedImage` — nunca base64 inline, que o `NgOptimizedImage` não suporta. Assinatura digital com validade jurídica (ICP-Brasil) não faz parte desta spec.
+10. **Carga horária e assinatura são conteúdo do curso, não do aluno — e ambas seguem pendentes.**
+    A carga horária vem do curso, onde é nula: no comercial ela ainda é o placeholder `[CARGA HORÁRIA]` da Spec 006, e inventar um número o colocaria dentro de um diploma. A assinatura é a rubrica de uma pessoa real que ainda não foi enviada; desenhar uma "provisória" seria falsificar assinatura em documento. As duas aparecem no diploma com o tratamento visual de pendente (`ui-placeholder-text`), como no resto do funil. Quando a rubrica chegar, ela entra como imagem estática em `public/` com `NgOptimizedImage` — nunca base64 inline, que o `NgOptimizedImage` não suporta. Assinatura digital com validade jurídica (ICP-Brasil) não faz parte desta spec.
+
+11. **Certificado revogado não é reemitido.**
+    A emissão é idempotente (chamar de novo devolve o mesmo diploma, porque um código novo invalidaria o que o aluno já mandou para um recrutador), mas um certificado revogado responde 409 com orientação de procurar o suporte: revogar é ato deliberado, e reemitir sob demanda desfaria a revogação.
 
 ## Integração com o existente
 O Hub (`/ava`) e a Trilha (`/ava/trilha`) já existem desde a Spec 001 e ficam atrás de `authGuard` + `onboardingGuard` (Spec 004); a spec evolui essas telas em vez de duplicá-las. O perfil vindo de `GET /users/me` (`UserService`) é a fonte do nome exibido no diploma — o certificado não guarda uma cópia do nome digitada em outro lugar. O portal `/certificado/verificar` entra em `app.routes.ts` como rota pública, irmã de `/planos` e `/checkout/:productSlug`, fora dos guards. No backend, os novos módulos seguem a estrutura de `users/` (controller + service + dto + types, `PrismaService` injetado).
