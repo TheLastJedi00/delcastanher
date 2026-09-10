@@ -18,6 +18,9 @@ export const PLACEHOLDER = {
   videoTestimonial: '[DEPOIMENTO EM VÍDEO]',
   startDate: '[DATA DE INÍCIO]',
   workload: '[CARGA HORÁRIA]',
+  // A assinatura digitalizada da coordenacao ainda nao foi enviada. Ela e a
+  // rubrica de uma pessoa real: nao ha como desenhar uma "provisoria".
+  signature: '[ASSINATURA DA COORDENAÇÃO]',
 } as const;
 
 /** Marcador reconhecido pelo template: qualquer texto no formato `[ALGO]`. */
