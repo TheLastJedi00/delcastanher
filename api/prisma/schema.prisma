@@ -36,12 +36,17 @@ model User {
 
 /// Curso da plataforma. Hoje existe um unico curso (Spec 008, decisao 5), mas
 /// modula-lo como tabela evita reescrever progresso e certificado quando o
-/// catalogo crescer. `workloadHours` e a carga horaria impressa no diploma.
+/// catalogo crescer.
+///
+/// `workloadHours` e nulo de proposito: a carga horaria ainda e o placeholder
+/// `[CARGA HORÁRIA]` no mock comercial (Spec 006), e inventar um numero aqui
+/// colocaria dado falso dentro de um diploma. Nulo significa "a definir", e o
+/// front trata visualmente como placeholder.
 model Course {
   id            String   @id @default(cuid())
   slug          String   @unique
   title         String
-  workloadHours Int
+  workloadHours Int?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -59,6 +64,7 @@ model Module {
   courseId  String
   order     Int
   title     String
+  summary   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
