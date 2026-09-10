@@ -3,5 +3,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist/delcastanher-front/browser",
   "installCommand": "npm install",
-  "framework": "angular"
+  "framework": "angular",
+  "rewrites": [
+    {
+      "source": "/((?!.*\\.).*)",
+      "destination": "/index.csr.html"
+    }
+  ]
 }
