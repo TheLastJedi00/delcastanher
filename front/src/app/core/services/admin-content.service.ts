@@ -33,6 +33,13 @@ export interface MaterialItem {
   downloadExpiresAt: string;
 }
 
+/** Modulo da trilha, no que o painel precisa para escolher um. */
+export interface AdminModule {
+  id: string;
+  order: number;
+  title: string;
+}
+
 /** Estado do video de um modulo no painel. */
 export interface ModuleVideoState {
   moduleId: string;
@@ -79,6 +86,25 @@ export class AdminContentService {
       `${environment.apiUrl}/admin/modules/${moduleId}/materials/upload-url`,
       `${environment.apiUrl}/admin/modules/${moduleId}/materials`,
     );
+  }
+
+  /**
+   * Modulos do curso, para o seletor do painel.
+   *
+   * Vem de `GET /progress/me`, que ja devolve os 12 modulos em ordem e so
+   * exige sessao. Criar um `GET /admin/modules` com a mesma lista seria uma
+   * segunda fonte para o mesmo dado — o progresso do proprio admin, que vem
+   * junto, e simplesmente ignorado aqui.
+   */
+  modules(): Observable<AdminModule[]> {
+    return this.http
+      .get<{ modules: AdminModule[] }>(`${environment.apiUrl}/progress/me`)
+      .pipe(
+        map(progress =>
+          progress.modules.map(({ id, order, title }) => ({ id, order, title })),
+        ),
+        catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
+      );
   }
 
   /** Estado do processamento do video, consultado enquanto o Mux ingere. */

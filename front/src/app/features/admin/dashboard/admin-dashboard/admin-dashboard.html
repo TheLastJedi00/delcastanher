@@ -84,57 +84,7 @@
       }
 
       @case ('aulas') {
-        <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <ui-section-header overline="Conteúdo" title="Gerenciamento de Aulas" />
-          <ui-button variant="primary">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Nova Aula
-          </ui-button>
-        </div>
-
-        <ui-card variant="default" padding="lg" [hover]="false">
-          <h3 class="mb-6 text-lg font-semibold text-brand-navy">Adicionar / Editar Conteúdo</h3>
-
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <ui-input label="Título da Aula" [(value)]="lessonTitle" />
-            <div>
-              <label for="admin-modulo" class="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">
-                Módulo Vinculado
-              </label>
-              <select
-                id="admin-modulo"
-                class="w-full rounded-xl border border-brand-navy/10 bg-white/80 px-4 py-2.5 text-sm text-slate-800 outline-none transition-all duration-200 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
-                <option>1. Fundamentos do RH Estratégico</option>
-                <option>2. Diagnóstico Organizacional</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="mt-4">
-            <ui-input label="URL do Vídeo (Vimeo/YouTube)" type="url" placeholder="https://..." [(value)]="lessonVideoUrl" />
-          </div>
-
-          <div class="mt-4">
-            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
-              Materiais Complementares (PDF/XLS)
-            </p>
-            <ui-card variant="outline" padding="lg">
-              <div class="cursor-pointer rounded-xl border-2 border-dashed border-brand-navy/12 p-6 text-center transition-colors hover:border-brand-teal hover:bg-brand-teal/5">
-                <svg class="mx-auto mb-2 h-8 w-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                <p class="text-sm text-slate-600">Arraste os arquivos aqui ou clique para selecionar</p>
-              </div>
-            </ui-card>
-          </div>
-
-          <div class="mt-6 flex justify-end gap-3">
-            <ui-button variant="outline">Cancelar</ui-button>
-            <ui-button variant="secondary">Salvar Aula</ui-button>
-          </div>
-        </ui-card>
+        <app-admin-aulas />
       }
 
       @case ('comunicacao') {
