@@ -108,6 +108,43 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/*
+ * Faixa de parceiros em carrossel continuo (Spec 011).
+ *
+ * A trilha tem duas copias da lista e desliza -50%: no fim do ciclo a segunda
+ * copia esta no lugar exato da primeira, entao o loop nao pisca. O mascaramento
+ * nas pontas evita que um logo apareca cortado na borda da secao.
+ */
+.marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 5rem, #000 calc(100% - 5rem), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 5rem, #000 calc(100% - 5rem), transparent);
+}
+
+.marquee__track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll var(--marquee-duration, 40s) linear infinite;
+}
+
+.marquee__group {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  padding-inline: 1.25rem;
+}
+
+/* Parar no hover/foco deixa o visitante ler um logo especifico. */
+.marquee:hover .marquee__track,
+.marquee:focus-within .marquee__track {
+  animation-play-state: paused;
+}
+
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -121,6 +158,21 @@
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation: none !important;
+  }
+
+  /* Sem o deslize, a segunda copia so repetiria os logos: fica a faixa
+     original, rolavel na mao. */
+  .marquee {
+    overflow-x: auto;
+  }
+
+  .marquee__track {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .marquee__group[aria-hidden='true'] {
+    display: none;
   }
 }
 
