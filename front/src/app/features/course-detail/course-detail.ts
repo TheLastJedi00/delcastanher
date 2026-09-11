@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 
 import { findCourseBySlug } from '../../core/mocks/courses.mock';
 import { isPlaceholder } from '../../core/mocks/placeholders';
 import { AnalyticsService } from '../../core/services/analytics.service';
+import { JsonLdService } from '../../core/services/json-ld.service';
+import { SITE_ORIGIN } from '../../core/services/seo.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Accordion, AccordionItem } from '../../shared/ui/accordion/accordion';
 import { Button } from '../../shared/ui/button/button';
@@ -36,9 +37,8 @@ import { SectionHeader } from '../../shared/ui/section-header/section-header';
 })
 export class CourseDetail {
   private readonly route = inject(ActivatedRoute);
-  private readonly title = inject(Title);
-  private readonly meta = inject(Meta);
   private readonly analytics = inject(AnalyticsService);
+  private readonly jsonLd = inject(JsonLdService);
 
   /** Ancoras da propria pagina do curso; "Planos" navega pelo router. */
   protected readonly navLinks: NavLink[] = [
@@ -86,20 +86,45 @@ export class CourseDetail {
   );
 
   constructor() {
-    // Titulo e descricao por curso: as campanhas de Ads apontam direto para
-    // cada slug, entao o snippet precisa mudar junto com o produto.
+    // Title, description, Open Graph e canonical vem do `courseSeoResolver`
+    // e sao aplicados pelo `App` num ponto so (Spec 009, decisao 8). O que
+    // sobra para o componente e o que depende do conteudo da propria pagina:
+    // os dados estruturados abaixo.
     effect(() => {
       const course = this.course();
 
-      this.title.setTitle(
-        course?.metaTitle ?? 'Curso não encontrado | Delcastanher'
-      );
-      this.meta.updateTag({
-        name: 'description',
-        content:
-          course?.metaDescription ??
-          'Este curso não está disponível. Veja os planos e cursos abertos da Delcastanher.',
-      });
+      if (!course) {
+        return;
+      }
+
+      this.jsonLd.set([
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Course',
+          name: course.name,
+          description: course.metaDescription,
+          url: `${SITE_ORIGIN}/cursos/${course.slug}`,
+          provider: {
+            '@type': 'Organization',
+            name: 'Delcastanher',
+            url: SITE_ORIGIN,
+          },
+          // `offers` fica de fora enquanto o preco for o placeholder da Spec
+          // 006: um schema com preco inventado gera rich result mentindo o
+          // valor na propria SERP.
+        },
+        {
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          // Mesma fonte que alimenta o ui-accordion na tela: o que o buscador
+          // le e exatamente o que o visitante ve, que e o que o Google exige.
+          mainEntity: course.faq.map(item => ({
+            '@type': 'Question',
+            name: item.question,
+            acceptedAnswer: { '@type': 'Answer', text: item.answer },
+          })),
+        },
+      ]);
     });
 
     // `view_course` so faz sentido para curso que existe: slug fora do

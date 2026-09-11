@@ -43,6 +43,7 @@ const VERIFICATION_PATH = '/certificado/verificar';
       <div class="mb-8 print-hidden">
         <ui-section-header
           overline="Certificado"
+          level="h1"
           title="Seu diploma digital"
           [subtitle]="subtitle()" />
       </div>

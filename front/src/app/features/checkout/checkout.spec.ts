@@ -1,10 +1,12 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { Meta } from '@angular/platform-browser';
 import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
 import { CHECKOUT_OUTCOMES, findCheckoutProductBySlug } from '../../core/mocks/checkout.mock';
 import { PLACEHOLDER } from '../../core/mocks/placeholders';
+import { SEO_DATA_KEY } from '../../core/services/seo-route';
+import { SeoMetadata } from '../../core/services/seo.service';
+import { routes } from '../../app.routes';
 import { Checkout, PROCESSING_DELAY_MS } from './checkout';
 import { checkoutJourneyGuard } from './checkout-journey.guard';
 import { CheckoutStateService } from './checkout-state';
@@ -83,10 +85,14 @@ describe('Checkout', () => {
       expect(pending!.textContent).toContain(PLACEHOLDER.price);
     });
 
-    it('marca a rota como noindex', async () => {
-      await create('imersao-rh');
+    it('declara a rota como noindex na configuracao de rotas', () => {
+      // Spec 009: o `robots` deixou de ser escrito pelo componente e passou a
+      // vir de `data.seo`, aplicado pelo App num ponto so. A garantia continua
+      // sendo a mesma — um checkout de mentira nao pode ser indexado —, mas
+      // agora o teste olha para onde ela realmente vive.
+      const checkoutRoute = routes.find(route => route.path === 'checkout/:productSlug');
 
-      expect(TestBed.inject(Meta).getTag('name="robots"')!.content).toBe('noindex, nofollow');
+      expect((checkoutRoute?.data?.[SEO_DATA_KEY] as SeoMetadata).indexable).toBeFalse();
     });
 
     it('mantém o aviso de ambiente de demonstração visível', async () => {

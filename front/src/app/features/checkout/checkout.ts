@@ -11,7 +11,6 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder } from '@angular/forms';
-import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 
@@ -67,8 +66,6 @@ export const PROCESSING_DELAY_MS = 1600;
 export class Checkout {
   private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(NonNullableFormBuilder);
-  private readonly title = inject(Title);
-  private readonly meta = inject(Meta);
   protected readonly state = inject(CheckoutStateService);
   private readonly analytics = inject(AnalyticsService);
 
@@ -102,9 +99,6 @@ export class Checkout {
   private readonly cardForm = viewChild(CheckoutCardForm);
 
   constructor() {
-    this.title.setTitle('Checkout (demonstração) | Delcastanher');
-    this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
-
     // O produto da URL abre a jornada; trocar de slug recomeca o pedido em vez
     // de aproveitar o estado do anterior.
     effect(() => {

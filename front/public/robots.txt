@@ -1,0 +1,15 @@
+# Delcastanher — Spec 009, decisao 8.
+# As areas abaixo nao tem o que ganhar em busca organica e tem o que perder:
+# um link vazado e indexado expoe estrutura interna e gera resultado inutil
+# para a marca. Isto impede o rastreamento; o `noindex` que as rotas declaram
+# cobre o caso de alguem divulgar a URL por fora.
+
+User-agent: *
+Allow: /
+
+Disallow: /ava
+Disallow: /admin
+Disallow: /onboarding
+Disallow: /checkout
+
+Sitemap: https://delcastanher.vercel.app/sitemap.xml

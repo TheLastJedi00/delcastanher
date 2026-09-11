@@ -1,4 +1,12 @@
 <div class="flex h-full min-h-0 flex-1 flex-col bg-brand-surface text-slate-800 md:flex-row">
+  <!--
+    Titulo da pagina (Spec 009, Task 4.10). Fica apenas para leitor de tela
+    porque nesta tela de duas colunas nenhum elemento visivel exerce esse papel:
+    o rotulo da lateral some no mobile e o titulo do modulo e uma secao dentro
+    da trilha. Sem ele a pagina inteira comecaria em h2.
+  -->
+  <h1 class="sr-only">Trilha de Aprendizado</h1>
+
   <!-- Barra de módulos (mobile) -->
   <div class="glass z-10 flex shrink-0 items-center justify-between p-4 md:hidden">
     <div class="flex items-center gap-2">
