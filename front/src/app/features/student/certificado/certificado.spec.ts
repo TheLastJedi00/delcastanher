@@ -20,6 +20,8 @@ function progress(completedIds: string[]): CourseProgress {
   const modules = MODULES.map(module => ({
     ...module,
     completed: completedIds.includes(module.id),
+    hasVideo: true,
+    videoReady: true,
   }));
   const completedCount = modules.filter(module => module.completed).length;
 
