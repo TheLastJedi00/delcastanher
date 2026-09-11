@@ -202,7 +202,7 @@
 - Inputs: `src: string` (URL de vídeo ou imagem poster), `poster: string`, `title: string`, `subtitle: string`
 - Visual: container `aspect-video rounded-2xl overflow-hidden shadow-glass` com overlay gradiente escuro, botão play centralizado `bg-brand-teal/90 hover:scale-110` com ícone SVG
 - Title e subtitle sobre o overlay em `text-white`
-- Futuramente suportará iframe de Vimeo/YouTube
+- ~~Futuramente suportará iframe de Vimeo/YouTube~~ **DEPRECATED pela Spec 010 (decisão 8):** a integração foi feita com Mux (`<mux-player>` + playback assinado), não com iframe de Vimeo/YouTube.
 
 ### Task 3.8 — Criar `PageContainerComponent` (`shared/ui/page-container/page-container.ts`)
 
