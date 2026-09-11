@@ -201,7 +201,7 @@
               </p>
               <p class="mb-8 text-sm text-slate-500">{{ course.offer.priceNote }}</p>
 
-              <a [href]="course.offer.checkoutUrl" class="block">
+              <a [routerLink]="checkoutLink()" class="block">
                 <ui-button variant="primary" size="lg" [fullWidth]="true">{{ course.offer.ctaLabel }}</ui-button>
               </a>
 
@@ -212,11 +212,12 @@
                 Pagamento em ambiente seguro
               </p>
 
-              <!-- Checkout ainda nao definido: o link fica visivel como pendente
-                   em vez de simular um destino que nao existe. -->
+              <!-- O botao leva ao mockup de checkout (Spec 007). O gateway real
+                   segue indefinido e o marcador continua visivel, para ninguem
+                   confundir a demonstracao com uma compra de verdade. -->
               @if (checkoutPending()) {
                 <p class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
-                  <span>Destino do botão:</span>
+                  <span>Checkout em demonstração. Gateway:</span>
                   <ui-placeholder-text [value]="course.offer.checkoutUrl" />
                 </p>
               }
@@ -318,7 +319,7 @@
             <ui-placeholder-text [value]="course.offer.scarcityDeadline" tone="light" />
           </p>
           <div class="flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a [href]="course.offer.checkoutUrl">
+            <a [routerLink]="checkoutLink()">
               <ui-button variant="primary" size="lg">{{ course.offer.ctaLabel }}</ui-button>
             </a>
             <a routerLink="/planos">

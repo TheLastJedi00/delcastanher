@@ -28,5 +28,97 @@ model User {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  progress     ModuleProgress[]
+  certificates Certificate[]
+
   @@map("users")
+}
+
+/// Curso da plataforma. Hoje existe um unico curso (Spec 008, decisao 5), mas
+/// modula-lo como tabela evita reescrever progresso e certificado quando o
+/// catalogo crescer.
+///
+/// `workloadHours` e nulo de proposito: a carga horaria ainda e o placeholder
+/// `[CARGA HORÁRIA]` no mock comercial (Spec 006), e inventar um numero aqui
+/// colocaria dado falso dentro de um diploma. Nulo significa "a definir", e o
+/// front trata visualmente como placeholder.
+model Course {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  workloadHours Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  modules      Module[]
+  certificates Certificate[]
+
+  @@map("courses")
+}
+
+/// Modulo da trilha. Ate a Spec 008 os 12 modulos viviam hardcoded no
+/// componente do front; virar dado e o que permite referenciar um modulo por
+/// id no deep-link e registrar a conclusao por aluno.
+model Module {
+  id        String   @id @default(cuid())
+  courseId  String
+  order     Int
+  title     String
+  summary   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course   Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress ModuleProgress[]
+
+  @@unique([courseId, order])
+  @@map("modules")
+}
+
+/// Conclusao de um modulo por um aluno. A ausencia de linha significa modulo
+/// em aberto: desmarcar e apagar o registro, nao guardar um booleano falso.
+model ModuleProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  moduleId    String
+  completedAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@map("module_progress")
+}
+
+/// Um certificado ativo ou revogado. `REVOKED` e o que torna o estado
+/// "Invalido" do portal publico alcancavel (Spec 008, decisao 8).
+enum CertificateStatus {
+  ACTIVE
+  REVOKED
+
+  @@map("certificate_status")
+}
+
+/// Diploma emitido para um aluno em um curso. `code` e o identificador curto
+/// que a pessoa digita no portal publico; `hash` e derivado dos dados da
+/// emissao com o segredo do servidor e denuncia adulteracao no banco. Nome do
+/// aluno, titulo e carga horaria nao sao copiados aqui: vem das relacoes, para
+/// que o diploma nunca exiba um dado defasado.
+model Certificate {
+  id        String            @id @default(cuid())
+  userId    String
+  courseId  String
+  code      String            @unique
+  hash      String
+  status    CertificateStatus @default(ACTIVE)
+  issuedAt  DateTime          @default(now())
+  revokedAt DateTime?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("certificates")
 }

@@ -1,4 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
+import { ProgressModuleItem, ProgressService } from '../../../core/services/progress.service';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { Badge } from '../../../shared/ui/badge/badge';
 import { Button } from '../../../shared/ui/button/button';
@@ -8,18 +12,18 @@ import { ModuleCard } from '../../../shared/ui/module-card/module-card';
 import { ProgressBar } from '../../../shared/ui/progress-bar/progress-bar';
 import { VideoPlayer } from '../../../shared/ui/video-player/video-player';
 
-interface Module {
-  id: number;
-  title: string;
-  completed: boolean;
-}
-
 interface Material {
   fileName: string;
   fileType: FileType;
   fileSize: string;
 }
 
+/**
+ * Trilha do aluno. Ate a Spec 008 os modulos e o avanco viviam aqui em signals
+ * locais — iguais para todos e perdidos a cada F5. Agora a fonte e o
+ * `ProgressService`, e o modulo aberto vem da rota (`/ava/trilha/:moduleId`),
+ * o que torna a posicao do aluno compartilhavel e recuperavel.
+ */
 @Component({
   selector: 'app-trilha',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,36 +35,47 @@ interface Material {
     MaterialItem,
     ModuleCard,
     ProgressBar,
+    RouterLink,
     VideoPlayer,
   ],
   templateUrl: './trilha.html',
 })
 export class Trilha {
-  readonly modules = signal<Module[]>([
-    { id: 1, title: 'Fundamentos do RH Estratégico', completed: true },
-    { id: 2, title: 'Diagnóstico Organizacional', completed: true },
-    { id: 3, title: 'Recrutamento e Seleção', completed: false },
-    { id: 4, title: 'Onboarding e Integração', completed: false },
-    { id: 5, title: 'Desenvolvimento e Treinamento', completed: false },
-    { id: 6, title: 'Gestão de Desempenho', completed: false },
-    { id: 7, title: 'Clima e Cultura', completed: false },
-    { id: 8, title: 'Cargos e Salários', completed: false },
-    { id: 9, title: 'Relações Trabalhistas', completed: false },
-    { id: 10, title: 'Comunicação Interna', completed: false },
-    { id: 11, title: 'Indicadores e Métricas', completed: false },
-    { id: 12, title: 'Plano de Ação Final', completed: false },
-  ]);
+  private readonly progressService = inject(ProgressService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
-  readonly activeModuleId = signal(3);
+  readonly modules = this.progressService.modules;
+  readonly progress = this.progressService.percentage;
+  readonly courseCompleted = this.progressService.courseCompleted;
+
+  readonly loading = signal(true);
+  readonly error = signal('');
+  readonly saving = signal(false);
+
   readonly showMobileModules = signal(false);
 
-  readonly activeModule = computed(
-    () => this.modules().find(m => m.id === this.activeModuleId()) ?? this.modules()[0]
+  /** Modulo pedido na URL; nulo em `/ava/trilha`. */
+  private readonly routeModuleId = toSignal(
+    this.route.paramMap.pipe(map(params => params.get('moduleId'))),
+    { initialValue: null },
   );
 
-  readonly progress = computed(() => {
-    const all = this.modules();
-    return Math.round((all.filter(m => m.completed).length / all.length) * 100);
+  /**
+   * Modulo em foco. Sem parametro na URL abre o modulo em aberto do aluno; com
+   * um id que nao existe cai no primeiro da trilha, em vez de tela vazia.
+   */
+  readonly activeModule = computed<ProgressModuleItem | null>(() => {
+    const list = this.modules();
+
+    if (list.length === 0) {
+      return null;
+    }
+
+    const wanted = this.routeModuleId();
+    const found = wanted ? list.find(module => module.id === wanted) : undefined;
+
+    return found ?? this.progressService.nextModule() ?? list[0];
   });
 
   readonly materials: Material[] = [
@@ -68,19 +83,50 @@ export class Trilha {
     { fileName: 'Checklist de Diagnóstico', fileType: 'xls', fileSize: '850 KB' },
   ];
 
-  setActiveModule(id: number) {
-    this.activeModuleId.set(id);
+  constructor() {
+    this.reload();
+  }
+
+  reload(): void {
+    this.loading.set(true);
+    this.error.set('');
+
+    this.progressService.load().subscribe({
+      next: () => this.loading.set(false),
+      error: (message: string) => {
+        this.error.set(message);
+        this.loading.set(false);
+      },
+    });
+  }
+
+  /** Navega em vez de guardar selecao local: a URL e que manda no modulo aberto. */
+  setActiveModule(id: string): void {
     this.showMobileModules.set(false);
+    void this.router.navigate(['/ava/trilha', id]);
   }
 
-  toggleMobileModules() {
-    this.showMobileModules.update(v => !v);
+  toggleMobileModules(): void {
+    this.showMobileModules.update(open => !open);
   }
 
-  toggleCompleted() {
-    const id = this.activeModuleId();
-    this.modules.update(list =>
-      list.map(m => (m.id === id ? { ...m, completed: !m.completed } : m))
-    );
+  /** Persiste a conclusao: a API responde com o progresso ja recalculado. */
+  toggleCompleted(): void {
+    const active = this.activeModule();
+
+    if (!active || this.saving()) {
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+
+    this.progressService.setModuleCompletion(active.id, !active.completed).subscribe({
+      next: () => this.saving.set(false),
+      error: (message: string) => {
+        this.error.set(message);
+        this.saving.set(false);
+      },
+    });
   }
 }

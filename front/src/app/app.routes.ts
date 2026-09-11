@@ -16,6 +16,22 @@ export const routes: Routes = [
     loadComponent: () => import('./features/plans/plans').then(m => m.Plans),
   },
   {
+    // Mockup de checkout (Spec 007): rota publica, fora dos guards — nenhuma
+    // etapa autentica nem grava sessao.
+    path: 'checkout/:productSlug',
+    loadChildren: () =>
+      import('./features/checkout/checkout.routes').then(m => m.CHECKOUT_ROUTES),
+  },
+  {
+    // Portal publico de validacao (Spec 008): quem verifica um diploma e um
+    // recrutador sem conta, entao a rota fica fora dos guards.
+    path: 'certificado/verificar',
+    loadComponent: () =>
+      import('./features/certificado-verificar/certificado-verificar').then(
+        m => m.CertificadoVerificar,
+      ),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login').then(m => m.Login),
   },
@@ -31,6 +47,9 @@ export const routes: Routes = [
     children: [
       { path: '', loadComponent: () => import('./features/student/hub/hub').then(m => m.Hub) },
       { path: 'trilha', loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha) },
+      // Deep-link do "retomar de onde parou": a trilha abre direto no modulo.
+      { path: 'trilha/:moduleId', loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha) },
+      { path: 'certificado', loadComponent: () => import('./features/student/certificado/certificado').then(m => m.Certificado) },
       { path: 'perfil', loadComponent: () => import('./features/perfil/perfil').then(m => m.Perfil) },
       { path: 'materiais', loadComponent: () => import('./features/student/materiais/materiais').then(m => m.Materiais) },
       { path: 'artigos', loadComponent: () => import('./features/student/artigos/artigos').then(m => m.Artigos) }

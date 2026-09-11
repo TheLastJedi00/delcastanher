@@ -31,6 +31,8 @@ let inputInstances = 0;
       <input
         [id]="id()"
         [type]="type()"
+        [attr.autocomplete]="autocomplete() || null"
+        [attr.inputmode]="inputMode() || null"
         [placeholder]="placeholder()"
         [class]="classes()"
         [disabled]="isDisabled()"
@@ -58,6 +60,10 @@ export class Input implements ControlValueAccessor {
   readonly multiline = input(false);
   readonly rows = input(4);
   readonly mono = input(false);
+  /** Passa direto para o atributo do input; use 'off' para desligar o autofill. */
+  readonly autocomplete = input('');
+  /** Teclado sugerido no mobile (ex.: 'numeric'). */
+  readonly inputMode = input('');
   readonly value = model('');
 
   protected readonly id = input(`ui-input-${inputInstances++}`);
