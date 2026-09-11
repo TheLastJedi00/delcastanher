@@ -114,11 +114,15 @@
  * A trilha tem duas copias da lista e desliza -50%: no fim do ciclo a segunda
  * copia esta no lugar exato da primeira, entao o loop nao pisca. O mascaramento
  * nas pontas evita que um logo apareca cortado na borda da secao.
+ *
+ * A borda do mascaramento e percentual, e nao um valor fixo: 5rem de cada lado
+ * consomem 160px de uma tela de 400px — no celular apagariam quase metade da
+ * faixa. Em 8% a transicao acompanha a largura disponivel.
  */
 .marquee {
   overflow: hidden;
-  mask-image: linear-gradient(to right, transparent, #000 5rem, #000 calc(100% - 5rem), transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 5rem, #000 calc(100% - 5rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
 }
 
 .marquee__track {
