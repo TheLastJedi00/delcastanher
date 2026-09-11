@@ -54,4 +54,11 @@ api/dist/
 api/coverage/
 api/.env
 api/.env.*.local
+front/.env.local
+front/.env.*.local
+
+# Link e cache do Vercel CLI, nos dois projetos.
+.vercel/
+api/.vercel/
+front/.vercel/
 api/admin-sdk.json
