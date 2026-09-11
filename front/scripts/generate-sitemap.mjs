@@ -15,7 +15,9 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const DIST = join(import.meta.dirname, '..', 'dist', 'delcastanher-front');
-const ORIGIN = 'https://delcastanher.vercel.app';
+// Mesma variavel que alimenta o canonical no app (ver scripts/apply-env.mjs):
+// sitemap e canonical divergentes mandariam o rastreador para dois lugares.
+const ORIGIN = process.env.SITE_ORIGIN ?? 'https://delcastanher.vercel.app';
 
 /** Espelha as rotas com `indexable: false` em `core/services/seo-route.ts`. */
 const NOT_INDEXABLE = ['/login'];
@@ -47,4 +49,16 @@ const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.s
 
 await writeFile(join(DIST, 'browser', 'sitemap.xml'), xml, 'utf8');
 
-console.log(`sitemap.xml gerado com ${urls.length} URLs.`);
+// O `robots.txt` vai versionado em `public/`, mas a linha `Sitemap:` precisa
+// acompanhar a origem configurada — apontar para um dominio antigo faria o
+// rastreador buscar um sitemap que nao existe mais.
+const robotsPath = join(DIST, 'browser', 'robots.txt');
+const robots = await readFile(robotsPath, 'utf8');
+
+await writeFile(
+  robotsPath,
+  robots.replace(/^Sitemap: .*$/m, `Sitemap: ${ORIGIN}/sitemap.xml`),
+  'utf8'
+);
+
+console.log(`sitemap.xml gerado com ${urls.length} URLs em ${ORIGIN}.`);

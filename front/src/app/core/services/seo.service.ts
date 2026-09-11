@@ -1,15 +1,17 @@
 import { DOCUMENT } from '@angular/common';
 import { Injectable, inject } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
+import { environment } from '../../../environments/environment';
 
 /**
  * Dominio canonico da vitrine.
  *
  * O canonical e a URL absoluta precisam de um host, e o prerender roda no Node,
- * onde nao existe `location`. Quando o dominio proprio entrar no ar, e esta
- * constante que muda.
+ * onde nao existe `location`. O valor vem da variavel `SITE_ORIGIN` do projeto
+ * na Vercel (ver `scripts/apply-env.mjs`): quando o dominio proprio entrar no
+ * ar, e um campo no painel que muda, nao um commit.
  */
-export const SITE_ORIGIN = 'https://delcastanher.vercel.app';
+export const SITE_ORIGIN = environment.siteOrigin;
 
 const SITE_NAME = 'Delcastanher';
 const DEFAULT_IMAGE = `${SITE_ORIGIN}/assets/hero.jpeg`;
