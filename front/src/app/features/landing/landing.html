@@ -134,13 +134,7 @@
       <h3 class="mb-10 text-center text-2xl font-bold text-brand-navy">
         Empresas que confiam em nosso trabalho
       </h3>
-      <div class="flex flex-wrap items-center justify-center gap-10">
-        @for (partner of partners; track partner) {
-          <span class="text-2xl font-black text-brand-navy/30 transition-all duration-300 hover:text-brand-navy">
-            {{ partner }}
-          </span>
-        }
-      </div>
+      <ui-logo-marquee [partners]="partners" [seconds]="45" />
     </div>
   </section>
 

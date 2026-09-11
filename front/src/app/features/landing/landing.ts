@@ -4,6 +4,7 @@ import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
 import { GlassCard } from '../../shared/ui/glass-card/glass-card';
+import { LogoMarquee, MarqueePartner } from '../../shared/ui/logo-marquee/logo-marquee';
 import { ModuleCard } from '../../shared/ui/module-card/module-card';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
@@ -23,6 +24,7 @@ interface Pillar {
     Footer,
     Button,
     GlassCard,
+    LogoMarquee,
     ModuleCard,
     SectionHeader,
     AnimateOnScroll,
@@ -77,5 +79,22 @@ export class Landing {
     'Comunicação Interna', 'Indicadores e Métricas', 'Plano de Ação Final',
   ];
 
-  readonly partners = ['GRUPO FLEXÍVEL', 'JEC', 'AMCOM', 'MAGNA', 'GEOVENDAS', 'CRONUS'];
+  /**
+   * Parceiros da secao "Empresas que confiam em nosso trabalho" (Spec 011).
+   *
+   * A Amcom saiu e entraram Vale Automacao, Efficienza, RGM Service e Acimatec.
+   * A Cronus segue na lista sem `logo` porque o arquivo ainda nao existe: ela
+   * aparece escrita, como a secao inteira era antes dos logos (decisao 3).
+   */
+  readonly partners: MarqueePartner[] = [
+    { name: 'Grupo Flexível', logo: { src: 'assets/parceiros/grupo-flexivel.svg', width: 138, height: 43 } },
+    { name: 'JEC', logo: { src: 'assets/parceiros/jec.webp', width: 352, height: 458 } },
+    { name: 'Magna', logo: { src: 'assets/parceiros/magna.png', width: 720, height: 145 } },
+    { name: 'Geovendas', logo: { src: 'assets/parceiros/geovendas.svg', width: 229, height: 31 } },
+    { name: 'Cronus' },
+    { name: 'Vale Automação', logo: { src: 'assets/parceiros/vale-automacao.png', width: 1200, height: 240 } },
+    { name: 'Efficienza', logo: { src: 'assets/parceiros/efficienza.png', width: 720, height: 216 } },
+    { name: 'RGM Service', logo: { src: 'assets/parceiros/rgm-service.png', width: 217, height: 53 } },
+    { name: 'Acimatec', logo: { src: 'assets/parceiros/acimatec.png', width: 1080, height: 308 } },
+  ];
 }

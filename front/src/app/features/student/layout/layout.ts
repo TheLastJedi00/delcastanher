@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
 import { UserService } from '../../../core/services/user.service';
 import { NavHeader } from '../../../shared/ui/nav-header/nav-header';
 import { LegalLinks } from '../../../shared/ui/legal-links/legal-links';
@@ -16,7 +17,8 @@ import { Sidebar, SidebarNavItem } from '../../../shared/ui/sidebar/sidebar';
         title="Ambiente do Aluno"
         homeLink="/ava"
         [links]="links"
-        [(expanded)]="sidebarExpanded" />
+        [(expanded)]="sidebarExpanded"
+        (logout)="auth.logout()" />
 
       <main class="flex h-screen min-w-0 flex-1 flex-col overflow-y-auto">
         <ui-nav-header
@@ -42,6 +44,8 @@ import { Sidebar, SidebarNavItem } from '../../../shared/ui/sidebar/sidebar';
 export class StudentLayout {
   /** O cabecalho le o nome e as iniciais direto do perfil persistido. */
   protected readonly users = inject(UserService);
+  /** O "Sair" da sidebar precisa limpar a sessao, nao so navegar para o /login. */
+  protected readonly auth = inject(AuthService);
 
   readonly sidebarExpanded = signal(false);
 
