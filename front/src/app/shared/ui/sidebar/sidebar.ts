@@ -89,7 +89,7 @@ export interface SidebarNavItem {
 
       <!-- Sair -->
       <div class="shrink-0 border-t p-2" [class.border-white/10]="variant() === 'dark'" [class.border-brand-navy/8]="variant() === 'light'">
-        <a routerLink="/login" (click)="closeOnMobile()">
+        <a routerLink="/login" (click)="onLogout()">
           <ui-sidebar-link icon="logout" label="Sair" [expanded]="expanded()" [variant]="variant()" [danger]="true" />
         </a>
       </div>
@@ -105,6 +105,8 @@ export class Sidebar {
   readonly expanded = model(false);
 
   readonly select = output<string>();
+  /** O shell e quem encerra a sessao; a sidebar so avisa que o "Sair" foi clicado. */
+  readonly logout = output<void>();
 
   protected readonly asideClasses = computed(() =>
     [
@@ -123,6 +125,11 @@ export class Sidebar {
 
   protected onSelect(item: SidebarNavItem) {
     this.select.emit(item.id ?? item.label);
+    this.closeOnMobile();
+  }
+
+  protected onLogout() {
+    this.logout.emit();
     this.closeOnMobile();
   }
 
