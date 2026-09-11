@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Observable, catchError, map, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { CertificateService } from './certificate.service';
@@ -52,6 +53,13 @@ export class AuthService {
   private readonly users = inject(UserService);
   private readonly progress = inject(ProgressService);
   private readonly certificates = inject(CertificateService);
+  /**
+   * O prerender da vitrine (Spec 009) roda este servico no Node, onde
+   * `localStorage` nao existe. A sessao so e lida e escrita no navegador —
+   * no servidor o usuario e sempre anonimo, que e exatamente o publico das
+   * rotas prerenderizadas.
+   */
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly session = signal<StoredSession | null>(this.readStoredSession());
 
   readonly user = computed(() => this.session()?.user ?? null);
@@ -97,7 +105,10 @@ export class AuthService {
     // em seguida no mesmo navegador veria a trilha da pessoa anterior.
     this.progress.clear();
     this.certificates.clear();
-    localStorage.removeItem(STORAGE_KEY);
+
+    if (this.isBrowser) {
+      localStorage.removeItem(STORAGE_KEY);
+    }
   }
 
   /** Destino inicial do usuario autenticado. */
@@ -133,10 +144,17 @@ export class AuthService {
     };
 
     this.session.set(stored);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+
+    if (this.isBrowser) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    }
   }
 
   private readStoredSession(): StoredSession | null {
+    if (!this.isBrowser) {
+      return null;
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
 
     if (!raw) {

@@ -11,7 +11,6 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder } from '@angular/forms';
-import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 
@@ -22,6 +21,7 @@ import {
   CheckoutScenario,
   findCheckoutProductBySlug,
 } from '../../core/mocks/checkout.mock';
+import { AnalyticsService } from '../../core/services/analytics.service';
 import { Button } from '../../shared/ui/button/button';
 import { LoadingOverlay } from '../../shared/ui/loading-overlay/loading-overlay';
 import { Logo } from '../../shared/ui/logo/logo';
@@ -66,9 +66,8 @@ export const PROCESSING_DELAY_MS = 1600;
 export class Checkout {
   private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(NonNullableFormBuilder);
-  private readonly title = inject(Title);
-  private readonly meta = inject(Meta);
   protected readonly state = inject(CheckoutStateService);
+  private readonly analytics = inject(AnalyticsService);
 
   protected readonly demoNotice = CHECKOUT_DEMO_NOTICE;
 
@@ -100,9 +99,6 @@ export class Checkout {
   private readonly cardForm = viewChild(CheckoutCardForm);
 
   constructor() {
-    this.title.setTitle('Checkout (demonstração) | Delcastanher');
-    this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
-
     // O produto da URL abre a jornada; trocar de slug recomeca o pedido em vez
     // de aproveitar o estado do anterior.
     effect(() => {
@@ -110,6 +106,17 @@ export class Checkout {
 
       if (product) {
         this.state.start(product);
+
+        // `begin_checkout` marca a entrada na jornada, nao o clique do CTA na
+        // pagina do curso: e aqui que o comprador viu o pedido montado.
+        this.analytics.track('begin_checkout', {
+          product_slug: product.slug,
+          product_title: product.name,
+          // Preco vive como texto no mock e pode ser o placeholder `[PREÇO]`
+          // (Spec 006) — enviar como numero exigiria inventar um valor.
+          price_label: product.price,
+          mocked: true,
+        });
       }
     });
 

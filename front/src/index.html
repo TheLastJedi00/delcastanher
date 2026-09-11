@@ -6,6 +6,25 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#244779">
+
+  <!--
+    Fallback da marca (Spec 009, Task 4.12).
+
+    Nas rotas prerenderizadas o SeoService sobrescreve tudo isto em build, e e
+    esse HTML que o crawler le. O que sobra aqui responde pelas rotas servidas
+    como casca de SPA (area logada e checkout) e por qualquer endereco que
+    escape do prerender — por isso precisa descrever a plataforma, e nao uma
+    pagina especifica.
+  -->
+  <meta name="description" content="Estruture o RH da sua empresa do zero com a Imersão RH Estratégico da Delcastanher.">
+  <meta property="og:site_name" content="Delcastanher">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Delcastanher | Imersão RH Estratégico">
+  <meta property="og:description" content="Estruture o RH da sua empresa do zero com a Imersão RH Estratégico da Delcastanher.">
+  <meta property="og:url" content="https://delcastanher.vercel.app">
+  <meta property="og:image" content="https://delcastanher.vercel.app/assets/hero.jpeg">
+  <meta property="og:locale" content="pt_BR">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/svg+xml" href="assets/logo-delcastanher.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

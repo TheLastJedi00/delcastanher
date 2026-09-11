@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, model } from '@angular/core';
 import { UserService } from '../../../core/services/user.service';
+import { LegalLinks } from '../../ui/legal-links/legal-links';
 import { NavHeader } from '../../ui/nav-header/nav-header';
 import { Sidebar, SidebarNavItem } from '../../ui/sidebar/sidebar';
 
@@ -29,7 +30,7 @@ export const ADMIN_NAV: SidebarNavItem[] = [
 @Component({
   selector: 'app-admin-layout',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Sidebar, NavHeader],
+  imports: [Sidebar, NavHeader, LegalLinks],
   template: `
     <div class="flex h-screen overflow-hidden bg-brand-surface text-slate-800">
       <ui-sidebar
@@ -51,6 +52,10 @@ export const ADMIN_NAV: SidebarNavItem[] = [
           (menuToggle)="sidebarExpanded.set(true)" />
 
         <ng-content />
+
+        <!-- Spec 009, Task 2.8: as paginas legais e a revogacao de consentimento
+             tambem precisam ser alcancaveis de dentro do painel. -->
+        <ui-legal-links tone="muted" class="mt-auto border-t border-slate-200 px-4 py-4 md:px-6" />
       </main>
     </div>
   `,

@@ -23,6 +23,7 @@ Este documento registra todas as implementações, refatorações e ajustes fino
 O painel administrativo básico foi totalmente reescrito para uma interface profissional com barra lateral (Sidebar) dividida em abas de gerenciamento:
 - **Visão Geral**: Mantém a tabela de alunos, barras de progresso individuais e KPIs (Faturamento, Engajamento, etc).
 - **Gestão de Aulas**: Nova interface com formulário para criar módulos, inserir links de vídeo e área de arrastar-e-soltar (drag & drop) para upload de arquivos complementares.
+  > **DEPRECATED pela Spec 010 (decisões 3 e 14):** a aba deixou de ser mock. O "link de vídeo" deu lugar ao upload real (URL assinada → bucket → asset no Mux) e os arquivos complementares passaram a ser gravados no Firebase Storage. Criação de módulos continua fora do painel: os 12 módulos vêm do seed da Spec 008.
 - **Disparos de E-mail**: Ferramenta simulada para criar campanhas, selecionar segmentos de alunos e enviar notificações.
 - **Políticas e Termos**: Editor de texto para atualizar os Termos de Uso e Política de Privacidade da plataforma.
 - **Header Alinhado**: Cabeçalho ajustado para conter a identidade visual da aplicação e o botão de Logout.

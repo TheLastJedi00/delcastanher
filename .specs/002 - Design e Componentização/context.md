@@ -296,7 +296,7 @@ src/app/shared/
 │   ├── sidebar-link/
 │   │   └── sidebar-link.ts          # Item de navegação da sidebar
 │   ├── video-player/
-│   │   └── video-player.ts          # Wrapper de iframe para vídeo
+│   │   └── video-player.ts          # Player de vídeo (Mux desde a Spec 010; era wrapper de iframe)
 │   ├── progress-bar/
 │   │   └── progress-bar.ts          # Barra de progresso com gradiente
 │   ├── module-card/
@@ -358,6 +358,7 @@ src/app/shared/
 - **Inputs:** `src: string`, `poster?: string`, `title: string`, `subtitle?: string`
 - **Visual:** Container `aspect-video rounded-2xl overflow-hidden` com overlay gradiente e botão play centralizado
 - **Responsivo:** 100% width do container pai
+> **Atualizado pela Spec 010 (decisão 8):** o "wrapper de iframe" descrito aqui foi DEPRECATED. O componente passou a embutir `<mux-player>` com playback assinado, e o input `src` deu lugar a `playbackId` + token. O tratamento visual (aspect-video, overlay, poster) foi preservado.
 
 #### `ProgressBarComponent`
 - **Inputs:** `value: number` (0-100), `variant: 'teal' | 'brand' | 'gradient'`, `size: 'sm' | 'md'`, `showLabel: boolean`

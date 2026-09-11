@@ -24,18 +24,21 @@ Aprimorar o Ambiente Virtual do Aluno para suportar retenção, clareza de progr
 
 3. **O vocabulário é "módulo".**
    O produto fala em "aula" no texto de marketing, mas a trilha, o `ui-module-card` e o mock trabalham com 12 **módulos**. O código e os models usam `module`; o rótulo "Próxima aula" pode permanecer na UI, apontando para o próximo módulo não concluído. Não se cria um nível "aula" dentro de módulo nesta spec.
+   > **Ratificada pela Spec 010 (decisão 1):** vídeo e materiais foram pendurados no `Module`, e o nível "aula" continua não existindo no modelo.
 
 4. **Retomada por deep-link.**
    `/ava/trilha` não aceita parâmetro hoje, então o botão "Retomar" só conseguiria levar ao topo genérico da trilha. A rota ganha a forma `/ava/trilha/:moduleId`, com `/ava/trilha` continuando válida (abre o módulo em aberto do aluno). Id inexistente cai no primeiro módulo, sem tela quebrada.
 
 5. **Conclusão = 100% dos módulos concluídos, em um curso único.**
    Não existe matrícula, entitlement ou catálogo real de cursos no código (Spec 007, decisão 2) e esta spec **não** cria esse modelo. O progresso e o certificado pertencem ao curso único da plataforma ("Imersão RH Estratégico"), identificado por uma constante/seed. Quando o modelo de matrícula existir, o vínculo passa a ser por curso sem reescrever a tabela.
+   > **Parcialmente DEPRECATED pela Spec 010 (decisão 11).** "Um certificado por aluno" deixou de valer: passam a existir também diplomas **por módulo**, emitidos na conclusão do módulo. O `@@unique([userId, courseId])` foi removido e substituído por `@@unique([userId, moduleId])` mais um índice único parcial (`WHERE module_id IS NULL`) que preserva o diploma único de curso. A regra "curso 100% concluído" continua valendo, mas só para o certificado de **curso**.
 
 6. **Hash e código de validação nascem no backend.**
    O front nunca gera o hash: um certificado cujo identificador é fabricado no cliente não valida nada. A emissão grava `code` (curto, legível, o que a pessoa digita no portal) e `hash` (derivado dos dados do certificado + segredo do servidor, o que garante que o conteúdo não foi adulterado). O front apenas exibe.
 
 7. **A rota de verificação é pública e fica fora do `FirebaseAuthGuard`.**
    Todos os controllers de hoje são guardados por padrão; a verificação precisa ser a exceção explícita — um recrutador não tem conta. Ela devolve apenas o que o diploma já mostra (nome, curso, carga horária, data de emissão, status) e **nunca** e-mail, CPF, telefone ou id interno.
+   > **Estendida pela Spec 010 (decisão 12):** a resposta ganhou `scope` (`course` | `module`) e o título do módulo quando o diploma é de módulo. A regra de PII acima permanece integralmente.
 
 8. **"Inválido" só é alcançável se o certificado puder ser revogado.**
    Com apenas emissão, todo código ou existe (Válido) ou não existe (Não Encontrado) — o terceiro estado do `context` original seria decorativo. O model recebe status (`ACTIVE` / `REVOKED`) com `revokedAt`: **Não Encontrado** = código inexistente; **Inválido** = certificado existente porém revogado ou com hash divergente dos dados atuais.
@@ -57,5 +60,6 @@ O Hub (`/ava`) e a Trilha (`/ava/trilha`) já existem desde a Spec 001 e ficam a
 - Qualquer integração financeira ou vínculo do certificado com pagamento aprovado.
 - Emissão automática de certificado por e-mail, notificações ou fila de envio.
 - Assinatura digital com validade jurídica (ICP-Brasil), QR Code assinado ou blockchain.
-- Player de vídeo real, upload de aulas e marcação automática de conclusão por tempo assistido (a conclusão continua sendo ação explícita do aluno).
+- ~~Player de vídeo real, upload de aulas e marcação automática de conclusão por tempo assistido (a conclusão continua sendo ação explícita do aluno).~~
+  **DEPRECATED pela Spec 010 (decisões 8 e 10):** o player real (Mux), o upload de vídeo e materiais pelo painel e a conclusão automática ao fim do vídeo passaram a existir. O botão manual continua disponível como alternativa acessível, e o endpoint de conclusão segue sendo o mesmo `PATCH /progress/me/modules/:moduleId`.
 - Painel administrativo de certificados emitidos/revogados (a revogação existe no model, mas sem UI nesta spec).

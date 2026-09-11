@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
 import { PLACEHOLDER } from '../../core/mocks/placeholders';
 import {
@@ -15,12 +14,6 @@ import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
 import { PlaceholderText } from '../../shared/ui/placeholder-text/placeholder-text';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
-
-const META = {
-  title: 'Validar certificado | Delcastanher',
-  description:
-    'Confira a autenticidade de um certificado emitido pela Delcastanher informando o código impresso no diploma.',
-};
 
 /**
  * Portal publico de validacao (`/certificado/verificar`).
@@ -55,6 +48,7 @@ const META = {
           <div class="mb-8">
             <ui-section-header
               overline="Validação de certificado"
+              level="h1"
               title="Confira a autenticidade de um certificado"
               subtitle="Informe o código de validação impresso no diploma. A consulta é pública e não exige cadastro." />
           </div>
@@ -210,9 +204,6 @@ export class CertificadoVerificar {
   });
 
   constructor() {
-    inject(Title).setTitle(META.title);
-    inject(Meta).updateTag({ name: 'description', content: META.description });
-
     // `?codigo=` atende o link impresso no diploma: a pessoa chega com o campo
     // preenchido e o resultado na tela, sem redigitar nada.
     const fromUrl = this.route.snapshot.queryParamMap.get('codigo');

@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Meta, Title } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 
+import { routes } from '../../app.routes';
 import { PLANS_META, PLAN_BENEFITS, PLANS } from '../../core/mocks/plans.mock';
+import { SEO_DATA_KEY } from '../../core/services/seo-route';
+import { SeoMetadata } from '../../core/services/seo.service';
 import { Plans } from './plans';
 
 describe('Plans', () => {
@@ -88,8 +90,15 @@ describe('Plans', () => {
     expect(el().querySelector('ui-footer')).not.toBeNull();
   });
 
-  it('define title e meta description da rota para as campanhas', () => {
-    expect(TestBed.inject(Title).getTitle()).toBe(PLANS_META.title);
-    expect(TestBed.inject(Meta).getTag('name="description"')!.content).toBe(PLANS_META.description);
+  it('declara title e description da rota para as campanhas', () => {
+    // Spec 009: os metadados sairam do componente e passaram para `data.seo`,
+    // aplicados pelo App num ponto so — junto com Open Graph e canonical, que
+    // o componente nunca chegou a emitir. A garantia continua sendo que
+    // /planos, destino de campanha, tem snippet proprio.
+    const plansRoute = routes.find(route => route.path === 'planos');
+    const seo = plansRoute?.data?.[SEO_DATA_KEY] as SeoMetadata;
+
+    expect(seo.title).toBe(PLANS_META.title);
+    expect(seo.description).toBe(PLANS_META.description);
   });
 });
