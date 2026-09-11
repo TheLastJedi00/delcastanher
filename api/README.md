@@ -74,12 +74,41 @@ e recusa o mesmo `PUT` vindo de uma página — e o navegador esconde a resposta
 de modo que o painel só mostra "não foi possível falar com o servidor".
 
 ```bash
-npm run storage:cors            # aplica as origens de CORS_ORIGINS ao bucket
-npm run storage:cors -- --show  # mostra a política atual
+npm run storage:cors                    # acrescenta as origens declaradas
+npm run storage:cors -- https://x.app   # acrescenta também esta origem
+npm run storage:cors -- --show          # mostra a política atual
+npm run storage:cors -- --replace       # troca a lista pela declarada (poda)
 ```
 
-Rode uma vez por bucket, e de novo sempre que `CORS_ORIGINS` mudar (domínio
-novo do front, preview da Vercel que precise subir arquivo).
+**O bucket é um só, compartilhado por todos os ambientes.** Não existe "CORS de
+preview" e "CORS de produção": a política é global, e a lista de origens
+precisa ser a **união** de tudo que legitimamente sobe arquivo. Por isso o
+padrão é acrescentar — rodar o script na máquina de alguém não pode derrubar o
+painel publicado. Use `--replace` só quando quiser realmente podar uma origem
+que não deve mais existir.
+
+A lista vem de **`STORAGE_CORS_ORIGINS`** quando declarada. Sem ela, cai nas
+origens de `CORS_ORIGINS` mais o `http://localhost:4200`, que é o mínimo para
+desenvolver contra o bucket real.
+
+> **CORS não é o controle de acesso aqui.** Quem autoriza a escrita é a
+> assinatura da URL, emitida pela API só para uma sessão de administrador — e
+> o objeto nunca é público. A política de CORS apenas diz de que páginas o
+> navegador aceita usar essa URL. Acrescentar uma origem não afrouxa a
+> segurança do bucket; só permite que mais um front consuma a mesma URL
+> assinada.
+
+**Previews da Vercel:** o GCS aceita origens exatas ou `*`, mas não curinga de
+subdomínio (`https://*.vercel.app` não funciona). Como cada deploy de preview
+tem URL própria, o caminho prático é acrescentar a URL pontual quando precisar
+testar upload a partir dela:
+
+```bash
+npm run storage:cors -- https://delcastanher-git-minha-branch-leno.vercel.app
+```
+
+Na maior parte dos casos isso nem é necessário: quem sobe arquivo é o
+administrador, e o painel de produção já está na lista.
 
 ### Endpoints
 
