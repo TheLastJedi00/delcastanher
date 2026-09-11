@@ -38,6 +38,48 @@ npm run start:dev      # http://localhost:3000
 npm test               # suíte unitária
 ```
 
+## Vídeo e materiais (Storage + Mux)
+
+O arquivo de vídeo **nunca passa pelo servidor**: a API roda como função
+serverless na Vercel, onde o corpo de uma request é limitado a poucos megabytes.
+O fluxo tem três passos — o admin pede uma URL assinada de escrita, o navegador
+faz o `PUT` direto no bucket e só então confirma na API, que grava a referência.
+
+O Storage é a fonte e o backup; o **Mux** é a distribuição. Na confirmação do
+vídeo a API gera uma URL assinada de *leitura* e a entrega ao Mux como `input`,
+que puxa o arquivo por conta própria: um upload, dois destinos. A ingestão é
+assíncrona, e o estado (`PENDING` → `PROCESSING` → `READY` / `ERRORED`) chega
+por webhook em `POST /webhooks/mux` — a única rota pública desta parte, separada
+das demais por verificação de assinatura.
+
+Os assets têm policy `signed`, porque toda a plataforma é paga: o `playbackId`
+sozinho não reproduz nada, e `GET /modules/:moduleId/playback-token` só emite o
+JWT curto para uma sessão autenticada.
+
+As variáveis `FIREBASE_STORAGE_BUCKET`, `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`,
+`MUX_SIGNING_KEY_ID`, `MUX_SIGNING_PRIVATE_KEY` e `MUX_WEBHOOK_SECRET` estão
+documentadas no `.env.example` e vivem **apenas no backend** — nenhuma delas
+entra no `environment.ts` do front. O bucket vai pelo nome, sem `gs://`.
+
+> A integração Mux do marketplace da Vercel injeta o token como
+> `MUX_VIDEO_MUX_TOKEN_ID` / `MUX_VIDEO_MUX_TOKEN_SECRET`. A API aceita os dois
+> nomes, com precedência para os da spec, para não exigir segredo duplicado no
+> painel.
+
+### Endpoints
+
+| Rota | Quem acessa |
+| --- | --- |
+| `POST /admin/modules/:moduleId/video/upload-url` | admin |
+| `POST /admin/modules/:moduleId/video` | admin (confirmação) |
+| `GET /admin/modules/:moduleId/video` | admin (estado da ingestão) |
+| `POST /admin/modules/:moduleId/materials/upload-url` | admin |
+| `POST /admin/modules/:moduleId/materials` | admin (confirmação) |
+| `DELETE /admin/materials/:id` | admin |
+| `GET /modules/:moduleId/materials` | aluno autenticado |
+| `GET /modules/:moduleId/playback-token` | aluno autenticado |
+| `POST /webhooks/mux` | público, com assinatura |
+
 ## Gerenciando o perfil de um usuário
 
 O perfil de acesso vem da custom claim `role` do Firebase — quem não tem a claim
