@@ -72,9 +72,20 @@ export class ContentService {
     return this.http
       .get<PlaybackGrant>(`${environment.apiUrl}/modules/${moduleId}/playback-token`)
       .pipe(
-        catchError((error: HttpErrorResponse) =>
-          error.status === 409 ? of(null) : throwError(() => this.toMessage(error)),
-        ),
+        catchError((error: HttpErrorResponse) => {
+          if (error.status === 409) {
+            return of(null);
+          }
+
+          // Falha de configuracao do servidor nao e assunto do aluno: a
+          // mensagem do backend pode citar o nome de uma variavel de ambiente,
+          // e ele nao tem o que fazer com isso. O detalhe fica no log da API.
+          return throwError(() =>
+            error.status >= 500
+              ? 'Não foi possível preparar o vídeo desta aula. Tente novamente em instantes.'
+              : this.toMessage(error),
+          );
+        }),
       );
   }
 
@@ -105,7 +116,10 @@ export function formatFileSize(bytes: number | null | undefined): string {
     return '';
   }
 
-  return bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.round(bytes / 1024)} KB`;
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  // Abaixo de 1 KB o arredondamento daria "0 KB", que parece arquivo vazio.
+  return bytes >= 1024 ? `${Math.round(bytes / 1024)} KB` : `${bytes} bytes`;
 }

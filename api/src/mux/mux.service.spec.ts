@@ -68,7 +68,12 @@ describe('MuxService', () => {
 
       const asset = await build().createAsset('https://storage.googleapis.com/leitura');
 
-      expect(asset).toEqual({ assetId: 'asset-1', playbackId: 'pb-1', status: 'PROCESSING' });
+      expect(asset).toEqual({
+        assetId: 'asset-1',
+        playbackId: 'pb-1',
+        status: 'PROCESSING',
+        error: null,
+      });
 
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).toBe('https://api.mux.com/video/v1/assets');
@@ -119,7 +124,7 @@ describe('MuxService', () => {
 
       const asset = await build().getAsset('asset-1');
 
-      expect(asset).toEqual({ assetId: 'asset-1', playbackId: 'pb-1', status: 'READY' });
+      expect(asset).toEqual({ assetId: 'asset-1', playbackId: 'pb-1', status: 'READY', error: null });
       expect(fetchMock.mock.calls[0][0]).toBe('https://api.mux.com/video/v1/assets/asset-1');
     });
 

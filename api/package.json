@@ -20,7 +20,8 @@
     "test:debug": "node --experimental-vm-modules --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest.js --runInBand",
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "role": "ts-node -P tsconfig.json scripts/manage-role.ts",
-    "db:seed": "ts-node -P tsconfig.json prisma/seed.ts"
+    "db:seed": "ts-node -P tsconfig.json prisma/seed.ts",
+    "storage:cors": "ts-node -P tsconfig.json scripts/configure-storage-cors.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
