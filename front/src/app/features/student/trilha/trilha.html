@@ -74,7 +74,11 @@
           <ui-video-player
             poster="assets/aula1.jpeg"
             [title]="'Módulo ' + module.order"
-            [subtitle]="module.title" />
+            [subtitle]="module.title"
+            [state]="playerState()"
+            [playbackId]="playback()?.playbackId ?? null"
+            [playbackToken]="playback()?.token ?? null"
+            (ended)="onVideoEnded()" />
         </div>
 
         <div class="mb-6">
@@ -136,15 +140,22 @@
             </svg>
             Materiais Complementares
           </h3>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            @for (material of materials; track material.fileName) {
-              <ui-material-item
-                [fileName]="material.fileName"
-                [fileType]="material.fileType"
-                [fileSize]="material.fileSize"
-                [moduleLabel]="'Módulo ' + module.order" />
-            }
-          </div>
+          @if (materials().length === 0) {
+            <p class="text-sm text-slate-500">
+              Nenhum material complementar publicado neste módulo ainda.
+            </p>
+          } @else {
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              @for (material of materials(); track material.id) {
+                <ui-material-item
+                  [fileName]="material.fileName"
+                  [fileType]="material.fileType"
+                  [fileSize]="sizeLabel(material.sizeBytes)"
+                  [moduleLabel]="'Módulo ' + module.order"
+                  [downloadUrl]="material.downloadUrl" />
+              }
+            </div>
+          }
         </ui-card>
       } @else if (loading()) {
         <ui-card variant="default" padding="lg" [hover]="false">

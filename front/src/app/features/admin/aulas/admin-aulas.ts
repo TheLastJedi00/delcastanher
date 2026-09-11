@@ -6,6 +6,7 @@ import {
   ModuleVideoState,
   VideoStatus,
 } from '../../../core/services/admin-content.service';
+import { formatFileSize } from '../../../core/services/content.service';
 import { Badge } from '../../../shared/ui/badge/badge';
 import { Button } from '../../../shared/ui/button/button';
 import { Card } from '../../../shared/ui/card/card';
@@ -29,16 +30,6 @@ const STATUS_VARIANT: Record<VideoStatus, 'teal' | 'success' | 'danger'> = {
   READY: 'success',
   ERRORED: 'danger',
 };
-
-function formatSize(bytes: number | null): string {
-  if (!bytes) {
-    return '';
-  }
-
-  return bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.round(bytes / 1024)} KB`;
-}
 
 /**
  * Gestao de Aulas: envio real do video e dos materiais de um modulo.
@@ -230,7 +221,7 @@ export class AdminAulas implements OnDestroy {
     return status ? STATUS_VARIANT[status] : 'teal';
   });
 
-  protected readonly videoSize = computed(() => formatSize(this.video()?.sizeBytes ?? null));
+  protected readonly videoSize = computed(() => formatFileSize(this.video()?.sizeBytes ?? null));
 
   constructor() {
     this.content.modules().subscribe({
@@ -342,7 +333,7 @@ export class AdminAulas implements OnDestroy {
   }
 
   protected sizeOf(material: MaterialItem): string {
-    return formatSize(material.sizeBytes);
+    return formatFileSize(material.sizeBytes);
   }
 
   private refreshVideo(): void {
