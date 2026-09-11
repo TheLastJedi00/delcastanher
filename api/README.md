@@ -66,6 +66,21 @@ entra no `environment.ts` do front. O bucket vai pelo nome, sem `gs://`.
 > nomes, com precedência para os da spec, para não exigir segredo duplicado no
 > painel.
 
+### CORS do bucket (passo obrigatório)
+
+O upload vai **do navegador direto para o bucket**, então o bucket precisa
+aceitar a origem do front. Um bucket sem CORS aceita o `PUT` vindo do servidor
+e recusa o mesmo `PUT` vindo de uma página — e o navegador esconde a resposta,
+de modo que o painel só mostra "não foi possível falar com o servidor".
+
+```bash
+npm run storage:cors            # aplica as origens de CORS_ORIGINS ao bucket
+npm run storage:cors -- --show  # mostra a política atual
+```
+
+Rode uma vez por bucket, e de novo sempre que `CORS_ORIGINS` mudar (domínio
+novo do front, preview da Vercel que precise subir arquivo).
+
 ### Endpoints
 
 | Rota | Quem acessa |

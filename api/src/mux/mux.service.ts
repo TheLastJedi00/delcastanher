@@ -19,6 +19,8 @@ export interface MuxAsset {
   assetId: string;
   playbackId: string | null;
   status: AssetStatus;
+  /** Motivo da falha, quando o asset veio `errored`. */
+  error: string | null;
 }
 
 /** Token de playback e o instante em que ele deixa de valer. */
@@ -158,6 +160,9 @@ export class MuxService {
       assetId: asset.id,
       playbackId: asset.playback_ids?.[0]?.id ?? null,
       status: STATUS_MAP[asset.status] ?? 'PROCESSING',
+      // Sem isto o painel mostraria "Falhou" e nada mais, e o admin nao teria
+      // como saber que o problema e o arquivo, e nao a plataforma.
+      error: asset.errors?.messages?.join(' ') ?? null,
     };
   }
 

@@ -137,7 +137,14 @@ export class VideoService {
 
       const updated = (await this.prisma.module.update({
         where: { id: moduleId },
-        data: { videoStatus: asset.status, muxPlaybackId: asset.playbackId ?? module.muxPlaybackId },
+        data: {
+          videoStatus: asset.status,
+          muxPlaybackId: asset.playbackId ?? module.muxPlaybackId,
+          videoError:
+            asset.status === 'ERRORED'
+              ? (asset.error ?? 'O Mux nao conseguiu processar o arquivo.')
+              : null,
+        },
       })) as ModuleRow;
 
       return this.toState(updated);

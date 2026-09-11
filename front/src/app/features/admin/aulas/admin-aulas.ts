@@ -108,7 +108,7 @@ const STATUS_VARIANT: Record<VideoStatus, 'teal' | 'success' | 'danger'> = {
           </div>
 
           <label
-            class="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-brand-navy/12 p-6 text-center transition-colors hover:border-brand-teal hover:bg-brand-teal/5">
+            class="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-brand-navy/12 p-6 text-center transition-colors hover:border-brand-teal hover:bg-brand-teal/5 focus-within:border-brand-teal focus-within:ring-2 focus-within:ring-brand-teal/30">
             <svg class="h-8 w-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
@@ -166,7 +166,7 @@ const STATUS_VARIANT: Record<VideoStatus, 'teal' | 'success' | 'danger'> = {
           }
 
           <label
-            class="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-brand-navy/12 p-6 text-center transition-colors hover:border-brand-teal hover:bg-brand-teal/5">
+            class="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-brand-navy/12 p-6 text-center transition-colors hover:border-brand-teal hover:bg-brand-teal/5 focus-within:border-brand-teal focus-within:ring-2 focus-within:ring-brand-teal/30">
             <span class="text-sm text-slate-600">
               {{ materialUploading() ? 'Enviando…' : 'Selecione um material (PDF, planilha, documento ou apresentação)' }}
             </span>
