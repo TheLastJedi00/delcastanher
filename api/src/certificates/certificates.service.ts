@@ -85,12 +85,9 @@ export class CertificatesService {
   async findForUser(user: AuthUser): Promise<StudentCertificate | null> {
     const course = await this.requireCourse();
 
-    const certificate = await this.prisma.certificate.findUnique({
-      where: { userId_courseId: { userId: user.uid, courseId: course.id } },
-      include: WITH_RELATIONS,
-    });
+    const certificate = await this.findCourseCertificate(user.uid, course.id);
 
-    return certificate ? toStudentCertificate(certificate as CertificateRow) : null;
+    return certificate ? toStudentCertificate(certificate) : null;
   }
 
   /**
@@ -101,10 +98,7 @@ export class CertificatesService {
   async issueForUser(user: AuthUser): Promise<StudentCertificate> {
     const course = await this.requireCourse();
 
-    const existing = await this.prisma.certificate.findUnique({
-      where: { userId_courseId: { userId: user.uid, courseId: course.id } },
-      include: WITH_RELATIONS,
-    });
+    const existing = await this.findCourseCertificate(user.uid, course.id);
 
     if (existing) {
       if (existing.status === 'REVOKED') {
@@ -113,7 +107,7 @@ export class CertificatesService {
         );
       }
 
-      return toStudentCertificate(existing as CertificateRow);
+      return toStudentCertificate(existing);
     }
 
     const progress = await this.progress.findForUser(user);
@@ -188,6 +182,21 @@ export class CertificatesService {
     }
 
     return { status: 'valid', certificate: toPublicCertificate(certificate) };
+  }
+
+  /**
+   * Diploma do curso inteiro. Nao e `findUnique`: desde a Spec 010 a coluna
+   * `moduleId` distingue os dois escopos, e a unicidade do diploma de curso
+   * vive num indice parcial em SQL (`WHERE module_id IS NULL`), que o Prisma
+   * nao expoe como chave composta (decisao 11).
+   */
+  private async findCourseCertificate(userId: string, courseId: string) {
+    const certificate = await this.prisma.certificate.findFirst({
+      where: { userId, courseId, moduleId: null },
+      include: WITH_RELATIONS,
+    });
+
+    return certificate as CertificateRow | null;
   }
 
   /** Curso unico da plataforma; sem ele nao ha o que certificar. */
