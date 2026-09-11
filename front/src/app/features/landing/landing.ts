@@ -1,24 +1,13 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { NgOptimizedImage } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
 import { GlassCard } from '../../shared/ui/glass-card/glass-card';
+import { LogoMarquee, MarqueePartner } from '../../shared/ui/logo-marquee/logo-marquee';
 import { ModuleCard } from '../../shared/ui/module-card/module-card';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
-
-interface Partner {
-  /** Nome da empresa: vira o `alt` da imagem, ou o proprio texto exibido. */
-  name: string;
-  /**
-   * Ausente quando a empresa ainda nao tem arquivo de logo. `width`/`height`
-   * sao as dimensoes intrinsecas do arquivo, exigidas pelo NgOptimizedImage
-   * para reservar o espaco antes de a imagem chegar.
-   */
-  logo?: { src: string; width: number; height: number };
-}
 
 interface Pillar {
   title: string;
@@ -30,12 +19,12 @@ interface Pillar {
   selector: 'app-landing',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    NgOptimizedImage,
     RouterLink,
     NavHeader,
     Footer,
     Button,
     GlassCard,
+    LogoMarquee,
     ModuleCard,
     SectionHeader,
     AnimateOnScroll,
@@ -97,7 +86,7 @@ export class Landing {
    * A Cronus segue na lista sem `logo` porque o arquivo ainda nao existe: ela
    * aparece escrita, como a secao inteira era antes dos logos (decisao 3).
    */
-  readonly partners: Partner[] = [
+  readonly partners: MarqueePartner[] = [
     { name: 'Grupo Flexível', logo: { src: 'assets/parceiros/grupo-flexivel.svg', width: 138, height: 43 } },
     { name: 'JEC', logo: { src: 'assets/parceiros/jec.webp', width: 352, height: 458 } },
     { name: 'Magna', logo: { src: 'assets/parceiros/magna.png', width: 720, height: 145 } },
