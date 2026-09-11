@@ -33,6 +33,7 @@ interface HubCard {
       <div class="mb-10">
         <ui-section-header
           [overline]="greeting()"
+          level="h1"
           title="Hub de Aprendizado"
           subtitle="O que você deseja fazer hoje?" />
       </div>
