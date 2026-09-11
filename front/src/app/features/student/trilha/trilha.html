@@ -74,7 +74,11 @@
           <ui-video-player
             poster="assets/aula1.jpeg"
             [title]="'Módulo ' + module.order"
-            [subtitle]="module.title" />
+            [subtitle]="module.title"
+            [state]="playerState()"
+            [playbackId]="playback()?.playbackId ?? null"
+            [playbackToken]="playback()?.token ?? null"
+            (ended)="onVideoEnded()" />
         </div>
 
         <div class="mb-6">
@@ -111,6 +115,46 @@
           </ui-card>
         </div>
 
+        @if (module.completed) {
+          <div class="mb-6">
+            <ui-card variant="default" padding="lg" [hover]="false">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 class="text-lg font-semibold text-brand-navy">
+                    Certificado deste módulo
+                  </h3>
+                  <p class="mt-1 text-sm text-slate-500">
+                    @if (moduleCertificate(); as diploma) {
+                      Emitido com o código {{ diploma.code }}. É um diploma do módulo — o
+                      certificado do curso inteiro sai ao concluir os {{ modules().length }}
+                      módulos.
+                    } @else {
+                      Você concluiu este módulo e já pode emitir o diploma correspondente. Ele
+                      não substitui o certificado do curso inteiro.
+                    }
+                  </p>
+                </div>
+                @if (moduleCertificate(); as diploma) {
+                  <a
+                    [routerLink]="'/certificado/verificar'"
+                    [queryParams]="{ codigo: diploma.code }"
+                    class="shrink-0">
+                    <ui-button variant="outline">Ver diploma do módulo</ui-button>
+                  </a>
+                } @else {
+                  <ui-button
+                    variant="primary"
+                    class="shrink-0"
+                    [loading]="issuingCertificate()"
+                    (click)="issueModuleCertificate()">
+                    Emitir certificado do módulo
+                  </ui-button>
+                }
+              </div>
+            </ui-card>
+          </div>
+        }
+
         @if (courseCompleted()) {
           <div class="mb-6">
             <ui-card variant="default" padding="lg" [hover]="false">
@@ -136,15 +180,22 @@
             </svg>
             Materiais Complementares
           </h3>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            @for (material of materials; track material.fileName) {
-              <ui-material-item
-                [fileName]="material.fileName"
-                [fileType]="material.fileType"
-                [fileSize]="material.fileSize"
-                [moduleLabel]="'Módulo ' + module.order" />
-            }
-          </div>
+          @if (materials().length === 0) {
+            <p class="text-sm text-slate-500">
+              Nenhum material complementar publicado neste módulo ainda.
+            </p>
+          } @else {
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              @for (material of materials(); track material.id) {
+                <ui-material-item
+                  [fileName]="material.fileName"
+                  [fileType]="material.fileType"
+                  [fileSize]="sizeLabel(material.sizeBytes)"
+                  [moduleLabel]="'Módulo ' + module.order"
+                  [downloadUrl]="material.downloadUrl" />
+              }
+            </div>
+          }
         </ui-card>
       } @else if (loading()) {
         <ui-card variant="default" padding="lg" [hover]="false">

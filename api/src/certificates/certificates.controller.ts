@@ -23,6 +23,26 @@ export class CertificatesController {
     return this.certificates.findForUser(user);
   }
 
+  /** Diplomas de modulo ja emitidos para o aluno. */
+  @Get('me/modules')
+  @UseGuards(FirebaseAuthGuard)
+  myModules(@CurrentUser() user: AuthUser): Promise<StudentCertificate[]> {
+    return this.certificates.findModuleCertificates(user);
+  }
+
+  /**
+   * Emite o diploma de um modulo concluido (Spec 010, decisao 11). Convive com
+   * o diploma do curso: um nao substitui nem antecipa o outro.
+   */
+  @Post('me/modules/:moduleId')
+  @UseGuards(FirebaseAuthGuard)
+  issueForModule(
+    @CurrentUser() user: AuthUser,
+    @Param('moduleId') moduleId: string,
+  ): Promise<StudentCertificate> {
+    return this.certificates.issueForModule(user, moduleId);
+  }
+
   /** Emite o diploma do curso concluido. Chamar de novo devolve o mesmo. */
   @Post('me')
   @UseGuards(FirebaseAuthGuard)
