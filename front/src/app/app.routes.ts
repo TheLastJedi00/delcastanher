@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { adminGuard } from './core/guards/admin.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { onboardingGuard } from './core/guards/onboarding.guard';
 import { PLANS_META } from './core/mocks/plans.mock';
@@ -128,7 +129,10 @@ export const routes: Routes = [
   },
   {
     path: 'admin',
-    canActivate: [authGuard, onboardingGuard],
+    // O adminGuard e explicito na rota (Spec 010, decisao 13): daqui saem as
+    // URLs assinadas de escrita no bucket, e a exigencia de papel nao deve
+    // depender de lembrar de um mapa em outro arquivo.
+    canActivate: [authGuard, adminGuard, onboardingGuard],
     data: { [SEO_DATA_KEY]: privateSeo('Administração') },
     children: [
       {

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ADMIN_TABS, AdminLayout, AdminTab } from '../../../../shared/layouts/admin-layout/admin-layout';
+import { AdminAulas } from '../../aulas/admin-aulas';
 import { Avatar } from '../../../../shared/ui/avatar/avatar';
 import { Badge } from '../../../../shared/ui/badge/badge';
 import { Button } from '../../../../shared/ui/button/button';
@@ -30,6 +31,7 @@ interface Student {
   selector: 'app-admin-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AdminAulas,
     AdminLayout,
     PageContainer,
     SectionHeader,
@@ -54,8 +56,6 @@ export class AdminDashboard {
   readonly search = signal('');
   readonly legalTab = signal<'termos' | 'privacidade'>('termos');
 
-  readonly lessonTitle = signal('');
-  readonly lessonVideoUrl = signal('');
   readonly emailSubject = signal('');
   readonly emailBody = signal('');
   readonly legalContent = signal('');
