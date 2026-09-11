@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { AnalyticsService } from '../../../core/services/analytics.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { Button } from '../../../shared/ui/button/button';
 import { Input } from '../../../shared/ui/input/input';
@@ -69,6 +70,7 @@ function normalize(value: string): string {
 })
 export class CreateAccountModal {
   private readonly auth = inject(AuthService);
+  private readonly analytics = inject(AnalyticsService);
 
   readonly closed = output<void>();
   /** E-mail ja normalizado, emitido apenas quando o formulario e valido. */
@@ -122,6 +124,12 @@ export class CreateAccountModal {
       next: message => {
         this.isSending.set(false);
         this.sentMessage.set(message);
+
+        // So conta como lead o pedido que a API aceitou — disparar no clique
+        // contaria tambem e-mail invalido e erro de rede. O endereco em si nao
+        // vai junto: e dado pessoal, e a medicao nao precisa dele.
+        this.analytics.track('generate_lead', { form: 'solicitar_acesso' });
+
         this.submitted.emit(email);
       },
       error: (message: string) => {

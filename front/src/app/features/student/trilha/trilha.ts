@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
+import { AnalyticsService } from '../../../core/services/analytics.service';
 import { ProgressModuleItem, ProgressService } from '../../../core/services/progress.service';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { Badge } from '../../../shared/ui/badge/badge';
@@ -44,6 +45,10 @@ export class Trilha {
   private readonly progressService = inject(ProgressService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly analytics = inject(AnalyticsService);
+
+  /** Ultimo modulo ja contado, para nao repetir o evento no mesmo modulo. */
+  private lastTrackedModuleId: string | null = null;
 
   readonly modules = this.progressService.modules;
   readonly progress = this.progressService.percentage;
@@ -85,6 +90,24 @@ export class Trilha {
 
   constructor() {
     this.reload();
+
+    // `lesson_started` mora aqui, e nao no `ui-video-player`: o player e
+    // componente de apresentacao reutilizavel e nao sabe em que modulo esta.
+    // O disparo acompanha o modulo em foco — o mesmo id nao conta duas vezes
+    // quando a trilha recarrega o progresso.
+    effect(() => {
+      const active = this.activeModule();
+
+      if (!active || active.id === this.lastTrackedModuleId) {
+        return;
+      }
+
+      this.lastTrackedModuleId = active.id;
+      this.analytics.track('lesson_started', {
+        module_id: active.id,
+        module_title: active.title,
+      });
+    });
   }
 
   reload(): void {
