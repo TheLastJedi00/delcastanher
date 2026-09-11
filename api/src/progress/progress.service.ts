@@ -17,6 +17,8 @@ interface ModuleRow {
   order: number;
   title: string;
   summary: string;
+  videoStoragePath: string | null;
+  videoStatus: string | null;
 }
 
 function percentageOf(completed: number, total: number): number {
@@ -62,6 +64,8 @@ export class ProgressService {
       title: module.title,
       summary: module.summary,
       completed: completedIds.has(module.id),
+      hasVideo: Boolean(module.videoStoragePath),
+      videoReady: module.videoStatus === 'READY',
     }));
 
     const completedCount = modules.filter((module) => module.completed).length;

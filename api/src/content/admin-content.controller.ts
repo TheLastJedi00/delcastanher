@@ -3,8 +3,10 @@ import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ContentService } from './content.service';
-import type { MaterialItem, UploadTicket } from './content.types';
+import type { MaterialItem, ModuleVideoState, UploadTicket } from './content.types';
 import { ConfirmMaterialDto, MaterialUploadUrlDto } from './dto/material.dto';
+import { ConfirmVideoDto, VideoUploadUrlDto } from './dto/video.dto';
+import { VideoService } from './video.service';
 
 /**
  * Gestao de conteudo pelo administrador.
@@ -17,7 +19,37 @@ import { ConfirmMaterialDto, MaterialUploadUrlDto } from './dto/material.dto';
 @UseGuards(FirebaseAuthGuard, RolesGuard)
 @Roles('admin')
 export class AdminContentController {
-  constructor(private readonly content: ContentService) {}
+  constructor(
+    private readonly content: ContentService,
+    private readonly video: VideoService,
+  ) {}
+
+  /** Passo 1 do video: URL assinada de escrita no bucket. */
+  @Post('modules/:moduleId/video/upload-url')
+  videoUploadUrl(
+    @Param('moduleId') moduleId: string,
+    @Body() dto: VideoUploadUrlDto,
+  ): Promise<UploadTicket> {
+    return this.video.createUploadUrl(moduleId, dto);
+  }
+
+  /**
+   * Passo 3 do video: com o arquivo no bucket, a API assina uma URL de leitura
+   * e o Mux puxa dela. Um upload, dois destinos (decisao 4).
+   */
+  @Post('modules/:moduleId/video')
+  confirmVideo(
+    @Param('moduleId') moduleId: string,
+    @Body() dto: ConfirmVideoDto,
+  ): Promise<ModuleVideoState> {
+    return this.video.confirmUpload(moduleId, dto);
+  }
+
+  /** Estado do processamento, consultado pelo painel enquanto o Mux ingere. */
+  @Get('modules/:moduleId/video')
+  videoState(@Param('moduleId') moduleId: string): Promise<ModuleVideoState> {
+    return this.video.getState(moduleId);
+  }
 
   /** Passo 1: URL assinada para o navegador enviar o arquivo direto ao bucket. */
   @Post('modules/:moduleId/materials/upload-url')

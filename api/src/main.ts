@@ -5,7 +5,9 @@ import { AppModule } from './app.module';
 import { corsOrigins } from './config/cors.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // `rawBody`: o webhook do Mux assina o corpo cru, e um JSON reserializado
+  // nao reproduz byte a byte o que foi assinado (Spec 010, decisao 5).
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   app.enableCors({ origin: corsOrigins(config), credentials: true });

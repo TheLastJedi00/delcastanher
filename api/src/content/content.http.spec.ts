@@ -9,6 +9,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { AdminContentController } from './admin-content.controller';
 import { ContentController } from './content.controller';
 import { ContentService } from './content.service';
+import { VideoService } from './video.service';
 
 function userWith(role: Role): AuthUser {
   return { uid: 'uid-123', email: 'pessoa@delcastanher.com', name: 'Pessoa', role };
@@ -51,6 +52,9 @@ async function buildApp(
       Reflector,
       RolesGuard,
       { provide: ContentService, useValue: content },
+      // O video tem suite propria (video.http.spec.ts); aqui ele so precisa
+      // existir para os controllers subirem.
+      { provide: VideoService, useValue: {} },
       { provide: AuthService, useValue: { verify: jest.fn() } },
     ],
   })

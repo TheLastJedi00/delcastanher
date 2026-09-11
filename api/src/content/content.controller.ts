@@ -1,7 +1,8 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { ContentService } from './content.service';
-import type { MaterialItem } from './content.types';
+import type { MaterialItem, PlaybackGrant } from './content.types';
+import { VideoService } from './video.service';
 
 /**
  * Conteudo como o aluno o consome. Exige sessao e nada alem disso: toda a
@@ -11,7 +12,20 @@ import type { MaterialItem } from './content.types';
 @Controller()
 @UseGuards(FirebaseAuthGuard)
 export class ContentController {
-  constructor(private readonly content: ContentService) {}
+  constructor(
+    private readonly content: ContentService,
+    private readonly video: VideoService,
+  ) {}
+
+  /**
+   * Autorizacao de reproducao. 409 enquanto o video nao esta pronto: o aluno
+   * precisa saber que o modulo existe e o video ainda nao, e nao receber um
+   * player que so falha (decisoes 5 e 6).
+   */
+  @Get('modules/:moduleId/playback-token')
+  playbackToken(@Param('moduleId') moduleId: string): Promise<PlaybackGrant> {
+    return this.video.createPlaybackToken(moduleId);
+  }
 
   /** Materiais do modulo, ja com a URL assinada de download. */
   @Get('modules/:moduleId/materials')
