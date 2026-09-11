@@ -45,7 +45,7 @@ Spec front-only, em `front/` (Angular 20 standalone + signals + Tailwind), segui
 - [x] **Task 4.12:** Revisar `src/index.html` para que o `<head>` estático sirva de fallback coerente (title, description e OG genéricos da marca), já que ele é o que responde por qualquer rota não prerenderizada.
 
 ## Fase 5: Verificação
-- [ ] **Task 5.1:** Rodar `npm test` no `front/` e corrigir regressões nas suítes existentes (`course-detail.spec.ts`, `auth.service.spec.ts`, `user.service.spec.ts` e as da Spec 008).
-- [ ] **Task 5.2:** Validar o HTML de produção de `/`, `/planos` e `/cursos/:slug` fora do navegador (`curl` ou leitura do arquivo gerado), conferindo title, description, OG, canonical e JSON-LD presentes sem execução de JavaScript.
-- [ ] **Task 5.3:** Validar o fluxo de consentimento ponta a ponta em produção local: primeira visita sem nenhum script de terceiro carregado, aceite liberando a fila de eventos, revogação pelo rodapé interrompendo os disparos e bump de versão da política reabrindo o banner.
-- [ ] **Task 5.4:** Conferir `robots.txt` e `sitemap.xml` servidos na raiz do domínio e verificar que nenhuma rota privada aparece no sitemap nem sem `noindex`.
+- [x] **Task 5.1:** Rodar `npm test` no `front/` e corrigir regressões nas suítes existentes (`course-detail.spec.ts`, `auth.service.spec.ts`, `user.service.spec.ts` e as da Spec 008).
+- [x] **Task 5.2:** Validar o HTML de produção de `/`, `/planos` e `/cursos/:slug` fora do navegador (`curl` ou leitura do arquivo gerado), conferindo title, description, OG, canonical e JSON-LD presentes sem execução de JavaScript.
+- [x] **Task 5.3:** Validar o fluxo de consentimento ponta a ponta em produção local: primeira visita sem nenhum script de terceiro carregado, aceite liberando a fila de eventos, revogação pelo rodapé interrompendo os disparos e bump de versão da política reabrindo o banner.
+- [x] **Task 5.4:** Conferir `robots.txt` e `sitemap.xml` servidos na raiz do domínio e verificar que nenhuma rota privada aparece no sitemap nem sem `noindex`.
