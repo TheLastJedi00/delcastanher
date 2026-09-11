@@ -21,14 +21,14 @@ Spec front-only, em `front/` (Angular 20 standalone + signals + Tailwind), segui
 - [x] **Task 2.9:** Escrever o `.spec.ts` do `ConsentService`: primeira visita sem decisão, aceite persistido com data e versão, recusa persistida, consentimento de versão antiga invalidado e revogação após aceite.
 
 ## Fase 3: Analytics Data Layer
-- [ ] **Task 3.1:** Adicionar `gtmId: ''` e `ga4Id: ''` em `environment.ts` e `environment.development.ts`, documentando no próprio arquivo que valor vazio significa no-op silencioso e que estes campos não são segredo (decisão 5).
-- [ ] **Task 3.2:** Criar `core/services/analytics.service.ts` com a API de disparo tipada (nome do evento + payload), inicializando `window.dataLayer` e **injetando o container apenas** quando houver ID configurado **e** consentimento aceito; com ID vazio, apenas `console.debug` em desenvolvimento (decisões 4 e 5).
-- [ ] **Task 3.3:** Implementar o portão de consentimento dentro do serviço: **pendente** → enfileira em memória; **aceito** → carrega o container e libera a fila; **recusado** → descarta a fila e vira no-op permanente na sessão (decisão 4).
-- [ ] **Task 3.4:** Disparar `page_view` a cada `NavigationEnd` do `Router`, com a URL e o título resolvido da rota — sem isso, uma SPA registra apenas a primeira página da sessão.
-- [ ] **Task 3.5:** Instrumentar `view_course` em `features/course-detail` (slug e nome do curso) e `begin_checkout` na entrada de `features/checkout`, reaproveitando os dados que os componentes já carregam.
-- [ ] **Task 3.6:** Instrumentar `purchase` em `features/checkout/checkout-success`, com `transaction_id` sintético e comentário no código declarando que o checkout é mockado e o valor não representa receita real (decisão 6).
-- [ ] **Task 3.7:** Instrumentar `generate_lead` na submissão bem-sucedida dos formulários de captura do funil e `lesson_started` na abertura de módulo em `features/student/trilha` — não no `shared/ui/video-player`, que é componente de apresentação reutilizável.
-- [ ] **Task 3.8:** Escrever o `.spec.ts` do `AnalyticsService`: nenhum script injetado com ID vazio, nenhum evento no `dataLayer` sem consentimento, fila liberada na ordem correta após o aceite e fila descartada na recusa.
+- [x] **Task 3.1:** Adicionar `gtmId: ''` e `ga4Id: ''` em `environment.ts` e `environment.development.ts`, documentando no próprio arquivo que valor vazio significa no-op silencioso e que estes campos não são segredo (decisão 5).
+- [x] **Task 3.2:** Criar `core/services/analytics.service.ts` com a API de disparo tipada (nome do evento + payload), inicializando `window.dataLayer` e **injetando o container apenas** quando houver ID configurado **e** consentimento aceito; com ID vazio, apenas `console.debug` em desenvolvimento (decisões 4 e 5).
+- [x] **Task 3.3:** Implementar o portão de consentimento dentro do serviço: **pendente** → enfileira em memória; **aceito** → carrega o container e libera a fila; **recusado** → descarta a fila e vira no-op permanente na sessão (decisão 4).
+- [x] **Task 3.4:** Disparar `page_view` a cada `NavigationEnd` do `Router`, com a URL e o título resolvido da rota — sem isso, uma SPA registra apenas a primeira página da sessão.
+- [x] **Task 3.5:** Instrumentar `view_course` em `features/course-detail` (slug e nome do curso) e `begin_checkout` na entrada de `features/checkout`, reaproveitando os dados que os componentes já carregam.
+- [x] **Task 3.6:** Instrumentar `purchase` em `features/checkout/checkout-success`, com `transaction_id` sintético e comentário no código declarando que o checkout é mockado e o valor não representa receita real (decisão 6).
+- [x] **Task 3.7:** Instrumentar `generate_lead` na submissão bem-sucedida dos formulários de captura do funil e `lesson_started` na abertura de módulo em `features/student/trilha` — não no `shared/ui/video-player`, que é componente de apresentação reutilizável.
+- [x] **Task 3.8:** Escrever o `.spec.ts` do `AnalyticsService`: nenhum script injetado com ID vazio, nenhum evento no `dataLayer` sem consentimento, fila liberada na ordem correta após o aceite e fila descartada na recusa.
 
 ## Fase 4: Arquitetura SEO e Metadados
 - [ ] **Task 4.1:** Criar `core/services/seo.service.ts` usando `Title` e `Meta` do `@angular/platform-browser`, com um método único que recebe título, descrição, imagem e flag de indexação e aplica title, `description`, Open Graph (`og:title`, `og:description`, `og:image`, `og:url`, `og:type`), Twitter Card e `<link rel="canonical">` (decisão 12).

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink } from '@angular/router';
 
 import { CHECKOUT_DEMO_NOTICE } from '../../core/mocks/checkout.mock';
+import { AnalyticsService } from '../../core/services/analytics.service';
 import { Button } from '../../shared/ui/button/button';
 import { Logo } from '../../shared/ui/logo/logo';
 import { OrderSummary } from '../../shared/ui/order-summary/order-summary';
@@ -79,8 +80,33 @@ import { CheckoutStateService } from './checkout-state';
 })
 export class CheckoutSuccess {
   protected readonly state = inject(CheckoutStateService);
+  private readonly analytics = inject(AnalyticsService);
 
   protected readonly demoNotice = CHECKOUT_DEMO_NOTICE;
   protected readonly product = computed(() => this.state.product());
   protected readonly email = computed(() => this.state.buyer().email);
+
+  constructor() {
+    const product = this.product();
+
+    if (!product) {
+      return;
+    }
+
+    /**
+     * ATENCAO (Spec 009, decisao 6): este checkout e um mockup da Spec 007 —
+     * nao ha cobranca, gateway nem pedido real. O `transaction_id` e sintetico
+     * e o preco vai como rotulo, nunca como `value` numerico: assim que alguem
+     * preencher o `gtmId` de producao, este evento chega ao GA4 marcado como
+     * simulacao em vez de virar receita inexistente no relatorio de vendas.
+     */
+    this.analytics.track('purchase', {
+      transaction_id: `MOCK-${Date.now()}`,
+      product_slug: product.slug,
+      product_title: product.name,
+      price_label: product.price,
+      payment_method: this.state.methodLabel(),
+      mocked: true,
+    });
+  }
 }

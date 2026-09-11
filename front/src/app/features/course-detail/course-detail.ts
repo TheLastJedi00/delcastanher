@@ -6,6 +6,7 @@ import { map } from 'rxjs';
 
 import { findCourseBySlug } from '../../core/mocks/courses.mock';
 import { isPlaceholder } from '../../core/mocks/placeholders';
+import { AnalyticsService } from '../../core/services/analytics.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Accordion, AccordionItem } from '../../shared/ui/accordion/accordion';
 import { Button } from '../../shared/ui/button/button';
@@ -37,6 +38,7 @@ export class CourseDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
+  private readonly analytics = inject(AnalyticsService);
 
   /** Ancoras da propria pagina do curso; "Planos" navega pelo router. */
   protected readonly navLinks: NavLink[] = [
@@ -97,6 +99,22 @@ export class CourseDetail {
         content:
           course?.metaDescription ??
           'Este curso não está disponível. Veja os planos e cursos abertos da Delcastanher.',
+      });
+    });
+
+    // `view_course` so faz sentido para curso que existe: slug fora do
+    // catalogo cai no desvio de funil, e contar isso como visualizacao de
+    // produto inflaria o topo do funil com quem nunca viu a oferta.
+    effect(() => {
+      const course = this.course();
+
+      if (!course) {
+        return;
+      }
+
+      this.analytics.track('view_course', {
+        course_slug: course.slug,
+        course_title: course.name,
       });
     });
   }
