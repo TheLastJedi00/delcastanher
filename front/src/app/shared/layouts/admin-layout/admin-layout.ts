@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, model } from '@angular/core';
+import { AuthService } from '../../../core/services/auth.service';
 import { UserService } from '../../../core/services/user.service';
 import { LegalLinks } from '../../ui/legal-links/legal-links';
 import { NavHeader } from '../../ui/nav-header/nav-header';
@@ -40,7 +41,8 @@ export const ADMIN_NAV: SidebarNavItem[] = [
         [links]="tabs"
         [activeId]="activeTab()"
         [(expanded)]="sidebarExpanded"
-        (select)="activeTab.set($any($event))" />
+        (select)="activeTab.set($any($event))"
+        (logout)="auth.logout()" />
 
       <main class="flex h-screen min-w-0 flex-1 flex-col overflow-y-auto">
         <ui-nav-header
@@ -49,7 +51,8 @@ export const ADMIN_NAV: SidebarNavItem[] = [
           homeLink="/admin"
           [userName]="users.displayName()"
           [userInitials]="users.initials()"
-          (menuToggle)="sidebarExpanded.set(true)" />
+          (menuToggle)="sidebarExpanded.set(true)"
+          (logout)="auth.logout()" />
 
         <ng-content />
 
@@ -63,6 +66,8 @@ export const ADMIN_NAV: SidebarNavItem[] = [
 export class AdminLayout {
   /** O cabecalho le o nome e as iniciais direto do perfil persistido. */
   protected readonly users = inject(UserService);
+  /** O "Sair" do header e o da sidebar precisam limpar a sessao, nao so navegar. */
+  protected readonly auth = inject(AuthService);
 
   protected readonly tabs = ADMIN_NAV;
   /** Vazio nas telas do painel que nao sao aba, como o Meu Perfil. */
