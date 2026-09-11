@@ -39,6 +39,9 @@ function progress(completedIds: string[]): CourseProgress {
 const CERTIFICATE: StudentCertificate = {
   code: 'DELC-ABCD-2345',
   hash: 'f'.repeat(64),
+  scope: 'course',
+  moduleTitle: null,
+  moduleId: null,
   studentName: 'Lidiane Delcastanher',
   courseTitle: 'Imersão RH Estratégico',
   workloadHours: null,
