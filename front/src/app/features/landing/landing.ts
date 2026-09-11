@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { NgOptimizedImage } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Button } from '../../shared/ui/button/button';
@@ -7,6 +8,17 @@ import { GlassCard } from '../../shared/ui/glass-card/glass-card';
 import { ModuleCard } from '../../shared/ui/module-card/module-card';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
+
+interface Partner {
+  /** Nome da empresa: vira o `alt` da imagem, ou o proprio texto exibido. */
+  name: string;
+  /**
+   * Ausente quando a empresa ainda nao tem arquivo de logo. `width`/`height`
+   * sao as dimensoes intrinsecas do arquivo, exigidas pelo NgOptimizedImage
+   * para reservar o espaco antes de a imagem chegar.
+   */
+  logo?: { src: string; width: number; height: number };
+}
 
 interface Pillar {
   title: string;
@@ -18,6 +30,7 @@ interface Pillar {
   selector: 'app-landing',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    NgOptimizedImage,
     RouterLink,
     NavHeader,
     Footer,
@@ -77,5 +90,22 @@ export class Landing {
     'Comunicação Interna', 'Indicadores e Métricas', 'Plano de Ação Final',
   ];
 
-  readonly partners = ['GRUPO FLEXÍVEL', 'JEC', 'AMCOM', 'MAGNA', 'GEOVENDAS', 'CRONUS'];
+  /**
+   * Parceiros da secao "Empresas que confiam em nosso trabalho" (Spec 011).
+   *
+   * A Amcom saiu e entraram Vale Automacao, Efficienza, RGM Service e Acimatec.
+   * A Cronus segue na lista sem `logo` porque o arquivo ainda nao existe: ela
+   * aparece escrita, como a secao inteira era antes dos logos (decisao 3).
+   */
+  readonly partners: Partner[] = [
+    { name: 'Grupo Flexível', logo: { src: 'assets/parceiros/grupo-flexivel.svg', width: 138, height: 43 } },
+    { name: 'JEC', logo: { src: 'assets/parceiros/jec.webp', width: 352, height: 458 } },
+    { name: 'Magna', logo: { src: 'assets/parceiros/magna.png', width: 720, height: 145 } },
+    { name: 'Geovendas', logo: { src: 'assets/parceiros/geovendas.svg', width: 229, height: 31 } },
+    { name: 'Cronus' },
+    { name: 'Vale Automação', logo: { src: 'assets/parceiros/vale-automacao.png', width: 1200, height: 240 } },
+    { name: 'Efficienza', logo: { src: 'assets/parceiros/efficienza.png', width: 720, height: 216 } },
+    { name: 'RGM Service', logo: { src: 'assets/parceiros/rgm-service.png', width: 217, height: 53 } },
+    { name: 'Acimatec', logo: { src: 'assets/parceiros/acimatec.png', width: 1080, height: 308 } },
+  ];
 }
