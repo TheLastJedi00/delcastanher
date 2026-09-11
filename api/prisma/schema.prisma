@@ -60,19 +60,68 @@ model Course {
 /// componente do front; virar dado e o que permite referenciar um modulo por
 /// id no deep-link e registrar a conclusao por aluno.
 model Module {
-  id        String   @id @default(cuid())
-  courseId  String
-  order     Int
-  title     String
-  summary   String
+  id       String @id @default(cuid())
+  courseId String
+  order    Int
+  title    String
+  summary  String
+
+  /// Caminho do arquivo original no bucket. Fonte e backup do video: o objeto
+  /// nunca e publico, e todo acesso sai por URL assinada de curta duracao.
+  videoStoragePath  String?
+  videoOriginalName String?
+  videoSizeBytes    Int?
+  /// Asset e playback id no Mux, a distribuicao por CDN do mesmo arquivo.
+  muxAssetId        String?
+  muxPlaybackId     String?
+  /// Nulo enquanto o modulo nao tem video. Depois do upload a ingestao do Mux
+  /// e assincrona, e o aluno nao pode receber um player que so falha: o estado
+  /// vira dado, atualizado por webhook (decisao 5).
+  videoStatus       VideoStatus?
+  videoError        String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  course   Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  progress ModuleProgress[]
+  course       Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress     ModuleProgress[]
+  materials    Material[]
+  certificates Certificate[]
 
   @@unique([courseId, order])
   @@map("modules")
+}
+
+/// Estagios da ingestao do video no Mux. `PENDING` e o arquivo ja confirmado no
+/// Storage mas ainda sem asset; `PROCESSING` e o asset criado e em
+/// transcodificacao; so `READY` reproduz.
+enum VideoStatus {
+  PENDING
+  PROCESSING
+  READY
+  ERRORED
+
+  @@map("video_status")
+}
+
+/// Material complementar de um modulo (PDF, planilha, documento). Guarda o
+/// caminho no bucket, nunca uma URL: a URL de download e assinada no momento da
+/// consulta e expira (decisao 15).
+model Material {
+  id          String   @id @default(cuid())
+  moduleId    String
+  storagePath String   @unique
+  fileName    String
+  fileType    String
+  sizeBytes   Int
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId, order])
+  @@map("materials")
 }
 
 /// Conclusao de um modulo por um aluno. A ausencia de linha significa modulo
@@ -99,15 +148,21 @@ enum CertificateStatus {
   @@map("certificate_status")
 }
 
-/// Diploma emitido para um aluno em um curso. `code` e o identificador curto
-/// que a pessoa digita no portal publico; `hash` e derivado dos dados da
-/// emissao com o segredo do servidor e denuncia adulteracao no banco. Nome do
-/// aluno, titulo e carga horaria nao sao copiados aqui: vem das relacoes, para
-/// que o diploma nunca exiba um dado defasado.
+/// Diploma emitido para um aluno. `moduleId` nulo e o diploma do curso inteiro
+/// (Spec 008); preenchido, e o diploma daquele modulo (decisao 11). `code` e o
+/// identificador curto que a pessoa digita no portal publico; `hash` e derivado
+/// dos dados da emissao com o segredo do servidor e denuncia adulteracao no
+/// banco. Nome do aluno, titulo e carga horaria nao sao copiados aqui: vem das
+/// relacoes, para que o diploma nunca exiba um dado defasado.
+///
+/// A unicidade do diploma de curso nao cabe em `@@unique`: no Postgres um
+/// indice unico com coluna nula nao restringe nada, entao ela e um indice
+/// unico **parcial** (`WHERE module_id IS NULL`) criado em SQL na migration.
 model Certificate {
   id        String            @id @default(cuid())
   userId    String
   courseId  String
+  moduleId  String?
   code      String            @unique
   hash      String
   status    CertificateStatus @default(ACTIVE)
@@ -116,9 +171,10 @@ model Certificate {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, courseId])
+  @@unique([userId, moduleId])
   @@map("certificates")
 }

@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, Logger, OnModuleInit } from '
 import { ConfigService } from '@nestjs/config';
 import { App, ServiceAccount, cert, getApps, initializeApp } from 'firebase-admin/app';
 import { Auth, getAuth } from 'firebase-admin/auth';
+import { Storage, getStorage } from 'firebase-admin/storage';
 
 /** Nome dedicado do app, para nao colidir com o app default do Admin SDK. */
 export const FIREBASE_APP_NAME = 'delcastanher-api';
@@ -46,6 +47,21 @@ export class FirebaseService implements OnModuleInit {
     }
 
     return getAuth(this.app);
+  }
+
+  /**
+   * Instancia de Storage do Admin SDK. Irmao do `auth`: e por aqui que a API
+   * assina as URLs de upload e download (Spec 010, decisao 2) — o front nunca
+   * fala com o Firebase.
+   */
+  get storage(): Storage {
+    if (!this.app) {
+      throw new InternalServerErrorException(
+        'Firebase Admin SDK ainda nao foi inicializado.',
+      );
+    }
+
+    return getStorage(this.app);
   }
 
   /** Chave web do projeto, usada nas chamadas a REST API do Firebase Auth. */

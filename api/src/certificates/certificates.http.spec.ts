@@ -116,6 +116,83 @@ describe('Certificates (HTTP)', () => {
     });
   });
 
+  describe('rotas do certificado de modulo', () => {
+    const MODULE_CERTIFICATE = {
+      ...CERTIFICATE,
+      code: 'DELC-MODU-2345',
+      scope: 'module',
+      moduleId: 'mod-1',
+      moduleTitle: 'Módulo 1: Fundamentos do RH',
+    };
+
+    it('POST /certificates/me/modules/:moduleId emite o diploma do modulo', async () => {
+      const issueForModule = jest.fn().mockResolvedValue(MODULE_CERTIFICATE);
+      app = await buildApp({ issueForModule });
+
+      const response = await request(app.getHttpServer())
+        .post('/certificates/me/modules/mod-1')
+        .set('Authorization', 'Bearer token-valido')
+        .expect(201);
+
+      expect(issueForModule).toHaveBeenCalledWith(USER, 'mod-1');
+      expect(response.body).toMatchObject({ scope: 'module', moduleId: 'mod-1' });
+    });
+
+    it('POST do diploma de modulo exige token', async () => {
+      const issueForModule = jest.fn();
+      app = await buildApp({ issueForModule });
+
+      await request(app.getHttpServer()).post('/certificates/me/modules/mod-1').expect(401);
+      expect(issueForModule).not.toHaveBeenCalled();
+    });
+
+    it('POST responde 409 com o modulo ainda em aberto', async () => {
+      app = await buildApp({
+        issueForModule: jest.fn().mockRejectedValue(new ConflictException('em aberto')),
+      });
+
+      await request(app.getHttpServer())
+        .post('/certificates/me/modules/mod-1')
+        .set('Authorization', 'Bearer token-valido')
+        .expect(409);
+    });
+
+    it('GET /certificates/me/modules lista os diplomas de modulo', async () => {
+      const findModuleCertificates = jest.fn().mockResolvedValue([MODULE_CERTIFICATE]);
+      app = await buildApp({ findModuleCertificates });
+
+      const response = await request(app.getHttpServer())
+        .get('/certificates/me/modules')
+        .set('Authorization', 'Bearer token-valido')
+        .expect(200);
+
+      expect(response.body).toHaveLength(1);
+      expect(findModuleCertificates).toHaveBeenCalledWith(USER);
+    });
+
+    it('GET /certificates/me/modules exige token', async () => {
+      const findModuleCertificates = jest.fn();
+      app = await buildApp({ findModuleCertificates });
+
+      await request(app.getHttpServer()).get('/certificates/me/modules').expect(401);
+      expect(findModuleCertificates).not.toHaveBeenCalled();
+    });
+
+    it('GET /certificates/me/modules nao colide com GET /certificates/me', async () => {
+      const me = jest.fn().mockResolvedValue(null);
+      const findModuleCertificates = jest.fn().mockResolvedValue([]);
+      app = await buildApp({ findForUser: me, findModuleCertificates });
+
+      await request(app.getHttpServer())
+        .get('/certificates/me/modules')
+        .set('Authorization', 'Bearer token-valido')
+        .expect(200);
+
+      // A rota mais especifica precisa vir antes da generica no controller.
+      expect(me).not.toHaveBeenCalled();
+    });
+  });
+
   describe('verificacao publica', () => {
     it('responde sem nenhum token — o recrutador nao tem conta', async () => {
       const verify = jest
@@ -141,6 +218,36 @@ describe('Certificates (HTTP)', () => {
         .get('/certificates/verify/DELC-ZZZZ-9999')
         .set('Authorization', 'Bearer lixo')
         .expect(200);
+    });
+
+    it('distingue os dois escopos na resposta publica', async () => {
+      const verify = jest.fn().mockResolvedValue({
+        status: 'valid',
+        certificate: {
+          code: 'DELC-MODU-2345',
+          scope: 'module',
+          studentName: 'Aluno Teste',
+          courseTitle: 'Imersão RH Estratégico',
+          moduleTitle: 'Módulo 1: Fundamentos do RH',
+          workloadHours: null,
+          issuedAt: CERTIFICATE.issuedAt,
+        },
+      });
+      app = await buildApp({ verify });
+
+      const response = await request(app.getHttpServer())
+        .get('/certificates/verify/DELC-MODU-2345')
+        .expect(200);
+
+      expect(response.body.certificate).toMatchObject({
+        scope: 'module',
+        moduleTitle: 'Módulo 1: Fundamentos do RH',
+      });
+      // Nem no escopo de modulo o portal recebe PII ou id interno (decisao 12).
+      const exposed = JSON.stringify(response.body);
+      expect(exposed).not.toContain('aluno@delcastanher.com');
+      expect(exposed).not.toContain('uid-123');
+      expect(exposed).not.toContain('mod-1');
     });
 
     it('devolve not_found para codigo inexistente, com 200', async () => {

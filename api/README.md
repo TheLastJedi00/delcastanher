@@ -38,6 +38,92 @@ npm run start:dev      # http://localhost:3000
 npm test               # suíte unitária
 ```
 
+## Vídeo e materiais (Storage + Mux)
+
+O arquivo de vídeo **nunca passa pelo servidor**: a API roda como função
+serverless na Vercel, onde o corpo de uma request é limitado a poucos megabytes.
+O fluxo tem três passos — o admin pede uma URL assinada de escrita, o navegador
+faz o `PUT` direto no bucket e só então confirma na API, que grava a referência.
+
+O Storage é a fonte e o backup; o **Mux** é a distribuição. Na confirmação do
+vídeo a API gera uma URL assinada de *leitura* e a entrega ao Mux como `input`,
+que puxa o arquivo por conta própria: um upload, dois destinos. A ingestão é
+assíncrona, e o estado (`PENDING` → `PROCESSING` → `READY` / `ERRORED`) chega
+por webhook em `POST /webhooks/mux` — a única rota pública desta parte, separada
+das demais por verificação de assinatura.
+
+Os assets têm policy `signed`, porque toda a plataforma é paga: o `playbackId`
+sozinho não reproduz nada, e `GET /modules/:moduleId/playback-token` só emite o
+JWT curto para uma sessão autenticada.
+
+As variáveis `FIREBASE_STORAGE_BUCKET`, `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`,
+`MUX_SIGNING_KEY_ID`, `MUX_SIGNING_PRIVATE_KEY` e `MUX_WEBHOOK_SECRET` estão
+documentadas no `.env.example` e vivem **apenas no backend** — nenhuma delas
+entra no `environment.ts` do front. O bucket vai pelo nome, sem `gs://`.
+
+> A integração Mux do marketplace da Vercel injeta o token como
+> `MUX_VIDEO_MUX_TOKEN_ID` / `MUX_VIDEO_MUX_TOKEN_SECRET`. A API aceita os dois
+> nomes, com precedência para os da spec, para não exigir segredo duplicado no
+> painel.
+
+### CORS do bucket (passo obrigatório)
+
+O upload vai **do navegador direto para o bucket**, então o bucket precisa
+aceitar a origem do front. Um bucket sem CORS aceita o `PUT` vindo do servidor
+e recusa o mesmo `PUT` vindo de uma página — e o navegador esconde a resposta,
+de modo que o painel só mostra "não foi possível falar com o servidor".
+
+```bash
+npm run storage:cors                    # acrescenta as origens declaradas
+npm run storage:cors -- https://x.app   # acrescenta também esta origem
+npm run storage:cors -- --show          # mostra a política atual
+npm run storage:cors -- --replace       # troca a lista pela declarada (poda)
+```
+
+**O bucket é um só, compartilhado por todos os ambientes.** Não existe "CORS de
+preview" e "CORS de produção": a política é global, e a lista de origens
+precisa ser a **união** de tudo que legitimamente sobe arquivo. Por isso o
+padrão é acrescentar — rodar o script na máquina de alguém não pode derrubar o
+painel publicado. Use `--replace` só quando quiser realmente podar uma origem
+que não deve mais existir.
+
+A lista vem de **`STORAGE_CORS_ORIGINS`** quando declarada. Sem ela, cai nas
+origens de `CORS_ORIGINS` mais o `http://localhost:4200`, que é o mínimo para
+desenvolver contra o bucket real.
+
+> **CORS não é o controle de acesso aqui.** Quem autoriza a escrita é a
+> assinatura da URL, emitida pela API só para uma sessão de administrador — e
+> o objeto nunca é público. A política de CORS apenas diz de que páginas o
+> navegador aceita usar essa URL. Acrescentar uma origem não afrouxa a
+> segurança do bucket; só permite que mais um front consuma a mesma URL
+> assinada.
+
+**Previews da Vercel:** o GCS aceita origens exatas ou `*`, mas não curinga de
+subdomínio (`https://*.vercel.app` não funciona). Como cada deploy de preview
+tem URL própria, o caminho prático é acrescentar a URL pontual quando precisar
+testar upload a partir dela:
+
+```bash
+npm run storage:cors -- https://delcastanher-git-minha-branch-leno.vercel.app
+```
+
+Na maior parte dos casos isso nem é necessário: quem sobe arquivo é o
+administrador, e o painel de produção já está na lista.
+
+### Endpoints
+
+| Rota | Quem acessa |
+| --- | --- |
+| `POST /admin/modules/:moduleId/video/upload-url` | admin |
+| `POST /admin/modules/:moduleId/video` | admin (confirmação) |
+| `GET /admin/modules/:moduleId/video` | admin (estado da ingestão) |
+| `POST /admin/modules/:moduleId/materials/upload-url` | admin |
+| `POST /admin/modules/:moduleId/materials` | admin (confirmação) |
+| `DELETE /admin/materials/:id` | admin |
+| `GET /modules/:moduleId/materials` | aluno autenticado |
+| `GET /modules/:moduleId/playback-token` | aluno autenticado |
+| `POST /webhooks/mux` | público, com assinatura |
+
 ## Gerenciando o perfil de um usuário
 
 O perfil de acesso vem da custom claim `role` do Firebase — quem não tem a claim

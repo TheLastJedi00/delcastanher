@@ -73,9 +73,16 @@ export function normalizeCode(input: string): string | null {
  */
 export function certificateHash(
   secret: string,
-  data: { code: string; userId: string; courseId: string; issuedAt: Date },
+  data: { code: string; userId: string; courseId: string; issuedAt: Date; moduleId?: string | null },
 ): string {
-  return createHmac('sha256', secret)
-    .update([data.code, data.userId, data.courseId, data.issuedAt.toISOString()].join('|'))
-    .digest('hex');
+  const parts = [data.code, data.userId, data.courseId, data.issuedAt.toISOString()];
+
+  // O modulo so entra quando existe, e sempre no fim: incluir um campo vazio
+  // para o diploma de curso mudaria o hash de todos os ja emitidos na Spec
+  // 008, e um diploma valido viraria "adulterado" da noite para o dia.
+  if (data.moduleId) {
+    parts.push(data.moduleId);
+  }
+
+  return createHmac('sha256', secret).update(parts.join('|')).digest('hex');
 }

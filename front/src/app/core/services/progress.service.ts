@@ -17,6 +17,14 @@ export interface ProgressModuleItem {
   title: string;
   summary: string;
   completed: boolean;
+  /** Se ha video publicado neste modulo (Spec 010). */
+  hasVideo: boolean;
+  /**
+   * Se o video ja esta reproduzivel. Falso com hasVideo verdadeiro significa
+   * video em processamento ou com erro — a trilha precisa dos dois para nao
+   * abrir um play que leva o aluno a um erro que nao e dele.
+   */
+  videoReady: boolean;
 }
 
 /** Resposta de `GET /progress/me`. */

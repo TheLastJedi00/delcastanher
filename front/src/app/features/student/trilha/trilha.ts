@@ -3,27 +3,31 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AnalyticsService } from '../../../core/services/analytics.service';
+import { CertificateService, StudentCertificate } from '../../../core/services/certificate.service';
+import {
+  ContentService,
+  MaterialItem,
+  PlaybackGrant,
+  formatFileSize,
+} from '../../../core/services/content.service';
 import { ProgressModuleItem, ProgressService } from '../../../core/services/progress.service';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { Badge } from '../../../shared/ui/badge/badge';
 import { Button } from '../../../shared/ui/button/button';
 import { Card } from '../../../shared/ui/card/card';
-import { MaterialItem, FileType } from '../../../shared/ui/material-item/material-item';
+import { MaterialItem as MaterialItemComponent } from '../../../shared/ui/material-item/material-item';
 import { ModuleCard } from '../../../shared/ui/module-card/module-card';
 import { ProgressBar } from '../../../shared/ui/progress-bar/progress-bar';
-import { VideoPlayer } from '../../../shared/ui/video-player/video-player';
-
-interface Material {
-  fileName: string;
-  fileType: FileType;
-  fileSize: string;
-}
+import { PlayerState, VideoPlayer } from '../../../shared/ui/video-player/video-player';
 
 /**
  * Trilha do aluno. Ate a Spec 008 os modulos e o avanco viviam aqui em signals
  * locais — iguais para todos e perdidos a cada F5. Agora a fonte e o
  * `ProgressService`, e o modulo aberto vem da rota (`/ava/trilha/:moduleId`),
  * o que torna a posicao do aluno compartilhavel e recuperavel.
+ *
+ * Desde a Spec 010 o video e real: o player recebe um token assinado por
+ * modulo, e o fim da reproducao marca a conclusao (decisao 10).
  */
 @Component({
   selector: 'app-trilha',
@@ -33,7 +37,7 @@ interface Material {
     Badge,
     Button,
     Card,
-    MaterialItem,
+    MaterialItemComponent,
     ModuleCard,
     ProgressBar,
     RouterLink,
@@ -43,12 +47,20 @@ interface Material {
 })
 export class Trilha {
   private readonly progressService = inject(ProgressService);
+  private readonly content = inject(ContentService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly analytics = inject(AnalyticsService);
+  private readonly certificates = inject(CertificateService);
 
   /** Ultimo modulo ja contado, para nao repetir o evento no mesmo modulo. */
   private lastTrackedModuleId: string | null = null;
+
+  /** Modulo cujo conteudo ja foi pedido, para nao repetir a chamada. */
+  private loadedContentModuleId: string | null = null;
+
+  /** Modulo ja concluido automaticamente nesta sessao de tela. */
+  private autoCompletedModuleId: string | null = null;
 
   readonly modules = this.progressService.modules;
   readonly progress = this.progressService.percentage;
@@ -59,6 +71,11 @@ export class Trilha {
   readonly saving = signal(false);
 
   readonly showMobileModules = signal(false);
+
+  readonly materials = signal<MaterialItem[]>([]);
+  readonly issuingCertificate = signal(false);
+  readonly playback = signal<PlaybackGrant | null>(null);
+  readonly playbackLoading = signal(false);
 
   /** Modulo pedido na URL; nulo em `/ava/trilha`. */
   private readonly routeModuleId = toSignal(
@@ -83,13 +100,47 @@ export class Trilha {
     return found ?? this.progressService.nextModule() ?? list[0];
   });
 
-  readonly materials: Material[] = [
-    { fileName: 'Apresentação da Aula', fileType: 'pdf', fileSize: '2.4 MB' },
-    { fileName: 'Checklist de Diagnóstico', fileType: 'xls', fileSize: '850 KB' },
-  ];
+  /**
+   * O que o player deve mostrar. Os tres casos sao distintos de proposito: sem
+   * video, em processamento e pronto — abrir o play nos dois primeiros levaria
+   * o aluno a um erro que nao e dele.
+   */
+  readonly playerState = computed<PlayerState>(() => {
+    const active = this.activeModule();
+
+    if (!active || !active.hasVideo) {
+      return 'unavailable';
+    }
+
+    if (this.playbackLoading()) {
+      return 'loading';
+    }
+
+    return this.playback() ? 'ready' : 'unavailable';
+  });
+
+  /**
+   * Diploma deste modulo, se ja emitido. O da trilha inteira continua sendo
+   * outro documento, em `/ava/certificado` (Spec 010, decisao 11).
+   */
+  readonly moduleCertificate = computed<StudentCertificate | null>(() => {
+    const active = this.activeModule();
+
+    if (!active) {
+      return null;
+    }
+
+    return (
+      this.certificates.moduleCertificates().find(item => item.moduleId === active.id) ?? null
+    );
+  });
 
   constructor() {
     this.reload();
+
+    // Os diplomas de modulo ja emitidos: sem eles a tela ofereceria "emitir"
+    // para um modulo que o aluno ja certificou.
+    this.certificates.loadModuleCertificates().subscribe({ error: () => undefined });
 
     // `lesson_started` mora aqui, e nao no `ui-video-player`: o player e
     // componente de apresentacao reutilizavel e nao sabe em que modulo esta.
@@ -108,6 +159,24 @@ export class Trilha {
         module_title: active.title,
       });
     });
+
+    // Conteudo do modulo em foco: token de playback e materiais, uma vez por
+    // modulo. Sem a guarda, cada recarga do progresso pediria um token novo.
+    effect(() => {
+      const active = this.activeModule();
+
+      if (!active || active.id === this.loadedContentModuleId) {
+        return;
+      }
+
+      this.loadedContentModuleId = active.id;
+      this.loadContent(active);
+    });
+  }
+
+  /** Tamanho legivel do material, no mesmo formato das outras telas. */
+  sizeLabel(bytes: number): string {
+    return formatFileSize(bytes);
   }
 
   reload(): void {
@@ -141,14 +210,83 @@ export class Trilha {
       return;
     }
 
+    this.setCompletion(active.id, !active.completed);
+  }
+
+  /**
+   * Fim do video. Marca o modulo pela **mesma** porta do botao manual — a
+   * Spec 008 ja definiu `PATCH /progress/me/modules/:moduleId` como o unico
+   * caminho da conclusao, e um gatilho automatico nao justifica um segundo
+   * (decisao 10). Nunca desmarca: assistir de novo nao desfaz a conclusao.
+   */
+  onVideoEnded(): void {
+    const active = this.activeModule();
+
+    if (!active || active.completed || this.autoCompletedModuleId === active.id) {
+      return;
+    }
+
+    this.autoCompletedModuleId = active.id;
+    this.setCompletion(active.id, true);
+  }
+
+  /** Emite o diploma do modulo concluido em foco. */
+  issueModuleCertificate(): void {
+    const active = this.activeModule();
+
+    if (!active || !active.completed || this.issuingCertificate()) {
+      return;
+    }
+
+    this.issuingCertificate.set(true);
+    this.error.set('');
+
+    this.certificates.issueForModule(active.id).subscribe({
+      next: () => this.issuingCertificate.set(false),
+      error: (message: string) => {
+        this.error.set(message);
+        this.issuingCertificate.set(false);
+      },
+    });
+  }
+
+  private setCompletion(moduleId: string, completed: boolean): void {
     this.saving.set(true);
     this.error.set('');
 
-    this.progressService.setModuleCompletion(active.id, !active.completed).subscribe({
+    this.progressService.setModuleCompletion(moduleId, completed).subscribe({
       next: () => this.saving.set(false),
       error: (message: string) => {
         this.error.set(message);
         this.saving.set(false);
+      },
+    });
+  }
+
+  private loadContent(module: ProgressModuleItem): void {
+    this.playback.set(null);
+    this.materials.set([]);
+
+    this.content.materialsOf(module.id).subscribe({
+      next: materials => this.materials.set(materials),
+      // Material que nao carregou nao derruba a aula: o video e o conteudo.
+      error: () => this.materials.set([]),
+    });
+
+    if (!module.hasVideo) {
+      return;
+    }
+
+    this.playbackLoading.set(true);
+
+    this.content.playback(module.id).subscribe({
+      next: grant => {
+        this.playback.set(grant);
+        this.playbackLoading.set(false);
+      },
+      error: (message: string) => {
+        this.error.set(message);
+        this.playbackLoading.set(false);
       },
     });
   }

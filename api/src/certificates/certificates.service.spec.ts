@@ -79,9 +79,10 @@ async function build(overrides: Partial<Mocks> = {}) {
           certificate: {
             findUnique: jest
               .fn()
-              .mockImplementation(({ where }: { where: { code?: string } }) =>
-                where.code === undefined ? mocks.findCertificate() : mocks.findByCode(where.code),
+              .mockImplementation(({ where }: { where: { code: string } }) =>
+                mocks.findByCode(where.code),
               ),
+            findFirst: mocks.findCertificate,
             create: mocks.createCertificate,
           },
         },

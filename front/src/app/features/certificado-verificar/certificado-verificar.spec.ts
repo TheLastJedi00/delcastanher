@@ -13,8 +13,23 @@ const VALID = {
   status: 'valid',
   certificate: {
     code: 'DELC-ABCD-2345',
+    scope: 'course',
+    moduleTitle: null,
     studentName: 'Lidiane Delcastanher',
     courseTitle: 'Imersão RH Estratégico',
+    workloadHours: null,
+    issuedAt: '2026-09-10T12:00:00.000Z',
+  },
+};
+
+const VALID_MODULE = {
+  status: 'valid',
+  certificate: {
+    code: 'DELC-MODU-2345',
+    scope: 'module',
+    studentName: 'Lidiane Delcastanher',
+    courseTitle: 'Imersão RH Estratégico',
+    moduleTitle: 'Módulo 1: Fundamentos do RH',
     workloadHours: null,
     issuedAt: '2026-09-10T12:00:00.000Z',
   },
@@ -114,6 +129,48 @@ describe('CertificadoVerificar', () => {
     expect(rendered).toContain('10/09/2026');
     // Carga horaria ainda pendente no comercial: placeholder, nao um numero.
     expect(rendered).toContain('[CARGA HORÁRIA]');
+  });
+
+  it('anuncia o diploma do curso completo no escopo course', async () => {
+    await create();
+    type('DELC-ABCD-2345');
+    submit();
+
+    http().expectOne(VERIFY_URL('DELC-ABCD-2345')).flush(VALID);
+    fixture.detectChanges();
+
+    expect(text()).toContain('curso completo');
+    expect(text()).not.toContain('Módulo');
+  });
+
+  it('mostra o modulo certificado quando o escopo e module', async () => {
+    await create();
+    type('DELC-MODU-2345');
+    submit();
+
+    http().expectOne(VERIFY_URL('DELC-MODU-2345')).flush(VALID_MODULE);
+    fixture.detectChanges();
+
+    const rendered = text();
+
+    // Quem verifica precisa saber que aquilo nao e o curso inteiro.
+    expect(rendered).toContain('de módulo');
+    expect(rendered).toContain('Módulo 1: Fundamentos do RH');
+    expect(rendered).toContain('Imersão RH Estratégico');
+  });
+
+  it('nao exibe PII nem id interno em nenhum dos escopos', async () => {
+    await create();
+    type('DELC-MODU-2345');
+    submit();
+
+    http().expectOne(VERIFY_URL('DELC-MODU-2345')).flush(VALID_MODULE);
+    fixture.detectChanges();
+
+    const rendered = text();
+
+    expect(rendered).not.toContain('@');
+    expect(rendered).not.toContain('uid-');
   });
 
   it('explica a revogacao no estado invalido', async () => {
