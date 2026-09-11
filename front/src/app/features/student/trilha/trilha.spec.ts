@@ -81,6 +81,19 @@ function progress(completedIds: string[]): CourseProgress {
   };
 }
 
+const MODULE_CERTIFICATE = {
+  code: 'DELC-MODU-2345',
+  hash: 'a'.repeat(64),
+  scope: 'module',
+  studentName: 'Aluno Teste',
+  courseTitle: 'Imersão RH Estratégico',
+  moduleTitle: 'Módulo 1: Fundamentos',
+  moduleId: 'm1',
+  workloadHours: null,
+  issuedAt: '2026-09-11T12:00:00.000Z',
+  status: 'ACTIVE',
+};
+
 describe('Trilha', () => {
   let fixture: ComponentFixture<Trilha>;
   let backend: HttpTestingController;
@@ -121,13 +134,17 @@ describe('Trilha', () => {
   const materialCalls = () => backend.match(req => req.url.endsWith('/materials'));
   const playbackCalls = () => backend.match(req => req.url.endsWith('/playback-token'));
 
+  /** Diplomas de modulo: a trilha os carrega para nao oferecer emitir duas vezes. */
+  const certificateCalls = () => backend.match(req => req.url.endsWith('/certificates/me/modules'));
+
   const respond = (
     body: CourseProgress,
-    content: { materials?: unknown[]; playback?: unknown | null } = {},
+    content: { materials?: unknown[]; playback?: unknown | null; certificates?: unknown[] } = {},
   ) => {
     backend.expectOne(PROGRESS_URL).flush(body);
     fixture.detectChanges();
 
+    certificateCalls().forEach(call => call.flush(content.certificates ?? []));
     materialCalls().forEach(call => call.flush(content.materials ?? []));
 
     playbackCalls().forEach(call => {
@@ -233,6 +250,7 @@ describe('Trilha', () => {
       .expectOne(PROGRESS_URL)
       .flush({ message: 'Falha ao carregar.' }, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
+    certificateCalls().forEach(call => call.flush([]));
 
     expect(text()).toContain('Falha ao carregar.');
     expect(text()).toContain('Tentar novamente');
@@ -241,6 +259,7 @@ it('pede o token de playback uma vez para o modulo em foco', async () => {
     await create('m1');
     backend.expectOne(PROGRESS_URL).flush(progress([]));
     fixture.detectChanges();
+    certificateCalls().forEach(call => call.flush([]));
 
     const tokens = playbackCalls();
     expect(tokens.length).toBe(1);
@@ -339,5 +358,41 @@ it('pede o token de playback uma vez para o modulo em foco', async () => {
 
     // Video que nao existe nao pode deixar o aluno preso sem concluir o curso.
     expect(completeButton()).toBeTruthy();
+  });
+it('nao oferece diploma de modulo enquanto o modulo esta em aberto', async () => {
+    await create('m1');
+    respond(progress([]));
+
+    expect(text()).not.toContain('Certificado deste módulo');
+  });
+
+  it('libera a emissao do diploma assim que o modulo e concluido', async () => {
+    await create('m1');
+    respond(progress(['m1']));
+
+    expect(text()).toContain('Certificado deste módulo');
+    // A diferenca entre os dois documentos fica explicita na propria tela.
+    expect(text()).toContain('não substitui o certificado do curso');
+
+    const botao = Array.from(el().querySelectorAll('button')).find(button =>
+      /Emitir certificado do módulo/.test(button.textContent ?? ''),
+    ) as HTMLButtonElement;
+    botao.click();
+    fixture.detectChanges();
+
+    const request = backend.expectOne(`${environment.apiUrl}/certificates/me/modules/m1`);
+    expect(request.request.method).toBe('POST');
+    request.flush(MODULE_CERTIFICATE);
+    fixture.detectChanges();
+
+    expect(text()).toContain('DELC-MODU-2345');
+  });
+
+  it('mostra o diploma ja emitido em vez de oferecer emitir de novo', async () => {
+    await create('m1');
+    respond(progress(['m1']), { certificates: [MODULE_CERTIFICATE] });
+
+    expect(text()).toContain('DELC-MODU-2345');
+    expect(text()).not.toContain('Emitir certificado do módulo');
   });
 });

@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AnalyticsService } from '../../../core/services/analytics.service';
+import { CertificateService, StudentCertificate } from '../../../core/services/certificate.service';
 import {
   ContentService,
   MaterialItem,
@@ -50,6 +51,7 @@ export class Trilha {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly analytics = inject(AnalyticsService);
+  private readonly certificates = inject(CertificateService);
 
   /** Ultimo modulo ja contado, para nao repetir o evento no mesmo modulo. */
   private lastTrackedModuleId: string | null = null;
@@ -71,6 +73,7 @@ export class Trilha {
   readonly showMobileModules = signal(false);
 
   readonly materials = signal<MaterialItem[]>([]);
+  readonly issuingCertificate = signal(false);
   readonly playback = signal<PlaybackGrant | null>(null);
   readonly playbackLoading = signal(false);
 
@@ -116,8 +119,28 @@ export class Trilha {
     return this.playback() ? 'ready' : 'unavailable';
   });
 
+  /**
+   * Diploma deste modulo, se ja emitido. O da trilha inteira continua sendo
+   * outro documento, em `/ava/certificado` (Spec 010, decisao 11).
+   */
+  readonly moduleCertificate = computed<StudentCertificate | null>(() => {
+    const active = this.activeModule();
+
+    if (!active) {
+      return null;
+    }
+
+    return (
+      this.certificates.moduleCertificates().find(item => item.moduleId === active.id) ?? null
+    );
+  });
+
   constructor() {
     this.reload();
+
+    // Os diplomas de modulo ja emitidos: sem eles a tela ofereceria "emitir"
+    // para um modulo que o aluno ja certificou.
+    this.certificates.loadModuleCertificates().subscribe({ error: () => undefined });
 
     // `lesson_started` mora aqui, e nao no `ui-video-player`: o player e
     // componente de apresentacao reutilizavel e nao sabe em que modulo esta.
@@ -205,6 +228,26 @@ export class Trilha {
 
     this.autoCompletedModuleId = active.id;
     this.setCompletion(active.id, true);
+  }
+
+  /** Emite o diploma do modulo concluido em foco. */
+  issueModuleCertificate(): void {
+    const active = this.activeModule();
+
+    if (!active || !active.completed || this.issuingCertificate()) {
+      return;
+    }
+
+    this.issuingCertificate.set(true);
+    this.error.set('');
+
+    this.certificates.issueForModule(active.id).subscribe({
+      next: () => this.issuingCertificate.set(false),
+      error: (message: string) => {
+        this.error.set(message);
+        this.issuingCertificate.set(false);
+      },
+    });
   }
 
   private setCompletion(moduleId: string, completed: boolean): void {
