@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DEFAULT_COURSE_SLUG } from '../../../core/mocks/courses.mock';
+import { LegalLinks } from '../legal-links/legal-links';
 import { Logo } from '../logo/logo';
 
 @Component({
   selector: 'ui-footer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Logo, RouterLink],
+  imports: [Logo, RouterLink, LegalLinks],
   host: { class: 'block mt-auto' },
   template: `
     <footer class="relative overflow-hidden bg-gradient-navy px-4 py-14 text-white">
@@ -40,6 +41,11 @@ import { Logo } from '../logo/logo';
               (47) 99290-8953
             </a>
           </div>
+          <!-- Links legais e revogacao de consentimento (Spec 009, decisao 10):
+               o rodape e o unico lugar presente em toda a vitrine, entao e onde
+               "rever preferencias" fica permanentemente ao alcance. -->
+          <ui-legal-links tone="light" align="end" />
+
           <p class="text-xs text-white/50">© 2026 Delcastanher. Todos os direitos reservados.</p>
         </div>
       </div>

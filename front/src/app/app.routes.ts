@@ -32,6 +32,22 @@ export const routes: Routes = [
       ),
   },
   {
+    // Paginas legais (Spec 009): publicas, indexaveis e linkadas do rodape —
+    // exigir login para ler os termos que regem o servico nao faria sentido.
+    path: 'termos-de-uso',
+    loadComponent: () => import('./features/legal/termos-de-uso').then(m => m.TermosDeUso),
+  },
+  {
+    path: 'politica-de-privacidade',
+    loadComponent: () =>
+      import('./features/legal/politica-de-privacidade').then(m => m.PoliticaDePrivacidade),
+  },
+  {
+    path: 'politica-de-cookies',
+    loadComponent: () =>
+      import('./features/legal/politica-de-cookies').then(m => m.PoliticaDeCookies),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login').then(m => m.Login),
   },
