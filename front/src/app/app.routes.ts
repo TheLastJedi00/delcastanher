@@ -4,6 +4,7 @@ import { authGuard } from './core/guards/auth.guard';
 import { onboardingGuard } from './core/guards/onboarding.guard';
 import { PLANS_META } from './core/mocks/plans.mock';
 import { DEFAULT_SEO, SEO_DATA_KEY, courseSeoResolver, privateSeo } from './core/services/seo-route';
+import { FULL_HEIGHT_DATA_KEY } from './core/services/layout-route';
 
 /**
  * Metadados por rota (Spec 009, decisao 8): quem aplica e o `App`, num unico
@@ -118,9 +119,19 @@ export const routes: Routes = [
     loadComponent: () => import('./features/student/layout/layout').then(m => m.StudentLayout),
     children: [
       { path: '', loadComponent: () => import('./features/student/hub/hub').then(m => m.Hub) },
-      { path: 'trilha', loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha) },
+      // A trilha e a unica tela do AVA que ocupa a altura util e rola por
+      // dentro (dois paineis). As demais crescem com o conteudo.
+      {
+        path: 'trilha',
+        data: { [FULL_HEIGHT_DATA_KEY]: true },
+        loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
+      },
       // Deep-link do "retomar de onde parou": a trilha abre direto no modulo.
-      { path: 'trilha/:moduleId', loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha) },
+      {
+        path: 'trilha/:moduleId',
+        data: { [FULL_HEIGHT_DATA_KEY]: true },
+        loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
+      },
       { path: 'certificado', loadComponent: () => import('./features/student/certificado/certificado').then(m => m.Certificado) },
       { path: 'perfil', loadComponent: () => import('./features/perfil/perfil').then(m => m.Perfil) },
       { path: 'materiais', loadComponent: () => import('./features/student/materiais/materiais').then(m => m.Materiais) },
