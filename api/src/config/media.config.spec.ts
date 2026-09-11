@@ -69,6 +69,18 @@ describe('media.config', () => {
       expect(optionalEnv(config, 'MUX_TOKEN_ID')).toBe('proprio');
     });
 
+    it('aceita os nomes que a integracao da Vercel usa para a chave de assinatura', () => {
+      const pem = '-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----';
+      // A chave nao segue o prefixo das demais: chega como MUX_VIDEO_KEY_ID e
+      // MUX_VIDEO_SECRET_KEY, sem o segundo "MUX_".
+      const config = configWith({
+        MUX_VIDEO_KEY_ID: 'key-vercel',
+        MUX_VIDEO_SECRET_KEY: Buffer.from(pem, 'utf8').toString('base64'),
+      });
+
+      expect(muxSigningKey(config)).toEqual({ keyId: 'key-vercel', privateKey: pem });
+    });
+
     it('decodifica a chave privada de assinatura entregue em base64', () => {
       const pem = '-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----';
       const config = configWith({

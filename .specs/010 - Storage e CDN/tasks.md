@@ -62,19 +62,27 @@ Ordem das fases: a proteção por papel e o Storage vêm antes de qualquer endpo
 
 ---
 
-## Pendência conhecida (fora do alcance desta execução)
+## Verificação final
 
-**`MUX_SIGNING_KEY_ID` / `MUX_SIGNING_PRIVATE_KEY` ainda não existem.** Os
-assets são criados com policy `signed` (decisão 6) e tudo o mais foi validado
-ponta a ponta contra o Mux real — upload, ingestão até `READY`, estado no
-painel, materiais e certificado. O que falta é a **chave de assinatura**: o
-access token disponível é da integração Mux da Vercel, com permissão apenas de
-Mux Video, e `POST /system/v1/signing-keys` responde 403. Criar a chave exige
-acesso ao dashboard do Mux (Settings → Signing Keys) ou um token com permissão
-de System.
+Executada ponta a ponta contra Firebase Storage e Mux reais, com `api/` em
+`localhost:3000` e `front/` em `localhost:4200`:
 
-Enquanto as variáveis não existirem, `GET /modules/:moduleId/playback-token`
-responde 500 e a trilha mostra "Não foi possível preparar o vídeo desta aula",
-com o botão manual de conclusão preservado. Assim que a chave for preenchida no
-`.env` e nas variáveis da Vercel, o playback passa a funcionar sem nenhuma
-alteração de código.
+- Upload assinado do vídeo e dos materiais, objeto **não público** no bucket
+  (403 sem assinatura), ingestão no Mux até `READY`.
+- **Playback assinado**: o `playbackId` sozinho responde 403 no
+  `stream.mux.com`; com o token emitido por `GET
+  /modules/:moduleId/playback-token`, responde 200. O vídeo reproduz de fato
+  na trilha, pelo `<mux-player>`.
+- **Conclusão automática** no fim do vídeo: a trilha saiu de 0% para 8% (1 de
+  12) e o botão passou a "Concluída", pelo mesmo
+  `PATCH /progress/me/modules/:moduleId` do botão manual (decisão 10).
+- **Decisão 9 confirmada em execução**: nenhuma requisição a `litix.io`
+  (beacon do Mux Data), nenhum cookie gravado e nenhum identificador do Mux no
+  `localStorage`. Só os hosts de CDN que entregam o próprio vídeo.
+- Materiais com download por URL assinada, certificado de módulo, portal
+  público distinguindo os dois escopos e aluno bloqueado no `/admin`.
+
+As chaves `MUX_SIGNING_KEY_ID` / `MUX_SIGNING_PRIVATE_KEY` chegam da
+integração Mux da Vercel como `MUX_VIDEO_KEY_ID` / `MUX_VIDEO_SECRET_KEY` —
+sem o segundo `MUX_` que as demais têm. Os dois nomes são aceitos pelo
+`media.config.ts`, para que a variável valha como vem pronta do painel.

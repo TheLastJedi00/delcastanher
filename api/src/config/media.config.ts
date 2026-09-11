@@ -17,8 +17,16 @@ const ALIASES: Record<string, readonly string[]> = {
   // no painel so para casar com a nomenclatura da spec.
   MUX_TOKEN_ID: ['MUX_TOKEN_ID', 'MUX_VIDEO_MUX_TOKEN_ID'],
   MUX_TOKEN_SECRET: ['MUX_TOKEN_SECRET', 'MUX_VIDEO_MUX_TOKEN_SECRET'],
-  MUX_SIGNING_KEY_ID: ['MUX_SIGNING_KEY_ID', 'MUX_VIDEO_MUX_SIGNING_KEY_ID'],
-  MUX_SIGNING_PRIVATE_KEY: ['MUX_SIGNING_PRIVATE_KEY', 'MUX_VIDEO_MUX_SIGNING_PRIVATE_KEY'],
+  // A chave de assinatura nao segue o prefixo das demais: a integracao da
+  // Vercel a injeta como MUX_VIDEO_KEY_ID / MUX_VIDEO_SECRET_KEY, sem o
+  // segundo "MUX_". Os dois nomes entram porque e assim que a variavel chega
+  // pronta do painel — renomear a mao seria um passo manual a esquecer.
+  MUX_SIGNING_KEY_ID: ['MUX_SIGNING_KEY_ID', 'MUX_VIDEO_MUX_SIGNING_KEY_ID', 'MUX_VIDEO_KEY_ID'],
+  MUX_SIGNING_PRIVATE_KEY: [
+    'MUX_SIGNING_PRIVATE_KEY',
+    'MUX_VIDEO_MUX_SIGNING_PRIVATE_KEY',
+    'MUX_VIDEO_SECRET_KEY',
+  ],
   MUX_WEBHOOK_SECRET: ['MUX_WEBHOOK_SECRET', 'MUX_VIDEO_MUX_WEBHOOK_SECRET'],
 };
 
