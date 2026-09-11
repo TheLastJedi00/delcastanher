@@ -53,3 +53,41 @@ const KIND_BY_TYPE: Record<string, MaterialKind> = {
 export function materialKind(contentType: string): MaterialKind {
   return KIND_BY_TYPE[contentType?.toLowerCase()] ?? 'doc';
 }
+
+/** Estagios da ingestao, espelhando o enum `VideoStatus` do banco. */
+export type VideoStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'ERRORED';
+
+/**
+ * Estado do video de um modulo. `hasVideo` falso e o modulo que ainda nao
+ * recebeu arquivo — diferente de um video que falhou no processamento, e o
+ * painel e a trilha precisam distinguir os dois.
+ */
+export interface ModuleVideoState {
+  moduleId: string;
+  hasVideo: boolean;
+  status: VideoStatus | null;
+  playbackId: string | null;
+  fileName: string | null;
+  sizeBytes: number | null;
+  error: string | null;
+}
+
+/**
+ * Autorizacao de reproducao. O `playbackId` sozinho nao reproduz nada: os
+ * assets tem policy `signed` e e o `token` que libera o player (decisao 6).
+ */
+export interface PlaybackGrant {
+  playbackId: string;
+  token: string;
+  expiresAt: string;
+}
+
+/** Evento do webhook do Mux, no que esta API consome. */
+export interface MuxWebhookEvent {
+  type: string;
+  data: {
+    id?: string;
+    playback_ids?: { id: string }[];
+    errors?: { messages?: string[] };
+  };
+}
