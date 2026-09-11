@@ -135,7 +135,9 @@ describe('CertificatesService (escopo modulo)', () => {
       expect(mocks.createCertificate).toHaveBeenCalledTimes(1);
       expect(certificate).toMatchObject({
         scope: 'module',
-        moduleTitle: 'Fundamentos do RH',
+        // O titulo ja chega composto: e uma string so, que o diploma e o portal
+        // imprimem como vem, sem precisar do numero do modulo em campo separado.
+        moduleTitle: 'Módulo 1: Fundamentos do RH',
         studentName: 'Aluno Teste',
       });
     });
@@ -240,7 +242,9 @@ describe('CertificatesService (escopo modulo)', () => {
       expect(result).toMatchObject({ status: 'valid' });
       expect(result.status === 'valid' && result.certificate).toMatchObject({
         scope: 'module',
-        moduleTitle: 'Fundamentos do RH',
+        // O titulo ja chega composto: e uma string so, que o diploma e o portal
+        // imprimem como vem, sem precisar do numero do modulo em campo separado.
+        moduleTitle: 'Módulo 1: Fundamentos do RH',
         courseTitle: 'Imersão RH Estratégico',
       });
     });

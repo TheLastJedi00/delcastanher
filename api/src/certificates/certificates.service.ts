@@ -12,21 +12,24 @@ import {
   StudentCertificate,
 } from './certificates.types';
 
-/** Certificado com aluno e curso incluidos, como vem do Prisma. */
+/** Certificado com aluno, curso e (quando houver) modulo incluidos. */
 interface CertificateRow {
   userId: string;
   courseId: string;
+  moduleId: string | null;
   code: string;
   hash: string;
   status: string;
   issuedAt: Date;
   user: { name: string | null; email: string };
   course: { title: string; workloadHours: number | null };
+  module?: { title: string; order: number } | null;
 }
 
 const WITH_RELATIONS = {
   user: { select: { name: true, email: true } },
   course: { select: { title: true, workloadHours: true } },
+  module: { select: { title: true, order: true } },
 };
 
 /**
@@ -38,12 +41,20 @@ function displayName(user: { name: string | null; email: string }): string {
   return user.name?.trim() || user.email.split('@')[0];
 }
 
+/** Titulo do modulo com o numero na frente, como a trilha o exibe. */
+function moduleTitle(row: CertificateRow): string | null {
+  return row.module ? `Módulo ${row.module.order}: ${row.module.title}` : null;
+}
+
 function toStudentCertificate(row: CertificateRow): StudentCertificate {
   return {
     code: row.code,
     hash: row.hash,
+    scope: row.moduleId ? 'module' : 'course',
     studentName: displayName(row.user),
     courseTitle: row.course.title,
+    moduleTitle: moduleTitle(row),
+    moduleId: row.moduleId,
     workloadHours: row.course.workloadHours,
     issuedAt: row.issuedAt,
     status: row.status as StudentCertificate['status'],
@@ -53,8 +64,10 @@ function toStudentCertificate(row: CertificateRow): StudentCertificate {
 function toPublicCertificate(row: CertificateRow): PublicCertificate {
   return {
     code: row.code,
+    scope: row.moduleId ? 'module' : 'course',
     studentName: displayName(row.user),
     courseTitle: row.course.title,
+    moduleTitle: moduleTitle(row),
     workloadHours: row.course.workloadHours,
     issuedAt: row.issuedAt,
   };
@@ -71,6 +84,10 @@ function hashMatches(expected: string, stored: string): boolean {
 /**
  * Emissao e verificacao do diploma digital. O codigo publico e o hash nascem
  * aqui: um identificador fabricado no cliente nao validaria nada.
+ *
+ * Desde a Spec 010 existem dois escopos (decisao 11): o diploma do curso, que
+ * continua sendo um por aluno, e o diploma de modulo, emitido quando aquele
+ * modulo e concluido. O model e o mesmo — `moduleId` nulo distingue os dois.
  */
 @Injectable()
 export class CertificatesService {
@@ -81,10 +98,9 @@ export class CertificatesService {
     private readonly config: ConfigService,
   ) {}
 
-  /** Certificado do proprio aluno, ou nulo se ainda nao foi emitido. */
+  /** Certificado do curso do proprio aluno, ou nulo se ainda nao foi emitido. */
   async findForUser(user: AuthUser): Promise<StudentCertificate | null> {
     const course = await this.requireCourse();
-
     const certificate = await this.findCourseCertificate(user.uid, course.id);
 
     return certificate ? toStudentCertificate(certificate) : null;
@@ -97,17 +113,10 @@ export class CertificatesService {
    */
   async issueForUser(user: AuthUser): Promise<StudentCertificate> {
     const course = await this.requireCourse();
-
     const existing = await this.findCourseCertificate(user.uid, course.id);
 
     if (existing) {
-      if (existing.status === 'REVOKED') {
-        throw new ConflictException(
-          'Este certificado foi revogado. Fale com o suporte para regularizar a emissao.',
-        );
-      }
-
-      return toStudentCertificate(existing);
+      return this.requireNotRevoked(existing);
     }
 
     const progress = await this.progress.findForUser(user);
@@ -118,31 +127,53 @@ export class CertificatesService {
       );
     }
 
-    // O guard autentica, mas nao cria o registro do aluno no banco.
-    await this.users.findOrCreate(user);
+    return this.create(user, { courseId: course.id, moduleId: null });
+  }
 
-    // `issuedAt` e definido aqui, e nao pelo default do banco, porque entra no
-    // hash: e preciso conhecer a data antes de assinar.
-    const issuedAt = new Date();
-    const code = generateCode();
-
-    const created = await this.prisma.certificate.create({
-      data: {
-        userId: user.uid,
-        courseId: course.id,
-        code,
-        issuedAt,
-        hash: certificateHash(hashSecret(this.config), {
-          code,
-          userId: user.uid,
-          courseId: course.id,
-          issuedAt,
-        }),
-      },
+  /** Diplomas de modulo ja emitidos para o aluno, do primeiro modulo ao ultimo. */
+  async findModuleCertificates(user: AuthUser): Promise<StudentCertificate[]> {
+    const certificates = (await this.prisma.certificate.findMany({
+      where: { userId: user.uid, moduleId: { not: null } },
+      orderBy: { module: { order: 'asc' } },
       include: WITH_RELATIONS,
+    })) as CertificateRow[];
+
+    return certificates.map(toStudentCertificate);
+  }
+
+  /**
+   * Emite o diploma de um modulo concluido. Independente do diploma do curso:
+   * um nao substitui nem antecipa o outro.
+   */
+  async issueForModule(user: AuthUser, moduleId: string): Promise<StudentCertificate> {
+    const module = await this.prisma.module.findUnique({ where: { id: moduleId } });
+
+    if (!module) {
+      throw new NotFoundException(`Modulo "${moduleId}" nao encontrado.`);
+    }
+
+    const existing = (await this.prisma.certificate.findUnique({
+      where: { userId_moduleId: { userId: user.uid, moduleId } },
+      include: WITH_RELATIONS,
+    })) as CertificateRow | null;
+
+    if (existing) {
+      return this.requireNotRevoked(existing);
+    }
+
+    // A conclusao do modulo e a mesma linha que o Hub e a trilha ja usam: o
+    // criterio do diploma nao pode ser outro.
+    const completed = await this.prisma.moduleProgress.findUnique({
+      where: { userId_moduleId: { userId: user.uid, moduleId } },
     });
 
-    return toStudentCertificate(created as CertificateRow);
+    if (!completed) {
+      throw new ConflictException(
+        'Conclua este modulo para emitir o certificado correspondente.',
+      );
+    }
+
+    return this.create(user, { courseId: module.courseId, moduleId });
   }
 
   /**
@@ -174,6 +205,7 @@ export class CertificatesService {
       code: certificate.code,
       userId: certificate.userId,
       courseId: certificate.courseId,
+      moduleId: certificate.moduleId,
       issuedAt: certificate.issuedAt,
     });
 
@@ -182,6 +214,51 @@ export class CertificatesService {
     }
 
     return { status: 'valid', certificate: toPublicCertificate(certificate) };
+  }
+
+  /** Emissao propriamente dita, comum aos dois escopos. */
+  private async create(
+    user: AuthUser,
+    target: { courseId: string; moduleId: string | null },
+  ): Promise<StudentCertificate> {
+    // O guard autentica, mas nao cria o registro do aluno no banco.
+    await this.users.findOrCreate(user);
+
+    // `issuedAt` e definido aqui, e nao pelo default do banco, porque entra no
+    // hash: e preciso conhecer a data antes de assinar.
+    const issuedAt = new Date();
+    const code = generateCode();
+
+    const created = await this.prisma.certificate.create({
+      data: {
+        userId: user.uid,
+        courseId: target.courseId,
+        moduleId: target.moduleId,
+        code,
+        issuedAt,
+        hash: certificateHash(hashSecret(this.config), {
+          code,
+          userId: user.uid,
+          courseId: target.courseId,
+          moduleId: target.moduleId,
+          issuedAt,
+        }),
+      },
+      include: WITH_RELATIONS,
+    });
+
+    return toStudentCertificate(created as CertificateRow);
+  }
+
+  /** Revogar e um ato deliberado: reemitir por cima desfaria a decisao. */
+  private requireNotRevoked(certificate: CertificateRow): StudentCertificate {
+    if (certificate.status === 'REVOKED') {
+      throw new ConflictException(
+        'Este certificado foi revogado. Fale com o suporte para regularizar a emissao.',
+      );
+    }
+
+    return toStudentCertificate(certificate);
   }
 
   /**
