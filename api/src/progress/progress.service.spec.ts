@@ -18,10 +18,24 @@ const COURSE = {
   title: 'Imersão RH Estratégico',
   workloadHours: null,
   modules: [
-    { id: 'm1', order: 1, title: 'Fundamentos', summary: 'Resumo 1' },
-    { id: 'm2', order: 2, title: 'Diagnóstico', summary: 'Resumo 2' },
-    { id: 'm3', order: 3, title: 'Recrutamento', summary: 'Resumo 3' },
-    { id: 'm4', order: 4, title: 'Onboarding', summary: 'Resumo 4' },
+    {
+      id: 'm1',
+      order: 1,
+      title: 'Fundamentos',
+      summary: 'Resumo 1',
+      videoStoragePath: 'modules/m1/video/aula.mp4',
+      videoStatus: 'READY',
+    },
+    {
+      id: 'm2',
+      order: 2,
+      title: 'Diagnóstico',
+      summary: 'Resumo 2',
+      videoStoragePath: 'modules/m2/video/aula.mp4',
+      videoStatus: 'PROCESSING',
+    },
+    { id: 'm3', order: 3, title: 'Recrutamento', summary: 'Resumo 3', videoStoragePath: null, videoStatus: null },
+    { id: 'm4', order: 4, title: 'Onboarding', summary: 'Resumo 4', videoStoragePath: null, videoStatus: null },
   ],
 };
 
@@ -70,6 +84,22 @@ async function build(completed: string[] = [], overrides: Partial<PrismaMocks> =
 
 describe('ProgressService', () => {
   describe('findForUser', () => {
+    it('diz se o modulo tem video e se ele ja esta reproduzivel', async () => {
+      const { service } = await build();
+
+      const progress = await service.findForUser(USER);
+
+      // A trilha precisa distinguir os tres casos: sem video, em
+      // processamento e pronto — abrir o player nos dois primeiros mostraria
+      // ao aluno um erro que nao e dele (Spec 010, Task 3.6).
+      expect(progress.modules.map(m => [m.hasVideo, m.videoReady])).toEqual([
+        [true, true],
+        [true, false],
+        [false, false],
+        [false, false],
+      ]);
+    });
+
     it('devolve os modulos do curso em ordem, marcando os concluidos do aluno', async () => {
       const { service } = await build(['m1', 'm2']);
 
