@@ -159,6 +159,21 @@
   ::view-transition-new(root) {
     animation: none !important;
   }
+
+  /* Sem o deslize, a segunda copia so repetiria os logos: fica a faixa
+     original, rolavel na mao. */
+  .marquee {
+    overflow-x: auto;
+  }
+
+  .marquee__track {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .marquee__group[aria-hidden='true'] {
+    display: none;
+  }
 }
 
 /*
