@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { StorageModule } from './storage/storage.module';
 import { ProgressModule } from './progress/progress.module';
 import { UsersModule } from './users/users.module';
 
@@ -14,6 +15,7 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     FirebaseModule,
+    StorageModule,
     AuthModule,
     UsersModule,
     ProgressModule,
