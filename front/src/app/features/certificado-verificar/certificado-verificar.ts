@@ -99,6 +99,11 @@ import { SectionHeader } from '../../shared/ui/section-header/section-header';
                         <p class="mt-1 text-sm text-slate-600">
                           Este código corresponde a um certificado autêntico emitido pela
                           Delcastanher.
+                          @if (verification.certificate.scope === 'module') {
+                            É um diploma <strong>de módulo</strong>, e não do curso completo.
+                          } @else {
+                            É o diploma do <strong>curso completo</strong>.
+                          }
                         </p>
 
                         <dl class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -118,6 +123,14 @@ import { SectionHeader } from '../../shared/ui/section-header/section-header';
                               {{ verification.certificate.courseTitle }}
                             </dd>
                           </div>
+                          @if (verification.certificate.moduleTitle; as moduleTitle) {
+                            <div>
+                              <dt class="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                                Módulo
+                              </dt>
+                              <dd class="mt-1 font-semibold text-brand-navy">{{ moduleTitle }}</dd>
+                            </div>
+                          }
                           <div>
                             <dt class="text-[11px] font-bold uppercase tracking-widest text-slate-500">
                               Carga horária
