@@ -502,7 +502,7 @@ describe('Trilha', () => {
       // Uma de duas aulas: o diploma do modulo exige o modulo inteiro
       // (decisao 13), e a tela diz quanto falta em vez de oferecer o clique
       // que voltaria em 409.
-      expect(text()).toContain('Conclua as 2 aulas deste módulo');
+      expect(text()).toContain('Conclua 2 aulas deste módulo');
       expect(text()).not.toContain('Emitir certificado do módulo');
     });
 

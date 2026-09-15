@@ -43,7 +43,7 @@
         [showLabel]="true"
         label="Progresso na trilha" />
       <p class="mt-2 text-xs text-slate-500">
-        {{ completedCount() }} de {{ totalCount() }} aulas concluídas
+        {{ completedCount() }} de {{ lessonsLabel(totalCount()) }} concluída{{ totalCount() === 1 ? '' : 's' }}
       </p>
     </div>
 
@@ -94,7 +94,7 @@
                 Módulo {{ module.order }} · {{ module.title }}
               </h2>
               <span class="text-xs text-slate-500">
-                {{ module.completedCount }} de {{ module.totalCount }} aulas
+                {{ module.completedCount }} de {{ lessonsLabel(module.totalCount) }}
               </span>
             </div>
             <ui-lesson-track
@@ -187,7 +187,7 @@
                       certificado do curso inteiro sai ao concluir as {{ totalCount() }} aulas
                       da trilha.
                     } @else {
-                      Você concluiu as {{ module.totalCount }} aulas deste módulo e já pode
+                      Você concluiu {{ lessonsLabel(module.totalCount) }} deste módulo e já pode
                       emitir o diploma correspondente. Ele não substitui o certificado do curso
                       inteiro.
                     }
@@ -221,7 +221,7 @@
             <ui-card variant="default" padding="lg" [hover]="false">
               <h3 class="text-lg font-semibold text-brand-navy">Certificado deste módulo</h3>
               <p class="mt-1 text-sm text-slate-500">
-                Conclua as {{ module.totalCount }} aulas deste módulo para emitir o diploma
+                Conclua {{ lessonsLabel(module.totalCount) }} deste módulo para emitir o diploma
                 dele — {{ module.completedCount }} concluída(s) até agora.
               </p>
             </ui-card>
