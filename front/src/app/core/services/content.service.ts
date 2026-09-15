@@ -156,3 +156,13 @@ export function formatDuration(seconds: number | null | undefined): string {
 
   return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`;
 }
+
+/**
+ * "1 aula" ou "N aulas". Existe porque a quantidade de aulas de um modulo e
+ * dado do servidor e varia de 1 a N: um texto fixo no plural produz "1 aulas"
+ * na tela do aluno assim que um modulo tem uma aula so — que e o caso dos 12
+ * modulos migrados pela Spec 012.
+ */
+export function lessonCountLabel(total: number): string {
+  return total === 1 ? '1 aula' : `${total} aulas`;
+}

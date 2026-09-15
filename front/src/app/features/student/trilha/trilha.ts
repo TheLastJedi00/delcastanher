@@ -10,6 +10,7 @@ import {
   PlaybackGrant,
   formatDuration,
   formatFileSize,
+  lessonCountLabel,
 } from '../../../core/services/content.service';
 import {
   ProgressLessonItem,
@@ -240,6 +241,11 @@ export class Trilha {
   /** Tamanho legivel do material, no mesmo formato das outras telas. */
   sizeLabel(bytes: number): string {
     return formatFileSize(bytes);
+  }
+
+  /** "1 aula" ou "N aulas": os modulos migrados tem uma aula so. */
+  lessonsLabel(total: number): string {
+    return lessonCountLabel(total);
   }
 
   /** Duracao legivel da aula, no mesmo formato da trilha horizontal. */

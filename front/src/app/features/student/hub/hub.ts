@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { lessonCountLabel } from '../../../core/services/content.service';
 import { ProgressService } from '../../../core/services/progress.service';
 import { UserService } from '../../../core/services/user.service';
 import { AnimateOnScroll } from '../../../shared/directives/animate-on-scroll';
@@ -129,10 +130,17 @@ export class Hub {
     () => this.progressService.course()?.title ?? 'Imersão RH Estratégico',
   );
 
-  protected readonly progressLabel = computed(
-    () =>
-      `${this.progressService.completedCount()} de ${this.progressService.totalCount()} aulas concluídas`,
-  );
+  /**
+   * "1 de 13 aulas concluídas". O plural acompanha o total porque um modulo
+   * pode ter uma aula so — e os 12 modulos migrados pela Spec 012 tem.
+   */
+  protected readonly progressLabel = computed(() => {
+    const total = this.progressService.totalCount();
+
+    return `${this.progressService.completedCount()} de ${lessonCountLabel(total)} concluída${
+      total === 1 ? '' : 's'
+    }`;
+  });
 
   /** Com a trilha concluida o destaque deixa de ser "estude" e passa a ser "retire". */
   protected readonly nextLabel = computed(() =>

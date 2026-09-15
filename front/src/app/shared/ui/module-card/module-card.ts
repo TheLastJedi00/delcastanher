@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { formatDuration } from '../../../core/services/content.service';
+import { formatDuration, lessonCountLabel } from '../../../core/services/content.service';
 
 /** Aula como o card do modulo precisa conhece-la. */
 export interface ModuleCardLesson {
@@ -47,7 +47,7 @@ export interface ModuleCardLesson {
           -->
           @if (totalLessons() > 0) {
             <span class="mt-1 block text-[11px] text-slate-500">
-              {{ completedLessons() }} de {{ totalLessons() }} aulas
+              {{ completedLessons() }} de {{ lessonsLabel(totalLessons()) }}
             </span>
           } @else {
             <span class="mt-1 block text-[11px] text-slate-400">Sem aulas publicadas</span>
@@ -116,6 +116,10 @@ export class ModuleCard {
       .filter(Boolean)
       .join(' ')
   );
+
+  protected lessonsLabel(total: number): string {
+    return lessonCountLabel(total);
+  }
 
   protected duration(lesson: ModuleCardLesson): string {
     return formatDuration(lesson.durationSeconds);

@@ -42,6 +42,7 @@ interface LessonGroup {
 
       <div class="mb-6">
         <ui-section-header
+          level="h1"
           overline="Downloads"
           title="Central de Materiais"
           subtitle="Encontre aqui todos os templates e planilhas disponibilizados nas aulas." />
