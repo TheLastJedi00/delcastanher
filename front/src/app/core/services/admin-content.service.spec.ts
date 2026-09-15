@@ -4,26 +4,27 @@ import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
 import { AdminContentService, UploadProgress } from './admin-content.service';
 
-const MODULE_ID = 'mod-1';
-const SIGN_URL = `${environment.apiUrl}/admin/modules/${MODULE_ID}/video/upload-url`;
-const CONFIRM_URL = `${environment.apiUrl}/admin/modules/${MODULE_ID}/video`;
+const LESSON_ID = 'les-1';
+const SIGN_URL = `${environment.apiUrl}/admin/lessons/${LESSON_ID}/video/upload-url`;
+const CONFIRM_URL = `${environment.apiUrl}/admin/lessons/${LESSON_ID}/video`;
 const BUCKET_URL = 'https://storage.googleapis.com/assinada';
 
 const TICKET = {
-  storagePath: 'modules/mod-1/video/aula-01.mp4',
+  storagePath: 'lessons/les-1/video/aula-01.mp4',
   uploadUrl: BUCKET_URL,
   headers: { 'Content-Type': 'video/mp4' },
   expiresAt: '2026-09-11T12:00:00.000Z',
 };
 
 const STATE = {
-  moduleId: MODULE_ID,
+  lessonId: LESSON_ID,
   hasVideo: true,
   status: 'PROCESSING' as const,
   playbackId: 'pb-1',
   fileName: 'aula-01.mp4',
   sizeBytes: 12,
   error: null,
+  durationSeconds: null,
 };
 
 function videoFile(): File {
@@ -47,7 +48,7 @@ describe('AdminContentService', () => {
 
   it('segue os tres passos na ordem: assinar, enviar ao bucket, confirmar', () => {
     const eventos: UploadProgress<unknown>[] = [];
-    service.uploadVideo(MODULE_ID, videoFile()).subscribe(event => eventos.push(event));
+    service.uploadVideo(LESSON_ID, videoFile()).subscribe(event => eventos.push(event));
 
     const sign = backend.expectOne(SIGN_URL);
     expect(sign.request.method).toBe('POST');
@@ -93,7 +94,7 @@ describe('AdminContentService', () => {
       }),
     );
 
-    service.uploadVideo(MODULE_ID, videoFile()).subscribe({ error: () => undefined });
+    service.uploadVideo(LESSON_ID, videoFile()).subscribe({ error: () => undefined });
 
     backend.expectOne(SIGN_URL).flush(TICKET);
 
@@ -107,7 +108,7 @@ describe('AdminContentService', () => {
 
   it('nao confirma na API quando o PUT no bucket falha', () => {
     let erro = '';
-    service.uploadVideo(MODULE_ID, videoFile()).subscribe({
+    service.uploadVideo(LESSON_ID, videoFile()).subscribe({
       error: (message: string) => (erro = message),
     });
 
@@ -123,7 +124,7 @@ describe('AdminContentService', () => {
 
   it('traduz o 403 do backend em mensagem de papel', () => {
     let erro = '';
-    service.uploadVideo(MODULE_ID, videoFile()).subscribe({
+    service.uploadVideo(LESSON_ID, videoFile()).subscribe({
       error: (message: string) => (erro = message),
     });
 
@@ -142,29 +143,91 @@ describe('AdminContentService', () => {
     const material = new File(['pdf'], 'checklist.pdf', { type: 'application/pdf' });
     let concluido = false;
 
-    service.uploadMaterial(MODULE_ID, material).subscribe(event => {
+    service.uploadMaterial(LESSON_ID, material).subscribe(event => {
       concluido = event.phase === 'done';
     });
 
     backend
-      .expectOne(`${environment.apiUrl}/admin/modules/${MODULE_ID}/materials/upload-url`)
-      .flush({ ...TICKET, storagePath: 'modules/mod-1/materials/checklist.pdf' });
+      .expectOne(`${environment.apiUrl}/admin/lessons/${LESSON_ID}/materials/upload-url`)
+      .flush({ ...TICKET, storagePath: 'lessons/les-1/materials/checklist.pdf' });
 
     backend.expectOne(BUCKET_URL).flush('');
     backend
-      .expectOne(`${environment.apiUrl}/admin/modules/${MODULE_ID}/materials`)
+      .expectOne(`${environment.apiUrl}/admin/lessons/${LESSON_ID}/materials`)
       .flush({ id: 'mat-1', fileName: 'checklist.pdf' });
 
     expect(concluido).toBeTrue();
   });
 
-  it('consulta o estado do video do modulo', () => {
+  it('consulta o estado do video da aula', () => {
     let estado: unknown = null;
-    service.videoState(MODULE_ID).subscribe(value => (estado = value));
+    service.videoState(LESSON_ID).subscribe(value => (estado = value));
 
     backend.expectOne(CONFIRM_URL).flush(STATE);
 
     expect(estado).toEqual(STATE);
+  });
+
+  it('lista a grade pela rota de administracao, e nao pelo progresso do aluno', () => {
+    let grade: unknown = null;
+    service.modules().subscribe(value => (grade = value));
+
+    // Ate a Spec 010 esta lista vinha de `GET /progress/me`; o painel agora
+    // precisa da contagem de aulas e de diplomas, que progresso nao tem.
+    const call = backend.expectOne(`${environment.apiUrl}/admin/modules`);
+    expect(call.request.method).toBe('GET');
+    call.flush([{ id: 'mod-1', order: 1, title: 'Fundamentos', lessonCount: 2 }]);
+
+    expect(grade).toEqual([{ id: 'mod-1', order: 1, title: 'Fundamentos', lessonCount: 2 }]);
+  });
+
+  it('cria a aula sem mandar a ordem: a posicao e do servidor', () => {
+    service.createLesson('mod-1', { title: 'Nova aula', summary: 'Resumo' }).subscribe();
+
+    const call = backend.expectOne(`${environment.apiUrl}/admin/modules/mod-1/lessons`);
+    expect(call.request.method).toBe('POST');
+    expect(call.request.body).toEqual({ title: 'Nova aula', summary: 'Resumo' });
+    call.flush({ id: 'les-novo' });
+  });
+
+  it('renomeia a aula sem reenviar o resumo', () => {
+    service.updateLesson('les-1', { title: 'Outro titulo' }).subscribe();
+
+    const call = backend.expectOne(`${environment.apiUrl}/admin/lessons/les-1`);
+    expect(call.request.method).toBe('PATCH');
+    expect(call.request.body).toEqual({ title: 'Outro titulo' });
+    call.flush({ id: 'les-1' });
+  });
+
+  it('reordena mandando a lista completa de ids', () => {
+    service.reorderLessons('mod-1', ['les-2', 'les-1']).subscribe();
+
+    // Lista completa, e nao um par "id, nova posicao": cada passo intermediario
+    // de uma reordenacao item a item bateria no indice unico de ordem
+    // (decisao 17).
+    const call = backend.expectOne(`${environment.apiUrl}/admin/modules/mod-1/lessons/order`);
+    expect(call.request.method).toBe('PATCH');
+    expect(call.request.body).toEqual({ ids: ['les-2', 'les-1'] });
+    call.flush(null);
+  });
+
+  it('reordena a grade pela rota que nao disputa com renomear modulo', () => {
+    service.reorderModules(['mod-2', 'mod-1']).subscribe();
+
+    const call = backend.expectOne(`${environment.apiUrl}/admin/course/modules/order`);
+    expect(call.request.body).toEqual({ ids: ['mod-2', 'mod-1'] });
+    call.flush(null);
+  });
+
+  it('remove a aula pelo id', () => {
+    let removida = false;
+    service.removeLesson('les-1').subscribe(() => (removida = true));
+
+    const call = backend.expectOne(`${environment.apiUrl}/admin/lessons/les-1`);
+    expect(call.request.method).toBe('DELETE');
+    call.flush(null);
+
+    expect(removida).toBeTrue();
   });
 
   it('remove um material pelo id', () => {
