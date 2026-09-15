@@ -14,13 +14,37 @@ const USER: AuthUser = {
   role: 'aluno',
 };
 
+const LESSON = {
+  id: 'l1',
+  order: 1,
+  title: 'O papel do RH',
+  summary: 'Aula 1',
+  completed: false,
+  hasVideo: true,
+  videoReady: true,
+  durationSeconds: 754,
+};
+
+const MODULE = {
+  id: 'm1',
+  order: 1,
+  title: 'Fundamentos',
+  summary: 'Resumo',
+  completed: false,
+  lessons: [LESSON],
+  completedCount: 0,
+  totalCount: 1,
+  nextLesson: LESSON,
+};
+
 const PROGRESS = {
   course: { slug: 'imersao-rh', title: 'Imersão RH Estratégico', workloadHours: null },
-  modules: [{ id: 'm1', order: 1, title: 'Fundamentos', summary: 'Resumo', completed: false }],
+  modules: [MODULE],
   completedCount: 0,
   totalCount: 1,
   percentage: 0,
-  nextModule: { id: 'm1', order: 1, title: 'Fundamentos', summary: 'Resumo', completed: false },
+  nextModule: MODULE,
+  nextLesson: LESSON,
   completed: false,
 };
 
@@ -79,74 +103,88 @@ describe('Progress (HTTP)', () => {
     expect(findForUser).toHaveBeenCalledWith(USER);
   });
 
-  it('PATCH marca o modulo e devolve o progresso recalculado', async () => {
+  it('PATCH marca a aula e devolve o progresso recalculado', async () => {
     const updated = { ...PROGRESS, completedCount: 1, percentage: 100, completed: true };
-    const setModuleCompletion = jest.fn().mockResolvedValue(updated);
-    app = await buildApp({ setModuleCompletion });
+    const setLessonCompletion = jest.fn().mockResolvedValue(updated);
+    app = await buildApp({ setLessonCompletion });
 
     const response = await request(app.getHttpServer())
-      .patch('/progress/me/modules/m1')
+      .patch('/progress/me/lessons/l1')
       .send({ completed: true })
       .expect(200);
 
-    expect(setModuleCompletion).toHaveBeenCalledWith(USER, 'm1', true);
+    expect(setLessonCompletion).toHaveBeenCalledWith(USER, 'l1', true);
     expect(response.body).toMatchObject({ percentage: 100 });
   });
 
-  it('PATCH aceita desmarcar o modulo', async () => {
-    const setModuleCompletion = jest.fn().mockResolvedValue(PROGRESS);
-    app = await buildApp({ setModuleCompletion });
+  it('PATCH aceita desmarcar a aula', async () => {
+    const setLessonCompletion = jest.fn().mockResolvedValue(PROGRESS);
+    app = await buildApp({ setLessonCompletion });
 
     await request(app.getHttpServer())
-      .patch('/progress/me/modules/m1')
+      .patch('/progress/me/lessons/l1')
       .send({ completed: false })
       .expect(200);
 
-    expect(setModuleCompletion).toHaveBeenCalledWith(USER, 'm1', false);
+    expect(setLessonCompletion).toHaveBeenCalledWith(USER, 'l1', false);
   });
 
   it('PATCH responde 400 sem o campo completed', async () => {
-    const setModuleCompletion = jest.fn();
-    app = await buildApp({ setModuleCompletion });
+    const setLessonCompletion = jest.fn();
+    app = await buildApp({ setLessonCompletion });
 
     const response = await request(app.getHttpServer())
-      .patch('/progress/me/modules/m1')
+      .patch('/progress/me/lessons/l1')
       .send({})
       .expect(400);
 
     expect(response.body.message).toEqual(['Informe `completed` como true ou false.']);
-    expect(setModuleCompletion).not.toHaveBeenCalled();
+    expect(setLessonCompletion).not.toHaveBeenCalled();
   });
 
   it('PATCH responde 400 quando completed nao e booleano', async () => {
-    app = await buildApp({ setModuleCompletion: jest.fn() });
+    app = await buildApp({ setLessonCompletion: jest.fn() });
 
     await request(app.getHttpServer())
-      .patch('/progress/me/modules/m1')
+      .patch('/progress/me/lessons/l1')
       .send({ completed: 'sim' })
       .expect(400);
   });
 
   it('PATCH recusa campo desconhecido no corpo', async () => {
-    const setModuleCompletion = jest.fn();
-    app = await buildApp({ setModuleCompletion });
+    const setLessonCompletion = jest.fn();
+    app = await buildApp({ setLessonCompletion });
 
     // O alvo da escrita vem da sessao e da URL: mandar userId no corpo e recusado.
     await request(app.getHttpServer())
-      .patch('/progress/me/modules/m1')
+      .patch('/progress/me/lessons/l1')
       .send({ completed: true, userId: 'uid-de-outro' })
       .expect(400);
 
-    expect(setModuleCompletion).not.toHaveBeenCalled();
+    expect(setLessonCompletion).not.toHaveBeenCalled();
   });
 
-  it('PATCH responde 404 para um modulo inexistente', async () => {
+  it('a rota antiga por modulo nao existe mais', async () => {
+    const setLessonCompletion = jest.fn();
+    app = await buildApp({ setLessonCompletion });
+
+    // Removida, e nao redirecionada (decisao 5): marcar um modulo concluiria em
+    // cascata aulas que o aluno nao assistiu.
+    await request(app.getHttpServer())
+      .patch('/progress/me/modules/m1')
+      .send({ completed: true })
+      .expect(404);
+
+    expect(setLessonCompletion).not.toHaveBeenCalled();
+  });
+
+  it('PATCH responde 404 para uma aula inexistente', async () => {
     app = await buildApp({
-      setModuleCompletion: jest.fn().mockRejectedValue(new NotFoundException('Modulo')),
+      setLessonCompletion: jest.fn().mockRejectedValue(new NotFoundException('Aula')),
     });
 
     await request(app.getHttpServer())
-      .patch('/progress/me/modules/nao-existe')
+      .patch('/progress/me/lessons/nao-existe')
       .send({ completed: true })
       .expect(404);
   });
