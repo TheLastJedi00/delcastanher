@@ -18,7 +18,7 @@ interface UploadTicket {
   expiresAt: string;
 }
 
-/** Material de um modulo, como a API o devolve. */
+/** Material de uma aula, como a API o devolve. */
 export interface MaterialItem {
   id: string;
   fileName: string;
@@ -29,26 +29,53 @@ export interface MaterialItem {
   moduleId: string;
   moduleOrder: number;
   moduleTitle: string;
+  lessonId: string;
+  lessonOrder: number;
+  lessonTitle: string;
   downloadUrl: string;
   downloadExpiresAt: string;
 }
 
-/** Modulo da trilha, no que o painel precisa para escolher um. */
+/**
+ * Modulo da grade no painel. `certificateCount` existe para a tela explicar
+ * por que nao ha remocao de modulo: o diploma emitido dele continua valendo
+ * (Spec 012, decisao 15).
+ */
 export interface AdminModule {
   id: string;
   order: number;
   title: string;
+  summary: string;
+  lessonCount: number;
+  certificateCount: number;
 }
 
-/** Estado do video de um modulo no painel. */
-export interface ModuleVideoState {
-  moduleId: string;
+/** Estado do video de uma aula no painel. */
+export interface LessonVideoState {
+  lessonId: string;
   hasVideo: boolean;
   status: VideoStatus | null;
   playbackId: string | null;
   fileName: string | null;
   sizeBytes: number | null;
   error: string | null;
+  durationSeconds: number | null;
+}
+
+/**
+ * Aula como o painel a ve. `completedBy` e o numero que a confirmacao de
+ * remocao mostra: apagar a aula apaga o progresso de quem a concluiu
+ * (decisao 16).
+ */
+export interface AdminLesson {
+  id: string;
+  moduleId: string;
+  order: number;
+  title: string;
+  summary: string;
+  video: LessonVideoState;
+  materialCount: number;
+  completedBy: number;
 }
 
 /**
@@ -61,63 +88,122 @@ export type UploadProgress<T> =
   | { phase: 'done'; progress: 100; result: T };
 
 /**
- * Envio de conteudo pelo administrador, em tres passos (Spec 010, decisao 3):
- * pedir a URL assinada, mandar o arquivo **direto** ao bucket e confirmar na
- * API. O arquivo nunca passa pelo servidor — a API roda como funcao
- * serverless, onde o corpo de uma request cabe em poucos megabytes.
+ * Administracao de conteudo: a grade (modulos e aulas) e os arquivos de cada
+ * aula.
+ *
+ * O envio continua em tres passos (Spec 010, decisao 3): pedir a URL assinada,
+ * mandar o arquivo **direto** ao bucket e confirmar na API. O arquivo nunca
+ * passa pelo servidor — a API roda como funcao serverless, onde o corpo de uma
+ * request cabe em poucos megabytes. O que mudou na Spec 012 e o dono: o
+ * arquivo pertence a uma aula, nao ao modulo.
  */
 @Injectable({ providedIn: 'root' })
 export class AdminContentService {
   private readonly http = inject(HttpClient);
 
-  /** Envia o video de um modulo, emitindo o progresso do PUT. */
-  uploadVideo(moduleId: string, file: File): Observable<UploadProgress<ModuleVideoState>> {
-    return this.upload<ModuleVideoState>(
+  /** Envia o video de uma aula, emitindo o progresso do PUT. */
+  uploadVideo(lessonId: string, file: File): Observable<UploadProgress<LessonVideoState>> {
+    return this.upload<LessonVideoState>(
       file,
-      `${environment.apiUrl}/admin/modules/${moduleId}/video/upload-url`,
-      `${environment.apiUrl}/admin/modules/${moduleId}/video`,
+      `${environment.apiUrl}/admin/lessons/${lessonId}/video/upload-url`,
+      `${environment.apiUrl}/admin/lessons/${lessonId}/video`,
     );
   }
 
-  /** Envia um material complementar de um modulo. */
-  uploadMaterial(moduleId: string, file: File): Observable<UploadProgress<MaterialItem>> {
+  /** Envia um material complementar de uma aula. */
+  uploadMaterial(lessonId: string, file: File): Observable<UploadProgress<MaterialItem>> {
     return this.upload<MaterialItem>(
       file,
-      `${environment.apiUrl}/admin/modules/${moduleId}/materials/upload-url`,
-      `${environment.apiUrl}/admin/modules/${moduleId}/materials`,
+      `${environment.apiUrl}/admin/lessons/${lessonId}/materials/upload-url`,
+      `${environment.apiUrl}/admin/lessons/${lessonId}/materials`,
     );
   }
 
   /**
-   * Modulos do curso, para o seletor do painel.
+   * Grade do curso.
    *
-   * Vem de `GET /progress/me`, que ja devolve os 12 modulos em ordem e so
-   * exige sessao. Criar um `GET /admin/modules` com a mesma lista seria uma
-   * segunda fonte para o mesmo dado — o progresso do proprio admin, que vem
-   * junto, e simplesmente ignorado aqui.
+   * Ate a Spec 010 esta lista vinha de `GET /progress/me`, porque nao havia o
+   * que administrar num modulo e o progresso ja trazia os 12 em ordem. Com a
+   * Spec 012 o painel passa a criar, renomear e reordenar: ele precisa da
+   * contagem de aulas e de diplomas, que progresso de aluno nao tem.
    */
   modules(): Observable<AdminModule[]> {
     return this.http
-      .get<{ modules: AdminModule[] }>(`${environment.apiUrl}/progress/me`)
-      .pipe(
-        map(progress =>
-          progress.modules.map(({ id, order, title }) => ({ id, order, title })),
-        ),
-        catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
-      );
-  }
-
-  /** Estado do processamento do video, consultado enquanto o Mux ingere. */
-  videoState(moduleId: string): Observable<ModuleVideoState> {
-    return this.http
-      .get<ModuleVideoState>(`${environment.apiUrl}/admin/modules/${moduleId}/video`)
+      .get<AdminModule[]>(`${environment.apiUrl}/admin/modules`)
       .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
   }
 
-  /** Materiais ja enviados para o modulo. */
-  materials(moduleId: string): Observable<MaterialItem[]> {
+  createModule(input: { title: string; summary: string }): Observable<AdminModule> {
     return this.http
-      .get<MaterialItem[]>(`${environment.apiUrl}/admin/modules/${moduleId}/materials`)
+      .post<AdminModule>(`${environment.apiUrl}/admin/modules`, input)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  updateModule(
+    moduleId: string,
+    input: { title?: string; summary?: string },
+  ): Observable<AdminModule> {
+    return this.http
+      .patch<AdminModule>(`${environment.apiUrl}/admin/modules/${moduleId}`, input)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /** Lista completa de ids na ordem desejada, gravada em transacao (decisao 17). */
+  reorderModules(ids: string[]): Observable<void> {
+    return this.http
+      .patch<void>(`${environment.apiUrl}/admin/course/modules/order`, { ids })
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /** Aulas do modulo, com estado do video e os numeros da remocao. */
+  lessons(moduleId: string): Observable<AdminLesson[]> {
+    return this.http
+      .get<AdminLesson[]>(`${environment.apiUrl}/admin/modules/${moduleId}/lessons`)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  createLesson(
+    moduleId: string,
+    input: { title: string; summary: string },
+  ): Observable<AdminLesson> {
+    return this.http
+      .post<AdminLesson>(`${environment.apiUrl}/admin/modules/${moduleId}/lessons`, input)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  updateLesson(
+    lessonId: string,
+    input: { title?: string; summary?: string },
+  ): Observable<AdminLesson> {
+    return this.http
+      .patch<AdminLesson>(`${environment.apiUrl}/admin/lessons/${lessonId}`, input)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /** Remove a aula com o video, os materiais e as conclusoes dela (decisao 16). */
+  removeLesson(lessonId: string): Observable<void> {
+    return this.http
+      .delete<void>(`${environment.apiUrl}/admin/lessons/${lessonId}`)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  reorderLessons(moduleId: string, ids: string[]): Observable<void> {
+    return this.http
+      .patch<void>(`${environment.apiUrl}/admin/modules/${moduleId}/lessons/order`, { ids })
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /** Estado do processamento do video, consultado enquanto o Mux ingere. */
+  videoState(lessonId: string): Observable<LessonVideoState> {
+    return this.http
+      .get<LessonVideoState>(`${environment.apiUrl}/admin/lessons/${lessonId}/video`)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /** Materiais ja enviados para a aula. */
+  materials(lessonId: string): Observable<MaterialItem[]> {
+    return this.http
+      .get<MaterialItem[]>(`${environment.apiUrl}/admin/lessons/${lessonId}/materials`)
       .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
   }
 
