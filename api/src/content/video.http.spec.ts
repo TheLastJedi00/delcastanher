@@ -18,7 +18,7 @@ function userWith(role: Role): AuthUser {
 }
 
 const STATE = {
-  moduleId: 'mod-1',
+  lessonId: 'les-1',
   hasVideo: true,
   status: 'PROCESSING',
   playbackId: 'pb-1',
@@ -82,7 +82,7 @@ describe('Video (HTTP)', () => {
   describe('admin', () => {
     it('POST video/upload-url devolve a URL assinada', async () => {
       const createUploadUrl = jest.fn().mockResolvedValue({
-        storagePath: 'modules/mod-1/video/aula-01.mp4',
+        storagePath: 'lessons/les-1/video/aula-01.mp4',
         uploadUrl: 'https://storage.googleapis.com/escrita',
         headers: { 'Content-Type': 'video/mp4' },
         expiresAt: '2026-09-11T12:00:00.000Z',
@@ -90,7 +90,7 @@ describe('Video (HTTP)', () => {
       app = await buildApp({ createUploadUrl });
 
       const response = await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/video/upload-url')
+        .post('/admin/lessons/les-1/video/upload-url')
         .send({ fileName: 'Aula 01.mp4', contentType: 'video/mp4', sizeBytes: 4096 })
         .expect(201);
 
@@ -102,7 +102,7 @@ describe('Video (HTTP)', () => {
       app = await buildApp({ createUploadUrl }, { role: 'aluno' });
 
       await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/video/upload-url')
+        .post('/admin/lessons/les-1/video/upload-url')
         .send({ fileName: 'Aula 01.mp4', contentType: 'video/mp4', sizeBytes: 4096 })
         .expect(403);
 
@@ -114,9 +114,9 @@ describe('Video (HTTP)', () => {
       app = await buildApp({ confirmUpload });
 
       const response = await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/video')
+        .post('/admin/lessons/les-1/video')
         .send({
-          storagePath: 'modules/mod-1/video/aula-01.mp4',
+          storagePath: 'lessons/les-1/video/aula-01.mp4',
           fileName: 'Aula 01.mp4',
           contentType: 'video/mp4',
         })
@@ -130,7 +130,7 @@ describe('Video (HTTP)', () => {
       app = await buildApp({ confirmUpload });
 
       await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/video')
+        .post('/admin/lessons/les-1/video')
         .send({ fileName: 'Aula 01.mp4', contentType: 'video/mp4' })
         .expect(400);
 
@@ -142,7 +142,7 @@ describe('Video (HTTP)', () => {
       app = await buildApp({ getState });
 
       const response = await request(app.getHttpServer())
-        .get('/admin/modules/mod-1/video')
+        .get('/admin/lessons/les-1/video')
         .expect(200);
 
       expect(response.body).toMatchObject({ status: 'PROCESSING' });
@@ -151,15 +151,15 @@ describe('Video (HTTP)', () => {
     it('GET video responde 403 para um aluno', async () => {
       app = await buildApp({ getState: jest.fn() }, { role: 'aluno' });
 
-      await request(app.getHttpServer()).get('/admin/modules/mod-1/video').expect(403);
+      await request(app.getHttpServer()).get('/admin/lessons/les-1/video').expect(403);
     });
 
-    it('GET video responde 404 para modulo inexistente', async () => {
+    it('GET video responde 404 para aula inexistente', async () => {
       app = await buildApp({
-        getState: jest.fn().mockRejectedValue(new NotFoundException('Modulo')),
+        getState: jest.fn().mockRejectedValue(new NotFoundException('Aula')),
       });
 
-      await request(app.getHttpServer()).get('/admin/modules/nao-existe/video').expect(404);
+      await request(app.getHttpServer()).get('/admin/lessons/nao-existe/video').expect(404);
     });
   });
 
@@ -173,7 +173,7 @@ describe('Video (HTTP)', () => {
       app = await buildApp({ createPlaybackToken }, { role: 'aluno' });
 
       const response = await request(app.getHttpServer())
-        .get('/modules/mod-1/playback-token')
+        .get('/lessons/les-1/playback-token')
         .expect(200);
 
       expect(response.body).toMatchObject({ playbackId: 'pb-1', token: 'jwt-curto' });
@@ -189,7 +189,7 @@ describe('Video (HTTP)', () => {
         { role: 'aluno' },
       );
 
-      await request(app.getHttpServer()).get('/modules/mod-1/playback-token').expect(409);
+      await request(app.getHttpServer()).get('/lessons/les-1/playback-token').expect(409);
     });
   });
 
