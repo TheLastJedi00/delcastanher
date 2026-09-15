@@ -67,6 +67,8 @@ const QUERY: ListAdminUsersDto = {
 interface Fake {
   users?: unknown[];
   total?: number;
+  /** Curso devolvido pela consulta da grade; o padrao e o COURSE acima. */
+  course?: unknown;
   progress?: { userId: string; lessonId: string }[];
   /** Quantidades devolvidas pelos `count` dos KPIs, na ordem matriculados/ativos. */
   counts?: [number, number];
@@ -89,7 +91,7 @@ async function build(fake: Fake = {}) {
   });
 
   const prisma = {
-    course: { findUnique: jest.fn().mockResolvedValue(COURSE) },
+    course: { findUnique: jest.fn().mockResolvedValue(fake.course ?? COURSE) },
     user: { findMany, count },
     lessonProgress: { findMany: progressFindMany, groupBy },
   };
@@ -259,6 +261,110 @@ describe('AdminUsersService', () => {
       expect(item).not.toHaveProperty('bio');
       expect(item).not.toHaveProperty('linkedin');
       expect(findMany.mock.calls[0][0].select).not.toHaveProperty('bio');
+    });
+  });
+
+  describe('list: progresso da linha', () => {
+    /** Conclusoes de Ana, no formato em que a consulta as devolve. */
+    const done = (...lessonIds: string[]) =>
+      lessonIds.map((lessonId) => ({ userId: ANA.id, lessonId }));
+
+    it('conta aulas concluidas sobre o total de aulas do curso', async () => {
+      const { service } = await build({ users: [ANA], progress: done('l1') });
+
+      const [item] = (await service.list(QUERY)).items;
+
+      expect(item.completedLessons).toBe(1);
+      expect(item.totalLessons).toBe(4);
+      expect(item.percentage).toBe(25);
+    });
+
+    it('deixa em zero quem ainda nao concluiu nenhuma aula', async () => {
+      const { service } = await build({ users: [ANA], progress: [] });
+
+      const [item] = (await service.list(QUERY)).items;
+
+      expect(item.completedLessons).toBe(0);
+      expect(item.percentage).toBe(0);
+      expect(item.courseCompleted).toBe(false);
+    });
+
+    // Spec 013, decisao 8: e o mesmo `nextLesson` do Hub. A primeira **em
+    // aberto**, e nao a seguinte a ultima concluida — o aluno pode ter pulado.
+    it('aponta o modulo da primeira aula em aberto como modulo atual', async () => {
+      const { service } = await build({ users: [ANA], progress: done('l1', 'l2', 'l3') });
+
+      const [item] = (await service.list(QUERY)).items;
+
+      expect(item.currentModuleOrder).toBe(2);
+      expect(item.currentModuleTitle).toBe('Diagnóstico');
+    });
+
+    it('volta ao modulo anterior quando o aluno pulou uma aula', async () => {
+      const { service } = await build({ users: [ANA], progress: done('l1', 'l3', 'l4') });
+
+      const [item] = (await service.list(QUERY)).items;
+
+      expect(item.currentModuleOrder).toBe(1);
+      expect(item.percentage).toBe(75);
+    });
+
+    // A tela mostra "Concluido", e nao "12 / 12": com tudo terminado nao ha
+    // modulo atual nenhum.
+    it('marca o curso como concluido e zera o modulo atual', async () => {
+      const { service } = await build({ users: [ANA], progress: done('l1', 'l2', 'l3', 'l4') });
+
+      const [item] = (await service.list(QUERY)).items;
+
+      expect(item.percentage).toBe(100);
+      expect(item.courseCompleted).toBe(true);
+      expect(item.currentModuleOrder).toBeNull();
+      expect(item.currentModuleTitle).toBeNull();
+    });
+
+    it('nao atribui a um aluno a conclusao de outro', async () => {
+      const { service } = await build({
+        users: [ANA, CARLOS],
+        progress: [...done('l1', 'l2'), { userId: CARLOS.id, lessonId: 'l1' }],
+      });
+
+      const [ana, carlos] = (await service.list(QUERY)).items;
+
+      expect(ana.completedLessons).toBe(2);
+      expect(carlos.completedLessons).toBe(1);
+    });
+
+    // Spec 013, decisao 8: uma consulta de progresso por pagina, nunca uma por
+    // linha. O N+1 aqui seriam vinte consultas a cada digito da busca.
+    it('busca o progresso da pagina inteira em uma consulta so', async () => {
+      const { service, progressFindMany } = await build({ users: [ANA, CARLOS] });
+
+      await service.list(QUERY);
+
+      expect(progressFindMany).toHaveBeenCalledTimes(1);
+      expect(progressFindMany.mock.calls[0][0].where.userId).toEqual({
+        in: [ANA.id, CARLOS.id],
+      });
+    });
+
+    it('nao consulta progresso nenhum quando a pagina vem vazia', async () => {
+      const { service, progressFindMany } = await build({ users: [], total: 0 });
+
+      await service.list(QUERY);
+
+      expect(progressFindMany).not.toHaveBeenCalled();
+    });
+
+    // Curso recem-semeado, sem aula publicada: dividir por zero daria NaN na
+    // tela em vez de 0%.
+    it('devolve zero por cento quando o curso ainda nao tem aula', async () => {
+      const { service } = await build({ users: [ANA], course: { ...COURSE, modules: [] } });
+
+      const [item] = (await service.list(QUERY)).items;
+
+      expect(item.totalLessons).toBe(0);
+      expect(item.percentage).toBe(0);
+      expect(item.courseCompleted).toBe(false);
     });
   });
 });
