@@ -2,7 +2,7 @@
   <!--
     Titulo da pagina (Spec 009, Task 4.10). Fica apenas para leitor de tela
     porque nesta tela de duas colunas nenhum elemento visivel exerce esse papel:
-    o rotulo da lateral some no mobile e o titulo do modulo e uma secao dentro
+    o rotulo da lateral some no mobile e o titulo da aula e uma secao dentro
     da trilha. Sem ele a pagina inteira comecaria em h2.
   -->
   <h1 class="sr-only">Trilha de Aprendizado</h1>
@@ -25,7 +25,12 @@
     </button>
   </div>
 
-  <!-- Navegação de módulos -->
+  <!--
+    Navegação vertical: módulos. O módulo em foco expande e lista as próprias
+    aulas, apontando para as mesmas rotas da trilha horizontal — é o mesmo dado
+    no formato linear de que o leitor de tela e este drawer do mobile precisam
+    (Spec 012, decisão 8).
+  -->
   <aside
     class="h-full shrink-0 flex-col overflow-hidden border-brand-navy/8 bg-white/60 backdrop-blur-xl md:flex md:w-72 md:border-r"
     [class.hidden]="!showMobileModules()"
@@ -37,6 +42,9 @@
         variant="gradient"
         [showLabel]="true"
         label="Progresso na trilha" />
+      <p class="mt-2 text-xs text-slate-500">
+        {{ completedCount() }} de {{ totalCount() }} aulas concluídas
+      </p>
     </div>
 
     <div class="flex-1 overflow-y-auto">
@@ -46,7 +54,12 @@
           [title]="module.title"
           [completed]="module.completed"
           [active]="activeModule()?.id === module.id"
-          (selected)="setActiveModule(module.id)" />
+          [completedLessons]="module.completedCount"
+          [totalLessons]="module.totalCount"
+          [lessons]="module.lessons"
+          [activeLessonId]="activeLesson()?.id ?? null"
+          (selected)="setActiveModule(module.id)"
+          (lessonSelected)="setActiveLesson($event, module.id)" />
       }
     </div>
   </aside>
@@ -70,50 +83,95 @@
       }
 
       @if (activeModule(); as module) {
-        <div class="mb-6">
-          <ui-video-player
-            poster="assets/aula1.jpeg"
-            [title]="'Módulo ' + module.order"
-            [subtitle]="module.title"
-            [state]="playerState()"
-            [playbackId]="playback()?.playbackId ?? null"
-            [playbackToken]="playback()?.token ?? null"
-            (ended)="onVideoEnded()" />
-        </div>
+        <!--
+          Navegação horizontal: as aulas do módulo em foco, enumeradas. É por
+          aqui que o aluno salta entre os vídeos sem sair da tela (decisão 8).
+        -->
+        @if (module.lessons.length > 0) {
+          <div class="mb-5">
+            <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 class="text-sm font-bold uppercase tracking-widest text-brand-teal-deep">
+                Módulo {{ module.order }} · {{ module.title }}
+              </h2>
+              <span class="text-xs text-slate-500">
+                {{ module.completedCount }} de {{ module.totalCount }} aulas
+              </span>
+            </div>
+            <ui-lesson-track
+              [lessons]="module.lessons"
+              [activeId]="activeLesson()?.id ?? null"
+              [moduleOrder]="module.order"
+              (selected)="setActiveLesson($event)" />
+          </div>
+        }
 
-        <div class="mb-6">
-          <ui-card variant="default" padding="lg" [hover]="false">
-            <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div class="mb-3">
-                  <ui-badge
-                    [variant]="module.completed ? 'success' : 'teal'"
-                    [label]="'Módulo ' + module.order" />
+        @if (activeLesson(); as lesson) {
+          <div class="mb-6">
+            <ui-video-player
+              poster="assets/aula1.jpeg"
+              [title]="'Aula ' + lesson.order"
+              [subtitle]="lesson.title"
+              [state]="playerState()"
+              [playbackId]="playback()?.playbackId ?? null"
+              [playbackToken]="playback()?.token ?? null"
+              (ended)="onVideoEnded()" />
+          </div>
+
+          <div class="mb-6">
+            <ui-card variant="default" padding="lg" [hover]="false">
+              <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div class="mb-3 flex flex-wrap items-center gap-2">
+                    <ui-badge
+                      [variant]="lesson.completed ? 'success' : 'teal'"
+                      [label]="'Aula ' + lesson.order + ' · Módulo ' + module.order" />
+                    @if (durationLabel(lesson.durationSeconds)) {
+                      <span class="text-xs text-slate-500">
+                        {{ durationLabel(lesson.durationSeconds) }}
+                      </span>
+                    }
+                  </div>
+                  <h3 class="text-2xl font-bold tracking-tight text-brand-navy md:text-3xl">
+                    {{ lesson.title }}
+                  </h3>
                 </div>
-                <h2 class="text-2xl font-bold tracking-tight text-brand-navy md:text-3xl">
-                  {{ module.title }}
-                </h2>
+                <div class="flex flex-wrap items-center gap-3">
+                  <ui-button
+                    [variant]="lesson.completed ? 'outline' : 'primary'"
+                    [loading]="saving()"
+                    (click)="toggleCompleted()">
+                    {{ lesson.completed ? 'Concluída' : 'Marcar como Concluída' }}
+                  </ui-button>
+                  <!--
+                    Avançar é ação do aluno: o fim do vídeo conclui a aula, mas
+                    não encadeia a reprodução da seguinte (decisão 12).
+                  -->
+                  @if (lesson.completed && nextInTrack(); as next) {
+                    <ui-button variant="ghost" (click)="goToNextLesson()">
+                      Próxima aula: {{ next.lesson.title }}
+                    </ui-button>
+                  }
+                </div>
               </div>
-              <ui-button
-                [variant]="module.completed ? 'outline' : 'primary'"
-                [loading]="saving()"
-                (click)="toggleCompleted()">
-                {{ module.completed ? 'Concluída' : 'Marcar como Concluída' }}
-              </ui-button>
-            </div>
 
-            <div class="max-w-none text-slate-600">
-              <p class="leading-relaxed">{{ module.summary }}</p>
-              <h3 class="mt-6 text-sm font-bold uppercase tracking-widest text-brand-teal-deep">
-                Resultado Esperado
+              <div class="max-w-none text-slate-600">
+                <p class="leading-relaxed">{{ lesson.summary }}</p>
+              </div>
+            </ui-card>
+          </div>
+        } @else {
+          <div class="mb-6">
+            <ui-card variant="default" padding="lg" [hover]="false">
+              <h3 class="text-lg font-semibold text-brand-navy">
+                Módulo {{ module.order }} · {{ module.title }}
               </h3>
-              <p class="mt-2 leading-relaxed">
-                Capacidade de diagnosticar o estado atual do RH e traçar um mapa de ações para
-                transformação estratégica, alinhado aos objetivos da empresa.
+              <p class="mt-2 text-sm text-slate-500">
+                Este módulo ainda não tem aulas publicadas. Escolha outro módulo na trilha
+                enquanto o conteúdo é preparado.
               </p>
-            </div>
-          </ui-card>
-        </div>
+            </ui-card>
+          </div>
+        }
 
         @if (module.completed) {
           <div class="mb-6">
@@ -126,11 +184,12 @@
                   <p class="mt-1 text-sm text-slate-500">
                     @if (moduleCertificate(); as diploma) {
                       Emitido com o código {{ diploma.code }}. É um diploma do módulo — o
-                      certificado do curso inteiro sai ao concluir os {{ modules().length }}
-                      módulos.
+                      certificado do curso inteiro sai ao concluir as {{ totalCount() }} aulas
+                      da trilha.
                     } @else {
-                      Você concluiu este módulo e já pode emitir o diploma correspondente. Ele
-                      não substitui o certificado do curso inteiro.
+                      Você concluiu as {{ module.totalCount }} aulas deste módulo e já pode
+                      emitir o diploma correspondente. Ele não substitui o certificado do curso
+                      inteiro.
                     }
                   </p>
                 </div>
@@ -153,6 +212,20 @@
               </div>
             </ui-card>
           </div>
+        } @else if (module.totalCount > 0) {
+          <!--
+            O diploma do módulo exige o módulo inteiro (decisão 13): dizer
+            quanto falta evita o clique que voltaria em 409.
+          -->
+          <div class="mb-6">
+            <ui-card variant="default" padding="lg" [hover]="false">
+              <h3 class="text-lg font-semibold text-brand-navy">Certificado deste módulo</h3>
+              <p class="mt-1 text-sm text-slate-500">
+                Conclua as {{ module.totalCount }} aulas deste módulo para emitir o diploma
+                dele — {{ module.completedCount }} concluída(s) até agora.
+              </p>
+            </ui-card>
+          </div>
         }
 
         @if (courseCompleted()) {
@@ -162,7 +235,7 @@
                 <div>
                   <h3 class="text-lg font-semibold text-brand-navy">Trilha concluída</h3>
                   <p class="mt-1 text-sm text-slate-500">
-                    Você concluiu todos os módulos e já pode emitir seu certificado.
+                    Você concluiu todas as aulas e já pode emitir seu certificado.
                   </p>
                 </div>
                 <a routerLink="/ava/certificado" class="shrink-0">
@@ -173,30 +246,32 @@
           </div>
         }
 
-        <ui-card variant="default" padding="lg" [hover]="false">
-          <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-brand-navy md:text-xl">
-            <svg class="h-5 w-5 text-brand-teal-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Materiais Complementares
-          </h3>
-          @if (materials().length === 0) {
-            <p class="text-sm text-slate-500">
-              Nenhum material complementar publicado neste módulo ainda.
-            </p>
-          } @else {
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              @for (material of materials(); track material.id) {
-                <ui-material-item
-                  [fileName]="material.fileName"
-                  [fileType]="material.fileType"
-                  [fileSize]="sizeLabel(material.sizeBytes)"
-                  [moduleLabel]="'Módulo ' + module.order"
-                  [downloadUrl]="material.downloadUrl" />
-              }
-            </div>
-          }
-        </ui-card>
+        @if (activeLesson()) {
+          <ui-card variant="default" padding="lg" [hover]="false">
+            <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold text-brand-navy md:text-xl">
+              <svg class="h-5 w-5 text-brand-teal-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Materiais desta aula
+            </h3>
+            @if (materials().length === 0) {
+              <p class="text-sm text-slate-500">
+                Nenhum material complementar publicado nesta aula ainda.
+              </p>
+            } @else {
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                @for (material of materials(); track material.id) {
+                  <ui-material-item
+                    [fileName]="material.fileName"
+                    [fileType]="material.fileType"
+                    [fileSize]="sizeLabel(material.sizeBytes)"
+                    [moduleLabel]="'Aula ' + material.lessonOrder + ' · Módulo ' + material.moduleOrder"
+                    [downloadUrl]="material.downloadUrl" />
+                }
+              </div>
+            }
+          </ui-card>
+        }
       } @else if (loading()) {
         <ui-card variant="default" padding="lg" [hover]="false">
           <p class="text-sm text-slate-500">Carregando sua trilha…</p>
