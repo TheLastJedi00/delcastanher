@@ -119,8 +119,12 @@ export const routes: Routes = [
     children: [
       { path: '', loadComponent: () => import('./features/student/hub/hub').then(m => m.Hub) },
       { path: 'trilha', loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha) },
-      // Deep-link do "retomar de onde parou": a trilha abre direto no modulo.
+      // Deep-link do "retomar de onde parou": a trilha abre direto no modulo,
+      // na primeira aula em aberto dele.
       { path: 'trilha/:moduleId', loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha) },
+      // Forma completa desde a Spec 012 (decisao 9). As duas acima continuam
+      // validas — link salvo, e-mail e historico do navegador nao quebram.
+      { path: 'trilha/:moduleId/:lessonId', loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha) },
       { path: 'certificado', loadComponent: () => import('./features/student/certificado/certificado').then(m => m.Certificado) },
       { path: 'perfil', loadComponent: () => import('./features/perfil/perfil').then(m => m.Perfil) },
       { path: 'materiais', loadComponent: () => import('./features/student/materiais/materiais').then(m => m.Materiais) },

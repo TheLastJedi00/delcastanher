@@ -112,7 +112,13 @@ export class VideoPlayer {
 
   protected readonly accentColor = '#0f766e';
 
-  protected readonly playing = signal(false);
+  /**
+   * Se o <mux-player> esta montado. Publico (e nao protected) para que o teste
+   * consiga observar o reset ao trocar de aula: no ambiente de teste o import
+   * dinamico do web component nao resolve, entao as duas situacoes renderizam
+   * o mesmo poster e nada no DOM as distingue.
+   */
+  readonly playing = signal(false);
   protected readonly elementLoaded = signal(false);
 
   protected readonly statusMessage = computed(() => {

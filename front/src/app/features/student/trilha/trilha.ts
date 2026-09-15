@@ -8,13 +8,19 @@ import {
   ContentService,
   MaterialItem,
   PlaybackGrant,
+  formatDuration,
   formatFileSize,
 } from '../../../core/services/content.service';
-import { ProgressModuleItem, ProgressService } from '../../../core/services/progress.service';
+import {
+  ProgressLessonItem,
+  ProgressModuleItem,
+  ProgressService,
+} from '../../../core/services/progress.service';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { Badge } from '../../../shared/ui/badge/badge';
 import { Button } from '../../../shared/ui/button/button';
 import { Card } from '../../../shared/ui/card/card';
+import { LessonTrack } from '../../../shared/ui/lesson-track/lesson-track';
 import { MaterialItem as MaterialItemComponent } from '../../../shared/ui/material-item/material-item';
 import { ModuleCard } from '../../../shared/ui/module-card/module-card';
 import { ProgressBar } from '../../../shared/ui/progress-bar/progress-bar';
@@ -23,11 +29,14 @@ import { PlayerState, VideoPlayer } from '../../../shared/ui/video-player/video-
 /**
  * Trilha do aluno. Ate a Spec 008 os modulos e o avanco viviam aqui em signals
  * locais — iguais para todos e perdidos a cada F5. Agora a fonte e o
- * `ProgressService`, e o modulo aberto vem da rota (`/ava/trilha/:moduleId`),
- * o que torna a posicao do aluno compartilhavel e recuperavel.
+ * `ProgressService`, e a posicao vem da rota, o que a torna compartilhavel e
+ * recuperavel.
  *
- * Desde a Spec 010 o video e real: o player recebe um token assinado por
- * modulo, e o fim da reproducao marca a conclusao (decisao 10).
+ * Desde a Spec 010 o video e real: o player recebe um token assinado, e o fim
+ * da reproducao marca a conclusao. Desde a Spec 012 o que se assiste e uma
+ * **aula** — o modulo virou container, a rota e
+ * `/ava/trilha/:moduleId/:lessonId` e a navegacao entre aulas e a trilha
+ * horizontal (decisoes 8 e 9).
  */
 @Component({
   selector: 'app-trilha',
@@ -37,6 +46,7 @@ import { PlayerState, VideoPlayer } from '../../../shared/ui/video-player/video-
     Badge,
     Button,
     Card,
+    LessonTrack,
     MaterialItemComponent,
     ModuleCard,
     ProgressBar,
@@ -53,18 +63,20 @@ export class Trilha {
   private readonly analytics = inject(AnalyticsService);
   private readonly certificates = inject(CertificateService);
 
-  /** Ultimo modulo ja contado, para nao repetir o evento no mesmo modulo. */
-  private lastTrackedModuleId: string | null = null;
+  /** Ultima aula ja contada, para nao repetir o evento na mesma aula. */
+  private lastTrackedLessonId: string | null = null;
 
-  /** Modulo cujo conteudo ja foi pedido, para nao repetir a chamada. */
-  private loadedContentModuleId: string | null = null;
+  /** Aula cujo conteudo ja foi pedido, para nao repetir a chamada. */
+  private loadedContentLessonId: string | null = null;
 
-  /** Modulo ja concluido automaticamente nesta sessao de tela. */
-  private autoCompletedModuleId: string | null = null;
+  /** Aula ja concluida automaticamente nesta sessao de tela. */
+  private autoCompletedLessonId: string | null = null;
 
   readonly modules = this.progressService.modules;
   readonly progress = this.progressService.percentage;
   readonly courseCompleted = this.progressService.courseCompleted;
+  readonly completedCount = this.progressService.completedCount;
+  readonly totalCount = this.progressService.totalCount;
 
   readonly loading = signal(true);
   readonly error = signal('');
@@ -83,9 +95,16 @@ export class Trilha {
     { initialValue: null },
   );
 
+  /** Aula pedida na URL; nula nas duas formas curtas da rota. */
+  private readonly routeLessonId = toSignal(
+    this.route.paramMap.pipe(map(params => params.get('lessonId'))),
+    { initialValue: null },
+  );
+
   /**
-   * Modulo em foco. Sem parametro na URL abre o modulo em aberto do aluno; com
-   * um id que nao existe cai no primeiro da trilha, em vez de tela vazia.
+   * Modulo em foco. Sem parametro na URL abre o modulo da proxima aula em
+   * aberto do aluno; com um id que nao existe cai no primeiro da trilha, em
+   * vez de tela vazia.
    */
   readonly activeModule = computed<ProgressModuleItem | null>(() => {
     const list = this.modules();
@@ -101,12 +120,52 @@ export class Trilha {
   });
 
   /**
+   * Aula em foco dentro do modulo. A URL manda; um `lessonId` que nao pertence
+   * ao modulo da rota e ignorado, e nao quebra a tela (decisao 9).
+   */
+  readonly activeLesson = computed<ProgressLessonItem | null>(() => {
+    const module = this.activeModule();
+
+    if (!module || module.lessons.length === 0) {
+      return null;
+    }
+
+    const wanted = this.routeLessonId();
+    const found = wanted ? module.lessons.find(lesson => lesson.id === wanted) : undefined;
+
+    return found ?? module.nextLesson ?? module.lessons[0];
+  });
+
+  /** Aula seguinte na sequencia da trilha, atravessando a fronteira do modulo. */
+  readonly nextInTrack = computed<{ moduleId: string; lesson: ProgressLessonItem } | null>(() => {
+    const module = this.activeModule();
+    const lesson = this.activeLesson();
+
+    if (!module || !lesson) {
+      return null;
+    }
+
+    const index = module.lessons.findIndex(item => item.id === lesson.id);
+    const withinModule = module.lessons[index + 1];
+
+    if (withinModule) {
+      return { moduleId: module.id, lesson: withinModule };
+    }
+
+    const modules = this.modules();
+    const moduleIndex = modules.findIndex(item => item.id === module.id);
+    const nextModule = modules.slice(moduleIndex + 1).find(item => item.lessons.length > 0);
+
+    return nextModule ? { moduleId: nextModule.id, lesson: nextModule.lessons[0] } : null;
+  });
+
+  /**
    * O que o player deve mostrar. Os tres casos sao distintos de proposito: sem
    * video, em processamento e pronto — abrir o play nos dois primeiros levaria
    * o aluno a um erro que nao e dele.
    */
   readonly playerState = computed<PlayerState>(() => {
-    const active = this.activeModule();
+    const active = this.activeLesson();
 
     if (!active || !active.hasVideo) {
       return 'unavailable';
@@ -143,33 +202,37 @@ export class Trilha {
     this.certificates.loadModuleCertificates().subscribe({ error: () => undefined });
 
     // `lesson_started` mora aqui, e nao no `ui-video-player`: o player e
-    // componente de apresentacao reutilizavel e nao sabe em que modulo esta.
-    // O disparo acompanha o modulo em foco — o mesmo id nao conta duas vezes
-    // quando a trilha recarrega o progresso.
+    // componente de apresentacao reutilizavel e nao sabe em que aula esta.
+    // Desde a Spec 012 o evento finalmente acompanha uma aula de verdade
+    // (decisao 21) — o mesmo id nao conta duas vezes quando a trilha recarrega
+    // o progresso.
     effect(() => {
-      const active = this.activeModule();
+      const module = this.activeModule();
+      const lesson = this.activeLesson();
 
-      if (!active || active.id === this.lastTrackedModuleId) {
+      if (!module || !lesson || lesson.id === this.lastTrackedLessonId) {
         return;
       }
 
-      this.lastTrackedModuleId = active.id;
+      this.lastTrackedLessonId = lesson.id;
       this.analytics.track('lesson_started', {
-        module_id: active.id,
-        module_title: active.title,
+        module_id: module.id,
+        module_title: module.title,
+        lesson_id: lesson.id,
+        lesson_title: lesson.title,
       });
     });
 
-    // Conteudo do modulo em foco: token de playback e materiais, uma vez por
-    // modulo. Sem a guarda, cada recarga do progresso pediria um token novo.
+    // Conteudo da aula em foco: token de playback e materiais, uma vez por
+    // aula. Sem a guarda, cada recarga do progresso pediria um token novo.
     effect(() => {
-      const active = this.activeModule();
+      const active = this.activeLesson();
 
-      if (!active || active.id === this.loadedContentModuleId) {
+      if (!active || active.id === this.loadedContentLessonId) {
         return;
       }
 
-      this.loadedContentModuleId = active.id;
+      this.loadedContentLessonId = active.id;
       this.loadContent(active);
     });
   }
@@ -177,6 +240,11 @@ export class Trilha {
   /** Tamanho legivel do material, no mesmo formato das outras telas. */
   sizeLabel(bytes: number): string {
     return formatFileSize(bytes);
+  }
+
+  /** Duracao legivel da aula, no mesmo formato da trilha horizontal. */
+  durationLabel(seconds: number | null): string {
+    return formatDuration(seconds);
   }
 
   reload(): void {
@@ -192,10 +260,31 @@ export class Trilha {
     });
   }
 
-  /** Navega em vez de guardar selecao local: a URL e que manda no modulo aberto. */
+  /** Navega em vez de guardar selecao local: a URL e que manda na posicao. */
   setActiveModule(id: string): void {
     this.showMobileModules.set(false);
     void this.router.navigate(['/ava/trilha', id]);
+  }
+
+  /** Salta para uma aula do modulo em foco, ou de outro modulo informado. */
+  setActiveLesson(lessonId: string, moduleId?: string): void {
+    const module = moduleId ?? this.activeModule()?.id;
+
+    if (!module) {
+      return;
+    }
+
+    this.showMobileModules.set(false);
+    void this.router.navigate(['/ava/trilha', module, lessonId]);
+  }
+
+  /** Botao "Próxima aula": quem avança e o aluno, nunca um autoplay (decisao 12). */
+  goToNextLesson(): void {
+    const next = this.nextInTrack();
+
+    if (next) {
+      this.setActiveLesson(next.lesson.id, next.moduleId);
+    }
   }
 
   toggleMobileModules(): void {
@@ -204,7 +293,7 @@ export class Trilha {
 
   /** Persiste a conclusao: a API responde com o progresso ja recalculado. */
   toggleCompleted(): void {
-    const active = this.activeModule();
+    const active = this.activeLesson();
 
     if (!active || this.saving()) {
       return;
@@ -214,23 +303,24 @@ export class Trilha {
   }
 
   /**
-   * Fim do video. Marca o modulo pela **mesma** porta do botao manual — a
-   * Spec 008 ja definiu `PATCH /progress/me/modules/:moduleId` como o unico
-   * caminho da conclusao, e um gatilho automatico nao justifica um segundo
-   * (decisao 10). Nunca desmarca: assistir de novo nao desfaz a conclusao.
+   * Fim do video. Marca a aula pela **mesma** porta do botao manual — desde a
+   * Spec 012 `PATCH /progress/me/lessons/:lessonId` e o unico caminho da
+   * conclusao (decisao 5), e um gatilho automatico nao justifica um segundo.
+   * Nunca desmarca: assistir de novo nao desfaz a conclusao. E nao avanca
+   * sozinho para a aula seguinte (decisao 12).
    */
   onVideoEnded(): void {
-    const active = this.activeModule();
+    const active = this.activeLesson();
 
-    if (!active || active.completed || this.autoCompletedModuleId === active.id) {
+    if (!active || active.completed || this.autoCompletedLessonId === active.id) {
       return;
     }
 
-    this.autoCompletedModuleId = active.id;
+    this.autoCompletedLessonId = active.id;
     this.setCompletion(active.id, true);
   }
 
-  /** Emite o diploma do modulo concluido em foco. */
+  /** Emite o diploma do modulo em foco, com todas as aulas dele concluidas. */
   issueModuleCertificate(): void {
     const active = this.activeModule();
 
@@ -250,11 +340,11 @@ export class Trilha {
     });
   }
 
-  private setCompletion(moduleId: string, completed: boolean): void {
+  private setCompletion(lessonId: string, completed: boolean): void {
     this.saving.set(true);
     this.error.set('');
 
-    this.progressService.setModuleCompletion(moduleId, completed).subscribe({
+    this.progressService.setLessonCompletion(lessonId, completed).subscribe({
       next: () => this.saving.set(false),
       error: (message: string) => {
         this.error.set(message);
@@ -263,23 +353,23 @@ export class Trilha {
     });
   }
 
-  private loadContent(module: ProgressModuleItem): void {
+  private loadContent(lesson: ProgressLessonItem): void {
     this.playback.set(null);
     this.materials.set([]);
 
-    this.content.materialsOf(module.id).subscribe({
+    this.content.materialsOf(lesson.id).subscribe({
       next: materials => this.materials.set(materials),
       // Material que nao carregou nao derruba a aula: o video e o conteudo.
       error: () => this.materials.set([]),
     });
 
-    if (!module.hasVideo) {
+    if (!lesson.hasVideo) {
       return;
     }
 
     this.playbackLoading.set(true);
 
-    this.content.playback(module.id).subscribe({
+    this.content.playback(lesson.id).subscribe({
       next: grant => {
         this.playback.set(grant);
         this.playbackLoading.set(false);
