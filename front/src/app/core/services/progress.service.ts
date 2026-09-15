@@ -10,14 +10,17 @@ export interface ProgressCourse {
   workloadHours: number | null;
 }
 
-/** Modulo da trilha com o estado do aluno logado. */
-export interface ProgressModuleItem {
+/**
+ * Aula com o estado do aluno logado. Desde a Spec 012 e aqui que vive o
+ * conteudo: um modulo tem varias aulas, e cada uma tem o seu video.
+ */
+export interface ProgressLessonItem {
   id: string;
   order: number;
   title: string;
   summary: string;
   completed: boolean;
-  /** Se ha video publicado neste modulo (Spec 010). */
+  /** Se ha video publicado nesta aula. */
   hasVideo: boolean;
   /**
    * Se o video ja esta reproduzivel. Falso com hasVideo verdadeiro significa
@@ -25,6 +28,26 @@ export interface ProgressModuleItem {
    * abrir um play que leva o aluno a um erro que nao e dele.
    */
   videoReady: boolean;
+  /** Duracao vinda do Mux; nula enquanto o video nao processou. */
+  durationSeconds: number | null;
+}
+
+/**
+ * Modulo da trilha: um container de aulas. O completed e derivado no servidor
+ * (todas as aulas concluidas), e os contadores vem prontos para a tela nao
+ * refazer a conta.
+ */
+export interface ProgressModuleItem {
+  id: string;
+  order: number;
+  title: string;
+  summary: string;
+  completed: boolean;
+  lessons: ProgressLessonItem[];
+  completedCount: number;
+  totalCount: number;
+  /** Primeira aula em aberto deste modulo. */
+  nextLesson: ProgressLessonItem | null;
 }
 
 /** Resposta de `GET /progress/me`. */
@@ -35,6 +58,8 @@ export interface CourseProgress {
   totalCount: number;
   percentage: number;
   nextModule: ProgressModuleItem | null;
+  /** Primeira aula em aberto do curso — destino do "Retomar". */
+  nextLesson: ProgressLessonItem | null;
   completed: boolean;
 }
 
@@ -61,8 +86,14 @@ export class ProgressService {
 
   readonly totalCount = computed(() => this.state()?.totalCount ?? 0);
 
-  /** Primeiro modulo em aberto; nulo com a trilha concluida ou nao carregada. */
+  /** Modulo da proxima aula em aberto; nulo com a trilha concluida. */
   readonly nextModule = computed(() => this.state()?.nextModule ?? null);
+
+  /** Primeira aula em aberto do curso. E ela que o "Retomar" abre. */
+  readonly nextLesson = computed(() => this.state()?.nextLesson ?? null);
+
+  /** Todas as aulas publicadas, na ordem da trilha. */
+  readonly lessons = computed(() => this.modules().flatMap(module => module.lessons));
 
   readonly courseCompleted = computed(() => this.state()?.completed ?? false);
 
@@ -83,12 +114,17 @@ export class ProgressService {
   }
 
   /**
-   * Marca ou desmarca um modulo. A API responde com o progresso recalculado,
-   * entao a barra e o "proximo modulo" se atualizam sem uma segunda chamada.
+   * Marca ou desmarca uma **aula**. A API responde com o progresso
+   * recalculado, entao a barra e a "proxima aula" se atualizam sem uma segunda
+   * chamada.
+   *
+   * Nao existe equivalente por modulo desde a Spec 012 (decisao 5): a
+   * conclusao do modulo e derivada das aulas, e marcar o modulo concluiria em
+   * cascata videos que o aluno nao assistiu.
    */
-  setModuleCompletion(moduleId: string, completed: boolean): Observable<CourseProgress> {
+  setLessonCompletion(lessonId: string, completed: boolean): Observable<CourseProgress> {
     return this.http
-      .patch<CourseProgress>(`${environment.apiUrl}/progress/me/modules/${moduleId}`, { completed })
+      .patch<CourseProgress>(`${environment.apiUrl}/progress/me/lessons/${lessonId}`, { completed })
       .pipe(
         tap(progress => this.state.set(progress)),
         catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),

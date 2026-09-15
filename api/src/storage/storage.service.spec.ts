@@ -31,12 +31,12 @@ function build() {
 
 describe('StorageService', () => {
   describe('caminho do objeto', () => {
-    it('usa um caminho deterministico por modulo e por tipo', () => {
+    it('usa um caminho deterministico por aula e por tipo', () => {
       const { service } = build();
 
-      expect(service.videoPath('mod-1', 'Aula 01.mp4')).toBe('modules/mod-1/video/aula-01.mp4');
-      expect(service.materialPath('mod-1', 'Checklist Final.pdf')).toBe(
-        'modules/mod-1/materials/checklist-final.pdf',
+      expect(service.videoPath('les-1', 'Aula 01.mp4')).toBe('lessons/les-1/video/aula-01.mp4');
+      expect(service.materialPath('les-1', 'Checklist Final.pdf')).toBe(
+        'lessons/les-1/materials/checklist-final.pdf',
       );
     });
 
@@ -44,15 +44,28 @@ describe('StorageService', () => {
       const { service } = build();
 
       // Sem isso um nome com `../` escaparia da pasta do modulo dentro do bucket.
-      expect(service.materialPath('mod-1', '../../Diagnostico Organizacional!.xlsx')).toBe(
-        'modules/mod-1/materials/diagnostico-organizacional.xlsx',
+      expect(service.materialPath('les-1', '../../Diagnostico Organizacional!.xlsx')).toBe(
+        'lessons/les-1/materials/diagnostico-organizacional.xlsx',
       );
     });
 
     it('recusa um nome de arquivo que nao sobrevive a normalizacao', () => {
       const { service } = build();
 
-      expect(() => service.materialPath('mod-1', '   ')).toThrow(BadRequestException);
+      expect(() => service.materialPath('les-1', '   ')).toThrow(BadRequestException);
+    });
+
+    it('assina a leitura de um objeto no formato antigo, por modulo', async () => {
+      const { service, file } = build();
+
+      // Os objetos enviados antes da Spec 012 continuam gravados com o prefixo
+      // `modules/<moduleId>/` (decisao 4): o caminho e dado, nao algo derivado
+      // do id na hora da leitura. Renomear objeto no GCS e copiar e apagar —
+      // risco de perder a fonte de um video para arrumar um prefixo.
+      const result = await service.createReadUrl('modules/mod-1/video/aula-01.mp4');
+
+      expect(file.getSignedUrl).toHaveBeenCalled();
+      expect(result.url).toBe('https://storage.googleapis.com/assinada');
     });
   });
 
@@ -62,14 +75,14 @@ describe('StorageService', () => {
 
       const result = await service.createUploadUrl({
         kind: 'video',
-        moduleId: 'mod-1',
+        lessonId: 'les-1',
         fileName: 'aula-01.mp4',
         contentType: 'video/mp4',
         sizeBytes: 50 * 1024 * 1024,
       });
 
       expect(bucket).toHaveBeenCalledWith(BUCKET);
-      expect(result.storagePath).toBe('modules/mod-1/video/aula-01.mp4');
+      expect(result.storagePath).toBe('lessons/les-1/video/aula-01.mp4');
       expect(result.uploadUrl).toBe('https://storage.googleapis.com/assinada');
       expect(result.headers).toEqual({ 'Content-Type': 'video/mp4' });
       expect(new Date(result.expiresAt).getTime()).toBeGreaterThan(Date.now());
@@ -83,13 +96,13 @@ describe('StorageService', () => {
 
       const result = await service.createUploadUrl({
         kind: 'material',
-        moduleId: 'mod-1',
+        lessonId: 'les-1',
         fileName: 'checklist.pdf',
         contentType: 'application/pdf',
         sizeBytes: 1024,
       });
 
-      expect(result.storagePath).toBe('modules/mod-1/materials/checklist.pdf');
+      expect(result.storagePath).toBe('lessons/les-1/materials/checklist.pdf');
       expect(file.getSignedUrl.mock.calls[0][0]).toMatchObject({ action: 'write' });
     });
 
@@ -99,7 +112,7 @@ describe('StorageService', () => {
       await expect(
         service.createUploadUrl({
           kind: 'video',
-          moduleId: 'mod-1',
+          lessonId: 'les-1',
           fileName: 'planilha.xlsx',
           contentType: 'application/vnd.ms-excel',
           sizeBytes: 1024,
@@ -115,7 +128,7 @@ describe('StorageService', () => {
       await expect(
         service.createUploadUrl({
           kind: 'material',
-          moduleId: 'mod-1',
+          lessonId: 'les-1',
           fileName: 'instalador.exe',
           contentType: 'application/x-msdownload',
           sizeBytes: 1024,
@@ -131,7 +144,7 @@ describe('StorageService', () => {
       await expect(
         service.createUploadUrl({
           kind: 'video',
-          moduleId: 'mod-1',
+          lessonId: 'les-1',
           fileName: 'aula.mp4',
           contentType: 'video/mp4',
           sizeBytes: MAX_VIDEO_BYTES + 1,
@@ -147,7 +160,7 @@ describe('StorageService', () => {
       await expect(
         service.createUploadUrl({
           kind: 'material',
-          moduleId: 'mod-1',
+          lessonId: 'les-1',
           fileName: 'apostila.pdf',
           contentType: 'application/pdf',
           sizeBytes: MAX_MATERIAL_BYTES + 1,
@@ -161,7 +174,7 @@ describe('StorageService', () => {
       await expect(
         service.createUploadUrl({
           kind: 'material',
-          moduleId: 'mod-1',
+          lessonId: 'les-1',
           fileName: 'vazio.pdf',
           contentType: 'application/pdf',
           sizeBytes: 0,
@@ -174,7 +187,7 @@ describe('StorageService', () => {
     it('assina uma URL v4 de leitura de validade curta', async () => {
       const { service, file } = build();
 
-      const result = await service.createReadUrl('modules/mod-1/materials/checklist.pdf');
+      const result = await service.createReadUrl('lessons/les-1/materials/checklist.pdf');
 
       const [options] = file.getSignedUrl.mock.calls[0];
       expect(options).toMatchObject({ version: 'v4', action: 'read' });
@@ -189,7 +202,7 @@ describe('StorageService', () => {
     it('aceita uma validade menor sob medida para o ingest do Mux', async () => {
       const { service, file } = build();
 
-      await service.createReadUrl('modules/mod-1/video/aula.mp4', 120);
+      await service.createReadUrl('lessons/les-1/video/aula.mp4', 120);
 
       const [options] = file.getSignedUrl.mock.calls[0];
       expect((options.expires as number) - Date.now()).toBeLessThanOrEqual(120 * 1000);
@@ -200,7 +213,7 @@ describe('StorageService', () => {
     it('apaga o objeto do bucket', async () => {
       const { service, file } = build();
 
-      await service.remove('modules/mod-1/materials/checklist.pdf');
+      await service.remove('lessons/les-1/materials/checklist.pdf');
 
       expect(file.delete).toHaveBeenCalled();
     });
@@ -211,7 +224,7 @@ describe('StorageService', () => {
 
       // Apagar o que ja nao esta la e o resultado desejado, nao um erro a
       // propagar para o admin.
-      await expect(service.remove('modules/mod-1/materials/sumiu.pdf')).resolves.toBeUndefined();
+      await expect(service.remove('lessons/les-1/materials/sumiu.pdf')).resolves.toBeUndefined();
     });
   });
 
@@ -219,7 +232,7 @@ describe('StorageService', () => {
     it('devolve o tamanho gravado quando o objeto existe', async () => {
       const { service } = build();
 
-      await expect(service.requireUploaded('modules/mod-1/video/aula.mp4')).resolves.toMatchObject({
+      await expect(service.requireUploaded('lessons/les-1/video/aula.mp4')).resolves.toMatchObject({
         sizeBytes: 1024,
       });
     });
@@ -228,7 +241,7 @@ describe('StorageService', () => {
       const { service, file } = build();
       file.exists.mockResolvedValue([false]);
 
-      await expect(service.requireUploaded('modules/mod-1/video/aula.mp4')).rejects.toBeInstanceOf(
+      await expect(service.requireUploaded('lessons/les-1/video/aula.mp4')).rejects.toBeInstanceOf(
         BadRequestException,
       );
     });

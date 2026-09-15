@@ -28,7 +28,7 @@ model User {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  progress     ModuleProgress[]
+  progress     LessonProgress[]
   certificates Certificate[]
 
   @@map("users")
@@ -56,9 +56,12 @@ model Course {
   @@map("courses")
 }
 
-/// Modulo da trilha. Ate a Spec 008 os 12 modulos viviam hardcoded no
-/// componente do front; virar dado e o que permite referenciar um modulo por
-/// id no deep-link e registrar a conclusao por aluno.
+/// Modulo da trilha — desde a Spec 012 um **container de aulas**, e nao mais a
+/// propria aula. Ele guarda apenas o que agrupa (`order`, `title`, `summary`):
+/// video e materiais pertencem a `Lesson` (Spec 012, decisao 2).
+///
+/// O `aside` do AVA navega por modulo na vertical; a trilha enumerada
+/// horizontal navega pelas aulas de um modulo.
 model Module {
   id       String @id @default(cuid())
   courseId String
@@ -66,30 +69,59 @@ model Module {
   title    String
   summary  String
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons      Lesson[]
+  certificates Certificate[]
+
+  @@unique([courseId, order])
+  @@map("modules")
+}
+
+/// Aula: um video e N materiais complementares. As Specs 008 (decisao 3) e 010
+/// (decisao 1) recusaram este nivel enquanto modulo e video eram 1:1 — o custo
+/// era migrar progresso e certificado para acomodar um nome. Com varios videos
+/// por modulo, cada um com o seu material, o produto deixou de caber em uma
+/// coluna de `muxPlaybackId` (Spec 012, decisao 1).
+model Lesson {
+  id       String @id @default(cuid())
+  moduleId String
+  order    Int
+  title    String
+  summary  String
+
   /// Caminho do arquivo original no bucket. Fonte e backup do video: o objeto
   /// nunca e publico, e todo acesso sai por URL assinada de curta duracao.
+  /// Objetos novos vao para `lessons/<lessonId>/...`; os enviados antes da
+  /// Spec 012 continuam com o prefixo `modules/<moduleId>/` gravado aqui, e
+  /// seguem validos — o caminho e dado, nao algo derivado do id (decisao 4).
   videoStoragePath  String?
   videoOriginalName String?
   videoSizeBytes    Int?
   /// Asset e playback id no Mux, a distribuicao por CDN do mesmo arquivo.
   muxAssetId        String?
   muxPlaybackId     String?
-  /// Nulo enquanto o modulo nao tem video. Depois do upload a ingestao do Mux
+  /// Nulo enquanto a aula nao tem video. Depois do upload a ingestao do Mux
   /// e assincrona, e o aluno nao pode receber um player que so falha: o estado
-  /// vira dado, atualizado por webhook (decisao 5).
+  /// vira dado, atualizado por webhook (Spec 010, decisao 5).
   videoStatus       VideoStatus?
   videoError        String?
+  /// Duracao em segundos, vinda do proprio Mux no `video.asset.ready`. Nao e
+  /// digitada pelo admin: divergiria do arquivo no primeiro reenvio. Nula
+  /// significa "ainda nao processado" (Spec 012, decisao 18).
+  durationSeconds   Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  course       Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  progress     ModuleProgress[]
-  materials    Material[]
-  certificates Certificate[]
+  module    Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  materials Material[]
+  progress  LessonProgress[]
 
-  @@unique([courseId, order])
-  @@map("modules")
+  @@unique([moduleId, order])
+  @@map("lessons")
 }
 
 /// Estagios da ingestao do video no Mux. `PENDING` e o arquivo ja confirmado no
@@ -104,12 +136,15 @@ enum VideoStatus {
   @@map("video_status")
 }
 
-/// Material complementar de um modulo (PDF, planilha, documento). Guarda o
+/// Material complementar de uma aula (PDF, planilha, documento). Guarda o
 /// caminho no bucket, nunca uma URL: a URL de download e assinada no momento da
-/// consulta e expira (decisao 15).
+/// consulta e expira (Spec 010, decisao 15).
+///
+/// O dono e a aula, e nao o modulo (Spec 012, decisao 2): material pendurado no
+/// modulo nao dizia a qual video pertencia.
 model Material {
   id          String   @id @default(cuid())
-  moduleId    String
+  lessonId    String
   storagePath String   @unique
   fileName    String
   fileType    String
@@ -118,25 +153,30 @@ model Material {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
-  @@index([moduleId, order])
+  @@index([lessonId, order])
   @@map("materials")
 }
 
-/// Conclusao de um modulo por um aluno. A ausencia de linha significa modulo
+/// Conclusao de uma **aula** por um aluno. A ausencia de linha significa aula
 /// em aberto: desmarcar e apagar o registro, nao guardar um booleano falso.
-model ModuleProgress {
+///
+/// Nao existe linha equivalente para modulo: "modulo concluido" e derivado de
+/// "todas as aulas do modulo concluidas", calculado na leitura. Guardar as duas
+/// coisas permitiria o estado impossivel — modulo concluido com aula em aberto
+/// (Spec 012, decisao 5).
+model LessonProgress {
   id          String   @id @default(cuid())
   userId      String
-  moduleId    String
+  lessonId    String
   completedAt DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, moduleId])
-  @@map("module_progress")
+  @@unique([userId, lessonId])
+  @@map("lesson_progress")
 }
 
 /// Um certificado ativo ou revogado. `REVOKED` e o que torna o estado
@@ -149,11 +189,13 @@ enum CertificateStatus {
 }
 
 /// Diploma emitido para um aluno. `moduleId` nulo e o diploma do curso inteiro
-/// (Spec 008); preenchido, e o diploma daquele modulo (decisao 11). `code` e o
-/// identificador curto que a pessoa digita no portal publico; `hash` e derivado
-/// dos dados da emissao com o segredo do servidor e denuncia adulteracao no
-/// banco. Nome do aluno, titulo e carga horaria nao sao copiados aqui: vem das
-/// relacoes, para que o diploma nunca exiba um dado defasado.
+/// (Spec 008); preenchido, e o diploma daquele modulo (Spec 010, decisao 11) —
+/// e desde a Spec 012 (decisao 13) o de modulo exige **todas as aulas** dele
+/// concluidas. Nao existe diploma de aula. `code` e o identificador curto que a
+/// pessoa digita no portal publico; `hash` e derivado dos dados da emissao com
+/// o segredo do servidor e denuncia adulteracao no banco. Nome do aluno, titulo
+/// e carga horaria nao sao copiados aqui: vem das relacoes, para que o diploma
+/// nunca exiba um dado defasado.
 ///
 /// A unicidade do diploma de curso nao cabe em `@@unique`: no Postgres um
 /// indice unico com coluna nula nao restringe nada, entao ela e um indice
@@ -173,7 +215,11 @@ model Certificate {
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  module Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  /// `Restrict`, e nao `Cascade`: com a administracao de modulos aberta pela
+  /// Spec 012, apagar um modulo em `Cascade` apagaria os diplomas emitidos
+  /// dele em silencio. Modulo que ja certificou alguem nao e removivel
+  /// (decisao 15).
+  module Module? @relation(fields: [moduleId], references: [id], onDelete: Restrict)
 
   @@unique([userId, moduleId])
   @@map("certificates")

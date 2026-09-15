@@ -5,11 +5,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { VideoService } from './video.service';
 
-const MODULE = {
-  id: 'mod-1',
+const LESSON = {
+  id: 'les-1',
   order: 1,
   title: 'Fundamentos',
-  courseId: 'course-1',
+  moduleId: 'mod-1',
   videoStoragePath: null,
   videoOriginalName: null,
   videoSizeBytes: null,
@@ -20,8 +20,8 @@ const MODULE = {
 };
 
 const COM_VIDEO = {
-  ...MODULE,
-  videoStoragePath: 'modules/mod-1/video/aula-01.mp4',
+  ...LESSON,
+  videoStoragePath: 'lessons/les-1/video/aula-01.mp4',
   videoOriginalName: 'Aula 01.mp4',
   videoSizeBytes: 1024,
   muxAssetId: 'asset-antigo',
@@ -30,10 +30,10 @@ const COM_VIDEO = {
 };
 
 interface Mocks {
-  findModule: jest.Mock;
+  findLesson: jest.Mock;
   findFirstModule: jest.Mock;
-  updateModule: jest.Mock;
-  updateManyModules: jest.Mock;
+  updateLesson: jest.Mock;
+  updateManyLessons: jest.Mock;
   createUploadUrl: jest.Mock;
   createReadUrl: jest.Mock;
   requireUploaded: jest.Mock;
@@ -46,12 +46,12 @@ interface Mocks {
 
 async function build(overrides: Partial<Mocks> = {}) {
   const mocks: Mocks = {
-    findModule: jest.fn().mockResolvedValue(MODULE),
-    findFirstModule: jest.fn().mockResolvedValue(MODULE),
-    updateModule: jest.fn().mockImplementation(({ data }) => ({ ...MODULE, ...data })),
-    updateManyModules: jest.fn().mockResolvedValue({ count: 1 }),
+    findLesson: jest.fn().mockResolvedValue(LESSON),
+    findFirstModule: jest.fn().mockResolvedValue(LESSON),
+    updateLesson: jest.fn().mockImplementation(({ data }) => ({ ...LESSON, ...data })),
+    updateManyLessons: jest.fn().mockResolvedValue({ count: 1 }),
     createUploadUrl: jest.fn().mockResolvedValue({
-      storagePath: 'modules/mod-1/video/aula-01.mp4',
+      storagePath: 'lessons/les-1/video/aula-01.mp4',
       uploadUrl: 'https://storage.googleapis.com/escrita',
       headers: { 'Content-Type': 'video/mp4' },
       expiresAt: '2026-09-11T12:00:00.000Z',
@@ -81,11 +81,11 @@ async function build(overrides: Partial<Mocks> = {}) {
       {
         provide: PrismaService,
         useValue: {
-          module: {
-            findUnique: mocks.findModule,
+          lesson: {
+            findUnique: mocks.findLesson,
             findFirst: mocks.findFirstModule,
-            update: mocks.updateModule,
-            updateMany: mocks.updateManyModules,
+            update: mocks.updateLesson,
+            updateMany: mocks.updateManyLessons,
           },
         },
       },
@@ -115,10 +115,10 @@ async function build(overrides: Partial<Mocks> = {}) {
 
 describe('VideoService', () => {
   describe('createUploadUrl', () => {
-    it('assina a URL de escrita do video do modulo', async () => {
+    it('assina a URL de escrita do video do aula', async () => {
       const { service, mocks } = await build();
 
-      const ticket = await service.createUploadUrl('mod-1', {
+      const ticket = await service.createUploadUrl('les-1', {
         fileName: 'Aula 01.mp4',
         contentType: 'video/mp4',
         sizeBytes: 4096,
@@ -126,12 +126,12 @@ describe('VideoService', () => {
 
       expect(ticket.uploadUrl).toBe('https://storage.googleapis.com/escrita');
       expect(mocks.createUploadUrl).toHaveBeenCalledWith(
-        expect.objectContaining({ kind: 'video', moduleId: 'mod-1' }),
+        expect.objectContaining({ kind: 'video', lessonId: 'les-1' }),
       );
     });
 
-    it('recusa modulo inexistente antes de assinar', async () => {
-      const { service, mocks } = await build({ findModule: jest.fn().mockResolvedValue(null) });
+    it('recusa aula inexistente antes de assinar', async () => {
+      const { service, mocks } = await build({ findLesson: jest.fn().mockResolvedValue(null) });
 
       await expect(
         service.createUploadUrl('nao-existe', {
@@ -147,7 +147,7 @@ describe('VideoService', () => {
 
   describe('confirmUpload', () => {
     const input = {
-      storagePath: 'modules/mod-1/video/aula-01.mp4',
+      storagePath: 'lessons/les-1/video/aula-01.mp4',
       fileName: 'Aula 01.mp4',
       contentType: 'video/mp4',
     };
@@ -155,7 +155,7 @@ describe('VideoService', () => {
     it('entrega ao Mux uma URL assinada de leitura do arquivo ja no bucket', async () => {
       const { service, mocks } = await build();
 
-      await service.confirmUpload('mod-1', input);
+      await service.confirmUpload('les-1', input);
 
       // Um upload, dois destinos: o Mux puxa do Storage em vez de o servidor
       // baixar e reenviar o arquivo (decisao 4).
@@ -166,9 +166,9 @@ describe('VideoService', () => {
     it('grava assetId, playbackId e PROCESSING', async () => {
       const { service, mocks } = await build();
 
-      const state = await service.confirmUpload('mod-1', input);
+      const state = await service.confirmUpload('les-1', input);
 
-      const { data } = mocks.updateModule.mock.calls[0][0];
+      const { data } = mocks.updateLesson.mock.calls[0][0];
       expect(data).toMatchObject({
         muxAssetId: 'asset-1',
         muxPlaybackId: 'pb-1',
@@ -183,22 +183,22 @@ describe('VideoService', () => {
 
     it('substituir o video apaga o asset anterior no Mux', async () => {
       const { service, mocks } = await build({
-        findModule: jest.fn().mockResolvedValue(COM_VIDEO),
+        findLesson: jest.fn().mockResolvedValue(COM_VIDEO),
       });
 
-      await service.confirmUpload('mod-1', input);
+      await service.confirmUpload('les-1', input);
 
       expect(mocks.deleteAsset).toHaveBeenCalledWith('asset-antigo');
     });
 
     it('substituir por um arquivo de outro nome apaga o objeto antigo do bucket', async () => {
       const { service, mocks } = await build({
-        findModule: jest.fn().mockResolvedValue(COM_VIDEO),
+        findLesson: jest.fn().mockResolvedValue(COM_VIDEO),
       });
 
-      await service.confirmUpload('mod-1', {
+      await service.confirmUpload('les-1', {
         ...input,
-        storagePath: 'modules/mod-1/video/aula-01-revisada.mp4',
+        storagePath: 'lessons/les-1/video/aula-01-revisada.mp4',
       });
 
       expect(mocks.removeObject).toHaveBeenCalledWith(COM_VIDEO.videoStoragePath);
@@ -206,10 +206,10 @@ describe('VideoService', () => {
 
     it('nao apaga o objeto quando o caminho novo e o mesmo do antigo', async () => {
       const { service, mocks } = await build({
-        findModule: jest.fn().mockResolvedValue(COM_VIDEO),
+        findLesson: jest.fn().mockResolvedValue(COM_VIDEO),
       });
 
-      await service.confirmUpload('mod-1', {
+      await service.confirmUpload('les-1', {
         ...input,
         storagePath: COM_VIDEO.videoStoragePath,
       });
@@ -217,13 +217,13 @@ describe('VideoService', () => {
       expect(mocks.removeObject).not.toHaveBeenCalled();
     });
 
-    it('recusa um storagePath que nao e da pasta de video do modulo', async () => {
+    it('recusa um storagePath que nao e da pasta de video do aula', async () => {
       const { service, mocks } = await build();
 
       await expect(
-        service.confirmUpload('mod-1', {
+        service.confirmUpload('les-1', {
           ...input,
-          storagePath: 'modules/mod-2/video/aula.mp4',
+          storagePath: 'lessons/les-2/video/aula.mp4',
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -235,7 +235,7 @@ describe('VideoService', () => {
         requireUploaded: jest.fn().mockRejectedValue(new BadRequestException('nao chegou')),
       });
 
-      await expect(service.confirmUpload('mod-1', input)).rejects.toBeInstanceOf(
+      await expect(service.confirmUpload('les-1', input)).rejects.toBeInstanceOf(
         BadRequestException,
       );
       expect(mocks.createAsset).not.toHaveBeenCalled();
@@ -243,10 +243,10 @@ describe('VideoService', () => {
   });
 
   describe('getState', () => {
-    it('descreve o modulo sem video', async () => {
+    it('descreve o aula sem video', async () => {
       const { service } = await build();
 
-      await expect(service.getState('mod-1')).resolves.toMatchObject({
+      await expect(service.getState('les-1')).resolves.toMatchObject({
         hasVideo: false,
         status: null,
         playbackId: null,
@@ -255,10 +255,10 @@ describe('VideoService', () => {
 
     it('devolve o estado gravado sem consultar o Mux quando ja esta READY', async () => {
       const { service, mocks } = await build({
-        findModule: jest.fn().mockResolvedValue(COM_VIDEO),
+        findLesson: jest.fn().mockResolvedValue(COM_VIDEO),
       });
 
-      const state = await service.getState('mod-1');
+      const state = await service.getState('les-1');
 
       expect(state).toMatchObject({ hasVideo: true, status: 'READY', playbackId: 'pb-antigo' });
       expect(mocks.getAsset).not.toHaveBeenCalled();
@@ -266,34 +266,34 @@ describe('VideoService', () => {
 
     it('reconsulta o Mux enquanto o video esta em processamento', async () => {
       const { service, mocks } = await build({
-        findModule: jest
+        findLesson: jest
           .fn()
           .mockResolvedValue({ ...COM_VIDEO, videoStatus: 'PROCESSING', muxAssetId: 'asset-1' }),
       });
 
-      const state = await service.getState('mod-1');
+      const state = await service.getState('les-1');
 
       // O webhook e a fonte oficial, mas ele nao alcanca um localhost: sem
       // esta reconsulta o painel ficaria preso em PROCESSING no ambiente de
       // desenvolvimento.
       expect(mocks.getAsset).toHaveBeenCalledWith('asset-1');
       expect(state.status).toBe('READY');
-      expect(mocks.updateModule).toHaveBeenCalled();
+      expect(mocks.updateLesson).toHaveBeenCalled();
     });
 
     it('nao derruba a consulta quando o Mux esta indisponivel', async () => {
       const { service } = await build({
-        findModule: jest
+        findLesson: jest
           .fn()
           .mockResolvedValue({ ...COM_VIDEO, videoStatus: 'PROCESSING', muxAssetId: 'asset-1' }),
         getAsset: jest.fn().mockRejectedValue(new Error('fora do ar')),
       });
 
-      await expect(service.getState('mod-1')).resolves.toMatchObject({ status: 'PROCESSING' });
+      await expect(service.getState('les-1')).resolves.toMatchObject({ status: 'PROCESSING' });
     });
 
-    it('recusa modulo inexistente', async () => {
-      const { service } = await build({ findModule: jest.fn().mockResolvedValue(null) });
+    it('recusa aula inexistente', async () => {
+      const { service } = await build({ findLesson: jest.fn().mockResolvedValue(null) });
 
       await expect(service.getState('nao-existe')).rejects.toBeInstanceOf(NotFoundException);
     });
@@ -302,10 +302,10 @@ describe('VideoService', () => {
   describe('createPlaybackToken', () => {
     it('devolve playbackId, token curto e expiracao com o video pronto', async () => {
       const { service, mocks } = await build({
-        findModule: jest.fn().mockResolvedValue(COM_VIDEO),
+        findLesson: jest.fn().mockResolvedValue(COM_VIDEO),
       });
 
-      const playback = await service.createPlaybackToken('mod-1');
+      const playback = await service.createPlaybackToken('les-1');
 
       expect(playback).toEqual({
         playbackId: 'pb-antigo',
@@ -317,23 +317,23 @@ describe('VideoService', () => {
 
     it('responde 409 enquanto o video ainda processa', async () => {
       const { service } = await build({
-        findModule: jest.fn().mockResolvedValue({ ...COM_VIDEO, videoStatus: 'PROCESSING' }),
+        findLesson: jest.fn().mockResolvedValue({ ...COM_VIDEO, videoStatus: 'PROCESSING' }),
         getAsset: jest
           .fn()
           .mockResolvedValue({ assetId: 'asset-1', playbackId: 'pb-1', status: 'PROCESSING' }),
       });
 
-      await expect(service.createPlaybackToken('mod-1')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.createPlaybackToken('les-1')).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it('responde 409 para modulo sem video', async () => {
+    it('responde 409 para aula sem video', async () => {
       const { service } = await build();
 
-      await expect(service.createPlaybackToken('mod-1')).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.createPlaybackToken('les-1')).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it('recusa modulo inexistente', async () => {
-      const { service } = await build({ findModule: jest.fn().mockResolvedValue(null) });
+    it('recusa aula inexistente', async () => {
+      const { service } = await build({ findLesson: jest.fn().mockResolvedValue(null) });
 
       await expect(service.createPlaybackToken('nao-existe')).rejects.toBeInstanceOf(
         NotFoundException,
@@ -342,7 +342,7 @@ describe('VideoService', () => {
   });
 
   describe('applyWebhookEvent', () => {
-    it('marca READY em video.asset.ready, achando o modulo pelo assetId', async () => {
+    it('marca READY em video.asset.ready, achando a aula pelo assetId', async () => {
       const { service, mocks } = await build();
 
       await service.applyWebhookEvent({
@@ -350,9 +350,33 @@ describe('VideoService', () => {
         data: { id: 'asset-1', playback_ids: [{ id: 'pb-1' }] },
       });
 
-      const call = mocks.updateManyModules.mock.calls[0][0];
+      const call = mocks.updateManyLessons.mock.calls[0][0];
       expect(call.where).toEqual({ muxAssetId: 'asset-1' });
       expect(call.data).toMatchObject({ videoStatus: 'READY', videoError: null });
+    });
+
+    it('grava a duracao vinda do Mux no evento ready', async () => {
+      const { service, mocks } = await build();
+
+      // A trilha horizontal mostra o tempo de cada aula, e esse numero nao
+      // pode ser digitado pelo admin: divergiria do arquivo no primeiro
+      // reenvio (decisao 18). O Mux manda `duration` em segundos fracionarios.
+      await service.applyWebhookEvent({
+        type: 'video.asset.ready',
+        data: { id: 'asset-1', duration: 754.32 },
+      });
+
+      expect(mocks.updateManyLessons.mock.calls[0][0].data).toMatchObject({
+        durationSeconds: 754,
+      });
+    });
+
+    it('evento ready sem duracao nao apaga a que ja existe', async () => {
+      const { service, mocks } = await build();
+
+      await service.applyWebhookEvent({ type: 'video.asset.ready', data: { id: 'asset-1' } });
+
+      expect(mocks.updateManyLessons.mock.calls[0][0].data).not.toHaveProperty('durationSeconds');
     });
 
     it('marca ERRORED e guarda a mensagem em video.asset.errored', async () => {
@@ -363,7 +387,7 @@ describe('VideoService', () => {
         data: { id: 'asset-1', errors: { messages: ['formato nao suportado'] } },
       });
 
-      const { data } = mocks.updateManyModules.mock.calls[0][0];
+      const { data } = mocks.updateManyLessons.mock.calls[0][0];
       expect(data).toMatchObject({ videoStatus: 'ERRORED' });
       expect(data.videoError).toContain('formato nao suportado');
     });
@@ -373,7 +397,7 @@ describe('VideoService', () => {
 
       await service.applyWebhookEvent({ type: 'video.live_stream.created', data: { id: 'x' } });
 
-      expect(mocks.updateManyModules).not.toHaveBeenCalled();
+      expect(mocks.updateManyLessons).not.toHaveBeenCalled();
     });
 
     it('ignora evento sem id de asset', async () => {
@@ -381,7 +405,7 @@ describe('VideoService', () => {
 
       await service.applyWebhookEvent({ type: 'video.asset.ready', data: {} });
 
-      expect(mocks.updateManyModules).not.toHaveBeenCalled();
+      expect(mocks.updateManyLessons).not.toHaveBeenCalled();
     });
   });
 });

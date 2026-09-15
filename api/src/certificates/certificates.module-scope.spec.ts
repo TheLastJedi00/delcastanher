@@ -73,7 +73,25 @@ interface Mocks {
   findFirstCertificate: jest.Mock;
   findManyCertificates: jest.Mock;
   createCertificate: jest.Mock;
-  findModuleProgress: jest.Mock;
+  findProgress: jest.Mock;
+}
+
+/**
+ * Progresso como o `ProgressService` o devolve, no que o certificado usa: o
+ * criterio do diploma de modulo passou a ser "todas as aulas daquele modulo
+ * concluidas" (Spec 012, decisao 13), e quem sabe disso e o progresso.
+ */
+function progressWith(module: { completed: boolean; completedCount: number; totalCount: number }) {
+  return {
+    course: { slug: COURSE.slug, title: COURSE.title, workloadHours: COURSE.workloadHours },
+    modules: [{ id: 'mod-1', order: 1, title: MODULE.title, summary: 'Resumo', lessons: [], nextLesson: null, ...module }],
+    completedCount: module.completedCount,
+    totalCount: module.totalCount,
+    percentage: 50,
+    nextModule: null,
+    nextLesson: null,
+    completed: false,
+  };
 }
 
 async function build(overrides: Partial<Mocks> = {}) {
@@ -84,7 +102,9 @@ async function build(overrides: Partial<Mocks> = {}) {
     findFirstCertificate: jest.fn().mockResolvedValue(null),
     findManyCertificates: jest.fn().mockResolvedValue([]),
     createCertificate: jest.fn().mockImplementation(({ data }) => ({ ...moduleRow(), ...data })),
-    findModuleProgress: jest.fn().mockResolvedValue({ moduleId: 'mod-1' }),
+    findProgress: jest
+      .fn()
+      .mockResolvedValue(progressWith({ completed: true, completedCount: 2, totalCount: 2 })),
     ...overrides,
   };
 
@@ -96,7 +116,6 @@ async function build(overrides: Partial<Mocks> = {}) {
         useValue: {
           course: { findUnique: mocks.findCourse },
           module: { findUnique: mocks.findModule },
-          moduleProgress: { findUnique: mocks.findModuleProgress },
           certificate: {
             findUnique: mocks.findUniqueCertificate,
             findFirst: mocks.findFirstCertificate,
@@ -105,7 +124,7 @@ async function build(overrides: Partial<Mocks> = {}) {
           },
         },
       },
-      { provide: ProgressService, useValue: { findForUser: jest.fn() } },
+      { provide: ProgressService, useValue: { findForUser: mocks.findProgress } },
       { provide: UsersService, useValue: { findOrCreate: jest.fn().mockResolvedValue(PROFILE) } },
       { provide: ConfigService, useValue: { get: () => 'segredo-de-teste' } },
     ],
@@ -116,9 +135,11 @@ async function build(overrides: Partial<Mocks> = {}) {
 
 describe('CertificatesService (escopo modulo)', () => {
   describe('issueForModule', () => {
-    it('recusa a emissao com o modulo ainda em aberto', async () => {
+    it('recusa a emissao com alguma aula do modulo ainda em aberto', async () => {
       const { service, mocks } = await build({
-        findModuleProgress: jest.fn().mockResolvedValue(null),
+        findProgress: jest
+          .fn()
+          .mockResolvedValue(progressWith({ completed: false, completedCount: 1, totalCount: 3 })),
       });
 
       await expect(service.issueForModule(USER, 'mod-1')).rejects.toBeInstanceOf(
@@ -176,6 +197,40 @@ describe('CertificatesService (escopo modulo)', () => {
       await expect(service.issueForModule(USER, 'mod-1')).rejects.toBeInstanceOf(
         ConflictException,
       );
+      expect(mocks.createCertificate).not.toHaveBeenCalled();
+    });
+
+    it('recusa a emissao de um modulo sem nenhuma aula', async () => {
+      const { service, mocks } = await build({
+        findProgress: jest
+          .fn()
+          .mockResolvedValue(progressWith({ completed: false, completedCount: 0, totalCount: 0 })),
+      });
+
+      // Modulo vazio nao tem o que concluir; emitir diploma dele seria
+      // certificar zero aula assistida (decisao 13).
+      await expect(service.issueForModule(USER, 'mod-1')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(mocks.createCertificate).not.toHaveBeenCalled();
+    });
+
+    it('aula nova no modulo nao invalida o diploma ja emitido', async () => {
+      const existing = moduleRow();
+      const { service, mocks } = await build({
+        findUniqueCertificate: jest.fn().mockResolvedValue(existing),
+        // O admin acrescentou uma aula: o modulo voltou a aparecer em aberto.
+        findProgress: jest
+          .fn()
+          .mockResolvedValue(progressWith({ completed: false, completedCount: 2, totalCount: 3 })),
+      });
+
+      const certificate = await service.issueForModule(USER, 'mod-1');
+
+      // O diploma atesta o que estava publicado na data da emissao: ele
+      // continua ATIVO e com o mesmo codigo, que o aluno pode ja ter mandado
+      // para um recrutador (decisao 14).
+      expect(certificate).toMatchObject({ code: existing.code, status: 'ACTIVE' });
       expect(mocks.createCertificate).not.toHaveBeenCalled();
     });
 

@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import { MuxService } from '../mux/mux.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
-import { ModuleVideoState, MuxWebhookEvent, PlaybackGrant, UploadTicket, VideoStatus } from './content.types';
+import { LessonVideoState, MuxWebhookEvent, PlaybackGrant, UploadTicket, VideoStatus } from './content.types';
 
 /** Pedido de URL de escrita do video. */
 export interface VideoUploadInput {
@@ -24,8 +24,8 @@ export interface VideoConfirmInput {
  */
 const INGEST_URL_TTL_SECONDS = 60 * 60;
 
-/** Modulo como vem do banco, no que o video usa. */
-interface ModuleRow {
+/** Aula como vem do banco, no que o video usa. */
+interface LessonRow {
   id: string;
   order: number;
   title: string;
@@ -36,10 +36,11 @@ interface ModuleRow {
   muxPlaybackId: string | null;
   videoStatus: VideoStatus | null;
   videoError: string | null;
+  durationSeconds: number | null;
 }
 
 /**
- * Video do modulo: upload para o Storage, ingestao no Mux e playback assinado.
+ * Video da aula: upload para o Storage, ingestao no Mux e playback assinado.
  *
  * O arquivo nunca passa pela API (decisao 3) e sobe uma vez so (decisao 4): o
  * Storage e a fonte e o backup, o Mux e a distribuicao.
@@ -55,12 +56,12 @@ export class VideoService {
   ) {}
 
   /** Passo 1: permissao de escrita direto no bucket. */
-  async createUploadUrl(moduleId: string, input: VideoUploadInput): Promise<UploadTicket> {
-    await this.requireModule(moduleId);
+  async createUploadUrl(lessonId: string, input: VideoUploadInput): Promise<UploadTicket> {
+    await this.requireLesson(lessonId);
 
     return this.storage.createUploadUrl({
       kind: 'video',
-      moduleId,
+      lessonId,
       fileName: input.fileName,
       contentType: input.contentType,
       sizeBytes: input.sizeBytes,
@@ -72,35 +73,35 @@ export class VideoService {
    * entrega ao Mux como `input`. O Mux puxa o arquivo por conta propria — o
    * servidor serverless nunca baixaria e reenviaria um video de aula.
    */
-  async confirmUpload(moduleId: string, input: VideoConfirmInput): Promise<ModuleVideoState> {
-    const module = (await this.requireModule(moduleId)) as ModuleRow;
+  async confirmUpload(lessonId: string, input: VideoConfirmInput): Promise<LessonVideoState> {
+    const lesson = (await this.requireLesson(lessonId)) as LessonRow;
 
-    if (!input.storagePath?.startsWith(`modules/${moduleId}/video/`)) {
-      throw new BadRequestException('O arquivo enviado nao pertence a este modulo.');
+    if (!input.storagePath?.startsWith(`lessons/${lessonId}/video/`)) {
+      throw new BadRequestException('O arquivo enviado nao pertence a esta aula.');
     }
 
     const uploaded = await this.storage.requireUploaded(input.storagePath);
 
-    // Substituir o video de um modulo apaga o asset anterior: deixa-lo vivo
+    // Substituir o video de uma aula apaga o asset anterior: deixa-lo vivo
     // manteria a aula antiga reproduzivel por quem guardou o playbackId, e
     // seguiria sendo cobrado.
-    if (module.muxAssetId) {
-      await this.mux.deleteAsset(module.muxAssetId).catch((error: Error) => {
-        this.logger.warn(`Falha ao apagar o asset ${module.muxAssetId} no Mux: ${error.message}`);
+    if (lesson.muxAssetId) {
+      await this.mux.deleteAsset(lesson.muxAssetId).catch((error: Error) => {
+        this.logger.warn(`Falha ao apagar o asset ${lesson.muxAssetId} no Mux: ${error.message}`);
       });
     }
 
     // O objeto antigo so sai do bucket quando o caminho muda; com o mesmo nome
     // o PUT ja o sobrescreveu.
-    if (module.videoStoragePath && module.videoStoragePath !== input.storagePath) {
-      await this.storage.remove(module.videoStoragePath);
+    if (lesson.videoStoragePath && lesson.videoStoragePath !== input.storagePath) {
+      await this.storage.remove(lesson.videoStoragePath);
     }
 
     const ingest = await this.storage.createReadUrl(input.storagePath, INGEST_URL_TTL_SECONDS);
     const asset = await this.mux.createAsset(ingest.url);
 
-    const updated = (await this.prisma.module.update({
-      where: { id: moduleId },
+    const updated = (await this.prisma.lesson.update({
+      where: { id: lessonId },
       data: {
         videoStoragePath: input.storagePath,
         videoOriginalName: input.fileName.trim(),
@@ -110,7 +111,7 @@ export class VideoService {
         videoStatus: asset.status,
         videoError: null,
       },
-    })) as ModuleRow;
+    })) as LessonRow;
 
     return this.toState(updated);
   }
@@ -121,39 +122,39 @@ export class VideoService {
    * um `localhost`, e sem esta reconsulta o painel ficaria preso em
    * PROCESSING durante todo o desenvolvimento.
    */
-  async getState(moduleId: string): Promise<ModuleVideoState> {
-    const module = (await this.requireModule(moduleId)) as ModuleRow;
+  async getState(lessonId: string): Promise<LessonVideoState> {
+    const lesson = (await this.requireLesson(lessonId)) as LessonRow;
 
-    if (module.videoStatus !== 'PROCESSING' || !module.muxAssetId) {
-      return this.toState(module);
+    if (lesson.videoStatus !== 'PROCESSING' || !lesson.muxAssetId) {
+      return this.toState(lesson);
     }
 
     try {
-      const asset = await this.mux.getAsset(module.muxAssetId);
+      const asset = await this.mux.getAsset(lesson.muxAssetId);
 
-      if (asset.status === module.videoStatus) {
-        return this.toState(module);
+      if (asset.status === lesson.videoStatus) {
+        return this.toState(lesson);
       }
 
-      const updated = (await this.prisma.module.update({
-        where: { id: moduleId },
+      const updated = (await this.prisma.lesson.update({
+        where: { id: lessonId },
         data: {
           videoStatus: asset.status,
-          muxPlaybackId: asset.playbackId ?? module.muxPlaybackId,
+          muxPlaybackId: asset.playbackId ?? lesson.muxPlaybackId,
           videoError:
             asset.status === 'ERRORED'
               ? (asset.error ?? 'O Mux nao conseguiu processar o arquivo.')
               : null,
         },
-      })) as ModuleRow;
+      })) as LessonRow;
 
       return this.toState(updated);
     } catch (error) {
       // Mux fora do ar nao pode derrubar a tela do admin: o estado gravado
       // continua sendo a melhor resposta disponivel.
-      this.logger.warn(`Nao foi possivel reconsultar o asset do modulo ${moduleId}.`, error as Error);
+      this.logger.warn(`Nao foi possivel reconsultar o asset da aula ${lessonId}.`, error as Error);
 
-      return this.toState(module);
+      return this.toState(lesson);
     }
   }
 
@@ -162,18 +163,18 @@ export class VideoService {
    * sozinho nao reproduz nada, e um id vazado em print nao vira acesso
    * vitalicio ao curso (decisao 6).
    */
-  async createPlaybackToken(moduleId: string): Promise<PlaybackGrant> {
-    const state = await this.getState(moduleId);
+  async createPlaybackToken(lessonId: string): Promise<PlaybackGrant> {
+    const state = await this.getState(lessonId);
 
     if (!state.hasVideo) {
-      throw new ConflictException('Este modulo ainda nao tem video publicado.');
+      throw new ConflictException('Esta aula ainda nao tem video publicado.');
     }
 
     if (state.status !== 'READY' || !state.playbackId) {
       throw new ConflictException(
         state.status === 'ERRORED'
-          ? 'O video deste modulo falhou no processamento. Avise o suporte.'
-          : 'O video deste modulo ainda esta sendo processado. Tente de novo em instantes.',
+          ? 'O video desta aula falhou no processamento. Avise o suporte.'
+          : 'O video desta aula ainda esta sendo processado. Tente de novo em instantes.',
       );
     }
 
@@ -195,13 +196,19 @@ export class VideoService {
     }
 
     if (event.type === 'video.asset.ready') {
-      await this.prisma.module.updateMany({
+      await this.prisma.lesson.updateMany({
         where: { muxAssetId: assetId },
         data: {
           videoStatus: 'READY',
           videoError: null,
           ...(event.data.playback_ids?.[0]?.id
             ? { muxPlaybackId: event.data.playback_ids[0].id }
+            : {}),
+          // A duracao vem do proprio Mux (decisao 18) e alimenta o tempo na
+          // trilha horizontal. Evento sem `duration` nao apaga a que ja
+          // existe: o campo simplesmente nao entra no update.
+          ...(typeof event.data.duration === 'number'
+            ? { durationSeconds: Math.round(event.data.duration) }
             : {}),
         },
       });
@@ -210,7 +217,7 @@ export class VideoService {
     }
 
     if (event.type === 'video.asset.errored') {
-      await this.prisma.module.updateMany({
+      await this.prisma.lesson.updateMany({
         where: { muxAssetId: assetId },
         data: {
           videoStatus: 'ERRORED',
@@ -220,29 +227,30 @@ export class VideoService {
       });
     }
 
-    // Evento fora desses dois nao diz nada sobre o estado do modulo: ignorar e
+    // Evento fora desses dois nao diz nada sobre o estado da aula: ignorar e
     // o tratamento correto, e responder 200 evita reentrega infinita do Mux.
   }
 
-  private async requireModule(moduleId: string) {
-    const module = await this.prisma.module.findUnique({ where: { id: moduleId } });
+  private async requireLesson(lessonId: string) {
+    const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId } });
 
-    if (!module) {
-      throw new NotFoundException(`Modulo "${moduleId}" nao encontrado.`);
+    if (!lesson) {
+      throw new NotFoundException(`Aula "${lessonId}" nao encontrada.`);
     }
 
-    return module;
+    return lesson;
   }
 
-  private toState(module: ModuleRow): ModuleVideoState {
+  private toState(lesson: LessonRow): LessonVideoState {
     return {
-      moduleId: module.id,
-      hasVideo: Boolean(module.videoStoragePath),
-      status: module.videoStatus,
-      playbackId: module.muxPlaybackId,
-      fileName: module.videoOriginalName,
-      sizeBytes: module.videoSizeBytes,
-      error: module.videoError,
+      lessonId: lesson.id,
+      hasVideo: Boolean(lesson.videoStoragePath),
+      status: lesson.videoStatus,
+      playbackId: lesson.muxPlaybackId,
+      fileName: lesson.videoOriginalName,
+      sizeBytes: lesson.videoSizeBytes,
+      error: lesson.videoError,
+      durationSeconds: lesson.durationSeconds,
     };
   }
 }

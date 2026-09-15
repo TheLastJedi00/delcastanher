@@ -86,8 +86,14 @@ function hashMatches(expected: string, stored: string): boolean {
  * aqui: um identificador fabricado no cliente nao validaria nada.
  *
  * Desde a Spec 010 existem dois escopos (decisao 11): o diploma do curso, que
- * continua sendo um por aluno, e o diploma de modulo, emitido quando aquele
- * modulo e concluido. O model e o mesmo — `moduleId` nulo distingue os dois.
+ * continua sendo um por aluno, e o diploma de modulo. O model e o mesmo —
+ * `moduleId` nulo distingue os dois.
+ *
+ * Na Spec 012 (decisao 13) o criterio do diploma de modulo passou a ser
+ * **todas as aulas** daquele modulo concluidas, e nao existe diploma de aula:
+ * emitir por aula multiplicaria os documentos por doze e esvaziaria o que eles
+ * atestam. Diploma ja emitido nao e revogado quando uma aula nova entra no
+ * modulo (decisao 14) — ele atesta o que estava publicado na data da emissao.
  */
 @Injectable()
 export class CertificatesService {
@@ -144,6 +150,10 @@ export class CertificatesService {
   /**
    * Emite o diploma de um modulo concluido. Independente do diploma do curso:
    * um nao substitui nem antecipa o outro.
+   *
+   * A checagem do existente vem **antes** do criterio de conclusao de
+   * proposito: e o que mantem o diploma valido depois de o admin acrescentar
+   * uma aula ao modulo (decisao 14).
    */
   async issueForModule(user: AuthUser, moduleId: string): Promise<StudentCertificate> {
     const module = await this.prisma.module.findUnique({ where: { id: moduleId } });
@@ -161,15 +171,19 @@ export class CertificatesService {
       return this.requireNotRevoked(existing);
     }
 
-    // A conclusao do modulo e a mesma linha que o Hub e a trilha ja usam: o
-    // criterio do diploma nao pode ser outro.
-    const completed = await this.prisma.moduleProgress.findUnique({
-      where: { userId_moduleId: { userId: user.uid, moduleId } },
-    });
+    // O criterio do diploma e o **mesmo** estado que o Hub e a trilha exibem:
+    // desde a Spec 012 (decisao 13) "modulo concluido" e "todas as aulas deste
+    // modulo concluidas", derivado pelo `ProgressService`. Reimplementar a
+    // conta aqui abriria a porta para a tela dizer concluido e a emissao
+    // discordar.
+    const progress = await this.progress.findForUser(user);
+    const target = progress.modules.find((item) => item.id === moduleId);
 
-    if (!completed) {
+    if (!target?.completed) {
       throw new ConflictException(
-        'Conclua este modulo para emitir o certificado correspondente.',
+        target && target.totalCount > 0
+          ? `Conclua as ${target.totalCount} aulas deste modulo para emitir o certificado (${target.completedCount} concluida(s)).`
+          : 'Este modulo ainda nao tem aulas publicadas.',
       );
     }
 

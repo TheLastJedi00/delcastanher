@@ -5,43 +5,113 @@ import { environment } from '../../../../environments/environment';
 import { AdminAulas } from './admin-aulas';
 
 const MODULES = [
-  { id: 'mod-1', order: 1, title: 'Fundamentos', summary: '', completed: false },
-  { id: 'mod-2', order: 2, title: 'Diagnóstico', summary: '', completed: false },
+  {
+    id: 'mod-1',
+    order: 1,
+    title: 'Fundamentos',
+    summary: 'Resumo 1',
+    lessonCount: 2,
+    certificateCount: 3,
+  },
+  {
+    id: 'mod-2',
+    order: 2,
+    title: 'Diagnóstico',
+    summary: 'Resumo 2',
+    lessonCount: 0,
+    certificateCount: 0,
+  },
 ];
 
-const PROGRESS_URL = `${environment.apiUrl}/progress/me`;
-const VIDEO_URL = `${environment.apiUrl}/admin/modules/mod-1/video`;
-const MATERIALS_URL = `${environment.apiUrl}/admin/modules/mod-1/materials`;
-const BUCKET_URL = 'https://storage.googleapis.com/assinada';
-
 const SEM_VIDEO = {
-  moduleId: 'mod-1',
+  lessonId: 'les-1',
   hasVideo: false,
   status: null,
   playbackId: null,
   fileName: null,
   sizeBytes: null,
   error: null,
+  durationSeconds: null,
 };
 
+const LESSONS = [
+  {
+    id: 'les-1',
+    moduleId: 'mod-1',
+    order: 1,
+    title: 'O papel do RH',
+    summary: 'Resumo da aula 1',
+    video: SEM_VIDEO,
+    materialCount: 0,
+    completedBy: 4,
+  },
+  {
+    id: 'les-2',
+    moduleId: 'mod-1',
+    order: 2,
+    title: 'Maturidade de RH',
+    summary: 'Resumo da aula 2',
+    video: { ...SEM_VIDEO, lessonId: 'les-2' },
+    materialCount: 1,
+    completedBy: 0,
+  },
+];
+
+const MODULES_URL = `${environment.apiUrl}/admin/modules`;
+const LESSONS_URL = `${environment.apiUrl}/admin/modules/mod-1/lessons`;
+const VIDEO_URL = `${environment.apiUrl}/admin/lessons/les-1/video`;
+const MATERIALS_URL = `${environment.apiUrl}/admin/lessons/les-1/materials`;
+const BUCKET_URL = 'https://storage.googleapis.com/assinada';
+
 const TICKET = {
-  storagePath: 'modules/mod-1/video/aula-01.mp4',
+  storagePath: 'lessons/les-1/video/aula-01.mp4',
   uploadUrl: BUCKET_URL,
   headers: { 'Content-Type': 'video/mp4' },
   expiresAt: '2026-09-11T12:00:00.000Z',
 };
 
-/** Carrega os modulos e o estado inicial do primeiro modulo. */
-function bootstrap(backend: HttpTestingController, fixture: ComponentFixture<AdminAulas>) {
-  backend.expectOne(PROGRESS_URL).flush({ modules: MODULES });
+const MATERIAL = {
+  id: 'mat-1',
+  fileName: 'Checklist.pdf',
+  fileType: 'pdf',
+  contentType: 'application/pdf',
+  sizeBytes: 850 * 1024,
+  order: 0,
+  moduleId: 'mod-1',
+  moduleOrder: 1,
+  moduleTitle: 'Fundamentos',
+  lessonId: 'les-1',
+  lessonOrder: 1,
+  lessonTitle: 'O papel do RH',
+  downloadUrl: 'https://storage.googleapis.com/leitura',
+  downloadExpiresAt: '2026-09-11T12:15:00.000Z',
+};
+
+/**
+ * Carga inicial dos tres niveis: a grade, as aulas do primeiro modulo e o
+ * conteudo da primeira aula.
+ */
+function bootstrap(
+  backend: HttpTestingController,
+  fixture: ComponentFixture<AdminAulas>,
+  materials: unknown[] = [],
+) {
+  backend.expectOne(MODULES_URL).flush(MODULES);
+  backend.expectOne(LESSONS_URL).flush(LESSONS);
   backend.expectOne(VIDEO_URL).flush(SEM_VIDEO);
-  backend.expectOne(MATERIALS_URL).flush([]);
+  backend.expectOne(MATERIALS_URL).flush(materials);
   fixture.detectChanges();
 }
 
 describe('AdminAulas', () => {
   let fixture: ComponentFixture<AdminAulas>;
   let backend: HttpTestingController;
+
+  const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
+  const buttonWith = (pattern: RegExp) =>
+    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(button =>
+      pattern.test(button.textContent ?? ''),
+    ) as HTMLButtonElement | undefined;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -56,168 +126,353 @@ describe('AdminAulas', () => {
 
   afterEach(() => backend.verify());
 
-  it('carrega os modulos e ja seleciona o primeiro', () => {
-    bootstrap(backend, fixture);
+  describe('grade', () => {
+    it('carrega a grade e ja abre o primeiro modulo e a primeira aula', () => {
+      bootstrap(backend, fixture);
 
-    const options = fixture.nativeElement.querySelectorAll('option') as NodeListOf<HTMLOptionElement>;
-    expect(options.length).toBe(2);
-    expect(options[0].textContent).toContain('Fundamentos');
-  });
-
-  it('diz que o modulo ainda nao tem video', () => {
-    bootstrap(backend, fixture);
-
-    expect(fixture.nativeElement.textContent).toContain('Nenhum vídeo enviado');
-  });
-
-  it('mostra o estado do processamento vindo da API', () => {
-    backend.expectOne(PROGRESS_URL).flush({ modules: MODULES });
-    backend.expectOne(VIDEO_URL).flush({
-      ...SEM_VIDEO,
-      hasVideo: true,
-      status: 'READY',
-      playbackId: 'pb-1',
-      fileName: 'aula-01.mp4',
-      sizeBytes: 2 * 1024 * 1024,
+      expect(text()).toContain('Fundamentos');
+      expect(text()).toContain('2 aula(s)');
+      expect(text()).toContain('Aulas do módulo 1');
+      expect(text()).toContain('O papel do RH');
     });
-    backend.expectOne(MATERIALS_URL).flush([]);
-    fixture.detectChanges();
 
-    const texto = fixture.nativeElement.textContent;
-    expect(texto).toContain('Pronto');
-    expect(texto).toContain('aula-01.mp4');
-    expect(texto).toContain('2.0 MB');
-  });
+    it('diz que modulo nao se exclui por aqui', () => {
+      bootstrap(backend, fixture);
 
-  it('exibe a mensagem de erro quando a ingestao falha', () => {
-    backend.expectOne(PROGRESS_URL).flush({ modules: MODULES });
-    backend.expectOne(VIDEO_URL).flush({
-      ...SEM_VIDEO,
-      hasVideo: true,
-      status: 'ERRORED',
-      fileName: 'aula-01.mp4',
-      error: 'Formato não suportado',
+      // Decisao 15: modulo com diploma emitido nao e removivel, e a tela
+      // explica em vez de esconder a ausencia do botao.
+      expect(text()).toContain('Módulos não são excluídos por aqui');
+      expect(text()).toContain('3 diploma(s) emitido(s)');
+      expect(buttonWith(/Remover módulo/)).toBeUndefined();
     });
-    backend.expectOne(MATERIALS_URL).flush([]);
-    fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Formato não suportado');
-  });
+    it('cria um modulo no fim da grade', () => {
+      bootstrap(backend, fixture);
 
-  it('envia o video em tres passos e mostra o progresso', () => {
-    bootstrap(backend, fixture);
+      buttonWith(/Novo módulo/)!.click();
+      fixture.detectChanges();
 
-    const input = fixture.nativeElement.querySelector(
-      'input[type="file"][accept="video/*"]',
-    ) as HTMLInputElement;
-    const file = new File(['video'], 'aula-01.mp4', { type: 'video/mp4' });
-    Object.defineProperty(input, 'files', { value: [file], configurable: true });
-    input.dispatchEvent(new Event('change'));
+      const form = (fixture.nativeElement as HTMLElement).querySelector('form')!;
+      const inputs = form.querySelectorAll('input');
+      (inputs[0] as HTMLInputElement).value = 'Módulo novo';
+      inputs[0].dispatchEvent(new Event('input'));
+      (inputs[1] as HTMLInputElement).value = 'Resumo do módulo novo';
+      inputs[1].dispatchEvent(new Event('input'));
+      fixture.detectChanges();
 
-    backend.expectOne(`${VIDEO_URL}/upload-url`).flush(TICKET);
+      form.dispatchEvent(new Event('submit'));
 
-    const put = backend.expectOne(BUCKET_URL);
-    put.event({ type: HttpEventType.UploadProgress, loaded: 3, total: 4 });
-    fixture.detectChanges();
+      const call = backend.expectOne(MODULES_URL);
+      expect(call.request.method).toBe('POST');
+      expect(call.request.body).toEqual({
+        title: 'Módulo novo',
+        summary: 'Resumo do módulo novo',
+      });
+      call.flush({
+        id: 'mod-3',
+        order: 3,
+        title: 'Módulo novo',
+        summary: 'Resumo do módulo novo',
+        lessonCount: 0,
+        certificateCount: 0,
+      });
+      fixture.detectChanges();
 
-    const barra = fixture.nativeElement.querySelector('[role="progressbar"]') as HTMLElement;
-    expect(barra.getAttribute('aria-valuenow')).toBe('75');
+      // Selecionar o modulo recem-criado carrega as aulas dele (nenhuma).
+      backend.expectOne(`${environment.apiUrl}/admin/modules/mod-3/lessons`).flush([]);
+      fixture.detectChanges();
 
-    put.flush('');
-    backend.expectOne(VIDEO_URL).flush({
-      ...SEM_VIDEO,
-      hasVideo: true,
-      status: 'PROCESSING',
-      fileName: 'aula-01.mp4',
+      expect(text()).toContain('Módulo novo');
     });
-    fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Processando');
-  });
+    it('reordena a grade mandando a lista completa de ids', () => {
+      bootstrap(backend, fixture);
 
-  it('nao confirma na API quando o PUT no bucket falha', () => {
-    bootstrap(backend, fixture);
+      const descer = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+      ).find(button => button.textContent?.trim() === '↓')!;
+      descer.click();
 
-    const input = fixture.nativeElement.querySelector(
-      'input[type="file"][accept="video/*"]',
-    ) as HTMLInputElement;
-    Object.defineProperty(input, 'files', {
-      value: [new File(['v'], 'aula.mp4', { type: 'video/mp4' })],
-      configurable: true,
+      const call = backend.expectOne(`${environment.apiUrl}/admin/course/modules/order`);
+      expect(call.request.body).toEqual({ ids: ['mod-2', 'mod-1'] });
+      call.flush(null);
     });
-    input.dispatchEvent(new Event('change'));
-
-    backend.expectOne(`${VIDEO_URL}/upload-url`).flush(TICKET);
-    backend.expectOne(BUCKET_URL).flush('', { status: 403, statusText: 'Forbidden' });
-    fixture.detectChanges();
-
-    // Nada e gravado: nao ha POST de confirmacao.
-    backend.expectNone(VIDEO_URL);
-    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeTruthy();
   });
 
-  it('lista os materiais do modulo', () => {
-    backend.expectOne(PROGRESS_URL).flush({ modules: MODULES });
-    backend.expectOne(VIDEO_URL).flush(SEM_VIDEO);
-    backend.expectOne(MATERIALS_URL).flush([
-      {
-        id: 'mat-1',
-        fileName: 'Checklist.pdf',
-        fileType: 'pdf',
-        contentType: 'application/pdf',
-        sizeBytes: 850 * 1024,
-        order: 0,
+  describe('aulas', () => {
+    it('lista as aulas com os numeros que a remocao precisa', () => {
+      bootstrap(backend, fixture);
+
+      expect(text()).toContain('4 aluno(s) concluíram');
+      expect(text()).toContain('1 material(is)');
+    });
+
+    it('cria uma aula no modulo aberto', () => {
+      bootstrap(backend, fixture);
+
+      buttonWith(/Nova aula/)!.click();
+      fixture.detectChanges();
+
+      const forms = (fixture.nativeElement as HTMLElement).querySelectorAll('form');
+      const form = forms[forms.length - 1];
+      const inputs = form.querySelectorAll('input');
+      (inputs[0] as HTMLInputElement).value = 'Aula nova';
+      inputs[0].dispatchEvent(new Event('input'));
+      (inputs[1] as HTMLInputElement).value = 'Resumo da aula nova';
+      inputs[1].dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      form.dispatchEvent(new Event('submit'));
+
+      const call = backend.expectOne(LESSONS_URL);
+      expect(call.request.method).toBe('POST');
+      // A ordem nao vai no corpo: a aula nasce no fim da lista, no servidor.
+      expect(call.request.body).toEqual({
+        title: 'Aula nova',
+        summary: 'Resumo da aula nova',
+      });
+      call.flush({
+        id: 'les-3',
         moduleId: 'mod-1',
-        moduleOrder: 1,
-        moduleTitle: 'Fundamentos',
-        downloadUrl: 'https://storage.googleapis.com/leitura',
-        downloadExpiresAt: '2026-09-11T12:15:00.000Z',
-      },
-    ]);
-    fixture.detectChanges();
+        order: 3,
+        title: 'Aula nova',
+        summary: 'Resumo da aula nova',
+        video: { ...SEM_VIDEO, lessonId: 'les-3' },
+        materialCount: 0,
+        completedBy: 0,
+      });
+      fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('Checklist.pdf');
-    expect(fixture.nativeElement.textContent).toContain('850 KB');
+      // A aula recem-criada vira a selecionada, e o conteudo dela e carregado.
+      backend.expectOne(`${environment.apiUrl}/admin/lessons/les-3/video`).flush({
+        ...SEM_VIDEO,
+        lessonId: 'les-3',
+      });
+      backend.expectOne(`${environment.apiUrl}/admin/lessons/les-3/materials`).flush([]);
+      fixture.detectChanges();
+
+      expect(text()).toContain('Aula nova');
+    });
+
+    it('nao cria aula com titulo curto: o formulario nem chama a API', () => {
+      bootstrap(backend, fixture);
+
+      buttonWith(/Nova aula/)!.click();
+      fixture.detectChanges();
+
+      const forms = (fixture.nativeElement as HTMLElement).querySelectorAll('form');
+      const form = forms[forms.length - 1];
+      const inputs = form.querySelectorAll('input');
+      (inputs[0] as HTMLInputElement).value = 'x';
+      inputs[0].dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      form.dispatchEvent(new Event('submit'));
+
+      backend.expectNone(LESSONS_URL);
+      // O formulario continua aberto, esperando um titulo valido.
+      expect(text()).toContain('Criar aula');
+    });
+
+    it('renomeia a aula sem reenviar o resumo inteiro do zero', () => {
+      bootstrap(backend, fixture);
+
+      const renomear = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+      ).filter(button => /Renomear/.test(button.textContent ?? ''));
+
+      // Os dois primeiros sao dos modulos; os seguintes, das aulas.
+      renomear[MODULES.length].click();
+      fixture.detectChanges();
+
+      const forms = (fixture.nativeElement as HTMLElement).querySelectorAll('form');
+      const form = forms[forms.length - 1];
+      const inputs = form.querySelectorAll('input');
+      expect((inputs[0] as HTMLInputElement).value).toBe('O papel do RH');
+
+      (inputs[0] as HTMLInputElement).value = 'Outro título';
+      inputs[0].dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      form.dispatchEvent(new Event('submit'));
+
+      const call = backend.expectOne(`${environment.apiUrl}/admin/lessons/les-1`);
+      expect(call.request.method).toBe('PATCH');
+      expect(call.request.body).toEqual({
+        title: 'Outro título',
+        summary: 'Resumo da aula 1',
+      });
+      call.flush({ ...LESSONS[0], title: 'Outro título' });
+      fixture.detectChanges();
+
+      expect(text()).toContain('Outro título');
+    });
+
+    it('reordena as aulas mandando a lista completa de ids', () => {
+      bootstrap(backend, fixture);
+
+      const descer = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+      ).filter(button => button.textContent?.trim() === '↓');
+
+      // As duas primeiras setas sao dos modulos; a terceira e a da aula 1 (a
+      // da ultima aula esta desabilitada, como a do ultimo modulo).
+      descer[2].click();
+
+      const call = backend.expectOne(`${LESSONS_URL}/order`);
+      expect(call.request.body).toEqual({ ids: ['les-2', 'les-1'] });
+      call.flush(null);
+    });
+
+    it('avisa quantos alunos perdem progresso antes de remover a aula', () => {
+      bootstrap(backend, fixture);
+
+      const confirmSpy = spyOn(window, 'confirm').and.returnValue(false);
+      buttonWith(/^\s*Remover\s*$/)!.click();
+
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(confirmSpy.calls.mostRecent().args[0]).toContain('4 aluno(s)');
+      // Recusar a confirmacao nao apaga nada.
+      backend.expectNone(`${environment.apiUrl}/admin/lessons/les-1`);
+    });
+
+    it('remove a aula quando a confirmacao e aceita', () => {
+      bootstrap(backend, fixture);
+
+      spyOn(window, 'confirm').and.returnValue(true);
+      buttonWith(/^\s*Remover\s*$/)!.click();
+
+      const call = backend.expectOne(`${environment.apiUrl}/admin/lessons/les-1`);
+      expect(call.request.method).toBe('DELETE');
+      call.flush(null);
+      fixture.detectChanges();
+
+      expect(text()).not.toContain('O papel do RH');
+    });
   });
 
-  it('pede confirmacao antes de remover um material', () => {
-    backend.expectOne(PROGRESS_URL).flush({ modules: MODULES });
-    backend.expectOne(VIDEO_URL).flush(SEM_VIDEO);
-    backend.expectOne(MATERIALS_URL).flush([
-      {
-        id: 'mat-1',
-        fileName: 'Checklist.pdf',
-        fileType: 'pdf',
-        contentType: 'application/pdf',
-        sizeBytes: 1024,
-        order: 0,
-        moduleId: 'mod-1',
-        moduleOrder: 1,
-        moduleTitle: 'Fundamentos',
-        downloadUrl: 'https://x',
-        downloadExpiresAt: '2026-09-11T12:15:00.000Z',
-      },
-    ]);
-    fixture.detectChanges();
+  describe('conteudo da aula', () => {
+    it('diz que a aula ainda nao tem video', () => {
+      bootstrap(backend, fixture);
 
-    spyOn(window, 'confirm').and.returnValue(false);
-    (fixture.nativeElement.querySelector('ui-button button') as HTMLButtonElement).click();
+      expect(text()).toContain('Nenhum vídeo enviado para esta aula');
+    });
 
-    // O arquivo sai do bucket e nao volta: recusar a confirmacao nao apaga nada.
-    backend.expectNone(`${environment.apiUrl}/admin/materials/mat-1`);
+    it('mostra o estado do processamento vindo da API', () => {
+      backend.expectOne(MODULES_URL).flush(MODULES);
+      backend.expectOne(LESSONS_URL).flush(LESSONS);
+      backend.expectOne(VIDEO_URL).flush({
+        ...SEM_VIDEO,
+        hasVideo: true,
+        status: 'READY',
+        fileName: 'aula-01.mp4',
+        sizeBytes: 900 * 1024,
+        durationSeconds: 754,
+      });
+      backend.expectOne(MATERIALS_URL).flush([]);
+      fixture.detectChanges();
+
+      expect(text()).toContain('Pronto');
+      expect(text()).toContain('aula-01.mp4');
+      expect(text()).toContain('13 min');
+    });
+
+    it('exibe a mensagem de erro quando a ingestao falha', () => {
+      backend.expectOne(MODULES_URL).flush(MODULES);
+      backend.expectOne(LESSONS_URL).flush(LESSONS);
+      backend.expectOne(VIDEO_URL).flush({
+        ...SEM_VIDEO,
+        hasVideo: true,
+        status: 'ERRORED',
+        fileName: 'aula-01.mp4',
+        error: 'Formato não suportado',
+      });
+      backend.expectOne(MATERIALS_URL).flush([]);
+      fixture.detectChanges();
+
+      expect(text()).toContain('Formato não suportado');
+    });
+
+    it('envia o video da aula em tres passos e mostra o progresso', () => {
+      bootstrap(backend, fixture);
+
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'input[type="file"][accept="video/*"]',
+      ) as HTMLInputElement;
+      const file = new File(['video'], 'aula-01.mp4', { type: 'video/mp4' });
+      Object.defineProperty(input, 'files', { value: [file], configurable: true });
+      input.dispatchEvent(new Event('change'));
+
+      backend.expectOne(`${VIDEO_URL}/upload-url`).flush(TICKET);
+
+      const put = backend.expectOne(BUCKET_URL);
+      put.event({ type: HttpEventType.UploadProgress, loaded: 3, total: 4 });
+      fixture.detectChanges();
+
+      const barra = (fixture.nativeElement as HTMLElement).querySelector(
+        '[role="progressbar"]',
+      ) as HTMLElement;
+      expect(barra.getAttribute('aria-valuenow')).toBe('75');
+
+      put.flush('');
+      backend.expectOne(VIDEO_URL).flush({
+        ...SEM_VIDEO,
+        hasVideo: true,
+        status: 'PROCESSING',
+        fileName: 'aula-01.mp4',
+      });
+      fixture.detectChanges();
+
+      expect(text()).toContain('Processando');
+    });
+
+    it('nao confirma na API quando o PUT no bucket falha', () => {
+      bootstrap(backend, fixture);
+
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'input[type="file"][accept="video/*"]',
+      ) as HTMLInputElement;
+      Object.defineProperty(input, 'files', {
+        value: [new File(['v'], 'aula.mp4', { type: 'video/mp4' })],
+        configurable: true,
+      });
+      input.dispatchEvent(new Event('change'));
+
+      backend.expectOne(`${VIDEO_URL}/upload-url`).flush(TICKET);
+      backend.expectOne(BUCKET_URL).flush('', { status: 403, statusText: 'Forbidden' });
+      fixture.detectChanges();
+
+      // Nada e gravado: nao ha POST de confirmacao.
+      backend.expectNone(VIDEO_URL);
+      expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')).toBeTruthy();
+    });
+
+    it('lista os materiais da aula', () => {
+      bootstrap(backend, fixture, [MATERIAL]);
+
+      expect(text()).toContain('Checklist.pdf');
+      expect(text()).toContain('850 KB');
+    });
+
+    it('pede confirmacao antes de remover um material', () => {
+      bootstrap(backend, fixture, [MATERIAL]);
+
+      spyOn(window, 'confirm').and.returnValue(false);
+      buttonWith(/^\s*Remover\s*$/)!.click();
+
+      // O arquivo sai do bucket e nao volta: recusar a confirmacao nao apaga nada.
+      backend.expectNone(`${environment.apiUrl}/admin/materials/mat-1`);
+    });
   });
 
   it('bloqueia o papel aluno com a mensagem do backend', () => {
-    backend
-      .expectOne(PROGRESS_URL)
-      .flush({ message: 'Esta area e restrita a administradores.' }, {
-        status: 403,
-        statusText: 'Forbidden',
-      });
+    backend.expectOne(MODULES_URL).flush(
+      { message: 'Esta area e restrita a administradores.' },
+      { status: 403, statusText: 'Forbidden' },
+    );
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
-      'administradores',
-    );
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')!.textContent,
+    ).toContain('administradores');
   });
 });

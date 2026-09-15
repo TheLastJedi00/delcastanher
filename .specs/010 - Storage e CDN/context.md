@@ -18,6 +18,7 @@ Substituir o conteúdo fictício da trilha por conteúdo real: o administrador e
 
 1. **Vídeo e materiais pertencem ao módulo; não se cria o nível "aula".**
    O `context` original falava em "aulas" dentro de módulos, mas a Spec 008 (decisão 3) decidiu o contrário e o schema reflete isso: existe `Course → Module`, e `ModuleProgress` registra a conclusão por módulo. Criar `Lesson` agora obrigaria a migrar o progresso, o percentual, o deep-link `/ava/trilha/:moduleId` e a regra do certificado — reescrever a Spec 008 inteira para acomodar um nome. Cada módulo passa a ter **um vídeo** e **N materiais**. "Aula" continua sendo rótulo de UI, como já é em "Próxima aula" e "Gestão de Aulas".
+   > **REVERTIDA pela Spec 012 (decisões 1 e 2):** o `Lesson` passou a existir e o módulo virou container. As sete colunas de vídeo e o dono dos materiais migraram de `Module` para `Lesson` (`Material.moduleId` → `Material.lessonId`), o progresso passou a ser por aula e a migração que esta decisão evitava foi feita com os dados preservados (Spec 012, decisão 3). Os caminhos no bucket passaram a ser `lessons/<lessonId>/...`, e os objetos já enviados continuam onde estão (Spec 012, decisão 4).
 
 2. **O front nunca fala com o Firebase; quem fala é a API.**
    O `front/` não tem `firebase` nem `@angular/fire` no `package.json`, e isso é arquitetura, não lacuna: desde a Spec 004 o login é `POST /auth/login` na API, que detém o Admin SDK e a service account. Instalar o SDK do Firebase no Angular só para o upload criaria um segundo caminho de credencial no cliente, com regras de segurança do bucket a manter em paralelo às regras que já existem nos guards da API. O `StorageService` desta spec vive no **backend**.
@@ -45,9 +46,11 @@ Substituir o conteúdo fictício da trilha por conteúdo real: o administrador e
 
 10. **A conclusão ganha gatilho automático, mas o botão continua existindo.**
     A Spec 008 deixou "marcação automática por tempo assistido" fora de escopo porque não havia player real; com o vídeo em pé, o fim da reprodução passa a marcar o módulo. O que **não** muda é o endpoint: continua `PATCH /progress/me/modules/:moduleId`, a mesma porta que o Hub, a trilha e o certificado já usam. O botão manual permanece como alternativa acessível — vídeo que não carrega não pode deixar o aluno preso sem conseguir concluir o curso.
+    > **Atualizada pela Spec 012 (decisões 5 e 12):** a porta única passou a ser `PATCH /progress/me/lessons/:lessonId` — o endpoint de módulo foi removido, porque a conclusão do módulo virou derivada. O gatilho no fim do vídeo e o botão manual continuam iguais, e a reprodução automática da próxima aula ficou fora de escopo.
 
 11. **Certificado de módulo convive com o certificado do curso.**
     O da Spec 008 continua intacto: um diploma por aluno quando o curso chega a 100%. O novo é por módulo, emitido quando aquele módulo é concluído, no mesmo model — `Certificate.moduleId` nulo significa diploma do curso, preenchido significa diploma do módulo. O `@@unique([userId, courseId])` atual precisa cair, porque bloquearia o segundo certificado do mesmo curso; a unicidade passa a ser `unique(userId, moduleId)` para os de módulo mais um **índice único parcial** (`WHERE module_id IS NULL`) em SQL na migration, para manter "um único diploma de curso por aluno".
+    > **Critério revisto pela Spec 012 (decisões 13, 14 e 15):** o model não mudou, mas o diploma de módulo passou a exigir **todas as aulas** daquele módulo concluídas, e não existe diploma de aula. Diploma já emitido não é revogado quando uma aula nova entra no módulo, e `Certificate.module` passou a `onDelete: Restrict` — com `Cascade`, apagar um módulo apagaria os diplomas dele em silêncio.
 
 12. **O portal público passa a mostrar os dois tipos sem vazar nada a mais.**
     `GET /certificates/verify/:code` ganha `scope` (`course` | `module`) e o título do módulo quando houver. Os três estados da Spec 008 (decisão 8) e a regra de PII (decisão 7) valem igual: nem e-mail, nem CPF, nem telefone, nem id interno.
@@ -71,6 +74,7 @@ Os novos módulos do `api/` seguem a estrutura de `users/` e `progress/` (contro
 - Catálogo multi-curso, matrícula ou entitlement ligando pagamento a acesso (segue valendo a decisão 5 da Spec 008; a plataforma é integralmente paga, e o modelo de cobrança será tratado em spec própria).
 - Legendas, capítulos, múltiplas faixas de áudio, DRM e download do vídeo pelo aluno.
 - Mux Data / analytics de retenção de vídeo e qualquer novo evento de terceiro antes de base legal declarada (decisão 9).
-- Upload em lote, reordenação de módulos e CRUD de módulos pelo painel — o seed da Spec 008 continua sendo a origem dos 12 módulos.
+- ~~Upload em lote, reordenação de módulos e CRUD de módulos pelo painel — o seed da Spec 008 continua sendo a origem dos 12 módulos.~~
+  **Parcialmente DEPRECATED pela Spec 012 (Fase 4):** o painel passou a criar, renomear e reordenar aulas e módulos, porque módulo virou container de aulas. Continuam fora de escopo o upload em lote e a **remoção** de módulo (Spec 012, decisão 15); o seed segue sendo a origem dos 12 módulos.
 - UI de revogação de certificado (segue no model, sem tela, como na Spec 008).
 - Transcodificação, compressão ou edição de vídeo no servidor.

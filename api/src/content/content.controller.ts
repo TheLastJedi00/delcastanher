@@ -6,8 +6,11 @@ import { VideoService } from './video.service';
 
 /**
  * Conteudo como o aluno o consome. Exige sessao e nada alem disso: toda a
- * plataforma e paga e o portao, hoje, e estar autenticado (decisao 6) — o
- * vinculo com matricula entra neste mesmo ponto quando existir.
+ * plataforma e paga e o portao, hoje, e estar autenticado (Spec 010, decisao
+ * 6) — o vinculo com matricula entra neste mesmo ponto quando existir.
+ *
+ * As rotas sao por **aula** desde a Spec 012 (decisao 10): o que protege o
+ * conteudo nao mudou, mudou quem e o dono dele.
  */
 @Controller()
 @UseGuards(FirebaseAuthGuard)
@@ -19,21 +22,21 @@ export class ContentController {
 
   /**
    * Autorizacao de reproducao. 409 enquanto o video nao esta pronto: o aluno
-   * precisa saber que o modulo existe e o video ainda nao, e nao receber um
-   * player que so falha (decisoes 5 e 6).
+   * precisa saber que a aula existe e o video ainda nao, e nao receber um
+   * player que so falha (Spec 010, decisoes 5 e 6).
    */
-  @Get('modules/:moduleId/playback-token')
-  playbackToken(@Param('moduleId') moduleId: string): Promise<PlaybackGrant> {
-    return this.video.createPlaybackToken(moduleId);
+  @Get('lessons/:lessonId/playback-token')
+  playbackToken(@Param('lessonId') lessonId: string): Promise<PlaybackGrant> {
+    return this.video.createPlaybackToken(lessonId);
   }
 
-  /** Materiais do modulo, ja com a URL assinada de download. */
-  @Get('modules/:moduleId/materials')
-  listByModule(@Param('moduleId') moduleId: string): Promise<MaterialItem[]> {
-    return this.content.listForModule(moduleId);
+  /** Materiais da aula, ja com a URL assinada de download. */
+  @Get('lessons/:lessonId/materials')
+  listByLesson(@Param('lessonId') lessonId: string): Promise<MaterialItem[]> {
+    return this.content.listForLesson(lessonId);
   }
 
-  /** Central de materiais: tudo o que o curso disponibiliza, por modulo. */
+  /** Central de materiais: tudo o que o curso disponibiliza, por modulo e aula. */
   @Get('materials')
   listAll(): Promise<MaterialItem[]> {
     return this.content.listForCourse();

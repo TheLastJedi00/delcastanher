@@ -61,6 +61,29 @@ describe('VideoPlayer', () => {
     expect(disparou).toBeTrue();
   });
 
+  it('trocar de aula volta ao poster em vez de manter o quadro anterior', async () => {
+    fixture.componentRef.setInput('playbackId', 'pb-1');
+    fixture.componentRef.setInput('playbackToken', 'jwt-1');
+    fixture.detectChanges();
+
+    playButton()!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.playing()).toBe(true);
+
+    // A trilha trocou de aula — outros inputs, mesmo componente. Sem este
+    // reset o aluno clicaria na aula 2 e continuaria vendo o quadro da aula 1
+    // (Spec 012, decisao 11).
+    fixture.componentRef.setInput('playbackId', 'pb-2');
+    fixture.componentRef.setInput('playbackToken', 'jwt-2');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.playing()).toBe(false);
+    expect(playButton()).not.toBeNull();
+    expect(el().querySelector('mux-player')).toBeNull();
+  });
+
   it('mostra o poster enquanto nao esta reproduzindo', () => {
     fixture.componentRef.setInput('poster', 'assets/aula1.jpeg');
     fixture.componentRef.setInput('playbackId', 'pb-1');

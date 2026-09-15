@@ -126,9 +126,18 @@ export const routes: Routes = [
         data: { [FULL_HEIGHT_DATA_KEY]: true },
         loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
       },
-      // Deep-link do "retomar de onde parou": a trilha abre direto no modulo.
+      // Deep-link do "retomar de onde parou": a trilha abre direto no modulo,
+      // na primeira aula em aberto dele.
       {
         path: 'trilha/:moduleId',
+        data: { [FULL_HEIGHT_DATA_KEY]: true },
+        loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
+      },
+      // Forma completa desde a Spec 012 (decisao 9). As duas acima continuam
+      // validas — link salvo, e-mail e historico do navegador nao quebram.
+      // A altura cheia vale para as tres: e a mesma tela.
+      {
+        path: 'trilha/:moduleId/:lessonId',
         data: { [FULL_HEIGHT_DATA_KEY]: true },
         loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
       },

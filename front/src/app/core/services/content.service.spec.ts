@@ -2,9 +2,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
-import { ContentService, formatFileSize } from './content.service';
+import { ContentService, formatDuration, formatFileSize } from './content.service';
 
-const PLAYBACK_URL = `${environment.apiUrl}/modules/mod-1/playback-token`;
+const PLAYBACK_URL = `${environment.apiUrl}/lessons/les-1/playback-token`;
 
 describe('ContentService', () => {
   let service: ContentService;
@@ -24,7 +24,7 @@ describe('ContentService', () => {
   describe('playback', () => {
     it('devolve o token quando o video esta pronto', () => {
       let grant: unknown = undefined;
-      service.playback('mod-1').subscribe(value => (grant = value));
+      service.playback('les-1').subscribe(value => (grant = value));
 
       backend.expectOne(PLAYBACK_URL).flush({ playbackId: 'pb-1', token: 'jwt', expiresAt: 'x' });
 
@@ -33,7 +33,7 @@ describe('ContentService', () => {
 
     it('trata o 409 como estado, e nao como erro', () => {
       let grant: unknown = 'nao chamou';
-      service.playback('mod-1').subscribe(value => (grant = value));
+      service.playback('les-1').subscribe(value => (grant = value));
 
       backend
         .expectOne(PLAYBACK_URL)
@@ -44,7 +44,7 @@ describe('ContentService', () => {
 
     it('nao repassa ao aluno a mensagem interna de um erro 500', () => {
       let erro = '';
-      service.playback('mod-1').subscribe({ error: (message: string) => (erro = message) });
+      service.playback('les-1').subscribe({ error: (message: string) => (erro = message) });
 
       backend.expectOne(PLAYBACK_URL).flush(
         { message: 'MUX_SIGNING_PRIVATE_KEY nao configurada.' },
@@ -75,6 +75,26 @@ describe('ContentService', () => {
     it('devolve vazio para tamanho ausente', () => {
       expect(formatFileSize(null)).toBe('');
       expect(formatFileSize(0)).toBe('');
+    });
+  });
+
+  describe('formatDuration', () => {
+    it('mostra minutos arredondados', () => {
+      expect(formatDuration(754)).toBe('13 min');
+    });
+
+    it('nunca mostra 0 min para um video curto', () => {
+      // "0 min" na pastilha pareceria aula vazia.
+      expect(formatDuration(20)).toBe('1 min');
+    });
+
+    it('passa a horas a partir de 60 minutos', () => {
+      expect(formatDuration(3600)).toBe('1 h');
+      expect(formatDuration(3900)).toBe('1 h 05');
+    });
+
+    it('devolve vazio enquanto o Mux nao informou a duracao', () => {
+      expect(formatDuration(null)).toBe('');
     });
   });
 });

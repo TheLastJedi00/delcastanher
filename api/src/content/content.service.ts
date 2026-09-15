@@ -18,28 +18,45 @@ export interface MaterialConfirmInput {
   order?: number;
 }
 
-/** Material como vem do Prisma, com o modulo incluido. */
+/** Material como vem do Prisma, com a aula e o modulo dela incluidos. */
 interface MaterialRow {
   id: string;
-  moduleId: string;
+  lessonId: string;
   storagePath: string;
   fileName: string;
   fileType: string;
   sizeBytes: number;
   order: number;
-  module: { order: number; title: string };
+  lesson: {
+    order: number;
+    title: string;
+    moduleId: string;
+    module: { order: number; title: string };
+  };
 }
 
-const WITH_MODULE = { module: { select: { order: true, title: true } } };
+const WITH_LESSON = {
+  lesson: {
+    select: {
+      order: true,
+      title: true,
+      moduleId: true,
+      module: { select: { order: true, title: true } },
+    },
+  },
+};
 
 /**
- * Conteudo de um modulo: os materiais complementares nesta parte, o video na
+ * Conteudo de uma aula: os materiais complementares nesta parte, o video na
  * parte do `VideoService`.
  *
  * Ate a Spec 010 os materiais eram dois arrays hardcoded — um na trilha, outro
  * em `/ava/materiais`, com conteudo diferente para o mesmo curso (decisao 15).
- * A partir daqui a lista e dado, e o download e sempre uma URL assinada gerada
+ * A partir dali a lista e dado, e o download e sempre uma URL assinada gerada
  * na hora da consulta: o caminho do bucket nunca sai da API.
+ *
+ * Desde a Spec 012 o dono e a **aula**, e nao o modulo (decisao 2): material
+ * pendurado no modulo nao dizia a qual video pertencia.
  */
 @Injectable()
 export class ContentService {
@@ -50,14 +67,14 @@ export class ContentService {
 
   /** Passo 1 do upload: permissao de escrita direto no bucket (decisao 3). */
   async createMaterialUploadUrl(
-    moduleId: string,
+    lessonId: string,
     input: MaterialUploadInput,
   ): Promise<UploadTicket> {
-    await this.requireModule(moduleId);
+    await this.requireLesson(lessonId);
 
     return this.storage.createUploadUrl({
       kind: 'material',
-      moduleId,
+      lessonId,
       fileName: input.fileName,
       contentType: input.contentType,
       sizeBytes: input.sizeBytes,
@@ -70,58 +87,64 @@ export class ContentService {
    * registro em vez de criar um material duplicado apontando para o mesmo
    * objeto.
    */
-  async confirmMaterial(moduleId: string, input: MaterialConfirmInput): Promise<MaterialItem> {
-    const module = await this.requireModule(moduleId);
+  async confirmMaterial(lessonId: string, input: MaterialConfirmInput): Promise<MaterialItem> {
+    await this.requireLesson(lessonId);
 
-    this.requirePathOfModule(moduleId, input.storagePath);
+    this.requirePathOfLesson(lessonId, input.storagePath);
 
     const uploaded = await this.storage.requireUploaded(input.storagePath);
 
     // O tamanho e o tipo saem da metadata do bucket, nao do corpo da request:
     // o que vale e o que foi de fato gravado.
     const data = {
-      moduleId,
+      lessonId,
       storagePath: input.storagePath,
       fileName: input.fileName.trim(),
       fileType: uploaded.contentType || input.contentType,
       sizeBytes: uploaded.sizeBytes,
-      order: input.order ?? (await this.prisma.material.count({ where: { moduleId } })),
+      order: input.order ?? (await this.prisma.material.count({ where: { lessonId } })),
     };
 
     const material = (await this.prisma.material.upsert({
       where: { storagePath: input.storagePath },
       create: data,
       update: { fileName: data.fileName, fileType: data.fileType, sizeBytes: data.sizeBytes },
-      include: WITH_MODULE,
-    })) as MaterialRow;
+      include: WITH_LESSON,
+    })) as unknown as MaterialRow;
 
-    return this.toItem({ ...material, module: material.module ?? module });
+    return this.toItem(material);
   }
 
-  /** Materiais de um modulo, com URL de download assinada na hora. */
-  async listForModule(moduleId: string): Promise<MaterialItem[]> {
-    await this.requireModule(moduleId);
+  /** Materiais de uma aula, com URL de download assinada na hora. */
+  async listForLesson(lessonId: string): Promise<MaterialItem[]> {
+    await this.requireLesson(lessonId);
 
     const materials = (await this.prisma.material.findMany({
-      where: { moduleId },
+      where: { lessonId },
       orderBy: [{ order: 'asc' }, { fileName: 'asc' }],
-      include: WITH_MODULE,
-    })) as MaterialRow[];
+      include: WITH_LESSON,
+    })) as unknown as MaterialRow[];
 
-    return Promise.all(materials.map(material => this.toItem(material)));
+    return Promise.all(materials.map((material) => this.toItem(material)));
   }
 
   /**
-   * Todos os materiais do curso, para a central em `/ava/materiais`. Ate a
-   * Spec 010 aquela tela tinha a propria lista fixa, diferente da trilha.
+   * Todos os materiais do curso, para a central em `/ava/materiais`. A ordem e
+   * a da trilha: modulo, depois aula, depois a ordem do material dentro dela —
+   * e assim que a tela agrupa (Spec 012, Task 8.2).
    */
   async listForCourse(): Promise<MaterialItem[]> {
     const materials = (await this.prisma.material.findMany({
-      orderBy: [{ module: { order: 'asc' } }, { order: 'asc' }, { fileName: 'asc' }],
-      include: WITH_MODULE,
-    })) as MaterialRow[];
+      orderBy: [
+        { lesson: { module: { order: 'asc' } } },
+        { lesson: { order: 'asc' } },
+        { order: 'asc' },
+        { fileName: 'asc' },
+      ],
+      include: WITH_LESSON,
+    })) as unknown as MaterialRow[];
 
-    return Promise.all(materials.map(material => this.toItem(material)));
+    return Promise.all(materials.map((material) => this.toItem(material)));
   }
 
   /**
@@ -140,24 +163,24 @@ export class ContentService {
     await this.prisma.material.delete({ where: { id } });
   }
 
-  /** Modulo da rota; sem ele nao ha onde pendurar o arquivo. */
-  private async requireModule(moduleId: string) {
-    const module = await this.prisma.module.findUnique({ where: { id: moduleId } });
+  /** Aula da rota; sem ela nao ha onde pendurar o arquivo. */
+  private async requireLesson(lessonId: string) {
+    const lesson = await this.prisma.lesson.findUnique({ where: { id: lessonId } });
 
-    if (!module) {
-      throw new NotFoundException(`Modulo "${moduleId}" nao encontrado.`);
+    if (!lesson) {
+      throw new NotFoundException(`Aula "${lessonId}" nao encontrada.`);
     }
 
-    return module;
+    return lesson;
   }
 
   /**
-   * O caminho chega pelo cliente, entao e reconferido contra o modulo da rota:
-   * sem isso o admin de um modulo sobrescreveria o material de outro.
+   * O caminho chega pelo cliente, entao e reconferido contra a aula da rota:
+   * sem isso o admin de uma aula sobrescreveria o material de outra.
    */
-  private requirePathOfModule(moduleId: string, storagePath: string): void {
-    if (!storagePath?.startsWith(`modules/${moduleId}/materials/`)) {
-      throw new BadRequestException('O arquivo enviado nao pertence a este modulo.');
+  private requirePathOfLesson(lessonId: string, storagePath: string): void {
+    if (!storagePath?.startsWith(`lessons/${lessonId}/materials/`)) {
+      throw new BadRequestException('O arquivo enviado nao pertence a esta aula.');
     }
   }
 
@@ -171,9 +194,12 @@ export class ContentService {
       contentType: material.fileType,
       sizeBytes: material.sizeBytes,
       order: material.order,
-      moduleId: material.moduleId,
-      moduleOrder: material.module.order,
-      moduleTitle: material.module.title,
+      moduleId: material.lesson.moduleId,
+      moduleOrder: material.lesson.module.order,
+      moduleTitle: material.lesson.module.title,
+      lessonId: material.lessonId,
+      lessonOrder: material.lesson.order,
+      lessonTitle: material.lesson.title,
       downloadUrl: download.url,
       downloadExpiresAt: download.expiresAt,
     };

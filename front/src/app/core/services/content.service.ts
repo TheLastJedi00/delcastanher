@@ -21,6 +21,9 @@ export interface MaterialItem {
   moduleId: string;
   moduleOrder: number;
   moduleTitle: string;
+  lessonId: string;
+  lessonOrder: number;
+  lessonTitle: string;
   downloadUrl: string;
   downloadExpiresAt: string;
 }
@@ -35,12 +38,15 @@ export interface PlaybackGrant {
   expiresAt: string;
 }
 
-/** Por que o video de um modulo nao pode ser reproduzido agora. */
+/** Por que o video de uma aula nao pode ser reproduzido agora. */
 export type PlaybackBlock = 'processing' | 'none';
 
 /**
- * Conteudo como o aluno o consome: video e materiais de um modulo, e a
+ * Conteudo como o aluno o consome: video e materiais de uma **aula**, e a
  * central de materiais do curso.
+ *
+ * Desde a Spec 012 o dono do conteudo e a aula (decisao 10): um modulo tem
+ * varias aulas, e cada uma tem o seu video e os seus materiais.
  *
  * Ate a Spec 010 os materiais eram dois arrays hardcoded em telas diferentes,
  * com conteudo divergente para o mesmo curso.
@@ -49,10 +55,10 @@ export type PlaybackBlock = 'processing' | 'none';
 export class ContentService {
   private readonly http = inject(HttpClient);
 
-  /** Materiais de um modulo, com URL de download assinada. */
-  materialsOf(moduleId: string): Observable<MaterialItem[]> {
+  /** Materiais de uma aula, com URL de download assinada. */
+  materialsOf(lessonId: string): Observable<MaterialItem[]> {
     return this.http
-      .get<MaterialItem[]>(`${environment.apiUrl}/modules/${moduleId}/materials`)
+      .get<MaterialItem[]>(`${environment.apiUrl}/lessons/${lessonId}/materials`)
       .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
   }
 
@@ -64,13 +70,13 @@ export class ContentService {
   }
 
   /**
-   * Token de reproducao do modulo. O 409 da API — video ausente ou ainda em
+   * Token de reproducao da aula. O 409 da API — video ausente ou ainda em
    * processamento — nao e erro de tela: chega como `null` para a trilha
    * mostrar o estado certo em vez de uma mensagem de falha.
    */
-  playback(moduleId: string): Observable<PlaybackGrant | null> {
+  playback(lessonId: string): Observable<PlaybackGrant | null> {
     return this.http
-      .get<PlaybackGrant>(`${environment.apiUrl}/modules/${moduleId}/playback-token`)
+      .get<PlaybackGrant>(`${environment.apiUrl}/lessons/${lessonId}/playback-token`)
       .pipe(
         catchError((error: HttpErrorResponse) => {
           if (error.status === 409) {
@@ -122,4 +128,41 @@ export function formatFileSize(bytes: number | null | undefined): string {
 
   // Abaixo de 1 KB o arredondamento daria "0 KB", que parece arquivo vazio.
   return bytes >= 1024 ? `${Math.round(bytes / 1024)} KB` : `${bytes} bytes`;
+}
+
+/**
+ * Duracao legivel de uma aula, a partir dos segundos que o Mux informou.
+ * Mora aqui, ao lado do `formatFileSize`, pelo mesmo motivo: a trilha
+ * horizontal, a lista de aulas do `aside` e o painel do admin exibem o mesmo
+ * dado, e cada um formatando do seu jeito ja divergiu uma vez.
+ *
+ * Nulo (video ainda em processamento) devolve string vazia: a pastilha
+ * simplesmente nao mostra tempo, em vez de exibir "0 min".
+ */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (!seconds || seconds <= 0) {
+    return '';
+  }
+
+  const minutes = Math.round(seconds / 60);
+
+  if (minutes < 60) {
+    // Abaixo de 1 minuto o arredondamento daria "0 min", que parece aula vazia.
+    return `${Math.max(minutes, 1)} min`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+
+  return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`;
+}
+
+/**
+ * "1 aula" ou "N aulas". Existe porque a quantidade de aulas de um modulo e
+ * dado do servidor e varia de 1 a N: um texto fixo no plural produz "1 aulas"
+ * na tela do aluno assim que um modulo tem uma aula so — que e o caso dos 12
+ * modulos migrados pela Spec 012.
+ */
+export function lessonCountLabel(total: number): string {
+  return total === 1 ? '1 aula' : `${total} aulas`;
 }

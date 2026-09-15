@@ -16,7 +16,7 @@ function userWith(role: Role): AuthUser {
 }
 
 const TICKET = {
-  storagePath: 'modules/mod-1/materials/checklist.pdf',
+  storagePath: 'lessons/les-1/materials/checklist.pdf',
   uploadUrl: 'https://storage.googleapis.com/escrita',
   headers: { 'Content-Type': 'application/pdf' },
   expiresAt: '2026-09-11T12:00:00.000Z',
@@ -29,7 +29,7 @@ const MATERIAL = {
   contentType: 'application/pdf',
   sizeBytes: 2048,
   order: 0,
-  moduleId: 'mod-1',
+  lessonId: 'les-1',
   moduleOrder: 1,
   moduleTitle: 'Fundamentos',
   downloadUrl: 'https://storage.googleapis.com/leitura',
@@ -96,12 +96,12 @@ describe('Content (HTTP)', () => {
       app = await buildApp({ createMaterialUploadUrl });
 
       const response = await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/materials/upload-url')
+        .post('/admin/lessons/les-1/materials/upload-url')
         .send({ fileName: 'Checklist.pdf', contentType: 'application/pdf', sizeBytes: 2048 })
         .expect(201);
 
       expect(response.body).toEqual(TICKET);
-      expect(createMaterialUploadUrl).toHaveBeenCalledWith('mod-1', {
+      expect(createMaterialUploadUrl).toHaveBeenCalledWith('les-1', {
         fileName: 'Checklist.pdf',
         contentType: 'application/pdf',
         sizeBytes: 2048,
@@ -113,7 +113,7 @@ describe('Content (HTTP)', () => {
       app = await buildApp({ createMaterialUploadUrl }, 'aluno');
 
       await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/materials/upload-url')
+        .post('/admin/lessons/les-1/materials/upload-url')
         .send({ fileName: 'Checklist.pdf', contentType: 'application/pdf', sizeBytes: 2048 })
         .expect(403);
 
@@ -133,7 +133,7 @@ describe('Content (HTTP)', () => {
       app = await buildApp({ createMaterialUploadUrl });
 
       await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/materials/upload-url')
+        .post('/admin/lessons/les-1/materials/upload-url')
         .send({ fileName: 'Checklist.pdf', contentType: 'application/pdf' })
         .expect(400);
 
@@ -144,27 +144,27 @@ describe('Content (HTTP)', () => {
       const createMaterialUploadUrl = jest.fn();
       app = await buildApp({ createMaterialUploadUrl });
 
-      // O modulo alvo vem da URL: mandar moduleId no corpo e recusado.
+      // O aula alvo vem da URL: mandar lessonId no corpo e recusado.
       await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/materials/upload-url')
+        .post('/admin/lessons/les-1/materials/upload-url')
         .send({
           fileName: 'Checklist.pdf',
           contentType: 'application/pdf',
           sizeBytes: 2048,
-          moduleId: 'mod-2',
+          lessonId: 'mod-2',
         })
         .expect(400);
 
       expect(createMaterialUploadUrl).not.toHaveBeenCalled();
     });
 
-    it('POST upload-url responde 404 para um moduleId inexistente', async () => {
+    it('POST upload-url responde 404 para um lessonId inexistente', async () => {
       app = await buildApp({
-        createMaterialUploadUrl: jest.fn().mockRejectedValue(new NotFoundException('Modulo')),
+        createMaterialUploadUrl: jest.fn().mockRejectedValue(new NotFoundException('Aula')),
       });
 
       await request(app.getHttpServer())
-        .post('/admin/modules/nao-existe/materials/upload-url')
+        .post('/admin/lessons/nao-existe/materials/upload-url')
         .send({ fileName: 'Checklist.pdf', contentType: 'application/pdf', sizeBytes: 2048 })
         .expect(404);
     });
@@ -174,7 +174,7 @@ describe('Content (HTTP)', () => {
       app = await buildApp({ confirmMaterial });
 
       const response = await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/materials')
+        .post('/admin/lessons/les-1/materials')
         .send({
           storagePath: TICKET.storagePath,
           fileName: 'Checklist.pdf',
@@ -183,7 +183,7 @@ describe('Content (HTTP)', () => {
         .expect(201);
 
       expect(response.body).toEqual(MATERIAL);
-      expect(confirmMaterial).toHaveBeenCalledWith('mod-1', {
+      expect(confirmMaterial).toHaveBeenCalledWith('les-1', {
         storagePath: TICKET.storagePath,
         fileName: 'Checklist.pdf',
         contentType: 'application/pdf',
@@ -195,7 +195,7 @@ describe('Content (HTTP)', () => {
       app = await buildApp({ confirmMaterial });
 
       await request(app.getHttpServer())
-        .post('/admin/modules/mod-1/materials')
+        .post('/admin/lessons/les-1/materials')
         .send({ fileName: 'Checklist.pdf', contentType: 'application/pdf' })
         .expect(400);
 
@@ -210,12 +210,12 @@ describe('Content (HTTP)', () => {
       expect(removeMaterial).toHaveBeenCalledWith('mat-1');
     });
 
-    it('GET lista os materiais do modulo para o painel', async () => {
-      const listForModule = jest.fn().mockResolvedValue([MATERIAL]);
-      app = await buildApp({ listForModule });
+    it('GET lista os materiais do aula para o painel', async () => {
+      const listForLesson = jest.fn().mockResolvedValue([MATERIAL]);
+      app = await buildApp({ listForLesson });
 
       const response = await request(app.getHttpServer())
-        .get('/admin/modules/mod-1/materials')
+        .get('/admin/lessons/les-1/materials')
         .expect(200);
 
       expect(response.body).toEqual([MATERIAL]);
@@ -223,17 +223,17 @@ describe('Content (HTTP)', () => {
   });
 
   describe('aluno', () => {
-    it('GET /modules/:moduleId/materials devolve a lista com URL assinada', async () => {
-      const listForModule = jest.fn().mockResolvedValue([MATERIAL]);
-      app = await buildApp({ listForModule }, 'aluno');
+    it('GET /modules/:lessonId/materials devolve a lista com URL assinada', async () => {
+      const listForLesson = jest.fn().mockResolvedValue([MATERIAL]);
+      app = await buildApp({ listForLesson }, 'aluno');
 
       const response = await request(app.getHttpServer())
-        .get('/modules/mod-1/materials')
+        .get('/lessons/les-1/materials')
         .expect(200);
 
       expect(response.body[0]).toMatchObject({ downloadUrl: MATERIAL.downloadUrl });
       // O caminho do bucket nunca sai da API.
-      expect(JSON.stringify(response.body)).not.toContain('modules/mod-1/materials/');
+      expect(JSON.stringify(response.body)).not.toContain('lessons/les-1/materials/');
     });
 
     it('GET /materials devolve a central de materiais do curso', async () => {
@@ -246,13 +246,13 @@ describe('Content (HTTP)', () => {
       expect(listForCourse).toHaveBeenCalled();
     });
 
-    it('GET de modulo inexistente responde 404', async () => {
+    it('GET de aula inexistente responde 404', async () => {
       app = await buildApp(
-        { listForModule: jest.fn().mockRejectedValue(new NotFoundException('Modulo')) },
+        { listForLesson: jest.fn().mockRejectedValue(new NotFoundException('Aula')) },
         'aluno',
       );
 
-      await request(app.getHttpServer()).get('/modules/nao-existe/materials').expect(404);
+      await request(app.getHttpServer()).get('/lessons/nao-existe/materials').expect(404);
     });
   });
 });
