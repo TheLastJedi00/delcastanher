@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { storageBucket } from '../config/media.config';
 import { FirebaseService } from '../firebase/firebase.service';
 
-/** O que se envia ao bucket: o video do modulo ou um material complementar. */
+/** O que se envia ao bucket: o video da aula ou um material complementar. */
 export type UploadKind = 'video' | 'material';
 
 /** 2 GB. Uma aula gravada em 1080p cabe com folga; um arquivo maior e engano. */
@@ -44,7 +44,7 @@ const MAX_BYTES: Record<UploadKind, number> = {
 /** Pedido de URL de escrita, ja com o que precisa ser validado. */
 export interface UploadUrlInput {
   kind: UploadKind;
-  moduleId: string;
+  lessonId: string;
   fileName: string;
   contentType: string;
   sizeBytes: number;
@@ -107,14 +107,21 @@ export class StorageService {
     private readonly config: ConfigService,
   ) {}
 
-  /** Caminho do video do modulo. Deterministico: substituir o arquivo sobrescreve. */
-  videoPath(moduleId: string, fileName: string): string {
-    return `modules/${moduleId}/video/${this.requireSlug(fileName)}`;
+  /**
+   * Caminho do video da aula. Deterministico: substituir o arquivo sobrescreve.
+   *
+   * Objeto novo nasce sob `lessons/` (Spec 012, decisao 4); os enviados antes,
+   * sob `modules/`, continuam onde estao — o caminho e dado gravado em
+   * `videoStoragePath`/`storagePath`, e nao algo derivado do id na leitura,
+   * entao `createReadUrl` assina os dois formatos sem saber a diferenca.
+   */
+  videoPath(lessonId: string, fileName: string): string {
+    return `lessons/${lessonId}/video/${this.requireSlug(fileName)}`;
   }
 
-  /** Caminho de um material do modulo. */
-  materialPath(moduleId: string, fileName: string): string {
-    return `modules/${moduleId}/materials/${this.requireSlug(fileName)}`;
+  /** Caminho de um material da aula. */
+  materialPath(lessonId: string, fileName: string): string {
+    return `lessons/${lessonId}/materials/${this.requireSlug(fileName)}`;
   }
 
   /**
@@ -147,8 +154,8 @@ export class StorageService {
 
     const storagePath =
       input.kind === 'video'
-        ? this.videoPath(input.moduleId, input.fileName)
-        : this.materialPath(input.moduleId, input.fileName);
+        ? this.videoPath(input.lessonId, input.fileName)
+        : this.materialPath(input.lessonId, input.fileName);
 
     const expires = Date.now() + WRITE_TTL_SECONDS * 1000;
 
