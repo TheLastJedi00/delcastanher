@@ -99,3 +99,33 @@ export interface MuxWebhookEvent {
     errors?: { messages?: string[] };
   };
 }
+
+/**
+ * Aula como o painel do administrador a ve: o que ela e, o estado do video e
+ * os dois numeros que a confirmacao de remocao precisa (decisao 16).
+ */
+export interface AdminLessonItem {
+  id: string;
+  moduleId: string;
+  order: number;
+  title: string;
+  summary: string;
+  video: LessonVideoState;
+  materialCount: number;
+  /** Quantos alunos ja concluiram esta aula. */
+  completedBy: number;
+}
+
+/**
+ * Modulo como o painel o ve. `certificateCount` existe para a UI explicar por
+ * que nao ha remocao de modulo: o diploma emitido dele continua valendo
+ * (decisao 15).
+ */
+export interface AdminModuleItem {
+  id: string;
+  order: number;
+  title: string;
+  summary: string;
+  lessonCount: number;
+  certificateCount: number;
+}
