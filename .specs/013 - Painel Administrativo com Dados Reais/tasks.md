@@ -5,11 +5,11 @@ Spec full-stack. No `api/` (NestJS + Prisma + Jest) a suíte de testes vem **ant
 Ordem das fases: as colunas novas (`role`, `lastSeenAt`, `blockedAt`) vêm primeiro, porque a listagem inteira depende delas; a leitura vem antes da escrita, para que promover e bloquear já tenham onde se refletir; e o front só entra quando a API devolve a página com KPIs.
 
 ## Fase 1: Backend - Modelo e Espelho do Papel (TDD)
-- [ ] **Task 1.1:** Escrever a suíte do `UsersService` para o espelho: entrada com claim `admin` gravando `role = admin`, entrada com claim ausente gravando `aluno`, claim alterado fora do painel convergindo na entrada seguinte, e `lastSeenAt` avançando a cada `findOrCreate` (decisões 3, 4 e 5).
-- [ ] **Task 1.2:** Adicionar ao model `User` do `api/prisma/schema.prisma` o enum `Role` (`aluno` | `admin`, default `aluno`), `lastSeenAt DateTime?` e `blockedAt DateTime?`, com índices em `role` e `lastSeenAt` para sustentar filtro e KPI, documentando no comentário que `role` é espelho de leitura e nunca fonte de autorização (decisão 3).
-- [ ] **Task 1.3:** Escrever a migration correspondente, preenchendo `role = aluno` para as linhas existentes e deixando `lastSeenAt` e `blockedAt` nulos — nulo em `lastSeenAt` significa "nunca acessou depois desta spec", e não "inativo".
-- [ ] **Task 1.4:** Fazer `UsersService.findOrCreate` gravar `role` e `lastSeenAt` no mesmo upsert que já espelha o e-mail, sem acrescentar consulta nova ao caminho de entrada (decisões 4 e 5).
-- [ ] **Task 1.5:** Rodar `npm test` no `api/` e conferir que nenhuma suíte de `auth`, `progress` ou `certificates` regrediu com a coluna nova.
+- [x] **Task 1.1:** Escrever a suíte do `UsersService` para o espelho: entrada com claim `admin` gravando `role = admin`, entrada com claim ausente gravando `aluno`, claim alterado fora do painel convergindo na entrada seguinte, e `lastSeenAt` avançando a cada `findOrCreate` (decisões 3, 4 e 5).
+- [x] **Task 1.2:** Adicionar ao model `User` do `api/prisma/schema.prisma` o enum `Role` (`aluno` | `admin`, default `aluno`), `lastSeenAt DateTime?` e `blockedAt DateTime?`, com índices em `role` e `lastSeenAt` para sustentar filtro e KPI, documentando no comentário que `role` é espelho de leitura e nunca fonte de autorização (decisão 3).
+- [x] **Task 1.3:** Escrever a migration correspondente, preenchendo `role = aluno` para as linhas existentes e deixando `lastSeenAt` e `blockedAt` nulos — nulo em `lastSeenAt` significa "nunca acessou depois desta spec", e não "inativo".
+- [x] **Task 1.4:** Fazer `UsersService.findOrCreate` gravar `role` e `lastSeenAt` no mesmo upsert que já espelha o e-mail, sem acrescentar consulta nova ao caminho de entrada (decisões 4 e 5).
+- [x] **Task 1.5:** Rodar `npm test` no `api/` e conferir que nenhuma suíte de `auth`, `progress` ou `certificates` regrediu com a coluna nova.
 
 ## Fase 2: Backend - Listagem e KPIs (TDD)
 - [ ] **Task 2.1:** Escrever a suíte do `AdminUsersService` para a listagem: paginação, busca por nome e por e-mail (sem diferenciar maiúsculas), filtro por papel e por situação, ordenação por nome, matrícula, último acesso e progresso, e página vazia devolvendo `total` correto.
