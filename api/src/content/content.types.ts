@@ -32,6 +32,9 @@ export interface MaterialItem {
   moduleId: string;
   moduleOrder: number;
   moduleTitle: string;
+  lessonId: string;
+  lessonOrder: number;
+  lessonTitle: string;
   downloadUrl: string;
   downloadExpiresAt: string;
 }
@@ -58,18 +61,22 @@ export function materialKind(contentType: string): MaterialKind {
 export type VideoStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'ERRORED';
 
 /**
- * Estado do video de um modulo. `hasVideo` falso e o modulo que ainda nao
+ * Estado do video de uma aula. `hasVideo` falso e a aula que ainda nao
  * recebeu arquivo — diferente de um video que falhou no processamento, e o
  * painel e a trilha precisam distinguir os dois.
+ *
+ * `durationSeconds` vem do Mux no `video.asset.ready` e alimenta o tempo
+ * exibido na trilha horizontal (decisao 18).
  */
-export interface ModuleVideoState {
-  moduleId: string;
+export interface LessonVideoState {
+  lessonId: string;
   hasVideo: boolean;
   status: VideoStatus | null;
   playbackId: string | null;
   fileName: string | null;
   sizeBytes: number | null;
   error: string | null;
+  durationSeconds: number | null;
 }
 
 /**
@@ -88,6 +95,7 @@ export interface MuxWebhookEvent {
   data: {
     id?: string;
     playback_ids?: { id: string }[];
+    duration?: number;
     errors?: { messages?: string[] };
   };
 }
