@@ -77,7 +77,10 @@ interface HubCard {
                 <p class="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">
                   {{ nextLabel() }}
                 </p>
-                <p class="mb-4 text-base font-semibold text-brand-navy">{{ nextTitle() }}</p>
+                <p class="mb-1 text-base font-semibold text-brand-navy">{{ nextTitle() }}</p>
+                @if (nextContext()) {
+                  <p class="mb-4 text-xs text-slate-500">{{ nextContext() }}</p>
+                }
                 <a [routerLink]="resumeLink()" class="inline-block">
                   <ui-button variant="primary">{{ resumeCta() }}</ui-button>
                 </a>
@@ -119,6 +122,7 @@ export class Hub {
 
   protected readonly percentage = this.progressService.percentage;
   protected readonly nextModule = this.progressService.nextModule;
+  protected readonly nextLesson = this.progressService.nextLesson;
   protected readonly courseCompleted = this.progressService.courseCompleted;
 
   protected readonly courseTitle = computed(
@@ -127,7 +131,7 @@ export class Hub {
 
   protected readonly progressLabel = computed(
     () =>
-      `${this.progressService.completedCount()} de ${this.progressService.totalCount()} módulos concluídos`,
+      `${this.progressService.completedCount()} de ${this.progressService.totalCount()} aulas concluídas`,
   );
 
   /** Com a trilha concluida o destaque deixa de ser "estude" e passa a ser "retire". */
@@ -135,9 +139,20 @@ export class Hub {
     this.courseCompleted() ? 'Curso concluído' : 'Próxima aula',
   );
 
+  /**
+   * Desde a Spec 012 o "Próxima aula" aponta para uma aula de verdade, e nao
+   * para o titulo do modulo (decisao 6).
+   */
   protected readonly nextTitle = computed(
-    () => this.nextModule()?.title ?? 'Seu certificado está disponível',
+    () => this.nextLesson()?.title ?? 'Seu certificado está disponível',
   );
+
+  /** Modulo a que a proxima aula pertence, como contexto do card. */
+  protected readonly nextContext = computed(() => {
+    const module = this.nextModule();
+
+    return module ? `Módulo ${module.order} · ${module.title}` : '';
+  });
 
   protected readonly resumeCta = computed(() =>
     this.courseCompleted()
@@ -148,17 +163,22 @@ export class Hub {
   );
 
   /**
-   * Deep-link do modulo em aberto. Sem progresso carregado cai na trilha
-   * generica, que resolve o modulo por conta propria.
+   * Deep-link da proxima aula em aberto. Sem progresso carregado cai na
+   * trilha generica, que resolve a posicao por conta propria.
    */
   protected readonly resumeLink = computed(() => {
     if (this.courseCompleted()) {
       return '/ava/certificado';
     }
 
-    const next = this.nextModule();
+    const module = this.nextModule();
+    const lesson = this.nextLesson();
 
-    return next ? `/ava/trilha/${next.id}` : '/ava/trilha';
+    if (!module) {
+      return '/ava/trilha';
+    }
+
+    return lesson ? `/ava/trilha/${module.id}/${lesson.id}` : `/ava/trilha/${module.id}`;
   });
 
   /** O card de certificado so aparece depois da conclusao da trilha. */
