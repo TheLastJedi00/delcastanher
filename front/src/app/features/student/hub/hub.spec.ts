@@ -15,14 +15,36 @@ const MODULES = [
   { id: 'm4', order: 4, title: 'Onboarding', summary: 'Resumo 4', completed: false },
 ];
 
+/**
+ * Cada modulo do fixture tem **uma** aula, como ficou o banco depois da
+ * migration da Spec 012: `completedIds` continua sendo id de modulo, e a
+ * conclusao do modulo vem derivada da aula dele.
+ */
 function progress(completedIds: string[]): CourseProgress {
-  const modules = MODULES.map(module => ({
-    ...module,
-    completed: completedIds.includes(module.id),
-    hasVideo: true,
-    videoReady: true,
-  }));
+  const modules = MODULES.map(module => {
+    const completed = completedIds.includes(module.id);
+    const lesson = {
+      id: `l${module.order}`,
+      order: 1,
+      title: `Aula 1 — ${module.title}`,
+      summary: module.summary,
+      completed,
+      hasVideo: true,
+      videoReady: true,
+      durationSeconds: 600,
+    };
+
+    return {
+      ...module,
+      completed,
+      lessons: [lesson],
+      completedCount: completed ? 1 : 0,
+      totalCount: 1,
+      nextLesson: completed ? null : lesson,
+    };
+  });
   const completedCount = modules.filter(module => module.completed).length;
+  const nextModule = modules.find(module => module.nextLesson !== null) ?? null;
 
   return {
     course: { slug: 'imersao-rh', title: 'Imersão RH Estratégico', workloadHours: null },
@@ -30,7 +52,8 @@ function progress(completedIds: string[]): CourseProgress {
     completedCount,
     totalCount: modules.length,
     percentage: Math.round((completedCount / modules.length) * 100),
-    nextModule: modules.find(module => !module.completed) ?? null,
+    nextModule,
+    nextLesson: nextModule?.nextLesson ?? null,
     completed: completedCount === modules.length,
   };
 }
