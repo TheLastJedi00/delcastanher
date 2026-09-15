@@ -25,9 +25,11 @@ Aprimorar o Ambiente Virtual do Aluno para suportar retenção, clareza de progr
 3. **O vocabulário é "módulo".**
    O produto fala em "aula" no texto de marketing, mas a trilha, o `ui-module-card` e o mock trabalham com 12 **módulos**. O código e os models usam `module`; o rótulo "Próxima aula" pode permanecer na UI, apontando para o próximo módulo não concluído. Não se cria um nível "aula" dentro de módulo nesta spec.
    > **Ratificada pela Spec 010 (decisão 1):** vídeo e materiais foram pendurados no `Module`, e o nível "aula" continua não existindo no modelo.
+   > **REVERTIDA pela Spec 012 (decisão 1):** o nível `Lesson` passou a existir. Um módulo com vários vídeos, cada um com o seu material, não cabia em uma coluna de `playbackId` — o que mudou não foi o nome, foi o produto. `ModuleProgress` deu lugar a `LessonProgress`, a conclusão do módulo passou a ser derivada e `PATCH /progress/me/modules/:moduleId` foi removido em favor de `PATCH /progress/me/lessons/:lessonId` (Spec 012, decisão 5).
 
 4. **Retomada por deep-link.**
    `/ava/trilha` não aceita parâmetro hoje, então o botão "Retomar" só conseguiria levar ao topo genérico da trilha. A rota ganha a forma `/ava/trilha/:moduleId`, com `/ava/trilha` continuando válida (abre o módulo em aberto do aluno). Id inexistente cai no primeiro módulo, sem tela quebrada.
+   > **Estendida pela Spec 012 (decisão 9):** a forma completa passou a ser `/ava/trilha/:moduleId/:lessonId`. As duas formas acima continuam válidas — `/ava/trilha/:moduleId` abre a primeira aula em aberto daquele módulo — e a regra de *fallback* para o primeiro item válido permanece.
 
 5. **Conclusão = 100% dos módulos concluídos, em um curso único.**
    Não existe matrícula, entitlement ou catálogo real de cursos no código (Spec 007, decisão 2) e esta spec **não** cria esse modelo. O progresso e o certificado pertencem ao curso único da plataforma ("Imersão RH Estratégico"), identificado por uma constante/seed. Quando o modelo de matrícula existir, o vínculo passa a ser por curso sem reescrever a tabela.

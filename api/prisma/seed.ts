@@ -109,15 +109,44 @@ async function main(): Promise<void> {
       create: COURSE,
     });
 
+    let createdLessons = 0;
+
     for (const module of MODULES) {
-      await prisma.module.upsert({
+      const saved = await prisma.module.upsert({
         where: { courseId_order: { courseId: course.id, order: module.order } },
         update: { title: module.title, summary: module.summary },
         create: { courseId: course.id, ...module },
       });
+
+      // Aula inicial do modulo (Spec 012). Um modulo sem aula nenhuma nao
+      // reproduz nada e nunca conclui — ele existe, mas nao entrega conteudo.
+      //
+      // Aqui o seed **cria sem atualizar**: a aula 1 de um modulo ja semeado
+      // pode ter sido renomeada no painel e ter video e materiais pendurados,
+      // e sobrescrever o titulo a cada `db:seed` desfaria o trabalho do
+      // administrador. Rodar de novo nao duplica aula nem toca no progresso.
+      const existing = await prisma.lesson.findUnique({
+        where: { moduleId_order: { moduleId: saved.id, order: 1 } },
+      });
+
+      if (!existing) {
+        await prisma.lesson.create({
+          data: {
+            moduleId: saved.id,
+            order: 1,
+            title: `Aula 1 — ${module.title}`,
+            summary: module.summary,
+          },
+        });
+
+        createdLessons += 1;
+      }
     }
 
-    console.log(`Curso "${course.title}" e ${MODULES.length} modulos sincronizados.`);
+    console.log(
+      `Curso "${course.title}" e ${MODULES.length} modulos sincronizados` +
+        (createdLessons > 0 ? `, ${createdLessons} aula(s) inicial(is) criada(s).` : '.'),
+    );
   } finally {
     await prisma.$disconnect();
   }

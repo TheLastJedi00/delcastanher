@@ -21,7 +21,9 @@
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "role": "ts-node -P tsconfig.json scripts/manage-role.ts",
     "db:seed": "ts-node -P tsconfig.json prisma/seed.ts",
-    "storage:cors": "ts-node -P tsconfig.json scripts/configure-storage-cors.ts"
+    "storage:cors": "ts-node -P tsconfig.json scripts/configure-storage-cors.ts",
+    "migration:snapshot": "ts-node -P tsconfig.json scripts/verify-lesson-migration.ts snapshot",
+    "migration:verify": "ts-node -P tsconfig.json scripts/verify-lesson-migration.ts verify"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
