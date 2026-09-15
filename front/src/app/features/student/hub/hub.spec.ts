@@ -91,36 +91,38 @@ describe('Hub', () => {
     TestBed.resetTestingModule();
   });
 
-  it('mostra o percentual e a contagem de modulos concluidos', async () => {
+  it('mostra o percentual e a contagem de aulas concluidas', async () => {
     await create();
     respond(progress(['m1']));
 
     expect(text()).toContain('25%');
-    expect(text()).toContain('1 de 4 módulos concluídos');
+    expect(text()).toContain('1 de 4 aulas concluídas');
   });
 
-  it('destaca o proximo modulo em aberto', async () => {
+  it('destaca a proxima aula em aberto, com o modulo dela como contexto', async () => {
     await create();
     respond(progress(['m1', 'm2']));
 
     expect(text()).toContain('Próxima aula');
-    expect(text()).toContain('Recrutamento');
+    // O destaque e o titulo da AULA; o modulo vira contexto (decisao 6).
+    expect(text()).toContain('Aula 1 — Recrutamento');
+    expect(text()).toContain('Módulo 3 · Recrutamento');
   });
 
-  it('aponta o CTA de retomada para o deep-link do modulo em aberto', async () => {
+  it('aponta o CTA de retomada para o deep-link da aula em aberto', async () => {
     await create();
     respond(progress(['m1']));
 
     expect(text()).toContain('Retomar curso');
-    expect(resumeHref()).toBe('/ava/trilha/m2');
+    expect(resumeHref()).toBe('/ava/trilha/m2/l2');
   });
 
-  it('sem nenhum modulo concluido o CTA convida a comecar, no primeiro modulo', async () => {
+  it('sem nenhuma aula concluida o CTA convida a comecar, na primeira aula', async () => {
     await create();
     respond(progress([]));
 
     expect(text()).toContain('Começar o curso');
-    expect(resumeHref()).toBe('/ava/trilha/m1');
+    expect(resumeHref()).toBe('/ava/trilha/m1/l1');
   });
 
   it('com a trilha concluida o CTA leva ao certificado', async () => {
