@@ -367,4 +367,109 @@ describe('AdminUsersService', () => {
       expect(item.courseCompleted).toBe(false);
     });
   });
+
+  /**
+   * Spec 013, decisao 6: as definicoes sao fixas e aparecem escritas ao lado
+   * do numero na tela. Alunos matriculados sao os de papel `aluno` nao
+   * bloqueados; ativos, os que acessaram nos ultimos 30 dias; engajamento, a
+   * fracao que concluiu ao menos uma aula na mesma janela.
+   */
+  describe('list: KPIs', () => {
+    it('devolve os tres numeros com a janela usada nos dois ultimos', async () => {
+      const { service } = await build({
+        counts: [10, 7],
+        engaged: [{ userId: 'a' }, { userId: 'b' }, { userId: 'c' }, { userId: 'd' }, { userId: 'e' }],
+      });
+
+      const { kpis } = await service.list(QUERY);
+
+      expect(kpis.totalStudents).toBe(10);
+      expect(kpis.activeStudents).toBe(7);
+      expect(kpis.engagementRate).toBe(50);
+      expect(kpis.windowDays).toBe(30);
+    });
+
+    // Divisao por zero daria NaN num card que diz "%".
+    it('devolve engajamento zero quando nao ha nenhum aluno na base', async () => {
+      const { service } = await build({ counts: [0, 0], engaged: [] });
+
+      expect((await service.list(QUERY)).kpis.engagementRate).toBe(0);
+    });
+
+    it('conta como matriculado so quem e aluno e nao esta bloqueado', async () => {
+      const { service, count } = await build();
+
+      await service.list(QUERY);
+
+      const matriculados = count.mock.calls.find(
+        ([args]) => args.where?.role === 'aluno' && args.where?.blockedAt === null,
+      );
+
+      expect(matriculados).toBeDefined();
+    });
+
+    // Spec 013, decisao 16: o administrador aparece na tabela, mas nao e aluno
+    // matriculado — contando-o, o KPI mentiria sobre o tamanho da turma.
+    it('nao conta administrador como aluno matriculado', async () => {
+      const { service, count } = await build();
+
+      await service.list(QUERY);
+
+      const kpiCalls = count.mock.calls.filter(([args]) => args.where?.role);
+
+      for (const [args] of kpiCalls) {
+        expect(args.where.role).toBe('aluno');
+      }
+    });
+
+    it('mede ativos pelo ultimo acesso dentro da janela de 30 dias', async () => {
+      const { service, count } = await build();
+      const before = Date.now();
+
+      await service.list(QUERY);
+
+      const [ativos] = count.mock.calls.find(([args]) => args.where?.lastSeenAt) ?? [];
+      const cutoff = (ativos.where.lastSeenAt as { gte: Date }).gte;
+
+      expect(before - cutoff.getTime()).toBeCloseTo(30 * 24 * 60 * 60 * 1000, -4);
+      expect(ativos.where.blockedAt).toBeNull();
+    });
+
+    // Engajamento e "quantos alunos distintos concluiram alguma aula", e nao
+    // "quantas aulas foram concluidas": quem terminou seis aulas na semana
+    // continua sendo uma pessoa.
+    it('agrupa o engajamento por aluno, nao por conclusao', async () => {
+      const { service, groupBy } = await build({ counts: [4, 4], engaged: [{ userId: 'a' }] });
+
+      const { kpis } = await service.list(QUERY);
+
+      expect(groupBy.mock.calls[0][0].by).toEqual(['userId']);
+      expect(groupBy.mock.calls[0][0].where.completedAt).toEqual({ gte: expect.any(Date) });
+      expect(kpis.engagementRate).toBe(25);
+    });
+
+    it('restringe o engajamento aos alunos nao bloqueados', async () => {
+      const { service, groupBy } = await build();
+
+      await service.list(QUERY);
+
+      expect(groupBy.mock.calls[0][0].where.user).toEqual({ role: 'aluno', blockedAt: null });
+    });
+
+    // Os KPIs sao da base inteira: filtrar a tela por "bloqueados" nao pode
+    // fazer o topo do painel dizer que a turma encolheu.
+    it('nao deixa o filtro da tela contaminar os KPIs', async () => {
+      const { service, count } = await build({ counts: [10, 7] });
+
+      const { kpis } = await service.list({ ...QUERY, search: 'ana', status: 'bloqueado' });
+
+      const kpiCalls = count.mock.calls.filter(([args]) => args.where?.role === 'aluno');
+
+      for (const [args] of kpiCalls) {
+        expect(args.where).not.toHaveProperty('OR');
+      }
+
+      expect(kpis.totalStudents).toBe(10);
+    });
+  });
 });
