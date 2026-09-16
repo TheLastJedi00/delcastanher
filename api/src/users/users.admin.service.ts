@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { isFullyCompleted, percentageOf } from '../progress/completion';
 import { DEFAULT_COURSE_SLUG } from '../progress/progress.service';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
-import { AdminUserItem, AdminUserListResult, AdminUsersKpis } from './users.admin.types';
+import {
+  AdminUserDetail,
+  AdminUserItem,
+  AdminUserListResult,
+  AdminUserModuleItem,
+  AdminUsersKpis,
+} from './users.admin.types';
 
 /**
  * Janela das duas perguntas do topo do painel: "ainda esta por aqui?" e
@@ -37,11 +43,47 @@ interface UserRow {
   lastSeenAt: Date | null;
 }
 
-/** Aula da grade, na ordem em que o aluno a percorre. */
+/** Usuario no detalhe: a linha inteira, inclusive o que so aparece la. */
+interface DetailRow extends UserRow {
+  bio: string | null;
+  phone: string | null;
+  linkedin: string | null;
+}
+
+/** Diploma como a consulta o devolve, com o titulo do modulo pela relacao. */
+interface CertificateRow {
+  id: string;
+  code: string;
+  moduleId: string | null;
+  status: 'ACTIVE' | 'REVOKED';
+  issuedAt: Date;
+  module: { title: string } | null;
+}
+
+/** Modulo da grade, com as aulas na ordem em que o aluno as percorre. */
+interface CourseModule {
+  id: string;
+  order: number;
+  title: string;
+  lessons: { id: string; order: number; title: string }[];
+}
+
+/** Aula da grade ja achatada, carregando o modulo a que pertence. */
 interface CourseLesson {
   id: string;
   moduleOrder: number;
   moduleTitle: string;
+}
+
+/** A grade em uma lista unica, que e como a linha da tabela a percorre. */
+function flatLessons(modules: CourseModule[]): CourseLesson[] {
+  return modules.flatMap((module) =>
+    module.lessons.map((lesson) => ({
+      id: lesson.id,
+      moduleOrder: module.order,
+      moduleTitle: module.title,
+    })),
+  );
 }
 
 /**
@@ -93,8 +135,8 @@ export class AdminUsersService {
   async list(query: ListAdminUsersDto): Promise<AdminUserListResult> {
     const where = this.whereOf(query);
 
-    const [lessons, total, rows] = await Promise.all([
-      this.courseLessons(),
+    const [modules, total, rows] = await Promise.all([
+      this.courseModules(),
       this.prisma.user.count({ where }),
       this.prisma.user.findMany({
         where,
@@ -106,6 +148,7 @@ export class AdminUsersService {
     ]);
 
     const completions = await this.completionsOf(rows.map((row) => row.id));
+    const lessons = flatLessons(modules);
 
     return {
       items: rows.map((row) => this.toItem(row, lessons, completions.get(row.id))),
@@ -113,6 +156,100 @@ export class AdminUsersService {
       page: query.page,
       pageSize: query.pageSize,
       kpis: await this.kpis(),
+    };
+  }
+
+  /**
+   * Detalhe de um aluno: perfil, progresso por modulo e diplomas emitidos.
+   *
+   * Somente leitura. Nao ha contrapartida de escrita para nenhum destes
+   * campos: o onboarding e declaracao do proprio aluno (decisao 11), e o
+   * diploma so aparece — revogar segue sendo ato deliberado, sem tela
+   * (decisao 12).
+   */
+  async findOne(id: string): Promise<AdminUserDetail> {
+    const user = (await this.prisma.user.findUnique({ where: { id } })) as DetailRow | null;
+
+    if (!user) {
+      throw new NotFoundException(`Usuario "${id}" nao encontrado.`);
+    }
+
+    const [grade, done, certificates] = await Promise.all([
+      this.courseModules(),
+      this.prisma.lessonProgress.findMany({
+        where: { userId: id },
+        select: { lessonId: true },
+      }) as Promise<{ lessonId: string }[]>,
+      this.prisma.certificate.findMany({
+        where: { userId: id },
+        orderBy: { issuedAt: 'desc' },
+        select: {
+          id: true,
+          code: true,
+          moduleId: true,
+          status: true,
+          issuedAt: true,
+          module: { select: { title: true } },
+        },
+      }) as Promise<CertificateRow[]>,
+    ]);
+
+    const completed = new Set(done.map((row) => row.lessonId));
+
+    const modules: AdminUserModuleItem[] = grade.map((module) => {
+      const lessons = module.lessons.map((lesson) => ({
+        id: lesson.id,
+        order: lesson.order,
+        title: lesson.title,
+        completed: completed.has(lesson.id),
+      }));
+
+      const completedCount = lessons.filter((lesson) => lesson.completed).length;
+
+      return {
+        id: module.id,
+        order: module.order,
+        title: module.title,
+        completedCount,
+        totalCount: lessons.length,
+        // Mesma funcao que o `ProgressService` usa: o painel nao pode dizer
+        // que o aluno concluiu um modulo que a trilha dele mostra em aberto.
+        completed: isFullyCompleted(lessons.length, completedCount),
+        lessons,
+      };
+    });
+
+    const totalLessons = modules.reduce((sum, module) => sum + module.totalCount, 0);
+    const completedLessons = modules.reduce((sum, module) => sum + module.completedCount, 0);
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      initials: initialsOf(user.name, user.email),
+      bio: user.bio,
+      phone: user.phone,
+      linkedin: user.linkedin,
+      role: user.role,
+      blocked: user.blockedAt !== null,
+      onboardingCompleted: user.onboardingCompleted,
+      createdAt: user.createdAt,
+      lastSeenAt: user.lastSeenAt,
+      completedLessons,
+      totalLessons,
+      percentage: percentageOf(completedLessons, totalLessons),
+      courseCompleted: isFullyCompleted(totalLessons, completedLessons),
+      modules,
+      certificates: certificates.map((certificate) => ({
+        id: certificate.id,
+        code: certificate.code,
+        // `moduleId` nulo e o diploma do curso inteiro; preenchido, o daquele
+        // modulo (Spec 008 e Spec 010, decisao 11).
+        scope: certificate.moduleId === null ? 'curso' : 'modulo',
+        moduleTitle: certificate.module?.title ?? null,
+        status: certificate.status,
+        issuedAt: certificate.issuedAt,
+      })),
     };
   }
 
@@ -165,31 +302,27 @@ export class AdminUsersService {
     }
   }
 
-  /** A grade do curso achatada na ordem em que o aluno a percorre. */
-  private async courseLessons(): Promise<CourseLesson[]> {
+  /**
+   * A grade do curso, na ordem em que o aluno a percorre. A listagem achata
+   * (`flatLessons`) e o detalhe mantem os modulos; a consulta e a mesma.
+   */
+  private async courseModules(): Promise<CourseModule[]> {
     const course = await this.prisma.course.findUnique({
       where: { slug: DEFAULT_COURSE_SLUG },
       select: {
         modules: {
           orderBy: { order: 'asc' },
           select: {
+            id: true,
             order: true,
             title: true,
-            lessons: { orderBy: { order: 'asc' }, select: { id: true } },
+            lessons: { orderBy: { order: 'asc' }, select: { id: true, order: true, title: true } },
           },
         },
       },
     });
 
-    const modules = course?.modules ?? [];
-
-    return modules.flatMap((module) =>
-      module.lessons.map((lesson) => ({
-        id: lesson.id,
-        moduleOrder: module.order,
-        moduleTitle: module.title,
-      })),
-    );
+    return (course?.modules ?? []) as CourseModule[];
   }
 
   /** Aulas concluidas por usuario, para a pagina inteira, em uma consulta. */

@@ -1,10 +1,10 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import { AdminUsersService } from './users.admin.service';
-import type { AdminUserListResult } from './users.admin.types';
+import type { AdminUserDetail, AdminUserListResult } from './users.admin.types';
 
 /**
  * Leitura administrativa de usuarios. Separado do `UsersController`, que e o
@@ -28,5 +28,14 @@ export class AdminUsersController {
   @Get()
   list(@Query() query: ListAdminUsersDto): Promise<AdminUserListResult> {
     return this.users.list(query);
+  }
+
+  /**
+   * Detalhe de um aluno, em leitura. Declarado **depois** das rotas de
+   * caminho fixo desta classe: `:id` casaria com qualquer uma delas.
+   */
+  @Get(':id')
+  findOne(@Param('id') id: string): Promise<AdminUserDetail> {
+    return this.users.findOne(id);
   }
 }
