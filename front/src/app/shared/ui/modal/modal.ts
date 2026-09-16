@@ -20,7 +20,9 @@ let modalInstances = 0;
       aria-hidden="true"></div>
 
     <div
-      class="glass animate-scale-in relative z-10 max-h-full w-full max-w-md overflow-y-auto rounded-3xl p-8"
+      class="glass animate-scale-in relative z-10 max-h-full w-full overflow-y-auto rounded-3xl p-8"
+      [class.max-w-md]="size() === 'md'"
+      [class.max-w-2xl]="size() === 'lg'"
       role="dialog"
       aria-modal="true"
       [attr.aria-labelledby]="titleId">
@@ -52,6 +54,12 @@ let modalInstances = 0;
 export class Modal {
   readonly title = input.required<string>();
   readonly description = input('');
+  /**
+   * `md` e a confirmacao de uma frase, que e o uso original. `lg` existe para
+   * o dialogo que **mostra** algo — o detalhe do aluno, com progresso por
+   * modulo e diplomas, nao cabe na largura de um "tem certeza?".
+   */
+  readonly size = input<'md' | 'lg'>('md');
   readonly closed = output<void>();
 
   protected readonly titleId = `ui-modal-title-${modalInstances++}`;
