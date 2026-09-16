@@ -121,7 +121,10 @@
                   <th scope="col" class="p-4 text-right font-bold">Ações</th>
                 </tr>
               </thead>
-              <tbody aria-live="polite">
+              <!-- Sem `aria-live` aqui: anunciar o corpo inteiro a cada tecla
+                   leria vinte linhas em voz alta. Quem anuncia o resultado da
+                   busca e a contagem no rodape, que e uma frase. -->
+              <tbody>
                 @for (student of users.items(); track student.id) {
                   <tr class="border-b border-brand-navy/8 transition-colors hover:bg-brand-teal/5">
                     <td class="p-4">
