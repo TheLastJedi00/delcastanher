@@ -43,13 +43,21 @@ export class UsersService {
    * Registro do usuario logado, criado na hora se ainda nao existir. O upsert
    * e o que faz contas anteriores ao banco (criadas so no Firebase) entrarem
    * na base — com `onboardingCompleted` falso, como qualquer conta nova.
+   *
+   * E tambem o ponto de entrada da plataforma, chamado uma vez pelo
+   * `ensureProfile()` do front: e por isso que o papel e o carimbo de ultimo
+   * acesso sao gravados aqui, e em nenhum outro lugar do caminho autenticado
+   * (Spec 013, decisoes 4 e 5).
    */
   findOrCreate(user: AuthUser): Promise<UserProfile> {
+    // O papel e o e-mail vivem no Firebase; o banco apenas os espelha, e o
+    // espelho converge sozinho quando o claim muda fora do painel.
+    const mirror = { email: user.email, role: user.role, lastSeenAt: new Date() };
+
     return this.prisma.user.upsert({
       where: { id: user.uid },
-      // O e-mail vive no Firebase; o banco apenas o espelha.
-      update: { email: user.email },
-      create: { id: user.uid, email: user.email, name: user.name },
+      update: mirror,
+      create: { id: user.uid, name: user.name, ...mirror },
     });
   }
 

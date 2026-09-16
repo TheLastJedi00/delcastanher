@@ -25,13 +25,50 @@ model User {
   phone               String?
   linkedin            String?
   onboardingCompleted Boolean  @default(false)
+
+  /// **Espelho de leitura** do custom claim `role` do Firebase, que continua
+  /// sendo a fonte da autorizacao: `FirebaseAuthGuard` e `RolesGuard` decidem
+  /// pelo token, e esta coluna nunca e consultada para autorizar. Ela existe
+  /// porque filtrar, ordenar e contar por papel sobre o claim exigiria uma
+  /// chamada ao Admin SDK por linha da listagem (Spec 013, decisao 3).
+  ///
+  /// Escrita em duas portas: `PATCH /admin/users/:id/role`, sempre depois do
+  /// `setCustomUserClaims`, e a propria entrada do usuario, que reconcilia o
+  /// espelho com o claim que veio no token (decisao 4).
+  role                Role     @default(aluno)
+
+  /// Ultima entrada na plataforma, carimbada em `GET /users/me` — e nao a cada
+  /// requisicao autenticada, que poria um UPDATE no caminho quente. A
+  /// granularidade e de sessao, nao de clique (Spec 013, decisao 5). Nulo
+  /// significa "nao acessou desde que a coluna existe", e nao "inativo".
+  lastSeenAt          DateTime?
+
+  /// Preenchido enquanto a conta esta bloqueada; espelha o `disabled` do
+  /// Firebase, que e quem de fato recusa o login. Bloquear nao apaga nada:
+  /// exclusao de conta e o direito de eliminacao da Spec 009, outro fluxo
+  /// (Spec 013, decisao 9).
+  blockedAt           DateTime?
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   progress     LessonProgress[]
   certificates Certificate[]
 
+  // Sustentam o filtro por papel e o KPI de alunos ativos sem varredura.
+  @@index([role])
+  @@index([lastSeenAt])
   @@map("users")
+}
+
+/// Perfis de acesso da plataforma, espelhados de `auth.types.ts`. O enum vive
+/// tambem aqui para que o filtro por papel da listagem administrativa seja uma
+/// coluna tipada, e nao texto livre.
+enum Role {
+  aluno
+  admin
+
+  @@map("role")
 }
 
 /// Curso da plataforma. Hoje existe um unico curso (Spec 008, decisao 5), mas

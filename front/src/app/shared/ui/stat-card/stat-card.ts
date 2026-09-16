@@ -28,6 +28,10 @@ import { GlassCard } from '../glass-card/glass-card';
               {{ trendValue() }}
             </p>
           }
+
+          @if (caption()) {
+            <p class="mt-2 text-xs leading-snug text-slate-500">{{ caption() }}</p>
+          }
         </div>
 
         <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-teal/10 text-brand-teal-deep">
@@ -42,4 +46,12 @@ export class StatCard {
   readonly value = input('');
   readonly trend = input<'up' | 'down' | undefined>(undefined);
   readonly trendValue = input('');
+  /**
+   * Legenda neutra sob o numero, sem seta nem cor de tendencia. Existe porque
+   * um KPI precisa dizer o que mede: "82%" sozinho nao quer dizer nada, e
+   * "concluiram ao menos uma aula nos ultimos 30 dias" quer (Spec 013,
+   * decisao 6). E o `trendValue` nao serve: ele so aparece acoplado a uma seta
+   * de alta ou de baixa, que e outra afirmacao.
+   */
+  readonly caption = input('');
 }

@@ -2,24 +2,39 @@
   <ui-page-container maxWidth="xl">
     @switch (activeTab()) {
       @case ('visao-geral') {
-        <div class="mb-6">
+        <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
           <ui-section-header overline="Painel de controle" title="Visão Geral e Alunos" />
+
+          <ui-button variant="outline" [loading]="exporting()" (click)="exportCsv()">
+            Exportar CSV
+          </ui-button>
         </div>
 
+        <!-- Spec 013, decisao 6: cada numero carrega a definicao que usa. Um
+             percentual sem criterio visivel e enfeite. -->
         <div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-          <ui-stat-card label="Vendas / Faturamento" [value]="kpis.sales" trend="up" trendValue="+12% no mês">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </ui-stat-card>
-
-          <ui-stat-card label="Alunos Ativos" [value]="kpis.activeStudents" trend="up" trendValue="+18 esta semana">
+          <ui-stat-card
+            label="Alunos Matriculados"
+            [value]="kpis() ? kpis()!.totalStudents.toString() : '—'"
+            caption="contas de aluno ativas na plataforma">
             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
           </ui-stat-card>
 
-          <ui-stat-card label="Taxa de Engajamento" [value]="kpis.engagementRate">
+          <ui-stat-card
+            label="Alunos Ativos"
+            [value]="kpis() ? kpis()!.activeStudents.toString() : '—'"
+            [caption]="kpis() ? 'acessaram nos últimos ' + kpis()!.windowDays + ' dias' : ''">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </ui-stat-card>
+
+          <ui-stat-card
+            label="Taxa de Engajamento"
+            [value]="kpis() ? kpis()!.engagementRate + '%' : '—'"
+            [caption]="kpis() ? 'concluíram ao menos uma aula nos últimos ' + kpis()!.windowDays + ' dias' : ''">
             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
@@ -27,60 +42,217 @@
         </div>
 
         <ui-card variant="default" padding="none" [hover]="false">
-          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-brand-navy/8 p-6">
+          <div class="flex flex-wrap items-end justify-between gap-4 border-b border-brand-navy/8 p-6">
             <h3 class="text-lg font-semibold text-brand-navy">Alunos Matriculados</h3>
-            <div class="w-full sm:w-64">
-              <ui-input placeholder="Buscar aluno..." [(value)]="search" />
+
+            <div class="flex w-full flex-wrap items-end gap-3 sm:w-auto">
+              <div>
+                <label for="filtro-papel" class="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">
+                  Papel
+                </label>
+                <select
+                  id="filtro-papel"
+                  [value]="users.query().role ?? ''"
+                  (change)="filterRole($any($event.target).value)"
+                  class="rounded-xl border border-brand-navy/10 bg-white/80 px-3 py-2 text-sm text-slate-800 outline-none transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
+                  <option value="">Todos</option>
+                  <option value="aluno">Alunos</option>
+                  <option value="admin">Administradores</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="filtro-situacao" class="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">
+                  Situação
+                </label>
+                <select
+                  id="filtro-situacao"
+                  [value]="users.query().status ?? ''"
+                  (change)="filterStatus($any($event.target).value)"
+                  class="rounded-xl border border-brand-navy/10 bg-white/80 px-3 py-2 text-sm text-slate-800 outline-none transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
+                  <option value="">Todas</option>
+                  <option value="ativo">Ativas</option>
+                  <option value="bloqueado">Bloqueadas</option>
+                </select>
+              </div>
+
+              <div class="w-full sm:w-56">
+                <ui-input
+                  placeholder="Buscar aluno..."
+                  [value]="search()"
+                  (valueChange)="onSearch($event)" />
+              </div>
             </div>
           </div>
+
+          @if (users.error()) {
+            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-state-danger/20 bg-state-danger/5 p-4">
+              <p class="text-sm text-state-danger">{{ users.error() }}</p>
+              <ui-button variant="outline" (click)="reload()">Tentar de novo</ui-button>
+            </div>
+          }
 
           <div class="overflow-x-auto">
             <table class="w-full border-collapse text-left">
               <thead>
                 <tr class="border-b border-brand-navy/8 bg-brand-surface text-xs uppercase tracking-widest text-slate-500">
-                  <th scope="col" class="p-4 font-bold">Nome e E-mail</th>
-                  <th scope="col" class="p-4 font-bold">Data Matrícula</th>
-                  <th scope="col" class="p-4 text-center font-bold">Módulo Atual</th>
-                  <th scope="col" class="p-4 font-bold">Progresso</th>
+                  <th scope="col" class="p-4 font-bold" [attr.aria-sort]="ariaSort('nome')">
+                    <button type="button" class="inline-flex items-center gap-1 uppercase hover:text-brand-teal-deep" (click)="sortBy('nome')">
+                      Nome e E-mail
+                    </button>
+                  </th>
+                  <th scope="col" class="p-4 font-bold">Papel</th>
+                  <th scope="col" class="p-4 font-bold" [attr.aria-sort]="ariaSort('matricula')">
+                    <button type="button" class="inline-flex items-center gap-1 uppercase hover:text-brand-teal-deep" (click)="sortBy('matricula')">
+                      Matrícula
+                    </button>
+                  </th>
+                  <th scope="col" class="p-4 font-bold" [attr.aria-sort]="ariaSort('acesso')">
+                    <button type="button" class="inline-flex items-center gap-1 uppercase hover:text-brand-teal-deep" (click)="sortBy('acesso')">
+                      Último acesso
+                    </button>
+                  </th>
+                  <th scope="col" class="p-4 text-center font-bold">Posição</th>
+                  <th scope="col" class="p-4 font-bold" [attr.aria-sort]="ariaSort('progresso')">
+                    <button type="button" class="inline-flex items-center gap-1 uppercase hover:text-brand-teal-deep" (click)="sortBy('progresso')">
+                      Progresso
+                    </button>
+                  </th>
+                  <th scope="col" class="p-4 text-right font-bold">Ações</th>
                 </tr>
               </thead>
+              <!-- Sem `aria-live` aqui: anunciar o corpo inteiro a cada tecla
+                   leria vinte linhas em voz alta. Quem anuncia o resultado da
+                   busca e a contagem no rodape, que e uma frase. -->
               <tbody>
-                @for (student of filteredStudents(); track student.id) {
+                @for (student of users.items(); track student.id) {
                   <tr class="border-b border-brand-navy/8 transition-colors hover:bg-brand-teal/5">
                     <td class="p-4">
                       <div class="flex items-center gap-3">
                         <ui-avatar [initials]="student.initials" size="sm" />
                         <div class="min-w-0">
-                          <p class="font-bold text-brand-navy">{{ student.name }}</p>
+                          <p class="font-bold text-brand-navy">{{ student.name ?? student.email }}</p>
                           <p class="text-xs text-slate-500">{{ student.email }}</p>
+                          @if (!student.onboardingCompleted) {
+                            <span class="mt-1 inline-block text-[11px] font-bold uppercase tracking-wider text-state-warning">
+                              Onboarding pendente
+                            </span>
+                          }
                         </div>
                       </div>
                     </td>
-                    <td class="p-4 text-sm text-slate-600">{{ student.enrollmentDate }}</td>
+                    <td class="p-4">
+                      <div class="flex flex-wrap gap-1">
+                        <ui-badge
+                          [variant]="student.role === 'admin' ? 'navy' : 'teal'"
+                          [label]="student.role === 'admin' ? 'Admin' : 'Aluno'" />
+                        @if (student.blocked) {
+                          <ui-badge variant="danger" label="Bloqueado" />
+                        }
+                      </div>
+                    </td>
+                    <td class="p-4 text-sm text-slate-600">{{ formatDate(student.createdAt) }}</td>
+                    <td class="p-4 text-sm text-slate-600">{{ formatDate(student.lastSeenAt) }}</td>
                     <td class="p-4 text-center text-sm font-bold text-brand-teal-deep">
-                      {{ student.currentModule }} / 12
+                      {{ progressLabel(student) }}
                     </td>
                     <td class="p-4">
-                      <div class="max-w-[200px]">
+                      <div class="max-w-[180px]">
                         <ui-progress-bar
-                          [value]="student.progress"
+                          [value]="student.percentage"
                           variant="gradient"
                           [showLabel]="true"
-                          [label]="'Progresso de ' + student.name" />
+                          [label]="'Progresso de ' + (student.name ?? student.email)" />
+                        <p class="mt-1 text-xs text-slate-500">
+                          {{ student.completedLessons }} de {{ student.totalLessons }} aulas
+                        </p>
+                      </div>
+                    </td>
+                    <td class="p-4">
+                      <div class="flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          (click)="openDetail(student, $event)"
+                          [attr.aria-label]="'Ver detalhe de ' + (student.name ?? student.email)"
+                          class="rounded-lg px-3 py-1.5 text-xs font-bold text-brand-teal-deep transition-colors hover:bg-brand-teal/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal">
+                          Detalhe
+                        </button>
+
+                        <button
+                          type="button"
+                          (click)="askRole(student)"
+                          [disabled]="isSelf(student)"
+                          [attr.aria-label]="
+                            (student.role === 'admin' ? 'Rebaixar ' : 'Promover ') +
+                            (student.name ?? student.email)
+                          "
+                          [attr.title]="isSelf(student) ? 'Você não pode mudar o próprio papel.' : null"
+                          class="rounded-lg px-3 py-1.5 text-xs font-bold text-brand-navy transition-colors hover:bg-brand-navy/5 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal">
+                          {{ student.role === 'admin' ? 'Rebaixar' : 'Promover' }}
+                        </button>
+
+                        <button
+                          type="button"
+                          (click)="askBlock(student)"
+                          [disabled]="isSelf(student)"
+                          [attr.aria-label]="
+                            (student.blocked ? 'Desbloquear ' : 'Bloquear ') +
+                            (student.name ?? student.email)
+                          "
+                          [attr.title]="isSelf(student) ? 'Você não pode bloquear a própria conta.' : null"
+                          class="rounded-lg px-3 py-1.5 text-xs font-bold text-state-danger transition-colors hover:bg-state-danger/10 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal">
+                          {{ student.blocked ? 'Desbloquear' : 'Bloquear' }}
+                        </button>
                       </div>
                     </td>
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="4" class="p-8 text-center text-sm text-slate-500">
-                      Nenhum aluno encontrado para "{{ search() }}".
+                    <td colspan="7" class="p-8 text-center text-sm text-slate-500">
+                      @if (users.loading()) {
+                        Carregando alunos...
+                      } @else {
+                        Nenhum aluno encontrado para os filtros atuais.
+                      }
                     </td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 border-t border-brand-navy/8 p-4">
+            <p class="text-xs text-slate-500" aria-live="polite">
+              @if (range().total > 0) {
+                {{ range().first }} a {{ range().last }} de {{ range().total }}
+              } @else {
+                Nenhum resultado
+              }
+            </p>
+
+            <div class="flex items-center gap-2">
+              <ui-button
+                variant="outline"
+                [disabled]="users.query().page <= 1"
+                (click)="goToPage(users.query().page - 1)">
+                Anterior
+              </ui-button>
+              <span class="text-xs font-bold text-slate-500">
+                {{ users.query().page }} / {{ users.totalPages() }}
+              </span>
+              <ui-button
+                variant="outline"
+                [disabled]="users.query().page >= users.totalPages()"
+                (click)="goToPage(users.query().page + 1)">
+                Próxima
+              </ui-button>
+            </div>
+          </div>
         </ui-card>
+
+        @if (actionError()) {
+          <p class="mt-4 text-sm text-state-danger" role="alert">{{ actionError() }}</p>
+        }
       }
 
       @case ('aulas') {
@@ -90,6 +262,17 @@
       @case ('comunicacao') {
         <div class="mb-6">
           <ui-section-header overline="Comunicação" title="Disparo de E-mails" />
+        </div>
+
+        <!-- Spec 013: a Visão Geral passou a ler o banco, e esta aba nao. Sem
+             o aviso, ela pareceria funcional ao lado de uma tela que virou
+             real, e alguem clicaria em "Disparar" esperando envio. -->
+        <div class="mb-6 rounded-2xl border border-state-warning/30 bg-state-warning/5 p-4">
+          <p class="text-sm font-bold text-state-warning">Área em construção</p>
+          <p class="mt-1 text-sm text-slate-600">
+            Esta tela é uma maquete: nenhum e-mail é enviado e nada é salvo. O envio real depende de
+            um provedor de e-mail e de tratamento de descadastro, que são de outra entrega.
+          </p>
         </div>
 
         <ui-card variant="default" padding="lg" [hover]="false">
@@ -120,8 +303,8 @@
           </div>
 
           <div class="flex flex-wrap justify-end gap-3">
-            <ui-button variant="outline">Enviar Teste</ui-button>
-            <ui-button variant="primary">Disparar Campanha</ui-button>
+            <ui-button variant="outline" [disabled]="true">Enviar Teste</ui-button>
+            <ui-button variant="primary" [disabled]="true">Disparar Campanha</ui-button>
           </div>
         </ui-card>
       }
@@ -129,6 +312,14 @@
       @case ('termos') {
         <div class="mb-6">
           <ui-section-header overline="Jurídico" title="Políticas e Termos de Uso" />
+        </div>
+
+        <div class="mb-6 rounded-2xl border border-state-warning/30 bg-state-warning/5 p-4">
+          <p class="text-sm font-bold text-state-warning">Área em construção</p>
+          <p class="mt-1 text-sm text-slate-600">
+            Esta tela é uma maquete: o conteúdo digitado aqui não é salvo e não altera as páginas
+            públicas de Termos e Privacidade.
+          </p>
         </div>
 
         <ui-card variant="default" padding="lg" [hover]="false">
@@ -165,13 +356,157 @@
 
           <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-              <ui-badge variant="success" label="Publicado" />
-              <span class="text-xs text-slate-500">Última atualização: 31/08/2026</span>
+              <ui-badge variant="warning" label="Maquete" />
             </div>
-            <ui-button variant="secondary">Atualizar Documento</ui-button>
+            <ui-button variant="secondary" [disabled]="true">Atualizar Documento</ui-button>
           </div>
         </ui-card>
       }
     }
   </ui-page-container>
 </app-admin-layout>
+
+<!-- Detalhe do aluno: leitura, sem formulario (Spec 013, decisao 11). -->
+@if (detail() || detailLoading() || detailError()) {
+  <ui-modal
+    size="lg"
+    [title]="detail()?.name ?? detail()?.email ?? 'Detalhe do aluno'"
+    [description]="detail()?.email ?? ''"
+    (closed)="closeDetail()">
+    @if (detailLoading()) {
+      <p class="text-sm text-slate-500">Carregando...</p>
+    } @else if (detailError()) {
+      <p class="text-sm text-state-danger" role="alert">{{ detailError() }}</p>
+    } @else if (detail(); as aluno) {
+      <dl class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <dt class="text-xs font-bold uppercase tracking-widest text-slate-500">Papel</dt>
+          <dd class="mt-1 text-sm text-slate-800">{{ aluno.role === 'admin' ? 'Administrador' : 'Aluno' }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-bold uppercase tracking-widest text-slate-500">Situação</dt>
+          <dd class="mt-1 text-sm text-slate-800">{{ aluno.blocked ? 'Bloqueado' : 'Ativo' }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-bold uppercase tracking-widest text-slate-500">Matrícula</dt>
+          <dd class="mt-1 text-sm text-slate-800">{{ formatDate(aluno.createdAt) }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-bold uppercase tracking-widest text-slate-500">Último acesso</dt>
+          <dd class="mt-1 text-sm text-slate-800">{{ formatDate(aluno.lastSeenAt) }}</dd>
+        </div>
+        @if (aluno.phone) {
+          <div>
+            <dt class="text-xs font-bold uppercase tracking-widest text-slate-500">Telefone</dt>
+            <dd class="mt-1 text-sm text-slate-800">{{ aluno.phone }}</dd>
+          </div>
+        }
+        @if (aluno.linkedin) {
+          <div class="min-w-0">
+            <dt class="text-xs font-bold uppercase tracking-widest text-slate-500">LinkedIn</dt>
+            <dd class="mt-1 truncate text-sm">
+              <a [href]="aluno.linkedin" target="_blank" rel="noopener" class="text-brand-teal-deep underline">
+                {{ aluno.linkedin }}
+              </a>
+            </dd>
+          </div>
+        }
+      </dl>
+
+      @if (aluno.bio) {
+        <div class="mb-6">
+          <h3 class="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Bio</h3>
+          <p class="text-sm text-slate-700">{{ aluno.bio }}</p>
+        </div>
+      }
+
+      <div class="mb-6">
+        <h3 class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+          Progresso — {{ aluno.completedLessons }} de {{ aluno.totalLessons }} aulas ({{ aluno.percentage }}%)
+        </h3>
+        <ul class="space-y-2">
+          @for (modulo of aluno.modules; track modulo.id) {
+            <li class="flex items-center justify-between gap-3 rounded-xl bg-brand-surface px-3 py-2">
+              <span class="min-w-0 truncate text-sm text-slate-700">
+                {{ modulo.order }}. {{ modulo.title }}
+              </span>
+              <span class="shrink-0 text-xs font-bold" [class.text-state-success]="modulo.completed" [class.text-slate-500]="!modulo.completed">
+                {{ modulo.completedCount }} / {{ modulo.totalCount }}
+              </span>
+            </li>
+          } @empty {
+            <li class="text-sm text-slate-500">Nenhum módulo publicado.</li>
+          }
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Diplomas emitidos</h3>
+        <ul class="space-y-2">
+          @for (diploma of aluno.certificates; track diploma.id) {
+            <li class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-surface px-3 py-2">
+              <span class="text-sm text-slate-700">
+                {{ diploma.scope === 'curso' ? 'Curso completo' : diploma.moduleTitle }}
+                <span class="ml-2 font-mono text-xs text-slate-500">{{ diploma.code }}</span>
+              </span>
+              <ui-badge
+                [variant]="diploma.status === 'ACTIVE' ? 'success' : 'danger'"
+                [label]="diploma.status === 'ACTIVE' ? 'Ativo' : 'Revogado'" />
+            </li>
+          } @empty {
+            <li class="text-sm text-slate-500">Nenhum diploma emitido.</li>
+          }
+        </ul>
+      </div>
+    }
+  </ui-modal>
+}
+
+<!-- Confirmacao das duas acoes de escrita. Cada uma diz o efeito, e a de
+     bloqueio diz tambem o que **nao** acontece (decisoes 9 e 10). -->
+@if (pending(); as acao) {
+  <ui-modal
+    [title]="
+      acao.kind === 'role'
+        ? (acao.role === 'admin' ? 'Promover a administrador' : 'Rebaixar a aluno')
+        : (acao.blocked ? 'Bloquear acesso' : 'Desbloquear acesso')
+    "
+    [description]="acao.user.name ?? acao.user.email"
+    (closed)="cancelAction()">
+    @if (acao.kind === 'role') {
+      <p class="text-sm text-slate-700">
+        @if (acao.role === 'admin') {
+          Esta pessoa passa a ter acesso ao painel administrativo, incluindo o cadastro de todos os
+          alunos e a gestão de aulas.
+        } @else {
+          Esta pessoa perde o acesso ao painel administrativo e volta a ver apenas a própria trilha.
+        }
+      </p>
+      <p class="mt-2 text-xs text-slate-500">
+        A mudança só vale para ela no próximo login: o token atual mantém o papel antigo até expirar.
+      </p>
+    } @else {
+      <p class="text-sm text-slate-700">
+        @if (acao.blocked) {
+          Esta pessoa deixa de conseguir entrar na plataforma.
+        } @else {
+          Esta pessoa volta a conseguir entrar na plataforma.
+        }
+      </p>
+      <p class="mt-2 text-xs text-slate-500">
+        Nada é apagado: o progresso, os certificados emitidos e o perfil continuam no lugar.
+      </p>
+    }
+
+    @if (actionError()) {
+      <p class="mt-4 text-sm text-state-danger" role="alert">{{ actionError() }}</p>
+    }
+
+    <div class="mt-6 flex flex-wrap justify-end gap-3">
+      <ui-button variant="outline" (click)="cancelAction()">Cancelar</ui-button>
+      <ui-button variant="primary" [loading]="actionRunning()" (click)="confirmAction()">
+        Confirmar
+      </ui-button>
+    </div>
+  </ui-modal>
+}
