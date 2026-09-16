@@ -44,6 +44,11 @@ interface UserRow {
   lastSeenAt: Date | null;
 }
 
+/** Usuario na exportacao: a listagem mais o telefone, que e operacional. */
+interface ExportRow extends UserRow {
+  phone: string | null;
+}
+
 /** Usuario no detalhe: a linha inteira, inclusive o que so aparece la. */
 interface DetailRow extends UserRow {
   bio: string | null;
@@ -102,6 +107,54 @@ function initialsOf(name: string | null, email: string): string {
   const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
 
   return `${first}${last}`.toUpperCase();
+}
+
+/**
+ * Ponto e virgula, e nao virgula: o Excel em pt-BR usa o separador de lista do
+ * sistema, e com virgula a planilha inteira cai em uma coluna so. O arquivo e
+ * para ser aberto, nao para satisfazer o RFC.
+ */
+const CSV_SEPARATOR = ';';
+
+/** Colunas operacionais da planilha (decisao 13). Bio e LinkedIn ficam fora. */
+const CSV_HEADER = [
+  'Nome',
+  'E-mail',
+  'Telefone',
+  'Papel',
+  'Situacao',
+  'Matricula',
+  'Ultimo acesso',
+  'Aulas concluidas',
+  'Total de aulas',
+  'Progresso (%)',
+];
+
+/** Usuario como a exportacao o le: a listagem mais o telefone. */
+const EXPORT_SELECT = { ...LIST_SELECT, phone: true } as const;
+
+/**
+ * Um campo de CSV. Separador, aspas e quebra de linha obrigam a citar: um nome
+ * com ponto e virgula partiria a linha em duas colunas.
+ */
+function csvField(value: string): string {
+  if (!/[;"\n\r]/.test(value)) {
+    return value;
+  }
+
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+/** Data no formato da tela; vazio para o nulo, que e ausencia de acesso. */
+function csvDate(value: Date | null): string {
+  if (!value) {
+    return '';
+  }
+
+  const day = String(value.getUTCDate()).padStart(2, '0');
+  const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+
+  return `${day}/${month}/${value.getUTCFullYear()}`;
 }
 
 /** Instante a partir do qual um acesso ou uma conclusao contam como recentes. */
@@ -252,6 +305,49 @@ export class AdminUsersService {
         issuedAt: certificate.issuedAt,
       })),
     };
+  }
+
+  /**
+   * A lista inteira do filtro corrente, em CSV. Sem paginacao e sem KPIs: a
+   * planilha nao carrega o topo do painel, e montar o arquivo no cliente
+   * exigiria varrer todas as paginas com N requisicoes (decisao 13).
+   */
+  async exportCsv(query: ListAdminUsersDto): Promise<string> {
+    const [modules, rows] = await Promise.all([
+      this.courseModules(),
+      this.prisma.user.findMany({
+        where: this.whereOf(query),
+        select: EXPORT_SELECT,
+        orderBy: this.orderByOf(query),
+      }) as Promise<ExportRow[]>,
+    ]);
+
+    const completions = await this.completionsOf(rows.map((row) => row.id));
+    const lessons = flatLessons(modules);
+
+    const lines = rows.map((row) => {
+      const item = this.toItem(row, lessons, completions.get(row.id));
+
+      return [
+        // Sem nome, o e-mail e o que a tela mostra na coluna — e a planilha
+        // nao pode ter uma primeira coluna vazia (decisao 15).
+        item.name ?? item.email,
+        item.email,
+        row.phone ?? '',
+        item.role,
+        item.blocked ? 'Bloqueado' : 'Ativo',
+        csvDate(item.createdAt),
+        csvDate(item.lastSeenAt),
+        String(item.completedLessons),
+        String(item.totalLessons),
+        String(item.percentage),
+      ]
+        .map(csvField)
+        .join(CSV_SEPARATOR);
+    });
+
+    // BOM de UTF-8: sem ele o Excel em pt-BR abre "Joao" no lugar de "João".
+    return `﻿${[CSV_HEADER.join(CSV_SEPARATOR), ...lines].join('\n')}\n`;
   }
 
   /**

@@ -22,15 +22,15 @@ Ordem das fases: as colunas novas (`role`, `lastSeenAt`, `blockedAt`) vêm prime
 - [x] **Task 2.8:** Escrever `users.admin.http.spec.ts` cobrindo admin autorizado, papel `aluno` recebendo 403, requisição sem token recebendo 401 e query inválida recebendo 400.
 
 ## Fase 3: Backend - Detalhe, Papel, Bloqueio e Exportação (TDD)
-- [ ] **Task 3.1:** Escrever a suíte do detalhe: perfil, aulas concluídas agrupadas por módulo, certificados com código, escopo e status, primeiro e último acesso, e id inexistente devolvendo 404 — sem nenhum campo editável na resposta (decisões 11 e 12).
-- [ ] **Task 3.2:** Implementar `GET /admin/users/:id`, reaproveitando o critério de conclusão do `ProgressService` em vez de recalcular o percentual por conta própria.
-- [ ] **Task 3.3:** Escrever a suíte da mudança de papel: `setCustomUserClaims` chamado antes da gravação, falha do Firebase **não** gravando a coluna, papel igual ao atual sendo no-op idempotente e admin alvejando o próprio `uid` recebendo 409 (decisões 4 e 10).
-- [ ] **Task 3.4:** Implementar `PATCH /admin/users/:id/role` com o `UpdateUserRoleDto`, na ordem Firebase → Postgres.
-- [ ] **Task 3.5:** Escrever a suíte do bloqueio: `updateUser({ disabled })` e `revokeRefreshTokens` chamados, `blockedAt` gravado no bloqueio e limpo no desbloqueio, nenhum dado de progresso ou certificado tocado, e admin bloqueando a si mesmo recebendo 409 (decisões 9 e 10).
-- [ ] **Task 3.6:** Implementar `PATCH /admin/users/:id/status` com o `UpdateUserStatusDto`.
-- [ ] **Task 3.7:** Escrever a suíte da exportação: mesmas linhas da listagem para o mesmo filtro porém sem paginação, cabeçalho e colunas da decisão 13, `bio` e `linkedin` **ausentes** do arquivo, e escape de vírgula, aspas e quebra de linha dentro dos campos.
-- [ ] **Task 3.8:** Implementar `GET /admin/users/export` devolvendo `text/csv` com `Content-Disposition` de anexo e nome de arquivo datado.
-- [ ] **Task 3.9:** Rodar `npm test` no `api/` e corrigir regressões.
+- [x] **Task 3.1:** Escrever a suíte do detalhe: perfil, aulas concluídas agrupadas por módulo, certificados com código, escopo e status, primeiro e último acesso, e id inexistente devolvendo 404 — sem nenhum campo editável na resposta (decisões 11 e 12).
+- [x] **Task 3.2:** Implementar `GET /admin/users/:id`, reaproveitando o critério de conclusão do `ProgressService` em vez de recalcular o percentual por conta própria.
+- [x] **Task 3.3:** Escrever a suíte da mudança de papel: `setCustomUserClaims` chamado antes da gravação, falha do Firebase **não** gravando a coluna, papel igual ao atual sendo no-op idempotente e admin alvejando o próprio `uid` recebendo 409 (decisões 4 e 10).
+- [x] **Task 3.4:** Implementar `PATCH /admin/users/:id/role` com o `UpdateUserRoleDto`, na ordem Firebase → Postgres.
+- [x] **Task 3.5:** Escrever a suíte do bloqueio: `updateUser({ disabled })` e `revokeRefreshTokens` chamados, `blockedAt` gravado no bloqueio e limpo no desbloqueio, nenhum dado de progresso ou certificado tocado, e admin bloqueando a si mesmo recebendo 409 (decisões 9 e 10).
+- [x] **Task 3.6:** Implementar `PATCH /admin/users/:id/status` com o `UpdateUserStatusDto`.
+- [x] **Task 3.7:** Escrever a suíte da exportação: mesmas linhas da listagem para o mesmo filtro porém sem paginação, cabeçalho e colunas da decisão 13, `bio` e `linkedin` **ausentes** do arquivo, e escape de vírgula, aspas e quebra de linha dentro dos campos.
+- [x] **Task 3.8:** Implementar `GET /admin/users/export` devolvendo `text/csv` com `Content-Disposition` de anexo e nome de arquivo datado.
+- [x] **Task 3.9:** Rodar `npm test` no `api/` e corrigir regressões.
 
 ## Fase 4: Front - Serviço e Listagem Real
 - [ ] **Task 4.1:** Criar `core/services/admin-users.service.ts` no padrão de signals do `admin-content.service.ts`: estado da consulta (página, busca, filtros, ordenação), carregamento, erro e o resultado com `items` e `kpis`, mais os métodos de detalhe, papel, situação e download do CSV.

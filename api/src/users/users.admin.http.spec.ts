@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConflictException, INestApplication, NotFoundException, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -191,5 +191,184 @@ describe('Admin — usuarios (HTTP)', () => {
     app = await buildApp({ list: jest.fn() });
 
     await request(app.getHttpServer()).get('/admin/users?ordem=nome').expect(400);
+  });
+
+  describe('detalhe', () => {
+    it('GET devolve o detalhe do aluno', async () => {
+      const findOne = jest.fn().mockResolvedValue({ id: 'uid-ana', name: 'Ana Silva' });
+      app = await buildApp({ findOne });
+
+      const response = await request(app.getHttpServer())
+        .get('/admin/users/uid-ana')
+        .expect(200);
+
+      expect(findOne).toHaveBeenCalledWith('uid-ana');
+      expect(response.body).toMatchObject({ id: 'uid-ana' });
+    });
+
+    it('propaga o 404 de id inexistente', async () => {
+      const findOne = jest.fn().mockRejectedValue(new NotFoundException('nao encontrado'));
+      app = await buildApp({ findOne });
+
+      await request(app.getHttpServer()).get('/admin/users/uid-fantasma').expect(404);
+    });
+
+    it('recusa o papel aluno com 403', async () => {
+      const findOne = jest.fn();
+      app = await buildApp({ findOne }, 'aluno');
+
+      await request(app.getHttpServer()).get('/admin/users/uid-ana').expect(403);
+
+      expect(findOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('papel', () => {
+    it('PATCH troca o papel e responde 204', async () => {
+      const setRole = jest.fn().mockResolvedValue(undefined);
+      app = await buildApp({ setRole });
+
+      await request(app.getHttpServer())
+        .patch('/admin/users/uid-ana/role')
+        .send({ role: 'admin' })
+        .expect(204);
+
+      expect(setRole).toHaveBeenCalledWith(
+        expect.objectContaining({ uid: 'uid-admin' }),
+        'uid-ana',
+        'admin',
+      );
+    });
+
+    it('recusa papel fora do conjunto com 400', async () => {
+      const setRole = jest.fn();
+      app = await buildApp({ setRole });
+
+      await request(app.getHttpServer())
+        .patch('/admin/users/uid-ana/role')
+        .send({ role: 'root' })
+        .expect(400);
+
+      expect(setRole).not.toHaveBeenCalled();
+    });
+
+    // Spec 013, decisao 10: a UI antecipa o motivo, mas a regra e do servidor.
+    it('propaga o 409 de mudar o proprio papel', async () => {
+      const setRole = jest.fn().mockRejectedValue(new ConflictException('proprio papel'));
+      app = await buildApp({ setRole });
+
+      await request(app.getHttpServer())
+        .patch('/admin/users/uid-admin/role')
+        .send({ role: 'aluno' })
+        .expect(409);
+    });
+
+    it('recusa o papel aluno com 403', async () => {
+      const setRole = jest.fn();
+      app = await buildApp({ setRole }, 'aluno');
+
+      await request(app.getHttpServer())
+        .patch('/admin/users/uid-ana/role')
+        .send({ role: 'admin' })
+        .expect(403);
+
+      expect(setRole).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('situacao', () => {
+    it('PATCH bloqueia e responde 204', async () => {
+      const setBlocked = jest.fn().mockResolvedValue(undefined);
+      app = await buildApp({ setBlocked });
+
+      await request(app.getHttpServer())
+        .patch('/admin/users/uid-ana/status')
+        .send({ blocked: true })
+        .expect(204);
+
+      expect(setBlocked).toHaveBeenCalledWith(
+        expect.objectContaining({ uid: 'uid-admin' }),
+        'uid-ana',
+        true,
+      );
+    });
+
+    it('recusa corpo sem o booleano com 400', async () => {
+      const setBlocked = jest.fn();
+      app = await buildApp({ setBlocked });
+
+      await request(app.getHttpServer())
+        .patch('/admin/users/uid-ana/status')
+        .send({})
+        .expect(400);
+
+      expect(setBlocked).not.toHaveBeenCalled();
+    });
+
+    it('recusa o papel aluno com 403', async () => {
+      const setBlocked = jest.fn();
+      app = await buildApp({ setBlocked }, 'aluno');
+
+      await request(app.getHttpServer())
+        .patch('/admin/users/uid-ana/status')
+        .send({ blocked: true })
+        .expect(403);
+
+      expect(setBlocked).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('exportacao', () => {
+    const CSV = '﻿Nome;E-mail\nAna Silva;ana@empresa.com\n';
+
+    // A rota precisa ser casada antes de `:id`, senao "export" vira o id de um
+    // usuario e a resposta e um 404.
+    it('GET export devolve o CSV, e nao cai na rota de detalhe', async () => {
+      const exportCsv = jest.fn().mockResolvedValue(CSV);
+      const findOne = jest.fn();
+      app = await buildApp({ exportCsv, findOne });
+
+      const response = await request(app.getHttpServer())
+        .get('/admin/users/export')
+        .expect(200);
+
+      expect(findOne).not.toHaveBeenCalled();
+      expect(response.text).toContain('Ana Silva;ana@empresa.com');
+    });
+
+    it('devolve o arquivo como anexo datado', async () => {
+      app = await buildApp({ exportCsv: jest.fn().mockResolvedValue(CSV) });
+
+      const response = await request(app.getHttpServer())
+        .get('/admin/users/export')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('text/csv');
+      expect(response.headers['content-disposition']).toMatch(
+        /attachment; filename="alunos-\d{4}-\d{2}-\d{2}\.csv"/,
+      );
+    });
+
+    it('repassa o filtro corrente da tela', async () => {
+      const exportCsv = jest.fn().mockResolvedValue(CSV);
+      app = await buildApp({ exportCsv });
+
+      await request(app.getHttpServer())
+        .get('/admin/users/export?search=ana&status=bloqueado')
+        .expect(200);
+
+      expect(exportCsv).toHaveBeenCalledWith(
+        expect.objectContaining({ search: 'ana', status: 'bloqueado' }),
+      );
+    });
+
+    it('recusa o papel aluno com 403', async () => {
+      const exportCsv = jest.fn();
+      app = await buildApp({ exportCsv }, 'aluno');
+
+      await request(app.getHttpServer()).get('/admin/users/export').expect(403);
+
+      expect(exportCsv).not.toHaveBeenCalled();
+    });
   });
 });
