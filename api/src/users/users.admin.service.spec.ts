@@ -1,3 +1,4 @@
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseService } from '../firebase/firebase.service';
@@ -56,6 +57,14 @@ const CARLOS = {
   lastSeenAt: null,
 };
 
+/** Ana no detalhe: os campos do onboarding entram, e so aqui (decisao 11). */
+const PERFIL = {
+  ...ANA,
+  bio: 'Analista de RH ha 8 anos.',
+  phone: '(11) 90000-0000',
+  linkedin: 'https://linkedin.com/in/ana',
+};
+
 /** Consulta padrao da tela: primeira pagina, sem filtro, ordenada por nome. */
 const QUERY: ListAdminUsersDto = {
   page: 1,
@@ -73,12 +82,21 @@ interface Fake {
   /** Quantidades devolvidas pelos `count` dos KPIs, na ordem matriculados/ativos. */
   counts?: [number, number];
   engaged?: { userId: string }[];
+  /** Usuario devolvido pelo `findUnique` do detalhe; `null` e o 404. */
+  detail?: unknown;
+  certificates?: unknown[];
+  /** Claims que o Firebase devolve para o alvo da acao administrativa. */
+  claims?: Record<string, unknown>;
 }
 
 async function build(fake: Fake = {}) {
   const findMany = jest.fn().mockResolvedValue(fake.users ?? [ANA]);
   const progressFindMany = jest.fn().mockResolvedValue(fake.progress ?? []);
   const groupBy = jest.fn().mockResolvedValue(fake.engaged ?? []);
+  const findUnique = jest
+    .fn()
+    .mockResolvedValue(fake.detail === undefined ? PERFIL : fake.detail);
+  const certificateFindMany = jest.fn().mockResolvedValue(fake.certificates ?? []);
   const [students, active] = fake.counts ?? [1, 1];
 
   // Tres `count` com `where` diferentes: o total do filtro corrente da tela e
@@ -90,22 +108,55 @@ async function build(fake: Fake = {}) {
     return Promise.resolve(fake.total ?? (fake.users ?? [ANA]).length);
   });
 
+  const update = jest.fn().mockResolvedValue(PERFIL);
+
   const prisma = {
     course: { findUnique: jest.fn().mockResolvedValue(fake.course ?? COURSE) },
-    user: { findMany, count },
+    user: { findMany, count, findUnique, update },
     lessonProgress: { findMany: progressFindMany, groupBy },
+    certificate: { findMany: certificateFindMany },
+  };
+
+  // O Admin SDK, na superficie que a administracao usa: ler as claims para
+  // preserva-las, escrever o papel, desabilitar a conta e revogar a sessao.
+  const auth = {
+    getUser: jest.fn().mockResolvedValue({
+      uid: ANA.id,
+      customClaims: fake.claims ?? { role: 'aluno' },
+    }),
+    setCustomUserClaims: jest.fn().mockResolvedValue(undefined),
+    updateUser: jest.fn().mockResolvedValue(undefined),
+    revokeRefreshTokens: jest.fn().mockResolvedValue(undefined),
   };
 
   const moduleRef = await Test.createTestingModule({
     providers: [
       AdminUsersService,
       { provide: PrismaService, useValue: prisma },
-      { provide: FirebaseService, useValue: { auth: {} } },
+      { provide: FirebaseService, useValue: { auth } },
     ],
   }).compile();
 
-  return { service: moduleRef.get(AdminUsersService), findMany, count, progressFindMany, groupBy };
+  return {
+    service: moduleRef.get(AdminUsersService),
+    findMany,
+    count,
+    progressFindMany,
+    groupBy,
+    findUnique,
+    certificateFindMany,
+    update,
+    auth,
+  };
 }
+
+/** O administrador logado que executa a acao. */
+const ADMIN = {
+  uid: 'uid-admin',
+  email: 'admin@delcastanher.com',
+  name: 'Admin',
+  role: 'admin' as const,
+};
 
 describe('AdminUsersService', () => {
   describe('list', () => {
@@ -470,6 +521,447 @@ describe('AdminUsersService', () => {
       }
 
       expect(kpis.totalStudents).toBe(10);
+    });
+  });
+
+  /**
+   * Spec 013, decisao 11: o detalhe e leitura. Nao ha formulario — o
+   * onboarding e declaracao do proprio aluno, e um administrador reescrevendo
+   * bio e telefone de outra pessoa abriria um caminho de alteracao de dado
+   * pessoal sem rastro.
+   */
+  describe('findOne', () => {
+    const CERTIFICADO_CURSO = {
+      id: 'cert-1',
+      code: 'IRH-2026-ABCD',
+      moduleId: null,
+      module: null,
+      status: 'ACTIVE',
+      issuedAt: new Date('2026-09-10T12:00:00Z'),
+    };
+
+    const CERTIFICADO_MODULO = {
+      id: 'cert-2',
+      code: 'IRH-2026-EFGH',
+      moduleId: 'm1',
+      module: { title: 'Fundamentos' },
+      status: 'REVOKED',
+      issuedAt: new Date('2026-09-01T12:00:00Z'),
+    };
+
+    it('devolve o perfil do onboarding, que a listagem nao carrega', async () => {
+      const { service } = await build();
+
+      const detail = await service.findOne(ANA.id);
+
+      expect(detail).toMatchObject({
+        id: ANA.id,
+        name: 'Ana Silva',
+        email: 'ana@empresa.com',
+        initials: 'AS',
+        bio: 'Analista de RH ha 8 anos.',
+        phone: '(11) 90000-0000',
+        linkedin: 'https://linkedin.com/in/ana',
+      });
+    });
+
+    it('devolve as duas datas de acesso', async () => {
+      const { service } = await build();
+
+      const detail = await service.findOne(ANA.id);
+
+      expect(detail.createdAt).toEqual(ANA.createdAt);
+      expect(detail.lastSeenAt).toEqual(ANA.lastSeenAt);
+    });
+
+    it('recusa id inexistente com 404', async () => {
+      const { service } = await build({ detail: null });
+
+      await expect(service.findOne('uid-fantasma')).rejects.toThrow(NotFoundException);
+    });
+
+    it('agrupa as aulas por modulo, com o que falta em cada um', async () => {
+      const { service } = await build({
+        progress: [{ userId: ANA.id, lessonId: 'l1' }],
+      });
+
+      const { modules } = await service.findOne(ANA.id);
+
+      expect(modules).toHaveLength(2);
+      expect(modules[0]).toMatchObject({
+        order: 1,
+        title: 'Fundamentos',
+        completedCount: 1,
+        totalCount: 2,
+        completed: false,
+      });
+      expect(modules[0].lessons.map((lesson) => lesson.completed)).toEqual([true, false]);
+    });
+
+    // Mesmo criterio do `ProgressService`, da mesma funcao pura: modulo
+    // concluido e "todas as aulas dele concluidas" (Spec 012, decisao 5).
+    it('marca o modulo como concluido so com todas as aulas dele concluidas', async () => {
+      const { service } = await build({
+        progress: [
+          { userId: ANA.id, lessonId: 'l1' },
+          { userId: ANA.id, lessonId: 'l2' },
+          { userId: ANA.id, lessonId: 'l3' },
+        ],
+      });
+
+      const { modules, percentage, courseCompleted } = await service.findOne(ANA.id);
+
+      expect(modules[0].completed).toBe(true);
+      expect(modules[1].completed).toBe(false);
+      expect(percentage).toBe(75);
+      expect(courseCompleted).toBe(false);
+    });
+
+    it('consulta o progresso somente do aluno pedido', async () => {
+      const { service, progressFindMany } = await build();
+
+      await service.findOne(ANA.id);
+
+      expect(progressFindMany.mock.calls[0][0].where.userId).toBe(ANA.id);
+    });
+
+    it('classifica o diploma sem modulo como diploma de curso', async () => {
+      const { service } = await build({ certificates: [CERTIFICADO_CURSO] });
+
+      const [certificate] = (await service.findOne(ANA.id)).certificates;
+
+      expect(certificate).toMatchObject({
+        code: 'IRH-2026-ABCD',
+        scope: 'curso',
+        moduleTitle: null,
+        status: 'ACTIVE',
+      });
+    });
+
+    it('classifica o diploma com modulo pelo titulo dele, inclusive revogado', async () => {
+      const { service } = await build({ certificates: [CERTIFICADO_MODULO] });
+
+      const [certificate] = (await service.findOne(ANA.id)).certificates;
+
+      expect(certificate).toMatchObject({
+        scope: 'modulo',
+        moduleTitle: 'Fundamentos',
+        status: 'REVOKED',
+      });
+    });
+
+    // Spec 013, decisao 12: o detalhe exibe o diploma; nao oferece o botao.
+    // Revogar a um clique de distancia de uma lista e um erro irreversivel
+    // para o aluno.
+    it('nao expoe nenhuma acao sobre o certificado', async () => {
+      const { service } = await build({ certificates: [CERTIFICADO_CURSO] });
+
+      const [certificate] = (await service.findOne(ANA.id)).certificates;
+
+      expect(certificate).not.toHaveProperty('revokedAt');
+      expect(certificate).not.toHaveProperty('hash');
+    });
+
+    it('expoe o bloqueio como booleano, sem a data crua', async () => {
+      const { service } = await build({
+        detail: { ...PERFIL, blockedAt: new Date('2026-09-01T12:00:00Z') },
+      });
+
+      const detail = await service.findOne(ANA.id);
+
+      expect(detail.blocked).toBe(true);
+      expect(detail).not.toHaveProperty('blockedAt');
+    });
+  });
+
+  /**
+   * Spec 013, decisao 4: Firebase primeiro, banco depois. O contrario deixaria
+   * o painel exibindo um admin que o token nao reconhece.
+   */
+  describe('setRole', () => {
+    it('escreve o claim no Firebase preservando as demais claims', async () => {
+      const { service, auth } = await build({ claims: { role: 'aluno', tenant: 'delcastanher' } });
+
+      await service.setRole(ADMIN, ANA.id, 'admin');
+
+      expect(auth.setCustomUserClaims).toHaveBeenCalledWith(ANA.id, {
+        role: 'admin',
+        tenant: 'delcastanher',
+      });
+    });
+
+    it('grava a coluna espelho depois do Firebase', async () => {
+      const { service, update } = await build();
+
+      await service.setRole(ADMIN, ANA.id, 'admin');
+
+      expect(update).toHaveBeenCalledWith({ where: { id: ANA.id }, data: { role: 'admin' } });
+    });
+
+    // O espelho so pode afirmar o que o token afirma. Gravar a coluna com o
+    // Firebase fora do ar produziria um admin que nenhuma rota reconhece.
+    it('nao grava a coluna quando o Firebase falha', async () => {
+      const { service, update, auth } = await build();
+      auth.setCustomUserClaims.mockRejectedValue(new Error('firebase fora do ar'));
+
+      await expect(service.setRole(ADMIN, ANA.id, 'admin')).rejects.toThrow();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    // Idempotente: promover quem ja e admin nao e erro, e nao gasta uma
+    // escrita no Firebase — mas ainda reconcilia o espelho, que pode estar
+    // defasado se o claim foi trocado por fora (decisao 4).
+    it('nao reescreve o claim quando o papel ja e o pedido, mas reconcilia o espelho', async () => {
+      const { service, auth, update } = await build({ claims: { role: 'admin' } });
+
+      await service.setRole(ADMIN, ANA.id, 'admin');
+
+      expect(auth.setCustomUserClaims).not.toHaveBeenCalled();
+      expect(update).toHaveBeenCalledWith({ where: { id: ANA.id }, data: { role: 'admin' } });
+    });
+
+    it('trata claim ausente como aluno', async () => {
+      const { service, auth } = await build({ claims: {} });
+
+      await service.setRole(ADMIN, ANA.id, 'aluno');
+
+      expect(auth.setCustomUserClaims).not.toHaveBeenCalled();
+    });
+
+    // Spec 013, decisao 10: um admin que se rebaixa perde no mesmo clique a
+    // tela onde reverteria.
+    it('recusa o administrador mudando o proprio papel', async () => {
+      const { service, auth } = await build();
+
+      await expect(service.setRole(ADMIN, ADMIN.uid, 'aluno')).rejects.toThrow(ConflictException);
+      expect(auth.setCustomUserClaims).not.toHaveBeenCalled();
+    });
+
+    it('recusa id inexistente com 404', async () => {
+      const { service } = await build({ detail: null });
+
+      await expect(service.setRole(ADMIN, 'uid-fantasma', 'admin')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  /**
+   * Spec 013, decisao 9: bloquear e `disabled` no Firebase espelhado no banco.
+   * Nada e apagado — exclusao de conta e o direito de eliminacao da Spec 009,
+   * outro fluxo.
+   */
+  describe('setBlocked', () => {
+    it('desabilita a conta no Firebase e revoga a sessao', async () => {
+      const { service, auth } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, true);
+
+      expect(auth.updateUser).toHaveBeenCalledWith(ANA.id, { disabled: true });
+      expect(auth.revokeRefreshTokens).toHaveBeenCalledWith(ANA.id);
+    });
+
+    it('grava a data do bloqueio no espelho', async () => {
+      const { service, update } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, true);
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: ANA.id },
+        data: { blockedAt: expect.any(Date) },
+      });
+    });
+
+    it('limpa a data ao desbloquear', async () => {
+      const { service, auth, update } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, false);
+
+      expect(auth.updateUser).toHaveBeenCalledWith(ANA.id, { disabled: false });
+      expect(update).toHaveBeenCalledWith({ where: { id: ANA.id }, data: { blockedAt: null } });
+    });
+
+    // Revogar ao desbloquear derrubaria a sessao de quem acabou de ser
+    // liberado — o oposto do que a acao promete.
+    it('nao revoga sessao nenhuma ao desbloquear', async () => {
+      const { service, auth } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, false);
+
+      expect(auth.revokeRefreshTokens).not.toHaveBeenCalled();
+    });
+
+    it('nao grava o espelho quando o Firebase falha', async () => {
+      const { service, update, auth } = await build();
+      auth.updateUser.mockRejectedValue(new Error('firebase fora do ar'));
+
+      await expect(service.setBlocked(ADMIN, ANA.id, true)).rejects.toThrow();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    // Bloquear nao apaga: progresso e certificado continuam no lugar, e e isso
+    // que separa esta acao da exclusao de conta.
+    it('nao toca em progresso nem em certificado', async () => {
+      const { service, progressFindMany, certificateFindMany, update } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, true);
+
+      expect(progressFindMany).not.toHaveBeenCalled();
+      expect(certificateFindMany).not.toHaveBeenCalled();
+      expect(update).toHaveBeenCalledTimes(1);
+    });
+
+    it('recusa o administrador bloqueando a si mesmo', async () => {
+      const { service, auth } = await build();
+
+      await expect(service.setBlocked(ADMIN, ADMIN.uid, true)).rejects.toThrow(ConflictException);
+      expect(auth.updateUser).not.toHaveBeenCalled();
+    });
+
+    it('recusa id inexistente com 404', async () => {
+      const { service } = await build({ detail: null });
+
+      await expect(service.setBlocked(ADMIN, 'uid-fantasma', true)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  /**
+   * Spec 013, decisao 13: a mesma consulta da tela, sem paginacao, gerada no
+   * servidor. Montar no cliente exigiria varrer todas as paginas com N
+   * requisicoes para produzir um arquivo.
+   */
+  describe('exportCsv', () => {
+    const linhas = (csv: string) => csv.replace(/^﻿/, '').trim().split('\n');
+
+    it('repete o filtro da tela, sem paginar', async () => {
+      const { service, findMany } = await build();
+
+      await service.exportCsv({ ...QUERY, search: 'ana', status: 'ativo', page: 3 });
+
+      const args = findMany.mock.calls[0][0];
+
+      expect(args.where).toMatchObject({ blockedAt: null });
+      expect(args.where.OR).toBeDefined();
+      expect(args).not.toHaveProperty('skip');
+      expect(args).not.toHaveProperty('take');
+    });
+
+    it('preserva a ordenacao pedida na tela', async () => {
+      const { service, findMany } = await build();
+
+      await service.exportCsv({ ...QUERY, sort: 'progresso', direction: 'desc' });
+
+      expect(findMany.mock.calls[0][0].orderBy).toEqual({ progress: { _count: 'desc' } });
+    });
+
+    it('abre com o cabecalho das colunas operacionais', async () => {
+      const { service } = await build();
+
+      const [header] = linhas(await service.exportCsv(QUERY));
+
+      expect(header.split(';')).toEqual([
+        'Nome',
+        'E-mail',
+        'Telefone',
+        'Papel',
+        'Situacao',
+        'Matricula',
+        'Ultimo acesso',
+        'Aulas concluidas',
+        'Total de aulas',
+        'Progresso (%)',
+      ]);
+    });
+
+    it('escreve uma linha por aluno, com o progresso calculado', async () => {
+      const { service } = await build({
+        users: [{ ...PERFIL }],
+        progress: [{ userId: ANA.id, lessonId: 'l1' }],
+      });
+
+      const [, linha] = linhas(await service.exportCsv(QUERY));
+
+      expect(linha.split(';')).toEqual([
+        'Ana Silva',
+        'ana@empresa.com',
+        '(11) 90000-0000',
+        'aluno',
+        'Ativo',
+        '10/08/2026',
+        '14/09/2026',
+        '1',
+        '4',
+        '25',
+      ]);
+    });
+
+    // Spec 013, decisao 13: todo campo exportado e um campo que sai do
+    // controle da plataforma, e nenhuma planilha de acompanhamento usa bio
+    // nem LinkedIn.
+    it('nao exporta bio nem linkedin', async () => {
+      const { service, findMany } = await build({ users: [{ ...PERFIL }] });
+
+      const csv = await service.exportCsv(QUERY);
+
+      expect(csv).not.toContain('Analista de RH');
+      expect(csv).not.toContain('linkedin.com');
+      expect(findMany.mock.calls[0][0].select).not.toHaveProperty('bio');
+      expect(findMany.mock.calls[0][0].select).not.toHaveProperty('linkedin');
+    });
+
+    it('mostra o e-mail no lugar do nome de quem nao concluiu o onboarding', async () => {
+      const { service } = await build({ users: [{ ...CARLOS, phone: null }] });
+
+      const [, linha] = linhas(await service.exportCsv(QUERY));
+
+      expect(linha.startsWith('carlos@empresa.com;carlos@empresa.com;')).toBe(true);
+    });
+
+    it('deixa o ultimo acesso em branco para quem nunca acessou', async () => {
+      const { service } = await build({ users: [{ ...CARLOS, phone: null }] });
+
+      const [, linha] = linhas(await service.exportCsv(QUERY));
+
+      expect(linha.split(';')[6]).toBe('');
+    });
+
+    it('marca a conta bloqueada na coluna de situacao', async () => {
+      const bloqueada = { ...PERFIL, blockedAt: new Date('2026-09-01T12:00:00Z') };
+      const { service } = await build({ users: [bloqueada] });
+
+      const [, linha] = linhas(await service.exportCsv(QUERY));
+
+      expect(linha.split(';')[4]).toBe('Bloqueado');
+    });
+
+    // Um nome com ponto e virgula partiria a linha em duas colunas, e um nome
+    // com aspas quebraria o campo citado.
+    it('cita e escapa separador, aspas e quebra de linha dentro do campo', async () => {
+      const { service } = await build({
+        users: [{ ...PERFIL, name: 'Silva; Ana "A" \n Costa' }],
+      });
+
+      const csv = await service.exportCsv(QUERY);
+
+      expect(csv).toContain('"Silva; Ana ""A"" \n Costa"');
+      expect(linhas(csv)[0].split(';')).toHaveLength(10);
+    });
+
+    // Sem BOM o Excel em pt-BR abre "Joao" no lugar de "João".
+    it('abre o arquivo com BOM de UTF-8', async () => {
+      const { service } = await build();
+
+      expect(await service.exportCsv(QUERY)).toMatch(/^﻿/);
+    });
+
+    it('nao consulta os KPIs, que a planilha nao carrega', async () => {
+      const { service, groupBy } = await build();
+
+      await service.exportCsv(QUERY);
+
+      expect(groupBy).not.toHaveBeenCalled();
     });
   });
 });
