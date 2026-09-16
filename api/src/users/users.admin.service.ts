@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { AuthUser, Role } from '../auth/auth.types';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { isFullyCompleted, percentageOf } from '../progress/completion';
@@ -251,6 +252,83 @@ export class AdminUsersService {
         issuedAt: certificate.issuedAt,
       })),
     };
+  }
+
+  /**
+   * Troca o papel de uma conta, na ordem **Firebase primeiro, banco depois**.
+   *
+   * O token e a fonte da autorizacao; a coluna e espelho. Gravar a coluna
+   * antes — ou apesar de — uma falha do Firebase produziria um admin que o
+   * painel exibe e nenhuma rota reconhece (decisao 4).
+   */
+  async setRole(actor: AuthUser, id: string, role: Role): Promise<void> {
+    await this.assertNotSelf(actor, id, 'Voce nao pode mudar o proprio papel.');
+    await this.assertExists(id);
+
+    const account = await this.firebase.auth.getUser(id);
+    // Sem claim definida o backend ja trata o usuario como aluno, e e assim
+    // que o `FirebaseAuthGuard` a le.
+    const current = (account.customClaims?.role as Role | undefined) ?? 'aluno';
+
+    if (current !== role) {
+      // `setCustomUserClaims` substitui **todas** as claims: preserva as demais.
+      await this.firebase.auth.setCustomUserClaims(id, { ...account.customClaims, role });
+    }
+
+    // Gravado mesmo quando o claim ja era o pedido: o espelho pode estar
+    // defasado se alguem trocou o papel por fora do painel.
+    await this.prisma.user.update({ where: { id }, data: { role } });
+  }
+
+  /**
+   * Bloqueia ou libera uma conta. Nada e apagado: progresso, certificados e
+   * perfil continuam no lugar, e e isso que separa esta acao da exclusao de
+   * conta, que e o direito de eliminacao da Spec 009 (decisao 9).
+   *
+   * O `idToken` ja emitido continua valido ate expirar, no maximo uma hora.
+   * Fechar essa janela exigiria `verifyIdToken(token, true)` — um round-trip
+   * ao Firebase em toda requisicao autenticada da plataforma — para encurtar
+   * em minutos o efeito de um ato raro. A revogacao do refresh token garante
+   * que a sessao nao se renove.
+   */
+  async setBlocked(actor: AuthUser, id: string, blocked: boolean): Promise<void> {
+    await this.assertNotSelf(actor, id, 'Voce nao pode bloquear a propria conta.');
+    await this.assertExists(id);
+
+    await this.firebase.auth.updateUser(id, { disabled: blocked });
+
+    if (blocked) {
+      // So no bloqueio: revogar ao liberar derrubaria a sessao de quem acabou
+      // de ser desbloqueado.
+      await this.firebase.auth.revokeRefreshTokens(id);
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { blockedAt: blocked ? new Date() : null },
+    });
+  }
+
+  /**
+   * Spec 013, decisao 10: um admin que se rebaixa perde no mesmo clique a tela
+   * onde reverteria, e um que se bloqueia perde a conta. A regra e do
+   * servidor; a UI apenas antecipa o motivo.
+   */
+  private assertNotSelf(actor: AuthUser, id: string, message: string): Promise<void> {
+    if (actor.uid === id) {
+      throw new ConflictException(message);
+    }
+
+    return Promise.resolve();
+  }
+
+  /** Alvo inexistente e 404, e nao uma escrita silenciosa no Firebase. */
+  private async assertExists(id: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id }, select: { id: true } });
+
+    if (!user) {
+      throw new NotFoundException(`Usuario "${id}" nao encontrado.`);
+    }
   }
 
   /**
