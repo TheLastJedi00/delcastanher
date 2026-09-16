@@ -396,6 +396,33 @@ describe('AdminDashboard', () => {
       expect(fixture.componentInstance.exporting()).toBe(false);
     });
 
+    // O arquivo tem de chegar com o nome pedido. Revogar o object URL no
+    // mesmo tick do clique faz o navegador salvar com nome temporario, e a
+    // planilha some do Downloads sem erro nenhum na tela.
+    it('clica um link anexado ao documento e so revoga o URL depois', fakeAsync(async () => {
+      const fixture = await build();
+      http = TestBed.inject(HttpTestingController);
+      flushList(http);
+
+      const link = document.createElement('a');
+      spyOn(document, 'createElement').and.returnValue(link);
+      spyOn(link, 'click').and.callFake(() => {
+        expect(link.isConnected).toBe(true);
+        expect(link.download).toMatch(/^alunos-\d{4}-\d{2}-\d{2}\.csv$/);
+      });
+      const revoke = spyOn(URL, 'revokeObjectURL');
+
+      fixture.componentInstance.exportCsv();
+      http.expectOne(req => req.url.endsWith('/admin/users/export')).flush(new Blob(['a;b']));
+
+      expect(link.click).toHaveBeenCalled();
+      expect(link.isConnected).toBe(false);
+      expect(revoke).not.toHaveBeenCalled();
+
+      tick(1_000);
+      expect(revoke).toHaveBeenCalled();
+    }));
+
     it('mostra a mensagem quando a exportacao falha', async () => {
       const fixture = await build();
       http = TestBed.inject(HttpTestingController);

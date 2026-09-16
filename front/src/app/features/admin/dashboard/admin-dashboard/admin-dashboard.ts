@@ -36,6 +36,14 @@ function toSort(value: string | null): AdminUserSort {
   return sorts.includes(value as AdminUserSort) ? (value as AdminUserSort) : 'nome';
 }
 
+/**
+ * Quanto o object URL da planilha sobrevive ao clique. O navegador le o blob
+ * de forma assincrona depois do `click()`; revogar no mesmo tick e uma corrida
+ * com o proprio download, entao a revogacao espera — sem vazar o URL, que e o
+ * motivo de ela existir.
+ */
+const REVOKE_DELAY_MS = 1_000;
+
 /** Confirmacao pendente. A acao so acontece depois do segundo clique. */
 type PendingAction =
   | { kind: 'role'; user: AdminUserItem; role: AdminUserRole }
@@ -292,8 +300,15 @@ export class AdminDashboard {
 
         link.href = url;
         link.download = `alunos-${date}.csv`;
+
+        // O `<a>` precisa estar no documento e o object URL precisa sobreviver
+        // ao clique: revogando no mesmo tick, o navegador nao chega a ler o
+        // atributo `download` e salva o arquivo com nome temporario.
+        document.body.appendChild(link);
         link.click();
-        URL.revokeObjectURL(url);
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
+
         this.exporting.set(false);
       },
       error: (message: string) => {
