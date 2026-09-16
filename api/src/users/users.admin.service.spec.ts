@@ -826,4 +826,142 @@ describe('AdminUsersService', () => {
       );
     });
   });
+
+  /**
+   * Spec 013, decisao 13: a mesma consulta da tela, sem paginacao, gerada no
+   * servidor. Montar no cliente exigiria varrer todas as paginas com N
+   * requisicoes para produzir um arquivo.
+   */
+  describe('exportCsv', () => {
+    const linhas = (csv: string) => csv.replace(/^﻿/, '').trim().split('\n');
+
+    it('repete o filtro da tela, sem paginar', async () => {
+      const { service, findMany } = await build();
+
+      await service.exportCsv({ ...QUERY, search: 'ana', status: 'ativo', page: 3 });
+
+      const args = findMany.mock.calls[0][0];
+
+      expect(args.where).toMatchObject({ blockedAt: null });
+      expect(args.where.OR).toBeDefined();
+      expect(args).not.toHaveProperty('skip');
+      expect(args).not.toHaveProperty('take');
+    });
+
+    it('preserva a ordenacao pedida na tela', async () => {
+      const { service, findMany } = await build();
+
+      await service.exportCsv({ ...QUERY, sort: 'progresso', direction: 'desc' });
+
+      expect(findMany.mock.calls[0][0].orderBy).toEqual({ progress: { _count: 'desc' } });
+    });
+
+    it('abre com o cabecalho das colunas operacionais', async () => {
+      const { service } = await build();
+
+      const [header] = linhas(await service.exportCsv(QUERY));
+
+      expect(header.split(';')).toEqual([
+        'Nome',
+        'E-mail',
+        'Telefone',
+        'Papel',
+        'Situacao',
+        'Matricula',
+        'Ultimo acesso',
+        'Aulas concluidas',
+        'Total de aulas',
+        'Progresso (%)',
+      ]);
+    });
+
+    it('escreve uma linha por aluno, com o progresso calculado', async () => {
+      const { service } = await build({
+        users: [{ ...PERFIL }],
+        progress: [{ userId: ANA.id, lessonId: 'l1' }],
+      });
+
+      const [, linha] = linhas(await service.exportCsv(QUERY));
+
+      expect(linha.split(';')).toEqual([
+        'Ana Silva',
+        'ana@empresa.com',
+        '(11) 90000-0000',
+        'aluno',
+        'Ativo',
+        '10/08/2026',
+        '14/09/2026',
+        '1',
+        '4',
+        '25',
+      ]);
+    });
+
+    // Spec 013, decisao 13: todo campo exportado e um campo que sai do
+    // controle da plataforma, e nenhuma planilha de acompanhamento usa bio
+    // nem LinkedIn.
+    it('nao exporta bio nem linkedin', async () => {
+      const { service, findMany } = await build({ users: [{ ...PERFIL }] });
+
+      const csv = await service.exportCsv(QUERY);
+
+      expect(csv).not.toContain('Analista de RH');
+      expect(csv).not.toContain('linkedin.com');
+      expect(findMany.mock.calls[0][0].select).not.toHaveProperty('bio');
+      expect(findMany.mock.calls[0][0].select).not.toHaveProperty('linkedin');
+    });
+
+    it('mostra o e-mail no lugar do nome de quem nao concluiu o onboarding', async () => {
+      const { service } = await build({ users: [{ ...CARLOS, phone: null }] });
+
+      const [, linha] = linhas(await service.exportCsv(QUERY));
+
+      expect(linha.startsWith('carlos@empresa.com;carlos@empresa.com;')).toBe(true);
+    });
+
+    it('deixa o ultimo acesso em branco para quem nunca acessou', async () => {
+      const { service } = await build({ users: [{ ...CARLOS, phone: null }] });
+
+      const [, linha] = linhas(await service.exportCsv(QUERY));
+
+      expect(linha.split(';')[6]).toBe('');
+    });
+
+    it('marca a conta bloqueada na coluna de situacao', async () => {
+      const bloqueada = { ...PERFIL, blockedAt: new Date('2026-09-01T12:00:00Z') };
+      const { service } = await build({ users: [bloqueada] });
+
+      const [, linha] = linhas(await service.exportCsv(QUERY));
+
+      expect(linha.split(';')[4]).toBe('Bloqueado');
+    });
+
+    // Um nome com ponto e virgula partiria a linha em duas colunas, e um nome
+    // com aspas quebraria o campo citado.
+    it('cita e escapa separador, aspas e quebra de linha dentro do campo', async () => {
+      const { service } = await build({
+        users: [{ ...PERFIL, name: 'Silva; Ana "A" \n Costa' }],
+      });
+
+      const csv = await service.exportCsv(QUERY);
+
+      expect(csv).toContain('"Silva; Ana ""A"" \n Costa"');
+      expect(linhas(csv)[0].split(';')).toHaveLength(10);
+    });
+
+    // Sem BOM o Excel em pt-BR abre "Joao" no lugar de "João".
+    it('abre o arquivo com BOM de UTF-8', async () => {
+      const { service } = await build();
+
+      expect(await service.exportCsv(QUERY)).toMatch(/^﻿/);
+    });
+
+    it('nao consulta os KPIs, que a planilha nao carrega', async () => {
+      const { service, groupBy } = await build();
+
+      await service.exportCsv(QUERY);
+
+      expect(groupBy).not.toHaveBeenCalled();
+    });
+  });
 });
