@@ -33,19 +33,19 @@ Ordem das fases: as colunas novas (`role`, `lastSeenAt`, `blockedAt`) vêm prime
 - [x] **Task 3.9:** Rodar `npm test` no `api/` e corrigir regressões.
 
 ## Fase 4: Front - Serviço e Listagem Real
-- [ ] **Task 4.1:** Criar `core/services/admin-users.service.ts` no padrão de signals do `admin-content.service.ts`: estado da consulta (página, busca, filtros, ordenação), carregamento, erro e o resultado com `items` e `kpis`, mais os métodos de detalhe, papel, situação e download do CSV.
-- [ ] **Task 4.2:** Trocar os arrays literais `kpis` e `students` do `admin-dashboard.ts` pelo serviço, removendo o `filteredStudents` local — a busca passa a ir ao servidor, com debounce, e a tabela mostra estados de carregando, vazio e erro com repetição da consulta (decisão 7).
-- [ ] **Task 4.3:** Remover o card "Vendas / Faturamento" do grid e colocar no lugar os três KPIs da decisão 6, cada `ui-stat-card` com a sua legenda de definição visível (decisões 1 e 6).
-- [ ] **Task 4.4:** Evoluir a tabela: selo de papel, selo de situação (ativo / bloqueado), selo "Onboarding pendente" com o e-mail no lugar do nome quando não houver nome (decisão 15), "Concluído" no lugar de "12 / 12" para quem terminou, e coluna de último acesso com "nunca acessou" para o nulo.
-- [ ] **Task 4.5:** Implementar os controles de filtro por papel e por situação, a ordenação por coluna e a paginação, refletindo o estado na URL por query param para que a página filtrada seja um link compartilhável e sobreviva ao F5.
+- [x] **Task 4.1:** Criar `core/services/admin-users.service.ts` no padrão de signals do `admin-content.service.ts`: estado da consulta (página, busca, filtros, ordenação), carregamento, erro e o resultado com `items` e `kpis`, mais os métodos de detalhe, papel, situação e download do CSV.
+- [x] **Task 4.2:** Trocar os arrays literais `kpis` e `students` do `admin-dashboard.ts` pelo serviço, removendo o `filteredStudents` local — a busca passa a ir ao servidor, com debounce, e a tabela mostra estados de carregando, vazio e erro com repetição da consulta (decisão 7).
+- [x] **Task 4.3:** Remover o card "Vendas / Faturamento" do grid e colocar no lugar os três KPIs da decisão 6, cada `ui-stat-card` com a sua legenda de definição visível (decisões 1 e 6).
+- [x] **Task 4.4:** Evoluir a tabela: selo de papel, selo de situação (ativo / bloqueado), selo "Onboarding pendente" com o e-mail no lugar do nome quando não houver nome (decisão 15), "Concluído" no lugar de "12 / 12" para quem terminou, e coluna de último acesso com "nunca acessou" para o nulo.
+- [x] **Task 4.5:** Implementar os controles de filtro por papel e por situação, a ordenação por coluna e a paginação, refletindo o estado na URL por query param para que a página filtrada seja um link compartilhável e sobreviva ao F5.
 
 ## Fase 5: Front - Detalhe e Ações Administrativas
-- [ ] **Task 5.1:** Implementar o detalhe do aluno sobre o `ui-modal` já existente: perfil, progresso por módulo, certificados emitidos e as duas datas de acesso, tudo em leitura, com foco preso no modal e devolvido à linha de origem ao fechar (decisão 11).
-- [ ] **Task 5.2:** Implementar a mudança de papel com confirmação que explica o efeito ("esta pessoa passa a ter acesso ao painel administrativo"), mantendo o controle desabilitado e com motivo escrito quando o alvo for o próprio administrador logado (decisão 10).
-- [ ] **Task 5.3:** Implementar bloquear e desbloquear com confirmação que deixa explícito o que **não** acontece: nada é apagado, e o progresso e os certificados continuam no lugar (decisão 9).
-- [ ] **Task 5.4:** Implementar o botão de exportar CSV, disparando o download com o filtro corrente, com estado de carregamento e mensagem de erro — sem montar o arquivo no navegador (decisão 13).
-- [ ] **Task 5.5:** Acrescentar o aviso visível de área em construção nas abas "Disparos de E-mail" e "Políticas & Termos", para que não pareçam funcionais ao lado de uma Visão Geral que passou a ser real.
-- [ ] **Task 5.6:** Escrever os `.spec.ts` do `admin-users.service.ts` e da aba: busca indo ao servidor com debounce, paginação, ordenação, confirmação antes de promover e antes de bloquear, botão desabilitado para a própria conta, 409 do servidor exibido sem quebrar a tela e erro de rede mantendo a lista anterior visível.
+- [x] **Task 5.1:** Implementar o detalhe do aluno sobre o `ui-modal` já existente: perfil, progresso por módulo, certificados emitidos e as duas datas de acesso, tudo em leitura, com foco preso no modal e devolvido à linha de origem ao fechar (decisão 11).
+- [x] **Task 5.2:** Implementar a mudança de papel com confirmação que explica o efeito ("esta pessoa passa a ter acesso ao painel administrativo"), mantendo o controle desabilitado e com motivo escrito quando o alvo for o próprio administrador logado (decisão 10).
+- [x] **Task 5.3:** Implementar bloquear e desbloquear com confirmação que deixa explícito o que **não** acontece: nada é apagado, e o progresso e os certificados continuam no lugar (decisão 9).
+- [x] **Task 5.4:** Implementar o botão de exportar CSV, disparando o download com o filtro corrente, com estado de carregamento e mensagem de erro — sem montar o arquivo no navegador (decisão 13).
+- [x] **Task 5.5:** Acrescentar o aviso visível de área em construção nas abas "Disparos de E-mail" e "Políticas & Termos", para que não pareçam funcionais ao lado de uma Visão Geral que passou a ser real.
+- [x] **Task 5.6:** Escrever os `.spec.ts` do `admin-users.service.ts` e da aba: busca indo ao servidor com debounce, paginação, ordenação, confirmação antes de promover e antes de bloquear, botão desabilitado para a própria conta, 409 do servidor exibido sem quebrar a tela e erro de rede mantendo a lista anterior visível.
 
 ## Fase 6: Revisão e Entrega
 - [ ] **Task 6.1:** Revisar responsividade da tabela no mobile (rolagem horizontal ou empilhamento das colunas) e a acessibilidade: `scope` nos cabeçalhos, estado de ordenação anunciado por `aria-sort`, `aria-live` nos resultados da busca e rótulos dos botões de ação dizendo de qual aluno se trata.
