@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseService } from '../firebase/firebase.service';
@@ -85,6 +85,8 @@ interface Fake {
   /** Usuario devolvido pelo `findUnique` do detalhe; `null` e o 404. */
   detail?: unknown;
   certificates?: unknown[];
+  /** Claims que o Firebase devolve para o alvo da acao administrativa. */
+  claims?: Record<string, unknown>;
 }
 
 async function build(fake: Fake = {}) {
@@ -106,18 +108,32 @@ async function build(fake: Fake = {}) {
     return Promise.resolve(fake.total ?? (fake.users ?? [ANA]).length);
   });
 
+  const update = jest.fn().mockResolvedValue(PERFIL);
+
   const prisma = {
     course: { findUnique: jest.fn().mockResolvedValue(fake.course ?? COURSE) },
-    user: { findMany, count, findUnique },
+    user: { findMany, count, findUnique, update },
     lessonProgress: { findMany: progressFindMany, groupBy },
     certificate: { findMany: certificateFindMany },
+  };
+
+  // O Admin SDK, na superficie que a administracao usa: ler as claims para
+  // preserva-las, escrever o papel, desabilitar a conta e revogar a sessao.
+  const auth = {
+    getUser: jest.fn().mockResolvedValue({
+      uid: ANA.id,
+      customClaims: fake.claims ?? { role: 'aluno' },
+    }),
+    setCustomUserClaims: jest.fn().mockResolvedValue(undefined),
+    updateUser: jest.fn().mockResolvedValue(undefined),
+    revokeRefreshTokens: jest.fn().mockResolvedValue(undefined),
   };
 
   const moduleRef = await Test.createTestingModule({
     providers: [
       AdminUsersService,
       { provide: PrismaService, useValue: prisma },
-      { provide: FirebaseService, useValue: { auth: {} } },
+      { provide: FirebaseService, useValue: { auth } },
     ],
   }).compile();
 
@@ -129,8 +145,18 @@ async function build(fake: Fake = {}) {
     groupBy,
     findUnique,
     certificateFindMany,
+    update,
+    auth,
   };
 }
+
+/** O administrador logado que executa a acao. */
+const ADMIN = {
+  uid: 'uid-admin',
+  email: 'admin@delcastanher.com',
+  name: 'Admin',
+  role: 'admin' as const,
+};
 
 describe('AdminUsersService', () => {
   describe('list', () => {
@@ -645,6 +671,159 @@ describe('AdminUsersService', () => {
 
       expect(detail.blocked).toBe(true);
       expect(detail).not.toHaveProperty('blockedAt');
+    });
+  });
+
+  /**
+   * Spec 013, decisao 4: Firebase primeiro, banco depois. O contrario deixaria
+   * o painel exibindo um admin que o token nao reconhece.
+   */
+  describe('setRole', () => {
+    it('escreve o claim no Firebase preservando as demais claims', async () => {
+      const { service, auth } = await build({ claims: { role: 'aluno', tenant: 'delcastanher' } });
+
+      await service.setRole(ADMIN, ANA.id, 'admin');
+
+      expect(auth.setCustomUserClaims).toHaveBeenCalledWith(ANA.id, {
+        role: 'admin',
+        tenant: 'delcastanher',
+      });
+    });
+
+    it('grava a coluna espelho depois do Firebase', async () => {
+      const { service, update } = await build();
+
+      await service.setRole(ADMIN, ANA.id, 'admin');
+
+      expect(update).toHaveBeenCalledWith({ where: { id: ANA.id }, data: { role: 'admin' } });
+    });
+
+    // O espelho so pode afirmar o que o token afirma. Gravar a coluna com o
+    // Firebase fora do ar produziria um admin que nenhuma rota reconhece.
+    it('nao grava a coluna quando o Firebase falha', async () => {
+      const { service, update, auth } = await build();
+      auth.setCustomUserClaims.mockRejectedValue(new Error('firebase fora do ar'));
+
+      await expect(service.setRole(ADMIN, ANA.id, 'admin')).rejects.toThrow();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    // Idempotente: promover quem ja e admin nao e erro, e nao gasta uma
+    // escrita no Firebase — mas ainda reconcilia o espelho, que pode estar
+    // defasado se o claim foi trocado por fora (decisao 4).
+    it('nao reescreve o claim quando o papel ja e o pedido, mas reconcilia o espelho', async () => {
+      const { service, auth, update } = await build({ claims: { role: 'admin' } });
+
+      await service.setRole(ADMIN, ANA.id, 'admin');
+
+      expect(auth.setCustomUserClaims).not.toHaveBeenCalled();
+      expect(update).toHaveBeenCalledWith({ where: { id: ANA.id }, data: { role: 'admin' } });
+    });
+
+    it('trata claim ausente como aluno', async () => {
+      const { service, auth } = await build({ claims: {} });
+
+      await service.setRole(ADMIN, ANA.id, 'aluno');
+
+      expect(auth.setCustomUserClaims).not.toHaveBeenCalled();
+    });
+
+    // Spec 013, decisao 10: um admin que se rebaixa perde no mesmo clique a
+    // tela onde reverteria.
+    it('recusa o administrador mudando o proprio papel', async () => {
+      const { service, auth } = await build();
+
+      await expect(service.setRole(ADMIN, ADMIN.uid, 'aluno')).rejects.toThrow(ConflictException);
+      expect(auth.setCustomUserClaims).not.toHaveBeenCalled();
+    });
+
+    it('recusa id inexistente com 404', async () => {
+      const { service } = await build({ detail: null });
+
+      await expect(service.setRole(ADMIN, 'uid-fantasma', 'admin')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  /**
+   * Spec 013, decisao 9: bloquear e `disabled` no Firebase espelhado no banco.
+   * Nada e apagado — exclusao de conta e o direito de eliminacao da Spec 009,
+   * outro fluxo.
+   */
+  describe('setBlocked', () => {
+    it('desabilita a conta no Firebase e revoga a sessao', async () => {
+      const { service, auth } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, true);
+
+      expect(auth.updateUser).toHaveBeenCalledWith(ANA.id, { disabled: true });
+      expect(auth.revokeRefreshTokens).toHaveBeenCalledWith(ANA.id);
+    });
+
+    it('grava a data do bloqueio no espelho', async () => {
+      const { service, update } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, true);
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: ANA.id },
+        data: { blockedAt: expect.any(Date) },
+      });
+    });
+
+    it('limpa a data ao desbloquear', async () => {
+      const { service, auth, update } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, false);
+
+      expect(auth.updateUser).toHaveBeenCalledWith(ANA.id, { disabled: false });
+      expect(update).toHaveBeenCalledWith({ where: { id: ANA.id }, data: { blockedAt: null } });
+    });
+
+    // Revogar ao desbloquear derrubaria a sessao de quem acabou de ser
+    // liberado — o oposto do que a acao promete.
+    it('nao revoga sessao nenhuma ao desbloquear', async () => {
+      const { service, auth } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, false);
+
+      expect(auth.revokeRefreshTokens).not.toHaveBeenCalled();
+    });
+
+    it('nao grava o espelho quando o Firebase falha', async () => {
+      const { service, update, auth } = await build();
+      auth.updateUser.mockRejectedValue(new Error('firebase fora do ar'));
+
+      await expect(service.setBlocked(ADMIN, ANA.id, true)).rejects.toThrow();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    // Bloquear nao apaga: progresso e certificado continuam no lugar, e e isso
+    // que separa esta acao da exclusao de conta.
+    it('nao toca em progresso nem em certificado', async () => {
+      const { service, progressFindMany, certificateFindMany, update } = await build();
+
+      await service.setBlocked(ADMIN, ANA.id, true);
+
+      expect(progressFindMany).not.toHaveBeenCalled();
+      expect(certificateFindMany).not.toHaveBeenCalled();
+      expect(update).toHaveBeenCalledTimes(1);
+    });
+
+    it('recusa o administrador bloqueando a si mesmo', async () => {
+      const { service, auth } = await build();
+
+      await expect(service.setBlocked(ADMIN, ADMIN.uid, true)).rejects.toThrow(ConflictException);
+      expect(auth.updateUser).not.toHaveBeenCalled();
+    });
+
+    it('recusa id inexistente com 404', async () => {
+      const { service } = await build({ detail: null });
+
+      await expect(service.setBlocked(ADMIN, 'uid-fantasma', true)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
