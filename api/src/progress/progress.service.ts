@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { isFullyCompleted, percentageOf } from './completion';
 import { CourseProgress, ProgressLessonItem, ProgressModuleItem } from './progress.types';
 
 /**
@@ -31,9 +32,8 @@ interface ModuleRow {
   lessons: LessonRow[];
 }
 
-function percentageOf(completed: number, total: number): number {
-  return total === 0 ? 0 : Math.round((completed / total) * 100);
-}
+// O criterio de conclusao vive em `completion.ts` desde a Spec 013: a leitura
+// administrativa faz a mesma conta, e as duas nao podem divergir.
 
 /**
  * Progresso do aluno na trilha. Ate a Spec 008 esse estado vivia dentro do
@@ -102,7 +102,7 @@ export class ProgressService {
           // Modulo sem aula nenhuma nao esta concluido: nao ha o que concluir,
           // e dizer o contrario liberaria um diploma de modulo sem uma unica
           // aula assistida (decisao 13).
-          completed: lessons.length > 0 && completedCount === lessons.length,
+          completed: isFullyCompleted(lessons.length, completedCount),
           lessons,
           completedCount,
           totalCount: lessons.length,
@@ -130,7 +130,7 @@ export class ProgressService {
       percentage: percentageOf(completedCount, allLessons.length),
       nextModule,
       nextLesson: nextModule?.nextLesson ?? null,
-      completed: allLessons.length > 0 && completedCount === allLessons.length,
+      completed: isFullyCompleted(allLessons.length, completedCount),
     };
   }
 

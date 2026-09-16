@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { isFullyCompleted, percentageOf } from '../progress/completion';
 import { DEFAULT_COURSE_SLUG } from '../progress/progress.service';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import { AdminUserItem, AdminUserListResult, AdminUsersKpis } from './users.admin.types';
@@ -58,10 +59,6 @@ function initialsOf(name: string | null, email: string): string {
   const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
 
   return `${first}${last}`.toUpperCase();
-}
-
-function percentageOf(completed: number, total: number): number {
-  return total === 0 ? 0 : Math.round((completed / total) * 100);
 }
 
 /** Instante a partir do qual um acesso ou uma conclusao contam como recentes. */
@@ -245,9 +242,9 @@ export class AdminUsersService {
       percentage: percentageOf(completedLessons, lessons.length),
       currentModuleOrder: next?.moduleOrder ?? null,
       currentModuleTitle: next?.moduleTitle ?? null,
-      // Curso sem aula nenhuma nao esta concluido: nao ha o que concluir — o
-      // mesmo criterio que o `ProgressService` aplica ao modulo vazio.
-      courseCompleted: lessons.length > 0 && next === null,
+      // Mesmo criterio do progresso do aluno, da mesma funcao: curso sem aula
+      // nenhuma nao esta concluido, porque nao ha o que concluir.
+      courseCompleted: isFullyCompleted(lessons.length, completedLessons),
     };
   }
 
