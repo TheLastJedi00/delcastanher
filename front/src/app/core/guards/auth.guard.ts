@@ -10,6 +10,14 @@ const REQUIRED_ROLE: Record<string, Role | null> = {
   ava: 'aluno',
   admin: 'admin',
   onboarding: null,
+  // Spec 014: a loja e de qualquer pessoa autenticada, como o onboarding.
+  //
+  // Faltar aqui nao daria "acesso negado": daria **laco de redirecionamento**.
+  // Rota fora deste mapa cai em `homeUrl()`, e o aluno sem acesso seria mandado
+  // para `/ava`, de onde o `accessGuard` o devolveria para `/loja`, sem fim. O
+  // admin tambem passa: ele tem conta de usuario como qualquer um, e nao ha
+  // motivo para esconder dele a tela que vende.
+  loja: null,
 };
 
 /**

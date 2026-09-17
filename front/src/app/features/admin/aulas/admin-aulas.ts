@@ -150,6 +150,7 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
 
               @if (pricingModuleId() === module.id) {
                 <form
+                  [formGroup]="priceForm"
                   (ngSubmit)="savePrice(module)"
                   class="w-full grid gap-3 rounded-xl bg-brand-teal/5 p-3">
                   <label [for]="'preco-' + module.id" class="text-xs text-slate-600">
@@ -159,7 +160,7 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
                     [id]="'preco-' + module.id"
                     type="text"
                     inputmode="decimal"
-                    [formControl]="priceControl"
+                    formControlName="price"
                     [class]="fieldClass"
                     placeholder="199,00" />
                   <!--
@@ -506,7 +507,13 @@ export class AdminAulas implements OnDestroy {
   protected readonly pricingModuleId = signal<string | null>(null);
   protected readonly savingPrice = signal(false);
   protected readonly priceError = signal<string | null>(null);
-  protected readonly priceControl = this.fb.nonNullable.control('');
+  /**
+   * O campo vive em um `FormGroup`, e nao solto, por um motivo pratico: sem o
+   * `[formGroup]` no `<form>`, nenhuma diretiva do Angular se prende a ele, o
+   * `(ngSubmit)` vira um listener de `submit` nativo sem `preventDefault`, e
+   * salvar o preco RECARREGA a pagina. Foi o que aconteceu no teste funcional.
+   */
+  protected readonly priceForm = this.fb.nonNullable.group({ price: [''] });
 
   /** Rotulo do preco na lista. "A definir" e estado legitimo, e nao erro. */
   protected priceLabel(cents: number | null): string {
@@ -518,7 +525,7 @@ export class AdminAulas implements OnDestroy {
   protected startPrice(module: AdminModule): void {
     this.priceError.set(null);
     this.pricingModuleId.set(module.id);
-    this.priceControl.setValue(
+    this.priceForm.controls.price.setValue(
       module.priceCents === null ? '' : (module.priceCents / 100).toFixed(2).replace('.', ','),
     );
   }
@@ -536,7 +543,7 @@ export class AdminAulas implements OnDestroy {
    * centavo nao existe em cobranca.
    */
   protected savePrice(module: AdminModule): void {
-    const raw = this.priceControl.value.trim();
+    const raw = this.priceForm.controls.price.value.trim();
 
     if (raw === '') {
       this.persistPrice(module, null);
