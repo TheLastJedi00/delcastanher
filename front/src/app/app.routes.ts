@@ -33,15 +33,6 @@ export const routes: Routes = [
     loadComponent: () => import('./features/plans/plans').then(m => m.Plans),
   },
   {
-    // Mockup de checkout (Spec 007): rota publica, fora dos guards — nenhuma
-    // etapa autentica nem grava sessao. `noindex` porque um checkout de
-    // mentira nao pode ser indexado nem confundido com o real.
-    path: 'checkout/:productSlug',
-    data: { [SEO_DATA_KEY]: privateSeo('Checkout (demonstração)') },
-    loadChildren: () =>
-      import('./features/checkout/checkout.routes').then(m => m.CHECKOUT_ROUTES),
-  },
-  {
     // Portal publico de validacao (Spec 008): quem verifica um diploma e um
     // recrutador sem conta, entao a rota fica fora dos guards.
     path: 'certificado/verificar',

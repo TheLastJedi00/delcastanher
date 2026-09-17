@@ -46,6 +46,8 @@ export interface AdminModule {
   order: number;
   title: string;
   summary: string;
+  /** Preco de venda em centavos; nulo = "a definir" (Spec 014, decisao 1). */
+  priceCents: number | null;
   lessonCount: number;
   certificateCount: number;
 }
@@ -145,6 +147,21 @@ export class AdminContentService {
   ): Observable<AdminModule> {
     return this.http
       .patch<AdminModule>(`${environment.apiUrl}/admin/modules/${moduleId}`, input)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /**
+   * Preco de venda do modulo, em centavos (Spec 014, decisao 1).
+   *
+   * Rota propria, separada de `updateModule`: titulo e resumo sao
+   * conteudo, preco e decisao comercial. `null` volta o modulo para
+   * "a definir" e o tira da loja.
+   */
+  updateModulePrice(moduleId: string, priceCents: number | null): Observable<AdminModule> {
+    return this.http
+      .patch<AdminModule>(`${environment.apiUrl}/admin/modules/${moduleId}/price`, {
+        priceCents,
+      })
       .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
   }
 

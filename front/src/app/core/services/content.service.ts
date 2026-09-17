@@ -42,6 +42,16 @@ export interface PlaybackGrant {
 export type PlaybackBlock = 'processing' | 'none';
 
 /**
+ * Marcador de acesso negado (Spec 014, decisao 17).
+ *
+ * O 403 do servidor nao e erro de rede nem de configuracao: e o portao do
+ * conteudo dizendo que o modulo nao esta liberado. A tela compara com esta
+ * constante para oferecer a loja, em vez de um "tente novamente" que nao
+ * levaria a lugar nenhum.
+ */
+export const ACCESS_DENIED = 'ACCESS_DENIED';
+
+/**
  * Conteudo como o aluno o consome: video e materiais de uma **aula**, e a
  * central de materiais do curso.
  *
@@ -98,6 +108,14 @@ export class ContentService {
   private toMessage(error: HttpErrorResponse): string {
     if (error.status === 0) {
       return 'Não foi possível falar com o servidor. Verifique sua conexão e tente novamente.';
+    }
+
+    // Spec 014, decisao 17: 403 aqui nao e falha, e o portao de acesso. A
+    // tela precisa distinguir os dois — "tente novamente" seria um conselho
+    // inutil para quem simplesmente nao comprou o modulo, ou cujo acesso
+    // venceu com a aba aberta.
+    if (error.status === 403) {
+      return ACCESS_DENIED;
     }
 
     const detail: unknown = error.error?.message;

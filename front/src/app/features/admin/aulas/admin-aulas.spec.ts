@@ -10,6 +10,7 @@ const MODULES = [
     order: 1,
     title: 'Fundamentos',
     summary: 'Resumo 1',
+    priceCents: 19900,
     lessonCount: 2,
     certificateCount: 3,
   },
@@ -18,6 +19,7 @@ const MODULES = [
     order: 2,
     title: 'Diagnóstico',
     summary: 'Resumo 2',
+    priceCents: null,
     lessonCount: 0,
     certificateCount: 0,
   },
@@ -199,6 +201,106 @@ describe('AdminAulas', () => {
     });
   });
 
+
+  /**
+   * Preco do modulo (Spec 014, decisao 1 e task 8.5).
+   *
+   * O primeiro teste e uma REGRESSAO encontrada no teste funcional: o `<form>`
+   * do preco nao tinha `[formGroup]`, entao nenhuma diretiva do Angular se
+   * prendia a ele, o `(ngSubmit)` virava um listener de `submit` nativo sem
+   * `preventDefault`, e salvar RECARREGAVA a pagina — perdendo a aba aberta e
+   * sem gravar nada.
+   */
+  describe('preco do modulo', () => {
+    /** O rotulo do botao vem com espaco em volta; ancorar sem `\s` nao casa. */
+    const BOTAO_PRECO = /^\s*Preço\s*$/;
+
+    function abrirPreco(): HTMLFormElement {
+      bootstrap(backend, fixture);
+      buttonWith(BOTAO_PRECO)?.click();
+      fixture.detectChanges();
+
+      return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('form')).find(f =>
+        f.querySelector('input[id^="preco-"]'),
+      ) as HTMLFormElement;
+    }
+
+    it('impede o submit nativo, que recarregaria a pagina', () => {
+      bootstrap(backend, fixture);
+      buttonWith(BOTAO_PRECO)?.click();
+      fixture.detectChanges();
+
+      const precoForm = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('form'),
+      ).find(f => f.querySelector('input[id^="preco-"]')) as HTMLFormElement;
+
+      expect(precoForm).withContext('formulario de preco aberto').toBeTruthy();
+
+      const evento = new Event('submit', { bubbles: true, cancelable: true });
+      precoForm.dispatchEvent(evento);
+
+      // `defaultPrevented` falso significa navegacao do navegador: e
+      // exatamente o bug que esta suite existe para nao deixar voltar.
+      expect(evento.defaultPrevented).toBe(true);
+
+      // Duas passadas: a primeira responde o PATCH, que por sua vez dispara o
+      // recarregamento da grade — e ele ficaria pendente no `verify`.
+      backend.match(() => true).forEach(request => request.flush({}));
+      backend.match(() => true).forEach(request => request.flush([]));
+    });
+
+    it('exibe o preco de cada modulo, e "a definir" para o que nao tem', () => {
+      bootstrap(backend, fixture);
+
+      // `toLocaleString` separa o simbolo com espaco NAO separavel: comparar com
+      // um espaco comum falharia por um caractere invisivel.
+      expect(text()).toContain('199,00');
+      expect(text()).toContain('Preço a definir');
+    });
+
+    it('converte o texto digitado em centavos ao salvar', () => {
+      const precoForm = abrirPreco();
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'input[id^="preco-"]',
+      ) as HTMLInputElement;
+
+      input.value = '249,90';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      buttonWith(/Salvar preço/)?.click();
+
+      const request = backend.expectOne(`${environment.apiUrl}/admin/modules/mod-1/price`);
+
+      expect(request.request.method).toBe('PATCH');
+      expect(request.request.body).toEqual({ priceCents: 24990 });
+
+      request.flush({ ...MODULES[0], priceCents: 24990 });
+      backend.match(() => true).forEach(pendente => pendente.flush([]));
+    });
+
+    // Decisao 1: vazio e "a definir", e nao "de graca". O modulo sai da loja.
+    it('envia nulo quando o campo fica vazio', () => {
+      abrirPreco();
+
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'input[id^="preco-"]',
+      ) as HTMLInputElement;
+
+      input.value = '';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      buttonWith(/Salvar preço/)?.click();
+
+      const request = backend.expectOne(`${environment.apiUrl}/admin/modules/mod-1/price`);
+
+      expect(request.request.body).toEqual({ priceCents: null });
+
+      request.flush({ ...MODULES[0], priceCents: null });
+      backend.match(() => true).forEach(pendente => pendente.flush([]));
+    });
+  });
   describe('aulas', () => {
     it('lista as aulas com os numeros que a remocao precisa', () => {
       bootstrap(backend, fixture);

@@ -98,11 +98,25 @@ A plataforma passa a cobrar. O aluno termina o onboarding e cai em uma loja de m
 23. **Não nasce tela de faturamento, e a decisão 1 da Spec 013 continua de pé.**
     Existem pedidos no banco, mas relatório de vendas, KPI de faturamento e conciliação são spec própria: envolvem taxa do gateway, data de liberação do dinheiro e regime de competência, e nada disso é derivável de `Order.amountCents`. O painel ganha apenas o que o suporte precisa para responder um aluno: no detalhe dele, os acessos com validade e origem, e os pedidos com status, valor e id do pagamento no Mercado Pago.
 
-24. **Entrega em sandbox, com produção a uma variável de distância.**
-    O código é o mesmo nos dois ambientes; o que muda é o par de credenciais. O teste de ponta a ponta usa usuários de teste do Mercado Pago, cartões de teste e o webhook apontando para o deploy de preview (única forma de receber notificação — `localhost` não é alcançável). Subir para produção é trocar `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY` e `MP_WEBHOOK_SECRET`, sem tocar em código.
+24. **Entrega em sandbox, com produção a uma variável de distância — e o sandbox da Orders API não é o que parece.**
+    O código é o mesmo nos dois ambientes; o que muda é o par de credenciais. Subir para produção é trocar `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY` e `MP_WEBHOOK_SECRET`, sem tocar em código.
 
-25. **Nota fiscal fica fora, e o campo do cadastro não muda isso.**
-    As notas originais registram "Nota fiscal de Produto físico", que é como a aplicação foi classificada no cadastro do Mercado Pago. O produto vendido aqui é acesso a conteúdo digital, e emissão fiscal é integração com prefeitura ou emissor — outro fornecedor, outra spec. Vale conferir a classificação no painel do Mercado Pago: produto físico costuma puxar exigência de endereço de entrega e prazo de envio que este produto não tem.
+    **O que o teste funcional revelou:** a Orders API **recusa as credenciais `TEST-`**. Ela responde `401 invalid_credentials` com a mensagem *"Test credentials are not supported, use test users with production credentials to sandbox environment and your production credentials to production environment"*. O modelo é diferente do da API de Pagamentos, onde as chaves `TEST-` bastavam:
+
+    - **Sandbox na Orders API** = credenciais **de produção de um usuário de teste**. Cria-se um usuário de teste `seller`, entra-se no painel como ele, cria-se uma aplicação nessa conta e usam-se as credenciais dela. O pagamento é feito por um usuário de teste `buyer`, com dinheiro de teste.
+    - As chaves `TEST-` da conta real não servem para nada aqui.
+
+    Isso não muda a decisão — sandbox continua sendo o caminho —, mas muda o **pré-requisito**: não basta copiar as credenciais de teste do painel. E há uma dependência a mais: as credenciais de produção desta aplicação ainda não foram ativadas, o que é exigido para o fluxo acima.
+
+25. **Nota fiscal fica fora porque o gateway não a emite — não por prioridade.**
+    As notas originais registram "Nota fiscal de Produto físico", que é como a aplicação foi classificada no cadastro do Mercado Pago. Isso poderia sugerir que o gateway emitiria o documento. **Não emite**, e a verificação está registrada aqui para ninguém refazê-la:
+
+    - A documentação do Mercado Pago (MLB/pt) não tem nenhuma página sobre emissão de nota fiscal. A **única** ocorrência do termo em toda ela é o campo `INVOICE_NUMBER`, coluna dos relatórios de liquidações e de todas as transações, definida como *"Número de nota fiscal **próprio do vendedor**"* — um campo onde o **nosso** número aparece para conciliação, e não um documento que o Mercado Pago gere.
+    - O corpo de `POST /v1/orders` não tem campo fiscal algum: `type`, `external_reference`, `transactions`, `payer`, `shipment`, `total_amount`, `capture_mode`, `processing_mode`, `description`, `integration_data`, `items` e `config` — e `integration_data` carrega apenas `integrator_id`, `platform_id` e `sponsor`.
+
+    A emissão é obrigação da Delcastanher, por emissor próprio ou pela prefeitura. E o documento é **NFS-e** (serviço, municipal), e não NF-e (mercadoria): o que se vende aqui é acesso a conteúdo digital. Por isso a classificação da aplicação no painel do Mercado Pago deveria ser revista — produto físico costuma puxar exigência de endereço de entrega e prazo de envio que este produto não tem. A decisão tributária em si é da contabilidade, e não desta spec.
+
+    **O ponto de integração já existe.** Quando a emissão entrar, o gancho é a transição para `PAID` no `OrdersService` — o mesmo lugar onde o acesso é concedido. O pedido já guarda o que um emissor pede: CPF e nome do comprador, itens com descrição e valor unitário, `amountCents`, `paidAt` e `mpPaymentId`. Falta uma coluna `invoiceNumber` em `Order`, que fecharia a conciliação dos dois lados ao alimentar o `INVOICE_NUMBER` do relatório do Mercado Pago.
 
 ## Modelo de dados
 
@@ -162,7 +176,7 @@ No `front/` nasce a feature `loja/` (catálogo, checkout PIX, checkout cartão, 
 ## Fora de escopo
 - Relatório de vendas, KPI de faturamento e conciliação financeira (decisão 23).
 - Estorno, devolução parcial e gestão de contestação pela plataforma (decisão 22).
-- Nota fiscal e integração fiscal (decisão 25).
+- Nota fiscal e integração fiscal (decisão 25) — verificado que o Mercado Pago não emite o documento; é spec própria, com emissor próprio ou prefeitura.
 - Cupom de desconto, order bump, upsell e preço promocional com data.
 - Assinatura recorrente e plano mensal — a venda desta spec é avulsa, por módulo.
 - Boleto, cartão de débito, Conta Mercado Pago e carteira digital: PIX e cartão de crédito apenas.

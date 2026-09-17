@@ -37,6 +37,11 @@ export class PoliticaDePrivacidade {
       title: '3. Dados pessoais coletados',
       topics: [
         'Dados de cadastro: nome, e-mail, telefone e CPF',
+        // Spec 014: o CPF passou a ser coletado tambem no checkout, e nao so
+        // no cadastro — e obrigatorio para emitir o PIX e melhora a analise
+        // antifraude do cartao (decisao 15).
+        'Dados de pagamento: CPF e nome do comprador informados no checkout, mais o histórico de pedidos (valor, meio de pagamento e situação)',
+        'Dados de cartão NÃO são coletados nem armazenados pela Delcastanher: eles são digitados diretamente em campos seguros do Mercado Pago',
         'Dados de uso: progresso na trilha, conclusão de módulos e emissão de certificado',
         'Dados de navegação coletados por cookies, apenas após consentimento',
       ],
@@ -54,6 +59,7 @@ export class PoliticaDePrivacidade {
       title: '5. Compartilhamento com terceiros',
       topics: [
         'Operadores usados (hospedagem, meio de pagamento, medição de audiência)',
+        'Mercado Pago como operador do processamento de pagamentos, recebendo os dados do comprador necessários à cobrança e à prevenção de fraude',
         'Transferência internacional de dados, quando houver, e salvaguardas adotadas',
         'Ausência de venda de dados pessoais a terceiros',
       ],

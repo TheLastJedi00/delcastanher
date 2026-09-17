@@ -58,6 +58,10 @@
           [totalLessons]="module.totalCount"
           [lessons]="module.lessons"
           [activeLessonId]="activeLesson()?.id ?? null"
+          [locked]="!module.access.unlocked"
+          [priceCents]="module.access.priceCents"
+          [expiresAt]="module.access.expiresAt"
+          (buy)="buyModule(module.id)"
           (selected)="setActiveModule(module.id)"
           (lessonSelected)="setActiveLesson($event, module.id)" />
       }
@@ -78,6 +82,30 @@
           <p class="text-sm text-slate-700">{{ error() }}</p>
           <div class="mt-3">
             <ui-button variant="outline" size="sm" (click)="reload()">Tentar novamente</ui-button>
+          </div>
+        </div>
+      }
+
+      <!--
+        Acesso negado (Spec 014, decisão 17). Não é a faixa de erro acima: nada
+        falhou. O guard cobre a navegação, mas o acesso pode vencer com a aba
+        aberta — e aí o único caminho útil é a loja, não "tentar novamente".
+      -->
+      @if (accessDenied()) {
+        <div
+          class="mb-6 rounded-xl border border-state-warning/40 bg-state-warning/5 p-4"
+          role="status">
+          <p class="text-sm font-semibold text-brand-navy">
+            Seu acesso a este módulo não está ativo
+          </p>
+          <p class="mt-1 text-sm text-slate-700">
+            O conteúdo deixou de abrir porque o acesso a este módulo venceu ou ainda não foi
+            adquirido. Seu progresso e os certificados já emitidos continuam no lugar.
+          </p>
+          <div class="mt-3">
+            <ui-button variant="primary" size="sm" (click)="buyActiveModule()">
+              Ver na loja
+            </ui-button>
           </div>
         </div>
       }

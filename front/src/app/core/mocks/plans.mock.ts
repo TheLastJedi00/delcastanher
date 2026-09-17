@@ -97,9 +97,9 @@ export const PLANS: Plan[] = [
     ],
     highlights: [PLACEHOLDER.course, PLACEHOLDER.course],
     ctaLabel: 'Quero uma trilha',
-    // O CTA vai para o mockup de checkout (Spec 007); o placeholder continua
-    // aqui como marcador do gateway real, que segue indefinido.
-    ctaRouterLink: '/checkout/trilhas',
+    // Spec 014 (decisao 21): o CTA leva a loja, que exige conta — o visitante
+    // passa por cadastro e onboarding antes de pagar. O mockup da Spec 007 saiu.
+    ctaRouterLink: '/loja',
     ctaHref: PLACEHOLDER.checkout,
     state: 'disponivel',
     featured: true,
@@ -123,7 +123,7 @@ export const PLANS: Plan[] = [
     ],
     highlights: ['Catálogo completo de cursos', PLACEHOLDER.course],
     ctaLabel: 'Quero a formação',
-    ctaRouterLink: '/checkout/formacao-completa',
+    ctaRouterLink: '/loja',
     ctaHref: PLACEHOLDER.checkout,
     state: 'disponivel',
     featured: false,
