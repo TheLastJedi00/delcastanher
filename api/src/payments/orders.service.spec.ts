@@ -81,7 +81,13 @@ function build(options: BuildOptions = {}) {
   };
 
   const prisma = {
-    module: { findMany: jest.fn().mockResolvedValue(options.modules ?? MODULES) },
+    module: {
+      // O double respeita o `where: { id: { in } }` de proposito: sem isso,
+      // pedir um modulo devolveria dois e a suite testaria outra coisa.
+      findMany: jest.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
+        (options.modules ?? MODULES).filter((module) => where.id.in.includes(module.id)),
+      ),
+    },
     order: {
       create: jest.fn().mockResolvedValue(created),
       update: jest.fn().mockResolvedValue(created),
