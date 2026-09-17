@@ -203,3 +203,79 @@ describe('AccessService', () => {
     });
   });
 });
+
+/**
+ * Task 2.1: o portao propriamente dito. `requireFor*` e o que as rotas de
+ * conteudo chamam — a UI trancada e consequencia disto, e nao a protecao
+ * (decisao 17).
+ */
+describe('AccessService (portao do conteudo)', () => {
+  beforeAll(() => {
+    jest.useFakeTimers({ doNotFake: ['nextTick'] }).setSystemTime(NOW);
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
+  async function buildWithLesson(
+    moduleAccessRow: unknown,
+    lessonRow: unknown = { id: 'les-1', moduleId: MODULE },
+  ) {
+    const findUnique = jest.fn().mockResolvedValue(moduleAccessRow);
+    const lessonFindUnique = jest.fn().mockResolvedValue(lessonRow);
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AccessService,
+        {
+          provide: PrismaService,
+          useValue: {
+            moduleAccess: { findUnique, findMany: jest.fn().mockResolvedValue([]) },
+            lesson: { findUnique: lessonFindUnique },
+          },
+        },
+      ],
+    }).compile();
+
+    return { service: moduleRef.get(AccessService), findUnique, lessonFindUnique };
+  }
+
+  it('deixa passar a aula de um modulo com acesso ativo', async () => {
+    const { service } = await buildWithLesson(access());
+
+    await expect(service.requireForLesson(USER, 'les-1')).resolves.toBeUndefined();
+  });
+
+  it('recusa a aula de um modulo sem acesso', async () => {
+    const { service } = await buildWithLesson(null);
+
+    await expect(service.requireForLesson(USER, 'les-1')).rejects.toMatchObject({ status: 403 });
+  });
+
+  // Decisao 5: vencido tranca o conteudo. O progresso e o certificado ja
+  // emitido continuam no lugar — quem recusa e o portao, nao o apagador.
+  it('recusa a aula de um modulo com acesso expirado', async () => {
+    const { service } = await buildWithLesson(
+      access({ expiresAt: new Date('2026-09-16T12:00:00.000Z') }),
+    );
+
+    await expect(service.requireForLesson(USER, 'les-1')).rejects.toMatchObject({ status: 403 });
+  });
+
+  // Aula inexistente nao eproblema do portao: quem responde 404 e o servico de
+  // conteudo, e trocar esse 404 por 403 esconderia um erro de rota atras de
+  // uma mensagem de permissao.
+  it('nao opina sobre aula inexistente, deixando o 404 para quem sabe dele', async () => {
+    const { service, findUnique } = await buildWithLesson(null, null);
+
+    await expect(service.requireForLesson(USER, 'les-inexistente')).resolves.toBeUndefined();
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+
+  it('recusa o modulo sem acesso ativo', async () => {
+    const { service } = await buildWithLesson(null);
+
+    await expect(service.requireForModule(USER, MODULE)).rejects.toMatchObject({ status: 403 });
+  });
+});
