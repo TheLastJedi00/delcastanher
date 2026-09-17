@@ -23,7 +23,8 @@
     "db:seed": "ts-node -P tsconfig.json prisma/seed.ts",
     "storage:cors": "ts-node -P tsconfig.json scripts/configure-storage-cors.ts",
     "migration:snapshot": "ts-node -P tsconfig.json scripts/verify-lesson-migration.ts snapshot",
-    "migration:verify": "ts-node -P tsconfig.json scripts/verify-lesson-migration.ts verify"
+    "migration:verify": "ts-node -P tsconfig.json scripts/verify-lesson-migration.ts verify",
+    "spec014:cenario": "ts-node -P tsconfig.json scripts/spec014-cenario.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
