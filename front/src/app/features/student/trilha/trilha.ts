@@ -5,6 +5,7 @@ import { map } from 'rxjs';
 import { AnalyticsService } from '../../../core/services/analytics.service';
 import { CertificateService, StudentCertificate } from '../../../core/services/certificate.service';
 import {
+  ACCESS_DENIED,
   ContentService,
   MaterialItem,
   PlaybackGrant,
@@ -91,6 +92,15 @@ export class Trilha {
   readonly issuingCertificate = signal(false);
   readonly playback = signal<PlaybackGrant | null>(null);
   readonly playbackLoading = signal(false);
+
+  /**
+   * O servidor recusou o conteudo desta aula (Spec 014, decisao 17).
+   *
+   * Diferente de "error": nao houve falha nenhuma — o modulo e que nao esta
+   * liberado, ou o acesso venceu com a aba aberta. Sao dois estados com saidas
+   * diferentes, e por isso nao compartilham o mesmo signal.
+   */
+  readonly accessDenied = signal(false);
 
   /** Modulo pedido na URL; nulo em `/ava/trilha`. */
   private readonly routeModuleId = toSignal(
@@ -286,6 +296,19 @@ export class Trilha {
     void this.router.navigate(['/loja']);
   }
 
+  /** Mesmo caminho, a partir do aviso de acesso negado da aula em foco. */
+  buyActiveModule(): void {
+    const module = this.activeModule();
+
+    if (module) {
+      this.buyModule(module.id);
+
+      return;
+    }
+
+    void this.router.navigate(['/loja']);
+  }
+
   /** Salta para uma aula do modulo em foco, ou de outro modulo informado. */
   setActiveLesson(lessonId: string, moduleId?: string): void {
     const module = moduleId ?? this.activeModule()?.id;
@@ -377,10 +400,19 @@ export class Trilha {
     this.playback.set(null);
     this.materials.set([]);
 
+    this.accessDenied.set(false);
+
     this.content.materialsOf(lesson.id).subscribe({
       next: materials => this.materials.set(materials),
       // Material que nao carregou nao derruba a aula: o video e o conteudo.
-      error: () => this.materials.set([]),
+      // Acesso negado, esse, e outra historia — e o que a tela precisa dizer.
+      error: (message: string) => {
+        this.materials.set([]);
+
+        if (message === ACCESS_DENIED) {
+          this.accessDenied.set(true);
+        }
+      },
     });
 
     if (!lesson.hasVideo) {
@@ -395,8 +427,19 @@ export class Trilha {
         this.playbackLoading.set(false);
       },
       error: (message: string) => {
-        this.error.set(message);
         this.playbackLoading.set(false);
+
+        // Spec 014, decisao 17: o guard cobre a navegacao, mas o acesso pode
+        // vencer com a aba aberta — e ai o 403 chega no meio da sessao. Ele
+        // vira estado de tela com caminho para a loja, e nao a faixa vermelha
+        // de erro, que mandaria o aluno "tentar de novo" para sempre.
+        if (message === ACCESS_DENIED) {
+          this.accessDenied.set(true);
+
+          return;
+        }
+
+        this.error.set(message);
       },
     });
   }

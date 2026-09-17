@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Button } from '../../shared/ui/button/button';
 import { Card } from '../../shared/ui/card/card';
+import { PaymentTrust } from '../../shared/ui/payment-trust/payment-trust';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
 import { InstallmentOption, MercadoPagoLoader } from '../../core/services/mercado-pago.service';
 import { PaymentMethodKind, StoreService, formatPrice } from '../../core/services/store.service';
@@ -20,7 +21,7 @@ import { UserService } from '../../core/services/user.service';
 @Component({
   selector: 'app-pagamento',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, PageContainer, Card, Button],
+  imports: [ReactiveFormsModule, PageContainer, Card, Button, PaymentTrust],
   template: `
     <ui-page-container>
       <h1 class="text-3xl font-semibold text-brand-navy">Pagamento</h1>
@@ -183,9 +184,7 @@ import { UserService } from '../../core/services/user.service';
                 </ui-button>
               </div>
 
-              <p class="mt-3 text-center text-xs text-slate-500">
-                Pagamento processado por <strong>Mercado Pago</strong>.
-              </p>
+              <ui-payment-trust class="mt-4" />
             </ui-card>
           </div>
 
