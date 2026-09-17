@@ -35,12 +35,31 @@ export interface ProgressLessonItem {
  * `completedCount`/`totalCount` vem prontos para que o `aside`, o card do Hub
  * e a trilha horizontal mostrem "3 de 5 aulas" sem cada tela refazer a conta.
  */
+/**
+ * Estado de compra do modulo (Spec 014, decisao 17).
+ *
+ * A trilha continua devolvendo **todos** os modulos: o aluno precisa ver o que
+ * existe para decidir comprar, e esconder o que ele nao tem transformaria a
+ * trilha em uma mentira sobre o tamanho do curso. O que muda com `unlocked`
+ * falso e o que a tela oferece — cadeado e preco no lugar do player.
+ *
+ * `expiresAt` nulo com `unlocked` falso cobre os dois casos que a tela trata
+ * igual: nunca comprado e ja vencido. `priceCents` nulo e o modulo "em breve",
+ * sem preco definido (decisao 1).
+ */
+export interface ProgressModuleAccess {
+  unlocked: boolean;
+  expiresAt: string | null;
+  priceCents: number | null;
+}
+
 export interface ProgressModuleItem {
   id: string;
   order: number;
   title: string;
   summary: string;
   completed: boolean;
+  access: ProgressModuleAccess;
   lessons: ProgressLessonItem[];
   completedCount: number;
   totalCount: number;

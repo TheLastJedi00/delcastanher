@@ -133,8 +133,15 @@ export class ContentService {
    * a da trilha: modulo, depois aula, depois a ordem do material dentro dela —
    * e assim que a tela agrupa (Spec 012, Task 8.2).
    */
-  async listForCourse(): Promise<MaterialItem[]> {
+  async listForCourse(moduleIds?: string[]): Promise<MaterialItem[]> {
+    // Lista vazia e diferente de ausente: `[]` e "este aluno nao comprou nada"
+    // e precisa devolver nada, enquanto `undefined` e o painel pedindo tudo.
+    if (moduleIds?.length === 0) {
+      return [];
+    }
+
     const materials = (await this.prisma.material.findMany({
+      where: moduleIds ? { lesson: { moduleId: { in: moduleIds } } } : undefined,
       orderBy: [
         { lesson: { module: { order: 'asc' } } },
         { lesson: { order: 'asc' } },

@@ -1,6 +1,7 @@
 import { ConflictException, INestApplication, NotFoundException, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
+import { AccessService } from '../payments/access.service';
 import request from 'supertest';
 import { AuthService } from '../auth/auth.service';
 import { AuthUser, Role } from '../auth/auth.types';
@@ -12,6 +13,27 @@ import { ContentController } from './content.controller';
 import { ContentService } from './content.service';
 import { MuxWebhookController } from './mux-webhook.controller';
 import { VideoService } from './video.service';
+/**
+ * Portao de acesso aberto (Spec 014, decisao 17). Esta suite cobre o que ja
+ * existia antes do paywall, entao aqui o acesso nunca pode ser o motivo da
+ * falha — o portao tem suite propria (`access.service.spec.ts` e os
+ * `*.access.*.spec.ts`).
+ */
+const ACESSO_A_TUDO = {
+  get: () => new Date('2099-01-01T00:00:00.000Z'),
+  has: () => true,
+  keys: () => ['mod-1'][Symbol.iterator](),
+} as unknown as Map<string, Date>;
+
+function acessoLiberado() {
+  return {
+    requireForLesson: jest.fn().mockResolvedValue(undefined),
+    requireForModule: jest.fn().mockResolvedValue(undefined),
+    hasActive: jest.fn().mockResolvedValue(true),
+    activeMap: jest.fn().mockResolvedValue(ACESSO_A_TUDO),
+  };
+}
+
 
 function userWith(role: Role): AuthUser {
   return { uid: 'uid-123', email: 'pessoa@delcastanher.com', name: 'Pessoa', role };
@@ -34,6 +56,7 @@ async function buildApp(
   const moduleRef = await Test.createTestingModule({
     controllers: [AdminContentController, ContentController, MuxWebhookController],
     providers: [
+      { provide: AccessService, useValue: acessoLiberado() },
       Reflector,
       RolesGuard,
       { provide: VideoService, useValue: video },

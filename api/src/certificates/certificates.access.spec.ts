@@ -1,9 +1,11 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { AuthUser } from '../auth/auth.types';
 import { AccessService } from '../payments/access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgressService } from '../progress/progress.service';
+import { UsersService } from '../users/users.service';
 import { CertificatesService } from './certificates.service';
 
 const ALUNO: AuthUser = {
@@ -51,6 +53,8 @@ function build(access: Partial<Record<keyof AccessService, jest.Mock>>) {
       CertificatesService,
       { provide: PrismaService, useValue: prisma },
       { provide: ProgressService, useValue: progress },
+      { provide: UsersService, useValue: { findOrCreate: jest.fn() } },
+      { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('segredo-de-teste') } },
       { provide: AccessService, useValue: access },
     ],
   })
