@@ -22,6 +22,11 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'admin', renderMode: RenderMode.Client },
   { path: 'admin/**', renderMode: RenderMode.Client },
   { path: 'onboarding', renderMode: RenderMode.Client },
+  // A loja depende de sessao e de pedido com id: nao ha HTML util a gerar em
+  // build, e prerenderizar '/loja/pedido/:orderId' exigiria conhecer pedidos
+  // que ainda nao existem (Spec 014).
+  { path: 'loja', renderMode: RenderMode.Client },
+  { path: 'loja/**', renderMode: RenderMode.Client },
   // O checkout depende da jornada em memoria (Spec 007) — prerenderizar as
   // etapas geraria telas que so redirecionam.
   { path: 'checkout/**', renderMode: RenderMode.Client },
