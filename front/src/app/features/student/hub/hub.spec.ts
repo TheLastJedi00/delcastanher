@@ -41,6 +41,8 @@ function progress(completedIds: string[]): CourseProgress {
       completedCount: completed ? 1 : 0,
       totalCount: 1,
       nextLesson: completed ? null : lesson,
+      // Spec 014: aluno com acesso ativo — o modulo trancado tem suite propria.
+      access: { unlocked: true, expiresAt: '2027-03-17T12:00:00.000Z', priceCents: 19900 },
     };
   });
   const completedCount = modules.filter(module => module.completed).length;

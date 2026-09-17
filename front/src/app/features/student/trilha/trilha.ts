@@ -17,6 +17,7 @@ import {
   ProgressModuleItem,
   ProgressService,
 } from '../../../core/services/progress.service';
+import { StoreService } from '../../../core/services/store.service';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { Badge } from '../../../shared/ui/badge/badge';
 import { Button } from '../../../shared/ui/button/button';
@@ -61,6 +62,7 @@ export class Trilha {
   private readonly content = inject(ContentService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly store = inject(StoreService);
   private readonly analytics = inject(AnalyticsService);
   private readonly certificates = inject(CertificateService);
 
@@ -270,6 +272,18 @@ export class Trilha {
   setActiveModule(id: string): void {
     this.showMobileModules.set(false);
     void this.router.navigate(['/ava/trilha', id]);
+  }
+
+  /**
+   * Leva para a loja com o modulo ja selecionado (Spec 014, decisao 17).
+   *
+   * A trilha e a melhor vitrine que a plataforma tem: o aluno esta olhando
+   * exatamente o conteudo que nao abriu, e o caminho ate a compra e um clique
+   * — sem obriga-lo a reencontrar o modulo em uma lista.
+   */
+  buyModule(moduleId: string): void {
+    this.store.select(moduleId);
+    void this.router.navigate(['/loja']);
   }
 
   /** Salta para uma aula do modulo em foco, ou de outro modulo informado. */

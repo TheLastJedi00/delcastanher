@@ -97,6 +97,9 @@ function progress(completedLessonIds: string[]): CourseProgress {
       totalCount: lessons.length,
       completed: lessons.length > 0 && completedCount === lessons.length,
       nextLesson: lessons.find(lesson => !lesson.completed) ?? null,
+      // Spec 014: a trilha destas suites e a de um aluno que comprou tudo. O
+      // modulo trancado tem suite propria.
+      access: { unlocked: true, expiresAt: '2027-03-17T12:00:00.000Z', priceCents: 19900 },
     };
   });
 

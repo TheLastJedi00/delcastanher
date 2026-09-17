@@ -22,7 +22,19 @@ export interface ModuleCardLesson {
 
       <button type="button" [class]="classes()" (click)="selected.emit()" [attr.aria-current]="active() ? 'step' : null">
         <span class="mt-0.5 shrink-0">
-          @if (completed()) {
+          <!--
+            Módulo trancado (Spec 014, decisão 17): o cadeado é consequência do
+            portão, e não a proteção. Quem recusa vídeo, material e progresso é
+            o servidor — aqui a tarefa é dizer ao aluno por que não abre e o
+            que fazer a respeito.
+          -->
+          @if (locked()) {
+            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-brand-navy/10 text-brand-navy">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </span>
+          } @else if (completed()) {
             <span class="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-teal text-white">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
@@ -45,15 +57,41 @@ export interface ModuleCardLesson {
             "concluído" quer dizer todas as aulas concluídas. O número vem
             pronto do servidor para nenhuma tela refazer a conta (decisão 6).
           -->
-          @if (totalLessons() > 0) {
+          @if (locked()) {
+            <span class="mt-1 block text-[11px] text-slate-500">
+              {{ priceLabel() }} · {{ lessonsLabel(totalLessons()) }}
+            </span>
+          } @else if (totalLessons() > 0) {
             <span class="mt-1 block text-[11px] text-slate-500">
               {{ completedLessons() }} de {{ lessonsLabel(totalLessons()) }}
             </span>
           } @else {
             <span class="mt-1 block text-[11px] text-slate-400">Sem aulas publicadas</span>
           }
+
+          <!--
+            Validade à vista (decisão 5): saber que o acesso vence em 12 dias é
+            o tipo de coisa que ninguém deveria descobrir ao tentar abrir a
+            aula.
+          -->
+          @if (expiringSoon()) {
+            <span class="mt-1 block text-[11px] font-semibold text-state-warning">
+              Seu acesso vence em {{ daysLeft() }} {{ daysLeft() === 1 ? 'dia' : 'dias' }}
+            </span>
+          }
         </span>
       </button>
+
+      @if (locked()) {
+        <div class="px-4 pb-3">
+          <button
+            type="button"
+            class="w-full rounded-lg bg-gradient-brand px-3 py-2 text-xs font-bold text-white"
+            (click)="buy.emit()">
+            Comprar este módulo
+          </button>
+        </div>
+      }
 
       <!--
         Aulas do módulo em foco, em lista linear. Não é uma terceira navegação:
@@ -95,6 +133,42 @@ export class ModuleCard {
   readonly title = input('');
   readonly completed = input(false);
   readonly active = input(false);
+
+  /** Sem acesso ativo: o card vende em vez de navegar (Spec 014, decisao 17). */
+  readonly locked = input(false);
+  /** Preco em centavos; nulo e o modulo "em breve" (decisao 1). */
+  readonly priceCents = input<number | null>(null);
+  /** Fim do acesso, para o aviso de vencimento proximo (decisao 5). */
+  readonly expiresAt = input<string | null>(null);
+
+  /** Pedido de compra: quem leva para a loja e a tela, e nao o card. */
+  readonly buy = output<void>();
+
+  protected readonly priceLabel = computed(() => {
+    const cents = this.priceCents();
+
+    return cents === null
+      ? 'Em breve'
+      : (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  });
+
+  /** Dias que faltam para o acesso vencer; nulo quando nao ha acesso. */
+  protected readonly daysLeft = computed(() => {
+    const iso = this.expiresAt();
+
+    if (!iso) {
+      return 0;
+    }
+
+    return Math.ceil((Date.parse(iso) - Date.now()) / (24 * 60 * 60 * 1000));
+  });
+
+  /** Aviso a partir de 30 dias — tempo de sobra para renovar sem susto. */
+  protected readonly expiringSoon = computed(() => {
+    const days = this.daysLeft();
+
+    return !this.locked() && days > 0 && days <= 30;
+  });
 
   readonly completedLessons = input(0);
   readonly totalLessons = input(0);

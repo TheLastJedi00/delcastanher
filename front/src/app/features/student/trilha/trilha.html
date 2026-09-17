@@ -58,6 +58,10 @@
           [totalLessons]="module.totalCount"
           [lessons]="module.lessons"
           [activeLessonId]="activeLesson()?.id ?? null"
+          [locked]="!module.access.unlocked"
+          [priceCents]="module.access.priceCents"
+          [expiresAt]="module.access.expiresAt"
+          (buy)="buyModule(module.id)"
           (selected)="setActiveModule(module.id)"
           (lessonSelected)="setActiveLesson($event, module.id)" />
       }
