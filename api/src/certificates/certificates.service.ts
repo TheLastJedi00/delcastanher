@@ -1,7 +1,13 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'node:crypto';
 import { AuthUser } from '../auth/auth.types';
+import { AccessService } from '../payments/access.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DEFAULT_COURSE_SLUG, ProgressService } from '../progress/progress.service';
 import { UsersService } from '../users/users.service';
@@ -102,7 +108,30 @@ export class CertificatesService {
     private readonly progress: ProgressService,
     private readonly users: UsersService,
     private readonly config: ConfigService,
+    private readonly access: AccessService,
   ) {}
+
+  /**
+   * Exige acesso ativo a **todos** os modulos da trilha (Spec 014, decisao 18).
+   *
+   * Uma consulta so, e nao uma por modulo: o mapa de acessos ativos ja e o
+   * formato em que o resto da plataforma le acesso.
+   */
+  private async requireAccessToAllModules(
+    user: AuthUser,
+    progress: { modules: { id: string; order: number }[] },
+  ): Promise<void> {
+    const active = await this.access.activeMap(user.uid);
+    const missing = progress.modules.filter((module) => !active.has(module.id));
+
+    if (missing.length > 0) {
+      throw new ForbiddenException(
+        `O certificado do curso exige acesso a todos os modulos. Faltam: ${missing
+          .map((module) => `modulo ${module.order}`)
+          .join(', ')}.`,
+      );
+    }
+  }
 
   /** Certificado do curso do proprio aluno, ou nulo se ainda nao foi emitido. */
   async findForUser(user: AuthUser): Promise<StudentCertificate | null> {
@@ -132,6 +161,12 @@ export class CertificatesService {
         `Conclua todos os modulos da trilha para emitir o certificado (${progress.percentage}% concluido).`,
       );
     }
+
+    // Spec 014, decisao 18: o diploma do curso afirma o curso **inteiro**.
+    // Emiti-lo para quem comprou metade da trilha seria emitir um documento
+    // falso — e a conclusao sozinha nao basta, porque o progresso de antes do
+    // paywall continua no banco, como deve continuar.
+    await this.requireAccessToAllModules(user, progress);
 
     return this.create(user, { courseId: course.id, moduleId: null });
   }
@@ -170,6 +205,12 @@ export class CertificatesService {
     if (existing) {
       return this.requireNotRevoked(existing);
     }
+
+    // Spec 014, decisao 18: so emite quem comprou. A checagem vem DEPOIS da
+    // busca pelo existente de proposito — diploma ja emitido continua valendo
+    // com o acesso vencido, porque ele atesta um fato passado, e revoga-lo por
+    // vencimento seria mentir sobre o que aconteceu.
+    await this.access.requireForModule(user.uid, moduleId);
 
     // O criterio do diploma e o **mesmo** estado que o Hub e a trilha exibem:
     // desde a Spec 012 (decisao 13) "modulo concluido" e "todas as aulas deste

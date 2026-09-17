@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { AdminContentController } from './admin-content.controller';
 import { AdminLessonsController } from './admin-lessons.controller';
 import { ContentController } from './content.controller';
@@ -9,7 +10,7 @@ import { MuxWebhookController } from './mux-webhook.controller';
 import { VideoService } from './video.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PaymentsModule],
   controllers: [
     AdminContentController,
     AdminLessonsController,

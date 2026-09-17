@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { AccessService } from '../payments/access.service';
 import { UpdateLessonProgressDto } from './dto/update-lesson-progress.dto';
 import { ProgressService } from './progress.service';
 import type { CourseProgress } from './progress.types';
@@ -13,7 +14,10 @@ import type { CourseProgress } from './progress.types';
 @Controller('progress')
 @UseGuards(FirebaseAuthGuard)
 export class ProgressController {
-  constructor(private readonly progress: ProgressService) {}
+  constructor(
+    private readonly progress: ProgressService,
+    private readonly access: AccessService,
+  ) {}
 
   /** Trilha do aluno com percentual e proxima aula em aberto. */
   @Get('me')
@@ -31,11 +35,16 @@ export class ProgressController {
    * `PATCH /progress/me/modules/:moduleId` foi removido, nao redirecionado.
    */
   @Patch('me/lessons/:lessonId')
-  updateLesson(
+  async updateLesson(
     @CurrentUser() user: AuthUser,
     @Param('lessonId') lessonId: string,
     @Body() dto: UpdateLessonProgressDto,
   ): Promise<CourseProgress> {
+    // Spec 014, decisao 17: sem esta guarda, quem nao comprou concluiria a
+    // trilha inteira por requisicao direta e sacaria o diploma sem assistir —
+    // nem pagar. A leitura continua aberta; a escrita, nao.
+    await this.access.requireForLesson(user.uid, lessonId);
+
     return this.progress.setLessonCompletion(user, lessonId, dto.completed);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { AccessSource, ModuleAccess } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -110,6 +110,39 @@ export class AccessService {
       update: { expiresAt, source, orderId, grantedAt: now },
       create: { userId, moduleId, expiresAt, source, orderId, grantedAt: now },
     });
+  }
+
+  /**
+   * Portao de uma aula: recusa quando o modulo dela nao tem acesso ativo
+   * (decisao 17). E este metodo, e nao o desenho da tela, que protege o
+   * conteudo — cadeado no front so protege quem usa o front.
+   *
+   * Aula inexistente passa de proposito: quem responde 404 e o servico de
+   * conteudo, e trocar esse 404 por 403 esconderia erro de rota atras de uma
+   * mensagem de permissao.
+   */
+  async requireForLesson(userId: string, lessonId: string): Promise<void> {
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { moduleId: true },
+    });
+
+    if (!lesson) {
+      return;
+    }
+
+    await this.requireForModule(userId, lesson.moduleId);
+  }
+
+  /** Portao de um modulo. Acesso vencido recusa igual a acesso inexistente. */
+  async requireForModule(userId: string, moduleId: string): Promise<void> {
+    if (await this.hasActive(userId, moduleId)) {
+      return;
+    }
+
+    throw new ForbiddenException(
+      'Seu acesso a este modulo nao esta ativo. Adquira o modulo na loja para continuar.',
+    );
   }
 
   /** Remove o acesso concedido por um pedido — estorno ou contestacao (decisao 22). */

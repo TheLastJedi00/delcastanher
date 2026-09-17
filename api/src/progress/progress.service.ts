@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
+import { AccessService } from '../payments/access.service';
 import { UsersService } from '../users/users.service';
 import { isFullyCompleted, percentageOf } from './completion';
 import { CourseProgress, ProgressLessonItem, ProgressModuleItem } from './progress.types';
@@ -29,6 +30,7 @@ interface ModuleRow {
   order: number;
   title: string;
   summary: string;
+  priceCents: number | null;
   lessons: LessonRow[];
 }
 
@@ -52,6 +54,7 @@ export class ProgressService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
+    private readonly access: AccessService,
   ) {}
 
   /** Progresso do aluno no curso unico, com percentual e proxima aula. */
@@ -79,6 +82,10 @@ export class ProgressService {
 
     const completedIds = new Set(done.map((row) => row.lessonId));
 
+    // Spec 014, decisao 4: uma consulta de acesso para a trilha inteira. Um
+    // `hasActive` por modulo seria um N+1 que cresce junto com o catalogo.
+    const activeAccess = await this.access.activeMap(user.uid);
+
     const modules: ProgressModuleItem[] = (course.modules as unknown as ModuleRow[]).map(
       (module) => {
         const lessons: ProgressLessonItem[] = module.lessons.map((lesson) => ({
@@ -93,12 +100,18 @@ export class ProgressService {
         }));
 
         const completedCount = lessons.filter((lesson) => lesson.completed).length;
+        const expiresAt = activeAccess.get(module.id) ?? null;
 
         return {
           id: module.id,
           order: module.order,
           title: module.title,
           summary: module.summary,
+          access: {
+            unlocked: expiresAt !== null,
+            expiresAt: expiresAt?.toISOString() ?? null,
+            priceCents: module.priceCents,
+          },
           // Modulo sem aula nenhuma nao esta concluido: nao ha o que concluir,
           // e dizer o contrario liberaria um diploma de modulo sem uma unica
           // aula assistida (decisao 13).
