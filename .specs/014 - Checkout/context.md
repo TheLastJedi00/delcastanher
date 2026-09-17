@@ -101,8 +101,15 @@ A plataforma passa a cobrar. O aluno termina o onboarding e cai em uma loja de m
 24. **Entrega em sandbox, com produção a uma variável de distância.**
     O código é o mesmo nos dois ambientes; o que muda é o par de credenciais. O teste de ponta a ponta usa usuários de teste do Mercado Pago, cartões de teste e o webhook apontando para o deploy de preview (única forma de receber notificação — `localhost` não é alcançável). Subir para produção é trocar `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY` e `MP_WEBHOOK_SECRET`, sem tocar em código.
 
-25. **Nota fiscal fica fora, e o campo do cadastro não muda isso.**
-    As notas originais registram "Nota fiscal de Produto físico", que é como a aplicação foi classificada no cadastro do Mercado Pago. O produto vendido aqui é acesso a conteúdo digital, e emissão fiscal é integração com prefeitura ou emissor — outro fornecedor, outra spec. Vale conferir a classificação no painel do Mercado Pago: produto físico costuma puxar exigência de endereço de entrega e prazo de envio que este produto não tem.
+25. **Nota fiscal fica fora porque o gateway não a emite — não por prioridade.**
+    As notas originais registram "Nota fiscal de Produto físico", que é como a aplicação foi classificada no cadastro do Mercado Pago. Isso poderia sugerir que o gateway emitiria o documento. **Não emite**, e a verificação está registrada aqui para ninguém refazê-la:
+
+    - A documentação do Mercado Pago (MLB/pt) não tem nenhuma página sobre emissão de nota fiscal. A **única** ocorrência do termo em toda ela é o campo `INVOICE_NUMBER`, coluna dos relatórios de liquidações e de todas as transações, definida como *"Número de nota fiscal **próprio do vendedor**"* — um campo onde o **nosso** número aparece para conciliação, e não um documento que o Mercado Pago gere.
+    - O corpo de `POST /v1/orders` não tem campo fiscal algum: `type`, `external_reference`, `transactions`, `payer`, `shipment`, `total_amount`, `capture_mode`, `processing_mode`, `description`, `integration_data`, `items` e `config` — e `integration_data` carrega apenas `integrator_id`, `platform_id` e `sponsor`.
+
+    A emissão é obrigação da Delcastanher, por emissor próprio ou pela prefeitura. E o documento é **NFS-e** (serviço, municipal), e não NF-e (mercadoria): o que se vende aqui é acesso a conteúdo digital. Por isso a classificação da aplicação no painel do Mercado Pago deveria ser revista — produto físico costuma puxar exigência de endereço de entrega e prazo de envio que este produto não tem. A decisão tributária em si é da contabilidade, e não desta spec.
+
+    **O ponto de integração já existe.** Quando a emissão entrar, o gancho é a transição para `PAID` no `OrdersService` — o mesmo lugar onde o acesso é concedido. O pedido já guarda o que um emissor pede: CPF e nome do comprador, itens com descrição e valor unitário, `amountCents`, `paidAt` e `mpPaymentId`. Falta uma coluna `invoiceNumber` em `Order`, que fecharia a conciliação dos dois lados ao alimentar o `INVOICE_NUMBER` do relatório do Mercado Pago.
 
 ## Modelo de dados
 
@@ -162,7 +169,7 @@ No `front/` nasce a feature `loja/` (catálogo, checkout PIX, checkout cartão, 
 ## Fora de escopo
 - Relatório de vendas, KPI de faturamento e conciliação financeira (decisão 23).
 - Estorno, devolução parcial e gestão de contestação pela plataforma (decisão 22).
-- Nota fiscal e integração fiscal (decisão 25).
+- Nota fiscal e integração fiscal (decisão 25) — verificado que o Mercado Pago não emite o documento; é spec própria, com emissor próprio ou prefeitura.
 - Cupom de desconto, order bump, upsell e preço promocional com data.
 - Assinatura recorrente e plano mensal — a venda desta spec é avulsa, por módulo.
 - Boleto, cartão de débito, Conta Mercado Pago e carteira digital: PIX e cartão de crédito apenas.
