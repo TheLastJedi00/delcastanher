@@ -98,8 +98,15 @@ A plataforma passa a cobrar. O aluno termina o onboarding e cai em uma loja de m
 23. **Não nasce tela de faturamento, e a decisão 1 da Spec 013 continua de pé.**
     Existem pedidos no banco, mas relatório de vendas, KPI de faturamento e conciliação são spec própria: envolvem taxa do gateway, data de liberação do dinheiro e regime de competência, e nada disso é derivável de `Order.amountCents`. O painel ganha apenas o que o suporte precisa para responder um aluno: no detalhe dele, os acessos com validade e origem, e os pedidos com status, valor e id do pagamento no Mercado Pago.
 
-24. **Entrega em sandbox, com produção a uma variável de distância.**
-    O código é o mesmo nos dois ambientes; o que muda é o par de credenciais. O teste de ponta a ponta usa usuários de teste do Mercado Pago, cartões de teste e o webhook apontando para o deploy de preview (única forma de receber notificação — `localhost` não é alcançável). Subir para produção é trocar `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY` e `MP_WEBHOOK_SECRET`, sem tocar em código.
+24. **Entrega em sandbox, com produção a uma variável de distância — e o sandbox da Orders API não é o que parece.**
+    O código é o mesmo nos dois ambientes; o que muda é o par de credenciais. Subir para produção é trocar `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY` e `MP_WEBHOOK_SECRET`, sem tocar em código.
+
+    **O que o teste funcional revelou:** a Orders API **recusa as credenciais `TEST-`**. Ela responde `401 invalid_credentials` com a mensagem *"Test credentials are not supported, use test users with production credentials to sandbox environment and your production credentials to production environment"*. O modelo é diferente do da API de Pagamentos, onde as chaves `TEST-` bastavam:
+
+    - **Sandbox na Orders API** = credenciais **de produção de um usuário de teste**. Cria-se um usuário de teste `seller`, entra-se no painel como ele, cria-se uma aplicação nessa conta e usam-se as credenciais dela. O pagamento é feito por um usuário de teste `buyer`, com dinheiro de teste.
+    - As chaves `TEST-` da conta real não servem para nada aqui.
+
+    Isso não muda a decisão — sandbox continua sendo o caminho —, mas muda o **pré-requisito**: não basta copiar as credenciais de teste do painel. E há uma dependência a mais: as credenciais de produção desta aplicação ainda não foram ativadas, o que é exigido para o fluxo acima.
 
 25. **Nota fiscal fica fora porque o gateway não a emite — não por prioridade.**
     As notas originais registram "Nota fiscal de Produto físico", que é como a aplicação foi classificada no cadastro do Mercado Pago. Isso poderia sugerir que o gateway emitiria o documento. **Não emite**, e a verificação está registrada aqui para ninguém refazê-la:
