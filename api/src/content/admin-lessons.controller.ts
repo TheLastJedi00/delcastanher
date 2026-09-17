@@ -4,6 +4,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import type { AdminLessonItem, AdminModuleItem } from './content.types';
 import { CreateLessonDto, ReorderDto, UpdateLessonDto } from './dto/lesson.dto';
+import { UpdateModulePriceDto } from '../payments/dto/admin-access.dto';
 import { CreateModuleDto, UpdateModuleDto } from './dto/module.dto';
 import { LessonsService } from './lessons.service';
 
@@ -48,6 +49,22 @@ export class AdminLessonsController {
     @Body() dto: UpdateModuleDto,
   ): Promise<AdminModuleItem> {
     return this.lessons.updateModule(moduleId, dto);
+  }
+
+  /**
+   * Preco do modulo, em centavos (Spec 014, decisao 1).
+   *
+   * Rota propria, e nao mais um campo em `PATCH /admin/modules/:id`:
+   * titulo e resumo sao conteudo, preco e decisao comercial. Separar as duas
+   * escritas deixa claro no log de rede o que foi alterado — e evita que um
+   * salvar de texto reescreva um preco por tabela.
+   */
+  @Patch('modules/:moduleId/price')
+  updateModulePrice(
+    @Param('moduleId') moduleId: string,
+    @Body() dto: UpdateModulePriceDto,
+  ): Promise<AdminModuleItem> {
+    return this.lessons.updateModulePrice(moduleId, dto.priceCents ?? null);
   }
 
   /** Aulas do modulo, com estado do video e os numeros da remocao. */
