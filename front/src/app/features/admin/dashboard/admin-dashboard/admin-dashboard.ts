@@ -1,11 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { ADMIN_TABS, AdminLayout, AdminTab } from '../../../../shared/layouts/admin-layout/admin-layout';
 import { AdminAulas } from '../../aulas/admin-aulas';
 import { AuthService } from '../../../../core/services/auth.service';
 import {
+  AdminAccessItem,
+  AdminOrderItem,
   AdminUserDetail,
   AdminUserItem,
   AdminUserRole,
@@ -65,6 +68,7 @@ type PendingAction =
     Avatar,
     ProgressBar,
     Modal,
+    ReactiveFormsModule,
   ],
   templateUrl: './admin-dashboard.html',
 })
@@ -216,12 +220,22 @@ export class AdminDashboard {
         this.detailLoading.set(false);
       },
     });
+
+    // Acessos e pedidos entram em paralelo com o detalhe: sao a resposta a
+    // "por que o aluno nao consegue abrir a aula", e o suporte nao deveria
+    // precisar de um segundo clique para chegar nela (Spec 014, decisoes 20 e
+    // 23).
+    this.loadAccess(user.id);
   }
 
   closeDetail() {
     this.detail.set(null);
     this.detailLoading.set(false);
     this.detailError.set(null);
+    this.accesses.set([]);
+    this.orders.set([]);
+    this.accessError.set(null);
+    this.courtesyModule.setValue('');
     // Fechar um dialogo sem devolver o foco deixa quem navega por teclado no
     // inicio da pagina, longe da linha em que estava.
     this.lastTrigger?.focus();
@@ -332,6 +346,117 @@ export class AdminDashboard {
   }
 
   /** Data no formato da tela; "nunca acessou" e ausencia de dado, nao data zero. */
+  // --- Acesso aos modulos (Spec 014, decisoes 20 e 23) ---
+
+  readonly accesses = signal<AdminAccessItem[]>([]);
+  readonly orders = signal<AdminOrderItem[]>([]);
+  readonly accessError = signal<string | null>(null);
+  readonly savingAccess = signal(false);
+  readonly courtesyModule = new FormControl('', { nonNullable: true });
+
+  /** Rotulo da origem: compra, cortesia e migracao querem dizer coisas diferentes. */
+  sourceLabel(source: AdminAccessItem['source']): string {
+    return { PURCHASE: 'Compra', COURTESY: 'Cortesia', LEGACY: 'Acesso anterior ao pagamento' }[
+      source
+    ];
+  }
+
+  orderStatusLabel(status: AdminOrderItem['status']): string {
+    return {
+      PENDING: 'Aguardando pagamento',
+      PAID: 'Pago',
+      REJECTED: 'Recusado',
+      CANCELLED: 'Cancelado',
+      EXPIRED: 'Expirado',
+      REFUNDED: 'Estornado',
+    }[status];
+  }
+
+  formatMoney(cents: number): string {
+    return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  /**
+   * Concede cortesia. A confirmacao diz o efeito — seis meses, sem cobranca —
+   * porque liberar conteudo pago e um ato que ninguem deveria fazer sem ler.
+   */
+  grantAccess(aluno: AdminUserDetail): void {
+    const moduleId = this.courtesyModule.value;
+
+    if (!moduleId) {
+      this.accessError.set('Escolha o módulo que será liberado.');
+
+      return;
+    }
+
+    const modulo = aluno.modules.find(item => item.id === moduleId);
+
+    if (
+      !confirm(
+        `Liberar o módulo "${modulo?.title ?? moduleId}" para ${aluno.name ?? aluno.email} por 6 meses, sem cobrança?`,
+      )
+    ) {
+      return;
+    }
+
+    this.savingAccess.set(true);
+    this.accessError.set(null);
+
+    this.users.grantAccess(aluno.id, moduleId).subscribe({
+      next: () => {
+        this.savingAccess.set(false);
+        this.courtesyModule.setValue('');
+        this.loadAccess(aluno.id);
+      },
+      error: (message: string) => {
+        this.savingAccess.set(false);
+        this.accessError.set(message);
+      },
+    });
+  }
+
+  /**
+   * Revoga o acesso. A confirmacao deixa explicito o que **nao** acontece:
+   * progresso e certificado ficam no lugar, como na Spec 013 (decisao 9).
+   */
+  revokeAccess(aluno: AdminUserDetail, acesso: AdminAccessItem): void {
+    if (
+      !confirm(
+        `Remover o acesso de ${aluno.name ?? aluno.email} ao módulo "${acesso.moduleTitle}"?\n\n` +
+          'O conteúdo deixa de abrir na hora. Nada é apagado: o progresso e os certificados já ' +
+          'emitidos continuam no lugar.',
+      )
+    ) {
+      return;
+    }
+
+    this.savingAccess.set(true);
+    this.accessError.set(null);
+
+    this.users.revokeAccess(aluno.id, acesso.moduleId).subscribe({
+      next: () => {
+        this.savingAccess.set(false);
+        this.loadAccess(aluno.id);
+      },
+      error: (message: string) => {
+        this.savingAccess.set(false);
+        this.accessError.set(message);
+      },
+    });
+  }
+
+  private loadAccess(userId: string): void {
+    this.users.accesses(userId).subscribe({
+      next: list => this.accesses.set(list),
+      error: (message: string) => this.accessError.set(message),
+    });
+
+    this.users.orders(userId).subscribe({
+      next: list => this.orders.set(list),
+      error: () => undefined,
+    });
+  }
+
   formatDate(value: string | null): string {
     return value ? new Date(value).toLocaleDateString('pt-BR') : 'Nunca acessou';
   }

@@ -70,6 +70,34 @@ export interface AdminUserModuleItem {
   lessons: AdminUserLessonItem[];
 }
 
+/** Acesso de um aluno a um modulo (Spec 014, decisao 20). */
+export interface AdminAccessItem {
+  moduleId: string;
+  moduleOrder: number;
+  moduleTitle: string;
+  /** De onde veio: compra, cortesia ou o backfill das contas antigas. */
+  source: 'PURCHASE' | 'COURTESY' | 'LEGACY';
+  grantedAt: string;
+  expiresAt: string;
+  /** Falso para acesso vencido, que continua listado como historico. */
+  active: boolean;
+  orderId: string | null;
+}
+
+/** Pedido do aluno, no que o suporte precisa (decisao 23). */
+export interface AdminOrderItem {
+  id: string;
+  status: 'PENDING' | 'PAID' | 'REJECTED' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED';
+  amountCents: number;
+  method: 'PIX' | 'CREDIT_CARD';
+  installments: number;
+  mpOrderId: string | null;
+  mpPaymentId: string | null;
+  createdAt: string;
+  paidAt: string | null;
+  items: { moduleId: string; title: string; priceCents: number }[];
+}
+
 /** Diploma no detalhe: exibido, nunca revogado por aqui (decisao 12). */
 export interface AdminUserCertificateItem {
   id: string;
@@ -213,6 +241,36 @@ export class AdminUsersService {
   setRole(id: string, role: AdminUserRole): Observable<void> {
     return this.http
       .patch<void>(`${environment.apiUrl}/admin/users/${id}/role`, { role })
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  // --- Acesso aos modulos (Spec 014, decisao 20) ---
+
+  /** Acessos do aluno, inclusive os vencidos — o suporte precisa dos dois. */
+  accesses(id: string): Observable<AdminAccessItem[]> {
+    return this.http
+      .get<AdminAccessItem[]>(`${environment.apiUrl}/admin/users/${id}/access`)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /** Pedidos do aluno (decisao 23). */
+  orders(id: string): Observable<AdminOrderItem[]> {
+    return this.http
+      .get<AdminOrderItem[]>(`${environment.apiUrl}/admin/users/${id}/orders`)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /** Cortesia: 6 meses sem pagamento, pelo mesmo caminho da compra. */
+  grantAccess(id: string, moduleId: string): Observable<void> {
+    return this.http
+      .post<void>(`${environment.apiUrl}/admin/users/${id}/access`, { moduleId })
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /** Revoga o acesso. Progresso e certificado ficam onde estao. */
+  revokeAccess(id: string, moduleId: string): Observable<void> {
+    return this.http
+      .delete<void>(`${environment.apiUrl}/admin/users/${id}/access/${moduleId}`)
       .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
   }
 

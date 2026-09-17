@@ -116,6 +116,17 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
                     · {{ module.certificateCount }} diploma(s) emitido(s)
                   }
                 </span>
+                <!--
+                  Preço de venda (Spec 014, decisão 1). "A definir" é estado
+                  legítimo: o módulo some da loja em vez de ser vendido por um
+                  valor que ninguém decidiu.
+                -->
+                <span
+                  class="mt-1 block text-xs font-bold"
+                  [class.text-brand-teal-deep]="module.priceCents !== null"
+                  [class.text-state-warning]="module.priceCents === null">
+                  {{ priceLabel(module.priceCents) }}
+                </span>
               </button>
 
               <span class="ml-auto flex items-center gap-2">
@@ -132,7 +143,46 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
                 <ui-button variant="outline" size="sm" (click)="startEdit('module', module)">
                   Renomear
                 </ui-button>
+                <ui-button variant="outline" size="sm" (click)="startPrice(module)">
+                  Preço
+                </ui-button>
               </span>
+
+              @if (pricingModuleId() === module.id) {
+                <form
+                  (ngSubmit)="savePrice(module)"
+                  class="w-full grid gap-3 rounded-xl bg-brand-teal/5 p-3">
+                  <label [for]="'preco-' + module.id" class="text-xs text-slate-600">
+                    Preço em reais (deixe vazio para voltar a "a definir")
+                  </label>
+                  <input
+                    [id]="'preco-' + module.id"
+                    type="text"
+                    inputmode="decimal"
+                    [formControl]="priceControl"
+                    [class]="fieldClass"
+                    placeholder="199,00" />
+                  <!--
+                    Os R$ 199,00 vieram da migration como valor provisório do
+                    time (decisão 1) — dizer isso aqui evita que alguém o trate
+                    como preço decidido.
+                  -->
+                  <p class="text-xs text-slate-500">
+                    O valor de R$ 199,00 foi aplicado a todos os módulos na migração desta spec
+                    como preço provisório. Alterar aqui não muda pedidos já feitos: eles guardam o
+                    valor cobrado na época.
+                  </p>
+                  @if (priceError(); as message) {
+                    <p class="text-xs text-state-danger" role="alert">{{ message }}</p>
+                  }
+                  <div class="flex gap-2">
+                    <ui-button type="submit" variant="primary" size="sm" [loading]="savingPrice()">
+                      Salvar preço
+                    </ui-button>
+                    <ui-button variant="ghost" size="sm" (click)="cancelPrice()">Cancelar</ui-button>
+                  </div>
+                </form>
+              }
 
               @if (isEditing('module', module.id)) {
                 <form
@@ -449,6 +499,78 @@ export class AdminAulas implements OnDestroy {
     title: ['', [Validators.required, Validators.minLength(3)]],
     summary: ['', [Validators.required, Validators.minLength(3)]],
   });
+
+  // --- Preco do modulo (Spec 014, decisao 1) ---
+
+  /** Modulo com o campo de preco aberto; nulo quando nenhum esta em edicao. */
+  protected readonly pricingModuleId = signal<string | null>(null);
+  protected readonly savingPrice = signal(false);
+  protected readonly priceError = signal<string | null>(null);
+  protected readonly priceControl = this.fb.nonNullable.control('');
+
+  /** Rotulo do preco na lista. "A definir" e estado legitimo, e nao erro. */
+  protected priceLabel(cents: number | null): string {
+    return cents === null
+      ? 'Preço a definir'
+      : (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  protected startPrice(module: AdminModule): void {
+    this.priceError.set(null);
+    this.pricingModuleId.set(module.id);
+    this.priceControl.setValue(
+      module.priceCents === null ? '' : (module.priceCents / 100).toFixed(2).replace('.', ','),
+    );
+  }
+
+  protected cancelPrice(): void {
+    this.pricingModuleId.set(null);
+    this.priceError.set(null);
+  }
+
+  /**
+   * Converte o texto digitado em centavos inteiros.
+   *
+   * Aceita virgula e ponto porque as duas grafias sao naturais em portugues, e
+   * arredonda para o centavo: o banco guarda inteiro, e um valor fracionario de
+   * centavo nao existe em cobranca.
+   */
+  protected savePrice(module: AdminModule): void {
+    const raw = this.priceControl.value.trim();
+
+    if (raw === '') {
+      this.persistPrice(module, null);
+
+      return;
+    }
+
+    const value = Number(raw.replace(/\./g, '').replace(',', '.'));
+
+    if (!Number.isFinite(value) || value <= 0) {
+      this.priceError.set('Informe um valor maior que zero, como 199,00.');
+
+      return;
+    }
+
+    this.persistPrice(module, Math.round(value * 100));
+  }
+
+  private persistPrice(module: AdminModule, priceCents: number | null): void {
+    this.savingPrice.set(true);
+    this.priceError.set(null);
+
+    this.content.updateModulePrice(module.id, priceCents).subscribe({
+      next: () => {
+        this.savingPrice.set(false);
+        this.pricingModuleId.set(null);
+        this.loadModules(false);
+      },
+      error: (message: string) => {
+        this.savingPrice.set(false);
+        this.priceError.set(message);
+      },
+    });
+  }
 
   protected readonly selectedModule = computed(
     () => this.modules().find(module => module.id === this.selectedModuleId()) ?? null,

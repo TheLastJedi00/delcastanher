@@ -68,6 +68,17 @@ async function build(queryParams: Record<string, string> = {}): Promise<Componen
   return fixture;
 }
 
+/**
+ * Responde as consultas que o detalhe dispara junto com o perfil: acessos e
+ * pedidos (Spec 014, decisoes 20 e 23). Elas sao parte de abrir o dialogo — o
+ * suporte precisa dos tres dados na mesma tela.
+ */
+function flushAccess(http: HttpTestingController) {
+  http
+    .match(request => request.url.endsWith("/access") || request.url.endsWith("/orders"))
+    .forEach(request => request.flush([]));
+}
+
 /** Responde a consulta inicial que a tela dispara ao abrir. */
 function flushList(http: HttpTestingController, body: object = RESULT) {
   http.match(request => request.url.endsWith('/admin/users')).forEach(request => request.flush(body));
@@ -340,6 +351,7 @@ describe('AdminDashboard', () => {
       fixture.componentInstance.openDetail(ANA, { currentTarget: document.createElement('button') } as unknown as Event);
 
       const request = http.expectOne(req => req.url.endsWith('/admin/users/uid-ana'));
+      flushAccess(http);
       request.flush({ id: 'uid-ana', name: 'Ana Silva', modules: [], certificates: [] });
 
       expect(fixture.componentInstance.detail()?.id).toBe('uid-ana');
@@ -356,6 +368,7 @@ describe('AdminDashboard', () => {
       http
         .expectOne(req => req.url.endsWith('/admin/users/uid-ana'))
         .flush({ message: 'nao encontrado' }, { status: 404, statusText: 'Not Found' });
+      flushAccess(http);
 
       expect(fixture.componentInstance.detail()).toBeNull();
       expect(fixture.componentInstance.detailError()).toBeTruthy();
@@ -373,6 +386,7 @@ describe('AdminDashboard', () => {
 
       fixture.componentInstance.openDetail(ANA, { currentTarget: trigger } as unknown as Event);
       http.expectOne(req => req.url.endsWith('/admin/users/uid-ana')).flush({ id: 'uid-ana' });
+      flushAccess(http);
 
       fixture.componentInstance.closeDetail();
 

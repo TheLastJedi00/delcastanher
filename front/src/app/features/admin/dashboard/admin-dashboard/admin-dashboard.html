@@ -420,6 +420,83 @@
         </div>
       }
 
+      <!--
+        Acessos e cortesia (Spec 014, decisão 20). É a única escrita deste
+        detalhe, e não contradiz a decisão 11 da Spec 013: conceder acesso é
+        ato administrativo sobre a relação comercial, não edição de dado
+        pessoal de terceiro.
+      -->
+      <div class="mb-6">
+        <h3 class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+          Acesso aos módulos
+        </h3>
+
+        <ul class="space-y-2">
+          @for (acesso of accesses(); track acesso.moduleId) {
+            <li class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-surface px-3 py-2">
+              <span class="min-w-0 text-sm text-slate-700">
+                {{ acesso.moduleOrder }}. {{ acesso.moduleTitle }}
+                <span class="block text-xs text-slate-500">
+                  {{ sourceLabel(acesso.source) }} ·
+                  {{ acesso.active ? 'válido até ' + formatDate(acesso.expiresAt) : 'expirado em ' + formatDate(acesso.expiresAt) }}
+                </span>
+              </span>
+              <button
+                type="button"
+                class="shrink-0 text-xs font-bold text-state-danger underline"
+                [attr.aria-label]="'Revogar acesso ao módulo ' + acesso.moduleTitle"
+                (click)="revokeAccess(aluno, acesso)">
+                Revogar
+              </button>
+            </li>
+          } @empty {
+            <li class="text-sm text-slate-500">Nenhum acesso concedido.</li>
+          }
+        </ul>
+
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <label for="cortesia" class="sr-only">Módulo para conceder acesso</label>
+          <select id="cortesia" [formControl]="courtesyModule" class="rounded-xl border border-brand-navy/15 px-3 py-2 text-sm">
+            <option value="">Conceder acesso a…</option>
+            @for (modulo of aluno.modules; track modulo.id) {
+              <option [value]="modulo.id">{{ modulo.order }}. {{ modulo.title }}</option>
+            }
+          </select>
+          <ui-button
+            variant="outline"
+            size="sm"
+            [loading]="savingAccess()"
+            (click)="grantAccess(aluno)">
+            Conceder 6 meses (cortesia)
+          </ui-button>
+        </div>
+
+        @if (accessError(); as message) {
+          <p class="mt-2 text-xs text-state-danger" role="alert">{{ message }}</p>
+        }
+      </div>
+
+      <!-- Pedidos: o que o suporte precisa para responder sobre cobrança
+           (decisão 23). Relatório de vendas continua sendo spec própria. -->
+      @if (orders().length > 0) {
+        <div class="mb-6">
+          <h3 class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Pedidos</h3>
+          <ul class="space-y-2">
+            @for (pedido of orders(); track pedido.id) {
+              <li class="rounded-xl bg-brand-surface px-3 py-2 text-sm text-slate-700">
+                <span class="font-semibold">{{ orderStatusLabel(pedido.status) }}</span>
+                · {{ formatMoney(pedido.amountCents) }}
+                · {{ pedido.method === 'PIX' ? 'PIX' : pedido.installments + 'x no cartão' }}
+                · {{ formatDate(pedido.createdAt) }}
+                @if (pedido.mpPaymentId) {
+                  <span class="block text-xs text-slate-500">Mercado Pago: {{ pedido.mpPaymentId }}</span>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
       <div class="mb-6">
         <h3 class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
           Progresso — {{ aluno.completedLessons }} de {{ aluno.totalLessons }} aulas ({{ aluno.percentage }}%)
