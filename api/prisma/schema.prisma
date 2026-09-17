@@ -54,6 +54,8 @@ model User {
 
   progress     LessonProgress[]
   certificates Certificate[]
+  orders       Order[]
+  accesses     ModuleAccess[]
 
   // Sustentam o filtro por papel e o KPI de alunos ativos sem varredura.
   @@index([role])
@@ -106,12 +108,26 @@ model Module {
   title    String
   summary  String
 
+  /// Preco de venda do modulo, em centavos (Spec 014, decisao 1). Modulo e a
+  /// unidade de compra desde esta spec: o aluno escolhe um ou varios na loja e
+  /// recebe 6 meses de acesso a cada um.
+  ///
+  /// **Nulo significa "a definir"**, como em `Course.workloadHours`: o modulo
+  /// aparece na loja como "em breve", sem botao, e a API recusa qualquer
+  /// pedido que o inclua. A migration desta spec preencheu 19900 (R$ 199,00)
+  /// nos modulos que ja existiam — valor provisorio do time, trocavel pelo
+  /// painel —, mas o default continua nulo para que modulo novo tenha o preco
+  /// decidido, e nao herdado por descuido.
+  priceCents Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons      Lesson[]
   certificates Certificate[]
+  orderItems   OrderItem[]
+  accesses     ModuleAccess[]
 
   @@unique([courseId, order])
   @@map("modules")
@@ -260,4 +276,150 @@ model Certificate {
 
   @@unique([userId, moduleId])
   @@map("certificates")
+}
+
+/// Pedido de compra de modulos (Spec 014). Registra a transacao; quem abre o
+/// conteudo e `ModuleAccess`, e nao esta tabela (decisao 4).
+///
+/// O valor cobrado e sempre calculado no servidor a partir de
+/// `Module.priceCents` — o cliente envia ids de modulo, nunca preco (decisao
+/// 2) — e vive aqui em centavos inteiros, como em toda a spec (decisao 3).
+model Order {
+  id     String      @id @default(cuid())
+  userId String
+  status OrderStatus @default(PENDING)
+
+  /// Soma dos itens, em centavos, no instante da compra.
+  amountCents Int
+  method      PaymentMethodKind
+  /// Sempre 1 no PIX; 1..6 no cartao, com juros do comprador (decisao 9).
+  installments Int              @default(1)
+
+  /// `ORD...` da Orders API do Mercado Pago: e a chave da reconsulta
+  /// (`GET /v1/orders/:id`) e do webhook do topico `order` (decisoes 7 e 12).
+  mpOrderId String? @unique
+  /// `PAY...` da transacao dentro da order. Guardado porque e o numero que o
+  /// aluno ve no extrato e o que o suporte procura no painel do Mercado Pago.
+  mpPaymentId String?
+  /// Par cru devolvido pelo gateway, sem traducao: quando o desfecho nao
+  /// fizer sentido, quem responde e o que o Mercado Pago disse, e nao a nossa
+  /// interpretacao dele. `mpStatusDetail` tambem e a origem da mensagem
+  /// exibida ao comprador numa recusa.
+  mpStatus       String?
+  mpStatusDetail String?
+
+  /// Instante da aprovacao. E dele que saem os 6 meses de acesso (decisao 5).
+  paidAt DateTime?
+  /// Vencimento do PIX, espelhando o `expiration_time` enviado na order.
+  /// Passado sem pagamento, o pedido vira `EXPIRED` (decisao 10).
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items    OrderItem[]
+  accesses ModuleAccess[]
+
+  @@index([userId, createdAt])
+  @@map("orders")
+}
+
+/// Estados do pedido nesta plataforma. Sao **nossos**: a traducao a partir do
+/// status da order do Mercado Pago acontece em um ponto so (decisao 7), e
+/// status desconhecido vira `PENDING` — nunca `PAID`.
+enum OrderStatus {
+  PENDING
+  PAID
+  REJECTED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+
+  @@map("order_status")
+}
+
+/// Meios de pagamento aceitos nesta spec. Boleto, debito e carteira ficaram de
+/// fora de proposito (ver "Fora de escopo" do context.md).
+enum PaymentMethodKind {
+  PIX
+  CREDIT_CARD
+
+  @@map("payment_method_kind")
+}
+
+/// Item do pedido, com **snapshot** de preco e titulo (decisao 6). O
+/// administrador vai reajustar `Module.priceCents`, e um pedido que lesse o
+/// preco vigente reescreveria o passado a cada reajuste: recibo e suporte
+/// precisam do que foi cobrado, nao do que vale hoje.
+model OrderItem {
+  id       String @id @default(cuid())
+  orderId  String
+  moduleId String
+
+  priceCents    Int
+  titleSnapshot String
+
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  /// `Restrict`, e nao `Cascade`: modulo ja vendido nao e removivel, pelo
+  /// mesmo motivo que modulo ja certificado nao e (Spec 012, decisao 15).
+  /// Apagar em cascata sumiria com o historico de uma compra paga.
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, moduleId])
+  @@map("order_items")
+}
+
+/// Direito de acesso de um aluno a um modulo (Spec 014, decisao 4).
+///
+/// **E esta linha, e nao o pagamento, que abre o conteudo.** Ler "existe
+/// pagamento aprovado com este modulo" a cada requisicao amarraria o portao ao
+/// historico financeiro e deixaria cortesia e migracao sem lugar. Aqui, acesso
+/// ativo e uma pergunta so — `expiresAt > agora` —, igual para quem comprou,
+/// quem ganhou e quem ja estava na plataforma antes do paywall.
+///
+/// A unicidade e `(userId, moduleId)`: recomprar estende o periodo em vez de
+/// criar uma segunda linha, para que nenhuma leitura de acesso precise de um
+/// `max()` sobre historico (decisao 5).
+model ModuleAccess {
+  id       String @id @default(cuid())
+  userId   String
+  moduleId String
+
+  /// Instante da ultima concessao — compra, recompra ou cortesia.
+  grantedAt DateTime @default(now())
+  /// Fim do acesso. Vencido, o conteudo tranca, mas progresso e certificado
+  /// continuam intactos: nada e apagado (decisoes 5 e 18).
+  expiresAt DateTime
+  source    AccessSource
+  /// Preenchido quando a origem e uma compra. E por ele que o estorno revoga
+  /// exatamente o que aquele pedido liberou (decisao 22).
+  orderId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  order  Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, moduleId])
+  // Sustenta o portao do conteudo: uma consulta por requisicao, com o mapa de
+  // acessos ativos do aluno, e nunca uma consulta por modulo.
+  @@index([userId, expiresAt])
+  @@index([orderId])
+  @@map("module_access")
+}
+
+/// De onde veio o acesso. `PURCHASE` e a compra; `COURTESY` e a concessao
+/// administrativa para suporte e teste; `LEGACY` e o backfill que liberou as
+/// contas que ja existiam quando o paywall entrou (decisao 20).
+enum AccessSource {
+  PURCHASE
+  COURTESY
+  LEGACY
+
+  @@map("access_source")
 }
