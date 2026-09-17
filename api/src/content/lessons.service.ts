@@ -73,6 +73,7 @@ export class LessonsService {
         order: module.order,
         title: module.title,
         summary: module.summary,
+        priceCents: module.priceCents,
         lessonCount: (module as { _count?: { lessons: number } })._count?.lessons ?? 0,
         // A UI usa este numero para explicar por que a remocao de modulo nao
         // existe: o diploma emitido continua valendo (decisao 15).
@@ -99,6 +100,7 @@ export class LessonsService {
       order: created.order,
       title: created.title,
       summary: created.summary,
+      priceCents: created.priceCents,
       lessonCount: 0,
       certificateCount: 0,
     };
@@ -119,6 +121,35 @@ export class LessonsService {
       order: updated.order,
       title: updated.title,
       summary: updated.summary,
+      priceCents: updated.priceCents,
+      lessonCount: (updated as { _count?: { lessons: number } })._count?.lessons ?? 0,
+      certificateCount: await this.prisma.certificate.count({ where: { moduleId } }),
+    };
+  }
+
+  /**
+   * Preco de venda do modulo, em centavos (Spec 014, decisao 1).
+   *
+   * `null` grava "a definir": o modulo sai da loja e volta a aparecer como "em
+   * breve", e a API recusa qualquer pedido que o inclua. **Pedidos ja feitos
+   * nao mudam de valor** — eles guardam o snapshot do que foi cobrado
+   * (decisao 6), e e por isso que reajustar preco aqui e seguro.
+   */
+  async updateModulePrice(moduleId: string, priceCents: number | null): Promise<AdminModuleItem> {
+    await this.requireModule(moduleId);
+
+    const updated = await this.prisma.module.update({
+      where: { id: moduleId },
+      data: { priceCents },
+      include: { _count: { select: { lessons: true } } },
+    });
+
+    return {
+      id: updated.id,
+      order: updated.order,
+      title: updated.title,
+      summary: updated.summary,
+      priceCents: updated.priceCents,
       lessonCount: (updated as { _count?: { lessons: number } })._count?.lessons ?? 0,
       certificateCount: await this.prisma.certificate.count({ where: { moduleId } }),
     };

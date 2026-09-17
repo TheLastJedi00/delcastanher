@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AccessService } from './access.service';
+import { AdminAccessController } from './admin-access.controller';
+import { AdminAccessService } from './admin-access.service';
 import { MercadoPagoService } from './mercado-pago.service';
 import { MercadoPagoWebhookController } from './mercado-pago-webhook.controller';
 import { OrdersController } from './orders.controller';
@@ -20,8 +22,13 @@ import { StoreService } from './store.service';
  */
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [StoreController, OrdersController, MercadoPagoWebhookController],
-  providers: [AccessService, MercadoPagoService, OrdersService, StoreService],
+  controllers: [
+    StoreController,
+    OrdersController,
+    AdminAccessController,
+    MercadoPagoWebhookController,
+  ],
+  providers: [AccessService, AdminAccessService, MercadoPagoService, OrdersService, StoreService],
   exports: [AccessService, OrdersService],
 })
 export class PaymentsModule {}
