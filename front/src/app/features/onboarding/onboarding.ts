@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { CONSENT_POLICY_VERSION } from '../../core/services/consent.service';
 import { UserService } from '../../core/services/user.service';
 import { Button } from '../../shared/ui/button/button';
+import { Checkbox } from '../../shared/ui/checkbox/checkbox';
 import { Input } from '../../shared/ui/input/input';
 import { LoadingOverlay } from '../../shared/ui/loading-overlay/loading-overlay';
 import { Logo } from '../../shared/ui/logo/logo';
@@ -35,7 +37,7 @@ const LINKEDIN = /^(https?:\/\/)?([\w-]+\.)*linkedin\.com\/.+$/i;
 @Component({
   selector: 'app-onboarding',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Logo, Input, Button, LoadingOverlay],
+  imports: [ReactiveFormsModule, RouterLink, Logo, Input, Button, Checkbox, LoadingOverlay],
   template: `
     <main class="flex min-h-screen items-center justify-center bg-gradient-hero px-4 py-12">
       <span class="blob-teal -left-24 top-10 h-80 w-80 animate-float bg-brand-teal-light/25" aria-hidden="true"></span>
@@ -83,13 +85,45 @@ const LINKEDIN = /^(https?:\/\/)?([\w-]+\.)*linkedin\.com\/.+$/i;
               formControlName="linkedin"
               [error]="errors().linkedin" />
 
+            <!-- Spec 015, decisao 10: nasce desmarcado e os documentos abrem em
+                 aba nova. Caixa pre-marcada nao e consentimento livre e
+                 inequivoco, e perder o formulario ja preenchido para ler a
+                 politica faria a leitura custar caro. -->
+            <ui-checkbox formControlName="policyAccepted" [error]="errors().policyAccepted">
+              Li e aceito a
+              <a
+                routerLink="/politica-de-privacidade"
+                target="_blank"
+                class="font-semibold text-brand-teal-deep underline underline-offset-2">
+                Política de Privacidade</a
+              >
+              e a
+              <a
+                routerLink="/politica-de-cookies"
+                target="_blank"
+                class="font-semibold text-brand-teal-deep underline underline-offset-2">
+                Política de Cookies</a
+              >, e declaro estar ciente das condições descritas nos
+              <a
+                routerLink="/termos-de-uso"
+                target="_blank"
+                class="font-semibold text-brand-teal-deep underline underline-offset-2">
+                Termos de Uso</a
+              >.
+            </ui-checkbox>
+
             @if (errorMessage()) {
               <p role="alert" class="rounded-xl bg-state-danger/10 px-4 py-3 text-sm font-medium text-state-danger">
                 {{ errorMessage() }}
               </p>
             }
 
-            <ui-button variant="primary" type="submit" [fullWidth]="true" [loading]="isLoading()">
+            <ui-button
+              variant="primary"
+              type="submit"
+              [fullWidth]="true"
+              [loading]="isLoading()"
+              [disabled]="!form.controls.policyAccepted.value">
               Concluir cadastro
             </ui-button>
           </form>
@@ -113,6 +147,10 @@ export class Onboarding {
     bio: ['', [Validators.required, Validators.maxLength(600)]],
     phone: ['', [Validators.required, Validators.maxLength(30)]],
     linkedin: ['', [Validators.maxLength(200), Validators.pattern(LINKEDIN)]],
+    // `requiredTrue`: marcado e a unica forma valida. A API tambem recusa
+    // concluir o onboarding sem aceite — teto de UI que o servidor nao valida
+    // nao e teto (Spec 015, decisao 9).
+    policyAccepted: [false, Validators.requiredTrue],
   });
 
   readonly isLoading = signal(false);
@@ -130,16 +168,19 @@ export class Onboarding {
     this.value();
 
     if (!this.submitted()) {
-      return { name: '', bio: '', phone: '', linkedin: '' };
+      return { name: '', bio: '', phone: '', linkedin: '', policyAccepted: '' };
     }
 
-    const { name, bio, phone, linkedin } = this.form.controls;
+    const { name, bio, phone, linkedin, policyAccepted } = this.form.controls;
 
     return {
       name: messageFor(name, 'Informe seu nome completo.'),
       bio: messageFor(bio, 'Escreva um resumo da sua atuação.'),
       phone: messageFor(phone, 'Informe um telefone para contato.'),
       linkedin: messageFor(linkedin, ''),
+      policyAccepted: policyAccepted.hasError('required')
+        ? 'É necessário aceitar a Política de Privacidade para concluir o cadastro.'
+        : '',
     };
   });
 
@@ -161,6 +202,11 @@ export class Onboarding {
         bio: bio.trim(),
         phone: phone.trim(),
         linkedin: linkedin.trim() || undefined,
+        // Na mesma requisicao do perfil, de proposito: em requisicao propria, o
+        // aceite poderia falhar sozinho e deixar perfil completo sem aceite
+        // (Spec 015, decisao 7).
+        policyAccepted: true,
+        policyVersion: CONSENT_POLICY_VERSION,
       })
       .subscribe({
         next: () => {

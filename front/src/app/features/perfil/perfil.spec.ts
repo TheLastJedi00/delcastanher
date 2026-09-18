@@ -16,6 +16,8 @@ const PROFILE: UserProfile = {
   phone: '(11) 90000-0000',
   linkedin: 'https://linkedin.com/in/aluno',
   onboardingCompleted: true,
+  policyAcceptedAt: null,
+  policyAcceptedVersion: null,
 };
 
 describe('Perfil', () => {

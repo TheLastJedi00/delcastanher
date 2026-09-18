@@ -395,6 +395,26 @@
           <dt class="text-xs font-bold uppercase tracking-widest text-slate-500">Último acesso</dt>
           <dd class="mt-1 text-sm text-slate-800">{{ formatDate(aluno.lastSeenAt) }}</dd>
         </div>
+        <!--
+          Aceite da política (Spec 015, decisão 11). É leitura de suporte: não
+          há ação de administrador sobre ela, e nenhuma rota que a altere —
+          aceite que o administrador edita não prova nada. Sem registro diz
+          "sem aceite registrado", e nunca "recusou": nulo aqui significa conta
+          anterior à exigência.
+        -->
+        <div>
+          <dt class="text-xs font-bold uppercase tracking-widest text-slate-500">
+            Aceite da política
+          </dt>
+          <dd class="mt-1 text-sm text-slate-800">
+            @if (aluno.policyAcceptedAt) {
+              Versão {{ aluno.policyAcceptedVersion }} em
+              {{ formatDate(aluno.policyAcceptedAt) }}
+            } @else {
+              <span class="text-slate-500">Sem aceite registrado</span>
+            }
+          </dd>
+        </div>
         @if (aluno.phone) {
           <div>
             <dt class="text-xs font-bold uppercase tracking-widest text-slate-500">Telefone</dt>

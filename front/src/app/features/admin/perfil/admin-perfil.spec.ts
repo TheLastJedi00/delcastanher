@@ -15,6 +15,8 @@ const PROFILE = {
   phone: '(11) 90000-0000',
   linkedin: null,
   onboardingCompleted: true,
+  policyAcceptedAt: null,
+  policyAcceptedVersion: null,
 };
 
 describe('AdminPerfil', () => {
