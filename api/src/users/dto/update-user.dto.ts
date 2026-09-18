@@ -9,7 +9,11 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
-import { KNOWN_POLICY_VERSIONS, PolicyVersion } from '../policy-versions';
+import { KNOWN_POLICY_VERSIONS } from '../policy-versions';
+// `import type` obrigatorio: o tipo aparece na assinatura de uma propriedade
+// decorada, e com `isolatedModules` + `emitDecoratorMetadata` o compilador
+// precisa saber que ele nao existe em runtime.
+import type { PolicyVersion } from '../policy-versions';
 
 /** Remove espacos das pontas; strings vazias viram `undefined`. */
 const trim = ({ value }: { value: unknown }) =>
