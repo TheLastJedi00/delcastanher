@@ -1,11 +1,33 @@
 import { INestApplication, NotFoundException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AccessService } from '../payments/access.service';
 import request from 'supertest';
 import { AuthService } from '../auth/auth.service';
 import { AuthUser } from '../auth/auth.types';
 import { AuthenticatedRequest, FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { ProgressController } from './progress.controller';
 import { ProgressService } from './progress.service';
+/**
+ * Portao de acesso aberto (Spec 014, decisao 17). Esta suite cobre o que ja
+ * existia antes do paywall, entao aqui o acesso nunca pode ser o motivo da
+ * falha — o portao tem suite propria (`access.service.spec.ts` e os
+ * `*.access.*.spec.ts`).
+ */
+const ACESSO_A_TUDO = {
+  get: () => new Date('2099-01-01T00:00:00.000Z'),
+  has: () => true,
+  keys: () => ['mod-1'][Symbol.iterator](),
+} as unknown as Map<string, Date>;
+
+function acessoLiberado() {
+  return {
+    requireForLesson: jest.fn().mockResolvedValue(undefined),
+    requireForModule: jest.fn().mockResolvedValue(undefined),
+    hasActive: jest.fn().mockResolvedValue(true),
+    activeMap: jest.fn().mockResolvedValue(ACESSO_A_TUDO),
+  };
+}
+
 
 const USER: AuthUser = {
   uid: 'uid-123',
@@ -57,6 +79,7 @@ async function buildApp(progress: Partial<Record<keyof ProgressService, jest.Moc
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgressController],
     providers: [
+      { provide: AccessService, useValue: acessoLiberado() },
       { provide: ProgressService, useValue: progress },
       { provide: AuthService, useValue: { verify: jest.fn() } },
     ],

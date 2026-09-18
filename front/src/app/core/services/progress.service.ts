@@ -43,6 +43,14 @@ export interface ProgressModuleItem {
   title: string;
   summary: string;
   completed: boolean;
+  /**
+   * Estado de compra do modulo (Spec 014, decisao 17).
+   *
+   * A trilha continua trazendo TODOS os modulos: o aluno precisa ver o que
+   * existe para decidir comprar. O que muda com `unlocked` falso e o que a
+   * tela oferece — cadeado e preco no lugar do player.
+   */
+  access: { unlocked: boolean; expiresAt: string | null; priceCents: number | null };
   lessons: ProgressLessonItem[];
   completedCount: number;
   totalCount: number;

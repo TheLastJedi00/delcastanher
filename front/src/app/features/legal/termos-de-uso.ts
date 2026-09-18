@@ -37,8 +37,13 @@ export class TermosDeUso {
     {
       title: '3. Matrícula, pagamento e acesso ao curso',
       topics: [
-        'Formas de pagamento aceitas e momento da liberação do acesso',
-        'Prazo de disponibilidade do conteúdo após a compra',
+        // Spec 014: a venda passou a ser POR MODULO, com validade de 6 meses
+        // por modulo comprado (decisoes 1 e 5). O termo precisa dizer isso —
+        // e o prazo que o produto promete.
+        'Venda por módulo: o aluno escolhe um ou mais módulos, e cada um é cobrado separadamente',
+        'Formas de pagamento aceitas (PIX e cartão de crédito em até 6x, com juros do parcelamento por conta do comprador) e momento da liberação do acesso',
+        'Acesso de 6 meses por módulo comprado, contados da confirmação do pagamento',
+        'O que acontece ao fim dos 6 meses: o conteúdo deixa de abrir, o progresso e os certificados já emitidos são mantidos, e o módulo pode ser adquirido novamente',
         'Consequência da inadimplência sobre o acesso',
       ],
     },

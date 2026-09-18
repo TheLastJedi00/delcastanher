@@ -61,10 +61,11 @@ export class CourseDetail {
   );
 
   /**
-   * Destino dos CTAs de compra: o mockup interno de checkout (Spec 007).
-   * `offer.checkoutUrl` continua no mock como marcador do gateway real.
+   * Destino dos CTAs de compra: a loja de modulos (Spec 014, decisao 21).
+   * Ela exige conta, entao o visitante passa por cadastro e onboarding antes
+   * de pagar — nao existe mais checkout publico.
    */
-  protected readonly checkoutLink = computed(() => ['/checkout', this.course()?.slug ?? '']);
+  protected readonly checkoutLink = computed(() => ['/loja']);
 
   /** Modulos do curso no formato do ui-accordion. */
   protected readonly curriculumItems = computed<AccordionItem[]>(() =>

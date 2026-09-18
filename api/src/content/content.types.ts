@@ -126,6 +126,8 @@ export interface AdminModuleItem {
   order: number;
   title: string;
   summary: string;
+  /** Preco de venda em centavos; nulo = "a definir" (Spec 014, decisao 1). */
+  priceCents: number | null;
   lessonCount: number;
   certificateCount: number;
 }

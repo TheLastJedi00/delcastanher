@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { accessGuard } from './core/guards/access.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { onboardingGuard } from './core/guards/onboarding.guard';
@@ -30,15 +31,6 @@ export const routes: Routes = [
       [SEO_DATA_KEY]: { title: PLANS_META.title, description: PLANS_META.description },
     },
     loadComponent: () => import('./features/plans/plans').then(m => m.Plans),
-  },
-  {
-    // Mockup de checkout (Spec 007): rota publica, fora dos guards — nenhuma
-    // etapa autentica nem grava sessao. `noindex` porque um checkout de
-    // mentira nao pode ser indexado nem confundido com o real.
-    path: 'checkout/:productSlug',
-    data: { [SEO_DATA_KEY]: privateSeo('Checkout (demonstração)') },
-    loadChildren: () =>
-      import('./features/checkout/checkout.routes').then(m => m.CHECKOUT_ROUTES),
   },
   {
     // Portal publico de validacao (Spec 008): quem verifica um diploma e um
@@ -113,16 +105,33 @@ export const routes: Routes = [
     loadComponent: () => import('./features/onboarding/onboarding').then(m => m.Onboarding),
   },
   {
+    // Loja de modulos (Spec 014). Pos-login e pos-onboarding, e **sem** o
+    // `accessGuard`: e justamente aqui que chega quem ainda nao comprou nada
+    // (decisao 19). `noindex` porque e area interna.
+    path: 'loja',
+    canActivate: [authGuard, onboardingGuard],
+    data: { [SEO_DATA_KEY]: privateSeo('Loja de módulos') },
+    loadChildren: () => import('./features/loja/loja.routes').then(m => m.LOJA_ROUTES),
+  },
+  {
     path: 'ava',
     canActivate: [authGuard, onboardingGuard],
     data: { [SEO_DATA_KEY]: privateSeo('Ambiente do Aluno') },
     loadComponent: () => import('./features/student/layout/layout').then(m => m.StudentLayout),
     children: [
-      { path: '', loadComponent: () => import('./features/student/hub/hub').then(m => m.Hub) },
+      // O `accessGuard` vai nas filhas, e nao no pai: `perfil` fica de fora
+      // dele de proposito (decisao 19) — corrigir os proprios dados e exercer
+      // os direitos da Spec 009 nao podem depender de ter comprado algo.
+      {
+        path: '',
+        canActivate: [accessGuard],
+        loadComponent: () => import('./features/student/hub/hub').then(m => m.Hub),
+      },
       // A trilha e a unica tela do AVA que ocupa a altura util e rola por
       // dentro (dois paineis). As demais crescem com o conteudo.
       {
         path: 'trilha',
+        canActivate: [accessGuard],
         data: { [FULL_HEIGHT_DATA_KEY]: true },
         loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
       },
@@ -130,6 +139,7 @@ export const routes: Routes = [
       // na primeira aula em aberto dele.
       {
         path: 'trilha/:moduleId',
+        canActivate: [accessGuard],
         data: { [FULL_HEIGHT_DATA_KEY]: true },
         loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
       },
@@ -138,13 +148,14 @@ export const routes: Routes = [
       // A altura cheia vale para as tres: e a mesma tela.
       {
         path: 'trilha/:moduleId/:lessonId',
+        canActivate: [accessGuard],
         data: { [FULL_HEIGHT_DATA_KEY]: true },
         loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
       },
-      { path: 'certificado', loadComponent: () => import('./features/student/certificado/certificado').then(m => m.Certificado) },
+      { path: 'certificado', canActivate: [accessGuard], loadComponent: () => import('./features/student/certificado/certificado').then(m => m.Certificado) },
       { path: 'perfil', loadComponent: () => import('./features/perfil/perfil').then(m => m.Perfil) },
-      { path: 'materiais', loadComponent: () => import('./features/student/materiais/materiais').then(m => m.Materiais) },
-      { path: 'artigos', loadComponent: () => import('./features/student/artigos/artigos').then(m => m.Artigos) }
+      { path: 'materiais', canActivate: [accessGuard], loadComponent: () => import('./features/student/materiais/materiais').then(m => m.Materiais) },
+      { path: 'artigos', canActivate: [accessGuard], loadComponent: () => import('./features/student/artigos/artigos').then(m => m.Artigos) }
     ]
   },
   {
