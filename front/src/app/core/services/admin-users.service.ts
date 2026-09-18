@@ -122,6 +122,13 @@ export interface AdminUserDetail {
   onboardingCompleted: boolean;
   createdAt: string;
   lastSeenAt: string | null;
+  /**
+   * Aceite da Politica de Privacidade (Spec 015, decisao 11). Nulo e conta
+   * anterior a exigencia, e nunca recusa — a tela precisa poder dizer
+   * "sem aceite registrado" sem afirmar que o aluno recusou.
+   */
+  policyAcceptedAt: string | null;
+  policyAcceptedVersion: string | null;
   completedLessons: number;
   totalLessons: number;
   percentage: number;
