@@ -51,6 +51,6 @@ Ordem das fases: a casca e as constantes vêm primeiro porque as duas páginas d
 - [x] **Task 6.2:** Abrir `/politica-de-privacidade` e `/politica-de-cookies` e conferir que não resta nenhum `[TEXTO A SER REDIGIDO PELO JURÍDICO]`, nenhum `[e-mail …]`, `[nome …]` ou `[número]`, e que o aviso de pendência sumiu das duas.
 - [x] **Task 6.3:** Abrir `/termos-de-uso` e confirmar que ela continua pendente, com aviso e roteiro intactos.
 - [x] **Task 6.4:** Com consentimento já gravado sob `2026-09-10` no `localStorage`, recarregar o site e confirmar que o banner reabre (decisão 6); aceitar e conferir que o registro novo sai com `2026-09-13`.
-- [ ] **Task 6.5:** Percorrer o onboarding com uma conta nova: submeter sem marcar o aceite e ver o bloqueio, marcar e concluir, e conferir a data e a versão no detalhe do aluno em `/admin`.
+- [x] **Task 6.5:** Percorrer o onboarding com uma conta nova: submeter sem marcar o aceite e ver o bloqueio, marcar e concluir, e conferir a data e a versão no detalhe do aluno em `/admin`.
 - [x] **Task 6.6:** Entrar com uma conta que já concluiu o onboarding antes da spec, editar o perfil e confirmar que ela não é barrada por não ter aceite (decisão 9).
 - [x] **Task 6.7:** Conferir a hierarquia de cabeçalhos e a navegação por teclado das duas páginas redigidas, incluindo o checkbox do onboarding e seus links.
