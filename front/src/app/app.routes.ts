@@ -67,7 +67,7 @@ export const routes: Routes = [
       [SEO_DATA_KEY]: {
         title: 'Política de Privacidade | Delcastanher',
         description:
-          'Como a Delcastanher trata os dados pessoais de visitantes e alunos, e quais direitos você pode exercer sobre eles.',
+          'Como a Delcastanher coleta, utiliza, armazena, compartilha e protege dados pessoais, em conformidade com a LGPD, e quais direitos você pode exercer sobre eles.',
       },
     },
     loadComponent: () =>
