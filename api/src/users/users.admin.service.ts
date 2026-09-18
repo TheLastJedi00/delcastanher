@@ -54,6 +54,8 @@ interface DetailRow extends UserRow {
   bio: string | null;
   phone: string | null;
   linkedin: string | null;
+  policyAcceptedAt: Date | null;
+  policyAcceptedVersion: string | null;
 }
 
 /** Diploma como a consulta o devolve, com o titulo do modulo pela relacao. */
@@ -289,6 +291,8 @@ export class AdminUsersService {
       onboardingCompleted: user.onboardingCompleted,
       createdAt: user.createdAt,
       lastSeenAt: user.lastSeenAt,
+      policyAcceptedAt: user.policyAcceptedAt,
+      policyAcceptedVersion: user.policyAcceptedVersion,
       completedLessons,
       totalLessons,
       percentage: percentageOf(completedLessons, totalLessons),
