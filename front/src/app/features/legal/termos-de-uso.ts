@@ -6,12 +6,18 @@ import { LegalPage, LegalSection } from './legal-page';
   selector: 'app-termos-de-uso',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [LegalPage],
+  // Unica das tres paginas que continua pendente (Spec 015, decisao 3). O que a
+  // Spec 009 protegia era clausula contratual — arrependimento, reembolso,
+  // foro —, que depende de advogado; o texto do juridico que chegou cobre
+  // privacidade, e nao estes termos. Redigi-los aqui seria exatamente o erro
+  // que aquela spec antecipou.
   template: `
     <app-legal-page
       title="Termos de Uso"
       summary="Condições que regem o acesso e o uso da plataforma Delcastanher, dos cursos e da área do aluno."
       [sections]="sections"
-      [policyVersion]="policyVersion" />
+      [policyVersion]="policyVersion"
+      [pending]="true" />
   `,
 })
 export class TermosDeUso {

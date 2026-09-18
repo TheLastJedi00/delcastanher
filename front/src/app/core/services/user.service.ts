@@ -12,6 +12,13 @@ export interface UserProfile {
   phone: string | null;
   linkedin: string | null;
   onboardingCompleted: boolean;
+  /**
+   * Aceite da Politica de Privacidade (Spec 015). Nulo e conta anterior a
+   * exigencia, e nunca recusa — quem ja tinha concluido o onboarding nunca viu
+   * o checkbox, e nao e barrado por isso (decisoes 8 e 9).
+   */
+  policyAcceptedAt: string | null;
+  policyAcceptedVersion: string | null;
 }
 
 /** Payload de `PATCH /users/me`. */
@@ -20,6 +27,13 @@ export interface UpdateProfilePayload {
   bio: string;
   phone: string;
   linkedin?: string;
+  /**
+   * Enviado pelo onboarding, que e onde o aceite e coletado. A tela "Meu
+   * Perfil" nao manda: nao ha o que aceitar de novo, e a API so exige o aceite
+   * de quem esta **concluindo** o onboarding (decisao 9).
+   */
+  policyAccepted?: boolean;
+  policyVersion?: string;
 }
 
 /** Iniciais para o avatar, a partir do nome ou do e-mail. */

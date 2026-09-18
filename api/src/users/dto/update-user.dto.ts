@@ -1,5 +1,19 @@
 import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
+import { KNOWN_POLICY_VERSIONS } from '../policy-versions';
+// `import type` obrigatorio: o tipo aparece na assinatura de uma propriedade
+// decorada, e com `isolatedModules` + `emitDecoratorMetadata` o compilador
+// precisa saber que ele nao existe em runtime.
+import type { PolicyVersion } from '../policy-versions';
 
 /** Remove espacos das pontas; strings vazias viram `undefined`. */
 const trim = ({ value }: { value: unknown }) =>
@@ -34,4 +48,26 @@ export class UpdateUserDto {
   @IsUrl({ require_protocol: false }, { message: 'Informe uma URL valida do LinkedIn.' })
   @MaxLength(200, { message: 'O link deve ter no maximo 200 caracteres.' })
   linkedin?: string;
+
+  /**
+   * Aceite da Politica de Privacidade (Spec 015, decisao 7).
+   *
+   * Opcional no DTO porque a mesma rota atende a tela "Meu Perfil", onde nao
+   * ha o que aceitar de novo. Quem decide se ele era exigido e o `UsersService`,
+   * que sabe se esta requisicao **conclui** o onboarding ou apenas edita um
+   * perfil ja concluido — distincao que o DTO nao tem como fazer sozinho.
+   */
+  @IsOptional()
+  @IsBoolean({ message: 'O aceite da politica precisa ser verdadeiro ou falso.' })
+  policyAccepted?: boolean;
+
+  /**
+   * Versao aceita. Exigida apenas quando ha aceite: registrar "aceitou" sem
+   * dizer o que foi aceito nao registra nada.
+   */
+  @ValidateIf((dto: UpdateUserDto) => dto.policyAccepted === true)
+  @IsIn(KNOWN_POLICY_VERSIONS, {
+    message: 'Versao de politica desconhecida.',
+  })
+  policyVersion?: PolicyVersion;
 }

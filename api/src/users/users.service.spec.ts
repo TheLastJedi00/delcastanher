@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CURRENT_POLICY_VERSION } from './policy-versions';
 import { UsersService } from './users.service';
 
 const FIREBASE_USER: AuthUser = {
@@ -18,14 +19,27 @@ const ONBOARDING: UpdateUserDto = {
   bio: 'Analista de RH ha 8 anos.',
   phone: '(11) 90000-0000',
   linkedin: 'https://linkedin.com/in/aluno',
+  // Spec 015, decisao 7: concluir o onboarding passou a exigir o aceite da
+  // Politica de Privacidade, e ele viaja na mesma requisicao do perfil.
+  policyAccepted: true,
+  policyVersion: CURRENT_POLICY_VERSION,
 };
 
-async function build(upsert = jest.fn()) {
+async function build(upsert = jest.fn(), current: unknown = null) {
+  // `update` le o registro atual desde a Spec 015: e por ele que o servico sabe
+  // se esta requisicao conclui o onboarding ou edita um perfil ja concluido —
+  // e so a primeira exige aceite. O padrao e nulo: usuario que ainda nao existe
+  // no banco, que e o caso do onboarding.
+  const findUnique = jest.fn().mockResolvedValue(current);
+
   const moduleRef = await Test.createTestingModule({
-    providers: [UsersService, { provide: PrismaService, useValue: { user: { upsert } } }],
+    providers: [
+      UsersService,
+      { provide: PrismaService, useValue: { user: { upsert, findUnique } } },
+    ],
   }).compile();
 
-  return { service: moduleRef.get(UsersService), upsert };
+  return { service: moduleRef.get(UsersService), upsert, findUnique };
 }
 
 describe('UsersService', () => {
@@ -110,6 +124,8 @@ describe('UsersService', () => {
             phone: '(11) 90000-0000',
             linkedin: 'https://linkedin.com/in/aluno',
             onboardingCompleted: true,
+            policyAcceptedAt: expect.any(Date),
+            policyAcceptedVersion: CURRENT_POLICY_VERSION,
           },
         }),
       );
@@ -163,6 +179,8 @@ describe('UsersService', () => {
         phone: '(11) 90000-0000',
         linkedin: 'https://linkedin.com/in/aluno',
         onboardingCompleted: true,
+        policyAcceptedAt: expect.any(Date),
+        policyAcceptedVersion: CURRENT_POLICY_VERSION,
       });
     });
   });

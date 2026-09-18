@@ -12,6 +12,8 @@ const PROFILE: UserProfile = {
   phone: '(11) 90000-0000',
   linkedin: null,
   onboardingCompleted: true,
+  policyAcceptedAt: '2026-09-18T12:00:00.000Z',
+  policyAcceptedVersion: '2026-09-13',
 };
 
 const ME = `${environment.apiUrl}/users/me`;

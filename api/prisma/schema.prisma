@@ -49,6 +49,27 @@ model User {
   /// (Spec 013, decisao 9).
   blockedAt           DateTime?
 
+  /// Aceite da Politica de Privacidade, registrado no onboarding — o primeiro
+  /// passo autenticado, e o unico lugar onde existe usuario para gravar: o
+  /// cadastro e um modal que so pede e-mail e dispara o link do Firebase
+  /// (Spec 015, decisao 7).
+  ///
+  /// Nulo significa **conta anterior a exigencia**, e nunca recusa: a migration
+  /// nao inventa aceite retroativo para quem nunca viu o checkbox, e quem ja
+  /// concluiu o onboarding nao e barrado por isso (decisoes 8 e 9).
+  ///
+  /// Nao ha tabela de historico. A pergunta que o suporte e a propria LGPD
+  /// fazem e "este titular aceitou, quando, e qual versao" — uma linha por
+  /// usuario responde. "Quantas vezes aceitou ao longo do tempo" nao e
+  /// perguntado por nenhuma tela desta plataforma.
+  policyAcceptedAt      DateTime?
+
+  /// Versao vigente no momento do aceite (ex.: `2026-09-13`). Sem ela,
+  /// "aceitou em 18/09" nao diz **o que** foi aceito, e a proxima revisao do
+  /// documento tornaria todo aceite anterior ilegivel. E a mesma razao pela
+  /// qual o `ConsentRecord` do front ja carrega `policyVersion`.
+  policyAcceptedVersion String?
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

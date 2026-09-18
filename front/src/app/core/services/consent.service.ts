@@ -10,8 +10,16 @@ const STORAGE_KEY = 'delcastanher.consent';
  * consentimento gravado sob a versao anterior deixa de valer e o banner volta
  * a aparecer. Sem isso, um aceite de 2026 seguiria valendo para uma politica
  * de 2028 que o titular nunca leu.
+ *
+ * A Spec 015 e a primeira aplicacao real desse mecanismo. Ate `2026-09-10` as
+ * paginas legais eram esqueleto: cada clausula tinha titulo, roteiro e um aviso
+ * de que nada ali estava em vigor. Quem aceitou cookies olhando aquilo nao
+ * aceitou esta politica — entao a data sobe para `2026-09-13`, a do documento
+ * entregue pelo juridico, e o banner reabre para a base inteira. Nao e efeito
+ * colateral a mitigar: e exatamente o caso que esta constante existe para
+ * capturar (Spec 015, decisao 6).
  */
-export const CONSENT_POLICY_VERSION = '2026-09-10';
+export const CONSENT_POLICY_VERSION = '2026-09-13';
 
 export type ConsentChoice = 'accepted' | 'rejected';
 

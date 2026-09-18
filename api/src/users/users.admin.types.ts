@@ -117,6 +117,14 @@ export interface AdminUserDetail {
   onboardingCompleted: boolean;
   createdAt: Date;
   lastSeenAt: Date | null;
+  /**
+   * Aceite da Politica de Privacidade, para o suporte (Spec 015, decisao 11).
+   * Nulo e conta anterior a exigencia, e nunca recusa — a tela precisa poder
+   * distinguir os dois. Nao ha rota que escreva isto: aceite que o
+   * administrador edita nao prova nada.
+   */
+  policyAcceptedAt: Date | null;
+  policyAcceptedVersion: string | null;
   completedLessons: number;
   totalLessons: number;
   percentage: number;
