@@ -63,6 +63,8 @@ const PERFIL = {
   bio: 'Analista de RH ha 8 anos.',
   phone: '(11) 90000-0000',
   linkedin: 'https://linkedin.com/in/ana',
+  policyAcceptedAt: new Date('2026-09-16T12:00:00Z'),
+  policyAcceptedVersion: '2026-09-13',
 };
 
 /** Consulta padrao da tela: primeira pagina, sem filtro, ordenada por nome. */
@@ -563,6 +565,34 @@ describe('AdminUsersService', () => {
         phone: '(11) 90000-0000',
         linkedin: 'https://linkedin.com/in/ana',
       });
+    });
+
+    /**
+     * Spec 015, decisao 11: o suporte precisa responder "este aluno aceitou a
+     * politica, quando, e qual versao". A informacao e de leitura e nao tem
+     * rota de escrita — aceite que o administrador edita nao prova nada.
+     */
+    it('devolve o aceite da politica, com a versao aceita', async () => {
+      const { service } = await build();
+
+      const detail = await service.findOne(ANA.id);
+
+      expect(detail.policyAcceptedAt).toEqual(PERFIL.policyAcceptedAt);
+      expect(detail.policyAcceptedVersion).toBe('2026-09-13');
+    });
+
+    // Nulo e "conta anterior a Spec 015", e nunca "recusou" (decisao 8): a
+    // tela precisa conseguir distinguir os dois, e so consegue se o nulo
+    // chegar como nulo em vez de virar string vazia pelo caminho.
+    it('devolve aceite nulo para conta anterior a exigencia', async () => {
+      const { service } = await build({
+        detail: { ...PERFIL, policyAcceptedAt: null, policyAcceptedVersion: null },
+      });
+
+      const detail = await service.findOne(ANA.id);
+
+      expect(detail.policyAcceptedAt).toBeNull();
+      expect(detail.policyAcceptedVersion).toBeNull();
     });
 
     it('devolve as duas datas de acesso', async () => {
