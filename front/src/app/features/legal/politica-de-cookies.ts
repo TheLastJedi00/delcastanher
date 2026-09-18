@@ -13,7 +13,8 @@ import { LegalPage, LegalSection } from './legal-page';
       title="Política de Cookies"
       summary="Quais cookies a plataforma usa, para que servem e como revisar a sua escolha a qualquer momento."
       [sections]="sections"
-      [policyVersion]="policyVersion">
+      [policyVersion]="policyVersion"
+      [pending]="true">
       <!-- A revogacao vive na propria pagina que explica o que foi consentido:
            mandar o titular procurar o controle em outro lugar e atrito. -->
       <div class="rounded-xl border border-brand-navy/10 bg-white p-5 shadow-card">

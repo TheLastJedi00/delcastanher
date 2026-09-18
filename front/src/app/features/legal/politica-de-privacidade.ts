@@ -11,7 +11,8 @@ import { LegalPage, LegalSection } from './legal-page';
       title="Política de Privacidade"
       summary="Como a Delcastanher trata os dados pessoais de visitantes e alunos, e quais direitos você pode exercer sobre eles."
       [sections]="sections"
-      [policyVersion]="policyVersion" />
+      [policyVersion]="policyVersion"
+      [pending]="true" />
   `,
 })
 export class PoliticaDePrivacidade {
