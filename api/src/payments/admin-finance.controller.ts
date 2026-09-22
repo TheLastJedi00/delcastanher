@@ -1,12 +1,13 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AdminFinanceService } from './admin-finance.service';
-import type { FinanceSummary } from './admin-finance.types';
-import { FinanceSummaryDto } from './dto/finance-query.dto';
+import type { FinanceOrderListResult, FinanceSummary } from './admin-finance.types';
+import { FinanceSummaryDto, ListFinanceOrdersDto } from './dto/finance-query.dto';
 import { CreateGatewayFeeDto } from './dto/gateway-fee.dto';
 import { CurrentFeeRates, GatewayFeeRateView, GatewayFeesService } from './gateway-fees.service';
 
@@ -49,6 +50,36 @@ export class AdminFinanceController {
   @Get('summary')
   summary(@Query() query: FinanceSummaryDto): Promise<FinanceSummary> {
     return this.finance.summary(query);
+  }
+
+  /**
+   * A lista inteira do filtro corrente como anexo datado.
+   *
+   * Declarada **antes** de qualquer rota com parametro desta classe: o Nest
+   * casa na ordem de declaracao, e "export" seria lido como o id de um pedido
+   * no dia em que `orders/:id` existir.
+   */
+  @Get('orders/export')
+  async exportOrders(
+    @Query() query: ListFinanceOrdersDto,
+    @Res() response: Response,
+  ): Promise<void> {
+    const csv = await this.finance.exportOrdersCsv(query);
+    const date = new Date().toISOString().slice(0, 10);
+
+    response
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="pedidos-${date}.csv"`)
+      .send(csv);
+  }
+
+  /**
+   * Uma pagina da lista de pedidos. Busca, filtro, ordenacao e paginacao sao do
+   * servidor (Spec 013, decisao 7).
+   */
+  @Get('orders')
+  listOrders(@Query() query: ListFinanceOrdersDto): Promise<FinanceOrderListResult> {
+    return this.finance.listOrders(query);
   }
 
   /** Vigencias de taxa, da mais recente para a mais antiga, com autor e data. */

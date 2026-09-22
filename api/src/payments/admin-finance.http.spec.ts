@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, INestApplication, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -58,6 +58,8 @@ async function buildApp(
         provide: AdminFinanceService,
         useValue: {
           summary: jest.fn().mockResolvedValue({ totals: { grossCents: 0 } }),
+          listOrders: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 }),
+          exportOrdersCsv: jest.fn().mockResolvedValue('Pedido\n'),
           ...overrides.finance,
         },
       },
@@ -223,6 +225,135 @@ describe('Admin — financeiro: taxas (HTTP)', () => {
       await request(app.getHttpServer())
         .post('/admin/finance/fees')
         .send({ method: 'PIX', percentBasisPoints: 99, validFrom: '2026-09-01T00:00:00.000Z' })
+        .expect(403);
+    });
+  });
+  describe('GET /admin/finance/summary', () => {
+    it('devolve o resumo para o administrador', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer()).get('/admin/finance/summary').expect(200);
+    });
+
+    // Valor fora do conjunto e recusado, e nao trocado em silencio pelo
+    // default, no criterio do `ListAdminUsersDto`.
+    it('recusa granularidade fora de day/month', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/summary')
+        .query({ granularity: 'semana' })
+        .expect(400);
+    });
+
+    it('recusa data que nao seja ISO 8601', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/summary')
+        .query({ from: '01/09/2026' })
+        .expect(400);
+    });
+
+    it('recusa from posterior a to', async () => {
+      app = await buildApp({
+        finance: {
+          summary: jest.fn().mockRejectedValue(
+            Object.assign(new BadRequestException('A data inicial precisa ser anterior a data final.')),
+          ),
+        },
+      });
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/summary')
+        .query({ from: '2026-09-30T00:00:00Z', to: '2026-09-01T00:00:00Z' })
+        .expect(400);
+    });
+  });
+
+  describe('GET /admin/finance/orders', () => {
+    it('devolve uma pagina da lista', async () => {
+      app = await buildApp();
+
+      const response = await request(app.getHttpServer()).get('/admin/finance/orders').expect(200);
+
+      expect(response.body).toMatchObject({ total: 0, page: 1, pageSize: 20 });
+    });
+
+    // O teto existe para que a listagem nao vire uma exportacao sem limite por
+    // acidente: quem quer tudo usa o CSV.
+    it('recusa pageSize acima do teto', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/orders')
+        .query({ pageSize: 500 })
+        .expect(400);
+    });
+
+    it('recusa situacao fora do conjunto', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/orders')
+        .query({ status: 'ESTORNADO' })
+        .expect(400);
+    });
+  });
+
+  describe('GET /admin/finance/orders/export', () => {
+    it('devolve o CSV como anexo datado', async () => {
+      app = await buildApp();
+
+      const response = await request(app.getHttpServer())
+        .get('/admin/finance/orders/export')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('text/csv');
+      expect(response.headers['content-disposition']).toMatch(
+        /attachment; filename="pedidos-\d{4}-\d{2}-\d{2}\.csv"/,
+      );
+    });
+
+    // A rota de caminho fixo e declarada antes de qualquer rota com
+    // parametro: "export" nao pode ser lido como o id de um pedido.
+    it('nao e engolida por nenhuma rota com parametro', async () => {
+      const exportOrdersCsv = jest.fn().mockResolvedValue('Pedido\n');
+      app = await buildApp({ finance: { exportOrdersCsv } });
+
+      await request(app.getHttpServer()).get('/admin/finance/orders/export').expect(200);
+
+      expect(exportOrdersCsv).toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * Decisao 18: as rotas novas sao de administrador na **classe**, e nao por
+   * metodo. Uma asserção por rota, incluindo a exportacao e a escrita de taxa:
+   * deixar a protecao no metodo faria da proxima rota um furo por esquecimento.
+   */
+  describe('autorizacao de todas as rotas (Task 4.6)', () => {
+    const rotas: [string, string][] = [
+      ['get', '/admin/finance/summary'],
+      ['get', '/admin/finance/orders'],
+      ['get', '/admin/finance/orders/export'],
+      ['get', '/admin/finance/fees'],
+      ['post', '/admin/finance/fees'],
+    ];
+
+    it.each(rotas)('%s %s responde 401 sem token', async (method, path) => {
+      app = await buildApp({}, null);
+
+      await (request(app.getHttpServer()) as unknown as Record<string, (p: string) => request.Test>)
+        [method](path)
+        .expect(401);
+    });
+
+    it.each(rotas)('%s %s responde 403 para papel aluno', async (method, path) => {
+      app = await buildApp({}, 'aluno');
+
+      await (request(app.getHttpServer()) as unknown as Record<string, (p: string) => request.Test>)
+        [method](path)
         .expect(403);
     });
   });
