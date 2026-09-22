@@ -10,10 +10,12 @@ import {
   FinanceMethodBreakdown,
   FinanceModuleBreakdown,
   FinanceSeriesPoint,
+  FinanceOrderItem,
+  FinanceOrderListResult,
   FinanceSummary,
   FinanceTotals,
 } from './admin-finance.types';
-import { FinanceSummaryDto } from './dto/finance-query.dto';
+import { FinanceSummaryDto, ListFinanceOrdersDto } from './dto/finance-query.dto';
 import {
   REPORT_TIME_ZONE,
   ResolvedPeriod,
@@ -25,6 +27,83 @@ import { GatewayFeeRateView, GatewayFeesService, feeOf } from './gateway-fees.se
 
 /** Os dois metodos, na ordem em que a tela os lista. */
 const METHODS: PaymentMethodKind[] = ['PIX', 'CREDIT_CARD'];
+
+/**
+ * Ponto e virgula, e nao virgula: o Excel em pt-BR usa o separador de lista do
+ * sistema, e com virgula a planilha inteira cai em uma coluna so. O arquivo e
+ * para ser aberto, nao para satisfazer o RFC.
+ */
+const CSV_SEPARATOR = ';';
+
+/**
+ * Colunas da planilha. Sao exatamente as da listagem: a exportacao nao e uma
+ * porta para dado que a tela nao mostra, e nao existe coluna de cartao nem de
+ * CPF porque eles nao existem no banco (decisao 17).
+ */
+const CSV_HEADER = [
+  'Pedido',
+  'Data',
+  'Situacao',
+  'Metodo',
+  'Parcelas',
+  'Valor (R$)',
+  'Comprador',
+  'E-mail',
+  'Modulos',
+  'Order Mercado Pago',
+  'Pagamento Mercado Pago',
+  'Pago em',
+  'Estornado em',
+];
+
+/**
+ * Um campo de CSV. Separador, aspas e quebra de linha obrigam a citar: um
+ * titulo de modulo com ponto e virgula partiria a linha em duas colunas.
+ */
+function csvField(value: string): string {
+  if (!/[;"\n\r]/.test(value)) {
+    return value;
+  }
+
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+/** Data no formato da tela; vazio para o nulo, que e ausencia do fato. */
+function csvDate(value: Date | null): string {
+  if (!value) {
+    return '';
+  }
+
+  const day = String(value.getUTCDate()).padStart(2, '0');
+  const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+
+  return `${day}/${month}/${value.getUTCFullYear()}`;
+}
+
+/**
+ * O **unico** lugar desta spec onde um valor sai escrito, porque planilha e
+ * para ser lida (decisao 2). A API continua devolvendo centavos inteiros.
+ */
+function csvMoney(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
+
+/** Linha da listagem, como a consulta a devolve. */
+interface OrderRow {
+  id: string;
+  status: FinanceOrderItem['status'];
+  amountCents: number;
+  method: FinanceOrderItem['method'];
+  installments: number;
+  mpOrderId: string | null;
+  mpPaymentId: string | null;
+  mpStatusDetail: string | null;
+  createdAt: Date;
+  paidAt: Date | null;
+  refundedAt: Date | null;
+  user: { name: string | null; email: string };
+  items: { titleSnapshot: string }[];
+}
 
 /** Linha da serie, como o Postgres a devolve. */
 interface SeriesRow {
@@ -127,6 +206,154 @@ export class AdminFinanceService {
         totals.rejectedOrders === 0 &&
         totals.refundedOrders === 0 &&
         totals.attempts === 0,
+    };
+  }
+
+  /**
+   * Uma pagina da lista de pedidos.
+   *
+   * Busca, filtro, ordenacao e paginacao sao do **servidor** (Spec 013,
+   * decisao 7): a tela nao guarda o historico financeiro inteiro para filtrar
+   * em memoria.
+   */
+  async listOrders(query: ListFinanceOrdersDto): Promise<FinanceOrderListResult> {
+    const where = this.ordersWhere(query);
+
+    const [total, rows] = await Promise.all([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        orderBy: this.ordersOrderBy(query),
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+        include: {
+          user: { select: { name: true, email: true } },
+          items: { select: { titleSnapshot: true } },
+        },
+      }) as unknown as Promise<OrderRow[]>,
+    ]);
+
+    return {
+      items: rows.map((row) => this.toOrderItem(row)),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
+  }
+
+  /**
+   * A lista inteira do filtro corrente, em CSV. Sem paginacao: montar o
+   * arquivo no cliente exigiria varrer todas as paginas com N requisicoes
+   * (Spec 013, decisao 13).
+   */
+  async exportOrdersCsv(query: ListFinanceOrdersDto): Promise<string> {
+    const rows = (await this.prisma.order.findMany({
+      where: this.ordersWhere(query),
+      orderBy: this.ordersOrderBy(query),
+      include: {
+        user: { select: { name: true, email: true } },
+        items: { select: { titleSnapshot: true } },
+      },
+    })) as unknown as OrderRow[];
+
+    const lines = rows.map((row) => {
+      const item = this.toOrderItem(row);
+
+      return [
+        item.id,
+        csvDate(item.createdAt),
+        item.status,
+        item.method,
+        String(item.installments),
+        csvMoney(item.amountCents),
+        // Sem nome — conta que parou antes do onboarding — o e-mail e o que a
+        // tela mostra na coluna, e a planilha nao pode abrir com uma coluna
+        // vazia.
+        item.buyerName ?? item.buyerEmail,
+        item.buyerEmail,
+        item.modules.join(', '),
+        item.mpOrderId ?? '',
+        item.mpPaymentId ?? '',
+        csvDate(item.paidAt),
+        csvDate(item.refundedAt),
+      ]
+        .map(csvField)
+        .join(CSV_SEPARATOR);
+    });
+
+    // BOM de UTF-8: sem ele o Excel em pt-BR abre "Joao" no lugar de "João".
+    return `\ufeff${[CSV_HEADER.join(CSV_SEPARATOR), ...lines].join('\n')}\n`;
+  }
+
+  /**
+   * Clausula do filtro. A mesma vai para a contagem, para a pagina e para a
+   * exportacao: um total que nao corresponde as linhas exibidas quebra a
+   * paginacao, e um CSV com outro filtro nao e a lista que esta na tela.
+   */
+  private ordersWhere(query: ListFinanceOrdersDto): Record<string, unknown> {
+    const period = resolvePeriod(query.from, query.to);
+    const where: Record<string, unknown> = {
+      createdAt: { gte: period.from, lt: period.to },
+    };
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.method) {
+      where.method = query.method;
+    }
+
+    const search = query.search?.trim();
+
+    if (search) {
+      // Os tres campos que o suporte tem em maos quando alguem liga: o e-mail
+      // de quem comprou e os dois numeros que aparecem no painel do Mercado
+      // Pago e no extrato do comprador.
+      where.OR = [
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { mpOrderId: { contains: search, mode: 'insensitive' } },
+        { mpPaymentId: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    return where;
+  }
+
+  /** Ordenacao, sempre do banco. */
+  private ordersOrderBy(query: ListFinanceOrdersDto): Record<string, unknown> {
+    switch (query.sort) {
+      case 'valor':
+        return { amountCents: query.direction };
+      case 'situacao':
+        return { status: query.direction };
+      default:
+        return { createdAt: query.direction };
+    }
+  }
+
+  /**
+   * Linha da tabela. Nenhum dado de cartao e nenhum CPF (decisao 17): a API
+   * nunca recebeu numero, validade ou CVV, e o CPF do pagador trafega para o
+   * gateway sem ser persistido — o painel nao abre excecao, e nem teria de
+   * onde tirar o dado.
+   */
+  private toOrderItem(row: OrderRow): FinanceOrderItem {
+    return {
+      id: row.id,
+      status: row.status,
+      amountCents: row.amountCents,
+      method: row.method,
+      installments: row.installments,
+      buyerName: row.user?.name ?? null,
+      buyerEmail: row.user?.email ?? '',
+      modules: (row.items ?? []).map((item) => item.titleSnapshot),
+      mpOrderId: row.mpOrderId,
+      mpPaymentId: row.mpPaymentId,
+      mpStatusDetail: row.mpStatusDetail,
+      createdAt: row.createdAt,
+      paidAt: row.paidAt,
+      refundedAt: row.refundedAt,
     };
   }
 
