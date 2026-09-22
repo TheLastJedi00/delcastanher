@@ -13,7 +13,7 @@ const ADMIN: AuthUser = {
 /** Vigencia corrente do PIX: 0,99% sem parcela fixa. */
 const PIX_ATUAL = {
   id: 'fee-pix-1',
-  method: 'PIX',
+  method: 'PIX' as const,
   percentBasisPoints: 99,
   fixedCents: 0,
   validFrom: new Date('2026-01-01T00:00:00Z'),
@@ -28,7 +28,7 @@ const PIX_ATUAL = {
 const CARTAO_ATUAL = {
   ...PIX_ATUAL,
   id: 'fee-card-1',
-  method: 'CREDIT_CARD',
+  method: 'CREDIT_CARD' as const,
   percentBasisPoints: 499,
   fixedCents: 40,
 };
