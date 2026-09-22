@@ -1,0 +1,360 @@
+import { BadRequestException, INestApplication, ValidationPipe } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Test } from '@nestjs/testing';
+import request from 'supertest';
+import { AuthService } from '../auth/auth.service';
+import { AuthUser, Role } from '../auth/auth.types';
+import { AuthenticatedRequest, FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { AdminFinanceController } from './admin-finance.controller';
+import { AdminFinanceService } from './admin-finance.service';
+import { GatewayFeesService } from './gateway-fees.service';
+
+function userWith(role: Role): AuthUser {
+  return { uid: 'uid-admin', email: 'admin@delcastanher.com', name: 'Admin', role };
+}
+
+const VIGENCIA = {
+  id: 'fee-1',
+  method: 'PIX',
+  percentBasisPoints: 99,
+  fixedCents: 0,
+  validFrom: new Date('2026-01-01T00:00:00Z'),
+  validTo: null,
+  createdById: 'uid-admin',
+  createdByEmail: 'admin@delcastanher.com',
+  note: null,
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+};
+
+/**
+ * Mesmo arranjo dos demais `*.http.spec.ts`: sobe so o controller, com o
+ * ValidationPipe global do `main.ts`. O `FirebaseAuthGuard` e trocado por um
+ * que injeta o usuario do papel pedido — ou por nenhum usuario, para o caso sem
+ * token; o `RolesGuard` e o **real**, que e o que esta sob teste aqui.
+ */
+async function buildApp(
+  overrides: {
+    fees?: Partial<Record<keyof GatewayFeesService, jest.Mock>>;
+    finance?: Partial<Record<keyof AdminFinanceService, jest.Mock>>;
+  } = {},
+  role: Role | null = 'admin',
+) {
+  const moduleRef = await Test.createTestingModule({
+    controllers: [AdminFinanceController],
+    providers: [
+      Reflector,
+      RolesGuard,
+      {
+        provide: GatewayFeesService,
+        useValue: {
+          history: jest.fn().mockResolvedValue([VIGENCIA]),
+          current: jest.fn().mockResolvedValue({ PIX: VIGENCIA, CREDIT_CARD: null }),
+          create: jest.fn().mockResolvedValue(VIGENCIA),
+          ...overrides.fees,
+        },
+      },
+      {
+        provide: AdminFinanceService,
+        useValue: {
+          summary: jest.fn().mockResolvedValue({ totals: { grossCents: 0 } }),
+          listOrders: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 }),
+          exportOrdersCsv: jest.fn().mockResolvedValue('Pedido\n'),
+          ...overrides.finance,
+        },
+      },
+      { provide: AuthService, useValue: { verify: jest.fn() } },
+    ],
+  })
+    .overrideGuard(FirebaseAuthGuard)
+    .useValue({
+      canActivate: (context: { switchToHttp: () => { getRequest: () => AuthenticatedRequest } }) => {
+        if (role) {
+          context.switchToHttp().getRequest().user = userWith(role);
+        }
+
+        return true;
+      },
+    })
+    .compile();
+
+  const app = moduleRef.createNestApplication();
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      stopAtFirstError: true,
+    }),
+  );
+  await app.init();
+
+  return app;
+}
+
+describe('Admin — financeiro: taxas (HTTP)', () => {
+  let app: INestApplication;
+
+  afterEach(async () => {
+    await app?.close();
+  });
+
+  describe('GET /admin/finance/fees', () => {
+    it('devolve o historico de vigencias para o administrador', async () => {
+      app = await buildApp();
+
+      const response = await request(app.getHttpServer()).get('/admin/finance/fees').expect(200);
+
+      expect(response.body.history).toHaveLength(1);
+      expect(response.body.history[0].percentBasisPoints).toBe(99);
+    });
+
+    // Decisao 7: quem digitou e quando fazem parte do dado, e nao de um log
+    // que ninguem abre.
+    it('devolve o autor de cada vigencia', async () => {
+      app = await buildApp();
+
+      const response = await request(app.getHttpServer()).get('/admin/finance/fees').expect(200);
+
+      expect(response.body.history[0].createdByEmail).toBe('admin@delcastanher.com');
+    });
+
+    it('responde 401 sem token', async () => {
+      app = await buildApp({}, null);
+
+      await request(app.getHttpServer()).get('/admin/finance/fees').expect(401);
+    });
+
+    it('responde 403 para papel aluno', async () => {
+      app = await buildApp({}, 'aluno');
+
+      await request(app.getHttpServer()).get('/admin/finance/fees').expect(403);
+    });
+  });
+
+  describe('POST /admin/finance/fees', () => {
+    it('cadastra a vigencia e devolve a linha criada', async () => {
+      const create = jest.fn().mockResolvedValue(VIGENCIA);
+      app = await buildApp({ fees: { create } });
+
+      await request(app.getHttpServer())
+        .post('/admin/finance/fees')
+        .send({
+          method: 'PIX',
+          percentBasisPoints: 99,
+          fixedCents: 0,
+          validFrom: '2026-09-01T00:00:00.000Z',
+        })
+        .expect(201);
+
+      expect(create).toHaveBeenCalled();
+    });
+
+    // Decisao 7: a autoria sai do `@CurrentUser()`, e nunca do corpo. O que o
+    // cliente declara sobre quem ele e nao e autoria.
+    it('toma o autor do token, e nao do corpo da requisicao', async () => {
+      const create = jest.fn().mockResolvedValue(VIGENCIA);
+      app = await buildApp({ fees: { create } });
+
+      await request(app.getHttpServer())
+        .post('/admin/finance/fees')
+        .send({
+          method: 'PIX',
+          percentBasisPoints: 99,
+          fixedCents: 0,
+          validFrom: '2026-09-01T00:00:00.000Z',
+        })
+        .expect(201);
+
+      const [actor, dto] = create.mock.calls[0];
+
+      expect(actor).toMatchObject({ uid: 'uid-admin', email: 'admin@delcastanher.com' });
+      expect(dto).not.toHaveProperty('createdById');
+      expect(dto).not.toHaveProperty('createdByEmail');
+    });
+
+    it('recusa um corpo que tente declarar o autor', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .post('/admin/finance/fees')
+        .send({
+          method: 'PIX',
+          percentBasisPoints: 99,
+          validFrom: '2026-09-01T00:00:00.000Z',
+          createdById: 'uid-de-outra-pessoa',
+        })
+        .expect(400);
+    });
+
+    it('recusa metodo fora do conjunto', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .post('/admin/finance/fees')
+        .send({
+          method: 'BOLETO',
+          percentBasisPoints: 99,
+          validFrom: '2026-09-01T00:00:00.000Z',
+        })
+        .expect(400);
+    });
+
+    it('recusa data de inicio que nao seja ISO 8601', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .post('/admin/finance/fees')
+        .send({ method: 'PIX', percentBasisPoints: 99, validFrom: '01/09/2026' })
+        .expect(400);
+    });
+
+    it('responde 401 sem token', async () => {
+      app = await buildApp({}, null);
+
+      await request(app.getHttpServer())
+        .post('/admin/finance/fees')
+        .send({ method: 'PIX', percentBasisPoints: 99, validFrom: '2026-09-01T00:00:00.000Z' })
+        .expect(401);
+    });
+
+    it('responde 403 para papel aluno', async () => {
+      app = await buildApp({}, 'aluno');
+
+      await request(app.getHttpServer())
+        .post('/admin/finance/fees')
+        .send({ method: 'PIX', percentBasisPoints: 99, validFrom: '2026-09-01T00:00:00.000Z' })
+        .expect(403);
+    });
+  });
+  describe('GET /admin/finance/summary', () => {
+    it('devolve o resumo para o administrador', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer()).get('/admin/finance/summary').expect(200);
+    });
+
+    // Valor fora do conjunto e recusado, e nao trocado em silencio pelo
+    // default, no criterio do `ListAdminUsersDto`.
+    it('recusa granularidade fora de day/month', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/summary')
+        .query({ granularity: 'semana' })
+        .expect(400);
+    });
+
+    it('recusa data que nao seja ISO 8601', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/summary')
+        .query({ from: '01/09/2026' })
+        .expect(400);
+    });
+
+    it('recusa from posterior a to', async () => {
+      app = await buildApp({
+        finance: {
+          summary: jest.fn().mockRejectedValue(
+            Object.assign(new BadRequestException('A data inicial precisa ser anterior a data final.')),
+          ),
+        },
+      });
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/summary')
+        .query({ from: '2026-09-30T00:00:00Z', to: '2026-09-01T00:00:00Z' })
+        .expect(400);
+    });
+  });
+
+  describe('GET /admin/finance/orders', () => {
+    it('devolve uma pagina da lista', async () => {
+      app = await buildApp();
+
+      const response = await request(app.getHttpServer()).get('/admin/finance/orders').expect(200);
+
+      expect(response.body).toMatchObject({ total: 0, page: 1, pageSize: 20 });
+    });
+
+    // O teto existe para que a listagem nao vire uma exportacao sem limite por
+    // acidente: quem quer tudo usa o CSV.
+    it('recusa pageSize acima do teto', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/orders')
+        .query({ pageSize: 500 })
+        .expect(400);
+    });
+
+    it('recusa situacao fora do conjunto', async () => {
+      app = await buildApp();
+
+      await request(app.getHttpServer())
+        .get('/admin/finance/orders')
+        .query({ status: 'ESTORNADO' })
+        .expect(400);
+    });
+  });
+
+  describe('GET /admin/finance/orders/export', () => {
+    it('devolve o CSV como anexo datado', async () => {
+      app = await buildApp();
+
+      const response = await request(app.getHttpServer())
+        .get('/admin/finance/orders/export')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('text/csv');
+      expect(response.headers['content-disposition']).toMatch(
+        /attachment; filename="pedidos-\d{4}-\d{2}-\d{2}\.csv"/,
+      );
+    });
+
+    // A rota de caminho fixo e declarada antes de qualquer rota com
+    // parametro: "export" nao pode ser lido como o id de um pedido.
+    it('nao e engolida por nenhuma rota com parametro', async () => {
+      const exportOrdersCsv = jest.fn().mockResolvedValue('Pedido\n');
+      app = await buildApp({ finance: { exportOrdersCsv } });
+
+      await request(app.getHttpServer()).get('/admin/finance/orders/export').expect(200);
+
+      expect(exportOrdersCsv).toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * Decisao 18: as rotas novas sao de administrador na **classe**, e nao por
+   * metodo. Uma asserção por rota, incluindo a exportacao e a escrita de taxa:
+   * deixar a protecao no metodo faria da proxima rota um furo por esquecimento.
+   */
+  describe('autorizacao de todas as rotas (Task 4.6)', () => {
+    const rotas: [string, string][] = [
+      ['get', '/admin/finance/summary'],
+      ['get', '/admin/finance/orders'],
+      ['get', '/admin/finance/orders/export'],
+      ['get', '/admin/finance/fees'],
+      ['post', '/admin/finance/fees'],
+    ];
+
+    it.each(rotas)('%s %s responde 401 sem token', async (method, path) => {
+      app = await buildApp({}, null);
+
+      await (request(app.getHttpServer()) as unknown as Record<string, (p: string) => request.Test>)
+        [method](path)
+        .expect(401);
+    });
+
+    it.each(rotas)('%s %s responde 403 para papel aluno', async (method, path) => {
+      app = await buildApp({}, 'aluno');
+
+      await (request(app.getHttpServer()) as unknown as Record<string, (p: string) => request.Test>)
+        [method](path)
+        .expect(403);
+    });
+  });
+});

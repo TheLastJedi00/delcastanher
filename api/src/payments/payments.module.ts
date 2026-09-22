@@ -4,6 +4,9 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AccessService } from './access.service';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessService } from './admin-access.service';
+import { AdminFinanceController } from './admin-finance.controller';
+import { AdminFinanceService } from './admin-finance.service';
+import { GatewayFeesService } from './gateway-fees.service';
 import { MercadoPagoService } from './mercado-pago.service';
 import { MercadoPagoWebhookController } from './mercado-pago-webhook.controller';
 import { OrdersController } from './orders.controller';
@@ -26,9 +29,18 @@ import { StoreService } from './store.service';
     StoreController,
     OrdersController,
     AdminAccessController,
+    AdminFinanceController,
     MercadoPagoWebhookController,
   ],
-  providers: [AccessService, AdminAccessService, MercadoPagoService, OrdersService, StoreService],
+  providers: [
+    AccessService,
+    AdminAccessService,
+    AdminFinanceService,
+    GatewayFeesService,
+    MercadoPagoService,
+    OrdersService,
+    StoreService,
+  ],
   exports: [AccessService, OrdersService],
 })
 export class PaymentsModule {}

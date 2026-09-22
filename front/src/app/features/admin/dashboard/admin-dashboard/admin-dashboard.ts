@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { ADMIN_TABS, AdminLayout, AdminTab } from '../../../../shared/layouts/admin-layout/admin-layout';
 import { AdminAulas } from '../../aulas/admin-aulas';
+import { AdminFinanceiro } from '../../financeiro/admin-financeiro';
 import { AuthService } from '../../../../core/services/auth.service';
 import {
   AdminAccessItem,
@@ -57,6 +58,7 @@ type PendingAction =
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AdminAulas,
+    AdminFinanceiro,
     AdminLayout,
     PageContainer,
     SectionHeader,

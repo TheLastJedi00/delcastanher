@@ -1,0 +1,612 @@
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <ui-section-header overline="Painel de controle" title="Financeiro" />
+
+  <div class="flex flex-wrap items-center gap-3">
+    @if (view() === 'painel') {
+      <ui-button variant="ghost" (click)="openFees()">Taxas do gateway</ui-button>
+      <ui-button variant="outline" [loading]="exporting()" (click)="exportCsv()">
+        Exportar CSV
+      </ui-button>
+    } @else {
+      <ui-button variant="ghost" (click)="closeFees()">Voltar ao painel</ui-button>
+    }
+  </div>
+</div>
+
+@if (view() === 'painel') {
+  <!-- Filtro de periodo. O recorte vive na URL por query param: a tela
+       filtrada vira link compartilhavel e sobrevive ao F5 (Task 6.2). -->
+  <ui-card variant="default" padding="md" [hover]="false" class="mb-6">
+    <div class="flex flex-wrap items-end gap-4">
+      <div>
+        <label for="financeiro-de" class="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">
+          De
+        </label>
+        <input
+          id="financeiro-de"
+          type="date"
+          [value]="from()"
+          (change)="setFrom($any($event.target).value)"
+          class="rounded-xl border border-brand-navy/10 bg-white/80 px-3 py-2 text-sm text-slate-800 outline-none transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20" />
+      </div>
+
+      <div>
+        <label for="financeiro-ate" class="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">
+          Até
+        </label>
+        <input
+          id="financeiro-ate"
+          type="date"
+          [value]="to()"
+          (change)="setTo($any($event.target).value)"
+          class="rounded-xl border border-brand-navy/10 bg-white/80 px-3 py-2 text-sm text-slate-800 outline-none transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20" />
+      </div>
+
+      <div>
+        <label for="financeiro-granularidade" class="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">
+          Agrupar por
+        </label>
+        <select
+          id="financeiro-granularidade"
+          [value]="granularity()"
+          (change)="setGranularity($any($event.target).value)"
+          class="rounded-xl border border-brand-navy/10 bg-white/80 px-3 py-2 text-sm text-slate-800 outline-none transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
+          <option value="day">Dia</option>
+          <option value="month">Mês</option>
+        </select>
+      </div>
+
+      @if (finance.summary()?.previous) {
+        <p class="pb-2 text-xs text-slate-500">{{ previousLabel() }}</p>
+      }
+    </div>
+  </ui-card>
+
+  @if (finance.error(); as erro) {
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-state-danger/20 bg-state-danger/5 p-4">
+      <p class="text-sm text-state-danger">{{ erro }}</p>
+      <ui-button variant="outline" size="sm" (click)="applyPeriod()">Tentar de novo</ui-button>
+    </div>
+  }
+
+  <!-- Decisao 15: zero e diferente de "ainda nao vendemos". Sem pedido no
+       periodo a tela diz isso e oferece ampliar o intervalo, em vez de
+       desenhar um grafico reto no zero e escrever "R$ 0,00" nos cards. -->
+  @if (finance.empty()) {
+    <ui-card variant="default" padding="lg" [hover]="false" data-testid="estado-vazio">
+      <div class="mx-auto max-w-lg text-center">
+        <h3 class="text-lg font-semibold text-brand-navy">Nenhum pedido neste intervalo</h3>
+        <p class="mt-2 text-sm leading-relaxed text-slate-600">
+          Não houve pedido entre {{ formatDate(finance.summary()!.period.from) }} e
+          {{ formatDate(finance.summary()!.period.to) }}. Isso é diferente de ter vendido zero:
+          não há o que somar nesse recorte.
+        </p>
+        <div class="mt-5 flex justify-center">
+          <ui-button variant="outline" (click)="widenPeriod()">
+            Ampliar para os últimos 90 dias
+          </ui-button>
+        </div>
+      </div>
+    </ui-card>
+  } @else if (finance.totals(); as totais) {
+    <!-- Cada numero carrega a definicao que usa: um percentual sem criterio
+         visivel e enfeite (Spec 013, decisao 6). -->
+    <div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <ui-stat-card
+        label="Faturamento bruto"
+        [value]="formatCents(totais.grossCents)"
+        [trend]="trend()"
+        [trendValue]="trendValue()"
+        caption="pedidos pagos no período, pela data do pagamento">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </ui-stat-card>
+
+      <!-- Decisao 5: o liquido nao apurado e um estado, e nunca um numero. -->
+      <ui-stat-card
+        label="Faturamento líquido"
+        [value]="totais.netCents === null ? 'Não apurado' : formatCents(totais.netCents)"
+        [caption]="
+          totais.netCents === null
+            ? 'sem taxa cadastrada para parte do período'
+            : 'líquido de estornos e da taxa do gateway'
+        ">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m-6 4h6m-6 4h4M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />
+        </svg>
+      </ui-stat-card>
+
+      <ui-stat-card
+        label="Ticket médio"
+        [value]="formatCents(totais.averageTicketCents)"
+        caption="faturamento bruto dividido pelos pedidos pagos">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+        </svg>
+      </ui-stat-card>
+
+      <ui-stat-card
+        label="Conversão"
+        [value]="totais.conversionRate + '%'"
+        [caption]="
+          'de quem tentou comprar, quantos compraram — ' +
+          totais.buyers +
+          ' de ' +
+          totais.attempts +
+          ' pessoas'
+        ">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M7 4v16l5-4 5 4V4" />
+        </svg>
+      </ui-stat-card>
+    </div>
+
+    <!-- Decisao 5: taxa ausente tratada como zero produziria um liquido
+         inflado e crivel, que e a pior forma de errar um numero de dinheiro. -->
+    @if (finance.unassessedNet()) {
+      <div
+        class="mb-8 rounded-2xl border border-state-warning/30 bg-state-warning/5 p-5"
+        data-testid="liquido-nao-apurado">
+        <h3 class="text-sm font-bold uppercase tracking-widest text-brand-navy">
+          Líquido não apurado
+        </h3>
+        <p class="mt-2 text-sm leading-relaxed text-slate-700">
+          {{ totais.uncoveredOrders }}
+          {{ totais.uncoveredOrders === 1 ? 'pedido pago ficou' : 'pedidos pagos ficaram' }}
+          fora de qualquer vigência de taxa
+          @if (totais.uncoveredFrom) {
+            — entre {{ formatDate(totais.uncoveredFrom) }} e {{ formatDate(totais.uncoveredTo) }}
+          }
+          . O bruto e os estornos continuam acima; o líquido só aparece quando a taxa daquele
+          período estiver cadastrada.
+        </p>
+        <div class="mt-4">
+          <ui-button variant="outline" size="sm" (click)="openFees()">
+            Cadastrar a taxa do período
+          </ui-button>
+        </div>
+      </div>
+    }
+
+    <div class="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div class="lg:col-span-2">
+        <ui-card variant="default" padding="md" [hover]="false">
+          <h3 class="mb-4 text-lg font-semibold text-brand-navy">Faturamento no período</h3>
+
+          <ui-time-series-chart
+            [points]="chartPoints()"
+            label="Faturamento bruto por período"
+            periodLabel="Período"
+            valueLabel="Faturamento" />
+        </ui-card>
+      </div>
+
+      <ui-card variant="default" padding="md" [hover]="false">
+        <h3 class="mb-4 text-lg font-semibold text-brand-navy">Por meio de pagamento</h3>
+
+        <ul class="space-y-3">
+          @for (linha of finance.summary()!.byMethod; track linha.method) {
+            <li class="flex items-baseline justify-between gap-4 border-b border-brand-navy/5 pb-2 last:border-0">
+              <div>
+                <p class="text-sm font-semibold text-brand-navy">{{ methodLabel(linha.method) }}</p>
+                <p class="text-xs text-slate-500">
+                  {{ linha.paidOrders }}
+                  {{ linha.paidOrders === 1 ? 'pedido pago' : 'pedidos pagos' }}
+                  ·
+                  @if (linha.feeCents === null) {
+                    taxa não apurada
+                  } @else {
+                    taxa de {{ formatCents(linha.feeCents) }}
+                  }
+                </p>
+              </div>
+              <p class="shrink-0 font-bold tabular-nums text-brand-navy">
+                {{ formatCents(linha.grossCents) }}
+              </p>
+            </li>
+          }
+        </ul>
+      </ui-card>
+    </div>
+
+    <div class="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <ui-card variant="default" padding="md" [hover]="false">
+        <h3 class="mb-1 text-lg font-semibold text-brand-navy">Receita por módulo</h3>
+        <p class="mb-4 text-xs text-slate-500">
+          pelo preço cobrado na compra, e não pelo preço de hoje
+        </p>
+
+        @if (finance.summary()!.byModule.length === 0) {
+          <p class="text-sm text-slate-500">Nenhum módulo vendido neste intervalo.</p>
+        } @else {
+          <ul class="space-y-3">
+            @for (linha of finance.summary()!.byModule; track linha.moduleId) {
+              <li class="flex items-baseline justify-between gap-4 border-b border-brand-navy/5 pb-2 last:border-0">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold text-brand-navy">{{ linha.title }}</p>
+                  <p class="text-xs text-slate-500">
+                    {{ linha.quantity }} {{ linha.quantity === 1 ? 'venda' : 'vendas' }}
+                  </p>
+                </div>
+                <p class="shrink-0 font-bold tabular-nums text-brand-navy">
+                  {{ formatCents(linha.grossCents) }}
+                </p>
+              </li>
+            }
+          </ul>
+        }
+      </ui-card>
+
+      <!-- Decisao 1: cortesia e LEGACY sao contador, e nunca receita. Contar
+           acesso como venda somaria os chamados do suporte ao faturamento. -->
+      <ui-card variant="default" padding="md" [hover]="false">
+        <h3 class="mb-1 text-lg font-semibold text-brand-navy">Acessos concedidos</h3>
+        <p class="mb-4 text-xs text-slate-500">
+          cortesias e contas anteriores ao paywall — não entram em nenhum número de dinheiro
+        </p>
+
+        @if (finance.summary()!.courtesy.length === 0) {
+          <p class="text-sm text-slate-500">Nenhuma concessão neste intervalo.</p>
+        } @else {
+          <ul class="space-y-3" data-testid="cortesias">
+            @for (linha of finance.summary()!.courtesy; track linha.moduleId) {
+              <li class="flex items-baseline justify-between gap-4 border-b border-brand-navy/5 pb-2 last:border-0">
+                <p class="min-w-0 truncate text-sm font-semibold text-brand-navy">
+                  {{ linha.title }}
+                </p>
+                <p class="shrink-0 text-xs text-slate-600 tabular-nums">
+                  {{ linha.courtesyCount }} cortesia{{ linha.courtesyCount === 1 ? '' : 's' }}
+                  @if (linha.legacyCount > 0) {
+                    · {{ linha.legacyCount }} anterior{{ linha.legacyCount === 1 ? '' : 'es' }}
+                  }
+                </p>
+              </li>
+            }
+          </ul>
+        }
+      </ui-card>
+    </div>
+
+    <div class="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <!-- Decisao 14: o uso do que foi pago. Modulo que vende bem e ninguem
+           assiste e um problema diferente de modulo que ninguem compra. -->
+      <ui-card variant="default" padding="md" [hover]="false">
+        <h3 class="mb-1 text-lg font-semibold text-brand-navy">Uso do que foi vendido</h3>
+        <p class="mb-4 text-xs text-slate-500">
+          de quem comprou no período, quantos concluíram ao menos uma aula do que compraram —
+          cortesias ficam fora deste recorte
+        </p>
+
+        @if (finance.summary()!.engagement.buyers === 0) {
+          <p class="text-sm text-slate-500">Nenhuma compra liberada neste intervalo.</p>
+        } @else {
+          <div class="grid grid-cols-2 gap-4">
+            <div class="rounded-xl bg-brand-teal/5 p-4">
+              <p class="text-2xl font-extrabold tabular-nums text-brand-navy">
+                {{ finance.summary()!.engagement.studied }}
+              </p>
+              <p class="mt-1 text-xs font-semibold text-slate-600">compraram e estudaram</p>
+            </div>
+            <div class="rounded-xl bg-state-warning/5 p-4">
+              <p class="text-2xl font-extrabold tabular-nums text-brand-navy">
+                {{ finance.summary()!.engagement.neverOpened }}
+              </p>
+              <p class="mt-1 text-xs font-semibold text-slate-600">compraram e não abriram</p>
+            </div>
+          </div>
+          <p class="mt-3 text-xs text-slate-500">
+            {{ finance.summary()!.engagement.rate }}% dos
+            {{ finance.summary()!.engagement.buyers }} compradores do período
+          </p>
+        }
+      </ui-card>
+
+      <ui-card variant="default" padding="md" [hover]="false">
+        <h3 class="mb-4 text-lg font-semibold text-brand-navy">Estornos e pedidos</h3>
+
+        <dl class="space-y-2 text-sm">
+          <div class="flex justify-between gap-4">
+            <dt class="text-slate-600">Estornado no período</dt>
+            <dd class="font-semibold tabular-nums text-brand-navy">
+              {{ formatCents(totais.refundedCents) }} · {{ totais.refundedOrders }}
+            </dd>
+          </div>
+          <div class="flex justify-between gap-4">
+            <dt class="text-slate-600">Pedidos pendentes</dt>
+            <dd class="font-semibold tabular-nums text-brand-navy">{{ totais.pendingOrders }}</dd>
+          </div>
+          <div class="flex justify-between gap-4">
+            <dt class="text-slate-600">Pedidos recusados</dt>
+            <dd class="font-semibold tabular-nums text-brand-navy">{{ totais.rejectedOrders }}</dd>
+          </div>
+
+          <!-- Decisao 8: estorno anterior a coluna de data nao tem mes. Ele
+               aparece em linha propria, e nunca distribuido por chute. -->
+          @if (totais.undatedRefunds > 0) {
+            <div class="flex justify-between gap-4 border-t border-brand-navy/5 pt-2">
+              <dt class="text-slate-600">
+                {{ totais.undatedRefunds }} estorno{{ totais.undatedRefunds === 1 ? '' : 's' }} sem
+                data registrada
+              </dt>
+              <dd class="font-semibold tabular-nums text-slate-500">
+                {{ formatCents(totais.undatedRefundsCents) }}
+              </dd>
+            </div>
+          }
+        </dl>
+      </ui-card>
+    </div>
+
+    <!-- Lista de pedidos. Busca, filtro e paginacao sao do servidor. -->
+    <ui-card variant="default" padding="none" [hover]="false">
+      <div class="flex flex-wrap items-end justify-between gap-4 border-b border-brand-navy/8 p-6">
+        <h3 class="text-lg font-semibold text-brand-navy">Pedidos</h3>
+
+        <div class="flex w-full flex-wrap items-end gap-3 sm:w-auto">
+          <div>
+            <label for="filtro-situacao-pedido" class="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">
+              Situação
+            </label>
+            <select
+              id="filtro-situacao-pedido"
+              [value]="finance.ordersQuery().status ?? ''"
+              (change)="filterStatus($any($event.target).value)"
+              class="rounded-xl border border-brand-navy/10 bg-white/80 px-3 py-2 text-sm text-slate-800 outline-none transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
+              <option value="">Todas</option>
+              @for (status of statuses; track status[0]) {
+                <option [value]="status[0]">{{ status[1] }}</option>
+              }
+            </select>
+          </div>
+
+          <div>
+            <label for="filtro-metodo-pedido" class="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">
+              Método
+            </label>
+            <select
+              id="filtro-metodo-pedido"
+              [value]="finance.ordersQuery().method ?? ''"
+              (change)="filterMethod($any($event.target).value)"
+              class="rounded-xl border border-brand-navy/10 bg-white/80 px-3 py-2 text-sm text-slate-800 outline-none transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
+              <option value="">Todos</option>
+              <option value="PIX">PIX</option>
+              <option value="CREDIT_CARD">Cartão de crédito</option>
+            </select>
+          </div>
+
+          <div class="w-full sm:w-64">
+            <!-- O rotulo e visivel, como nos dois filtros ao lado: placeholder
+                 nao e rotulo, e some assim que a pessoa digita. -->
+            <ui-input
+              label="Buscar"
+              placeholder="E-mail, ORD… ou PAY…"
+              [value]="search()"
+              (valueChange)="onSearch($event)" />
+          </div>
+        </div>
+      </div>
+
+      @if (finance.ordersError(); as erro) {
+        <p class="border-b border-state-danger/20 bg-state-danger/5 p-4 text-sm text-state-danger">
+          {{ erro }}
+        </p>
+      }
+
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[56rem] text-sm">
+          <caption class="sr-only">Pedidos do período selecionado</caption>
+          <thead>
+            <tr class="border-b border-brand-navy/8 text-left text-xs font-bold uppercase tracking-widest text-slate-500">
+              <th scope="col" class="px-6 py-3">Comprador</th>
+              <th scope="col" class="px-6 py-3">Módulos</th>
+              <th scope="col" class="px-6 py-3">Situação</th>
+              <th scope="col" class="px-6 py-3">Método</th>
+              <th scope="col" class="px-6 py-3 text-right">Valor</th>
+              <th scope="col" class="px-6 py-3">Data</th>
+              <th scope="col" class="px-6 py-3">Mercado Pago</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pedido of finance.orders(); track pedido.id) {
+              <tr class="border-b border-brand-navy/5 last:border-0">
+                <td class="px-6 py-3">
+                  <p class="font-semibold text-brand-navy">
+                    {{ pedido.buyerName ?? pedido.buyerEmail }}
+                  </p>
+                  <p class="text-xs text-slate-500">{{ pedido.buyerEmail }}</p>
+                </td>
+                <td class="px-6 py-3 text-slate-700">{{ pedido.modules.join(', ') }}</td>
+                <td class="px-6 py-3">
+                  <ui-badge [variant]="statusVariant(pedido.status)" [label]="statusLabel(pedido.status)" />
+                </td>
+                <td class="px-6 py-3 text-slate-700">
+                  {{ methodLabel(pedido.method) }}
+                  @if (pedido.installments > 1) {
+                    <span class="text-xs text-slate-500">({{ pedido.installments }}x)</span>
+                  }
+                </td>
+                <td class="px-6 py-3 text-right font-semibold tabular-nums text-brand-navy">
+                  {{ formatCents(pedido.amountCents) }}
+                </td>
+                <td class="px-6 py-3 text-slate-700">{{ formatDate(pedido.createdAt) }}</td>
+                <td class="px-6 py-3">
+                  <div class="flex flex-col gap-1">
+                    @if (pedido.mpOrderId; as ordem) {
+                      <button
+                        type="button"
+                        class="text-left font-mono text-xs text-brand-teal-deep underline-offset-2 hover:underline"
+                        [attr.aria-label]="'Copiar identificador da order ' + ordem"
+                        (click)="copy(ordem)">
+                        {{ ordem }}{{ copied() === ordem ? ' ✓' : '' }}
+                      </button>
+                    }
+                    @if (pedido.mpPaymentId; as pagamento) {
+                      <button
+                        type="button"
+                        class="text-left font-mono text-xs text-brand-teal-deep underline-offset-2 hover:underline"
+                        [attr.aria-label]="'Copiar identificador do pagamento ' + pagamento"
+                        (click)="copy(pagamento)">
+                        {{ pagamento }}{{ copied() === pagamento ? ' ✓' : '' }}
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="px-6 py-8 text-center text-sm text-slate-500">
+                  Nenhum pedido encontrado com esse filtro.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (range().total > 0) {
+        <div class="flex flex-wrap items-center justify-between gap-4 border-t border-brand-navy/8 p-4">
+          <p class="text-xs text-slate-500">
+            {{ range().first }} a {{ range().last }} de {{ range().total }}
+          </p>
+
+          <div class="flex items-center gap-2">
+            <ui-button
+              variant="ghost"
+              size="sm"
+              [disabled]="finance.ordersQuery().page <= 1"
+              (click)="goToPage(finance.ordersQuery().page - 1)">
+              Anterior
+            </ui-button>
+            <span class="text-xs font-semibold text-slate-600">
+              {{ finance.ordersQuery().page }} de {{ finance.ordersTotalPages() }}
+            </span>
+            <ui-button
+              variant="ghost"
+              size="sm"
+              [disabled]="finance.ordersQuery().page >= finance.ordersTotalPages()"
+              (click)="goToPage(finance.ordersQuery().page + 1)">
+              Próxima
+            </ui-button>
+          </div>
+        </div>
+      }
+    </ui-card>
+  }
+} @else {
+  <!-- Tela de taxas. Nao ha controle de editar nem de apagar: a tabela e
+       append-only, e corrigir uma taxa e cadastrar outra (decisao 7). -->
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <ui-card variant="default" padding="md" [hover]="false">
+      <h3 class="mb-1 text-lg font-semibold text-brand-navy">Histórico de vigências</h3>
+      <p class="mb-4 text-xs text-slate-500">
+        cada linha é um fato registrado: nada é editado no lugar, e nada é apagado
+      </p>
+
+      @if (finance.fees(); as taxas) {
+        @if (taxas.history.length === 0) {
+          <p class="text-sm text-slate-500">
+            Nenhuma vigência cadastrada. Enquanto não houver, o líquido aparece como não apurado.
+          </p>
+        } @else {
+          <ul class="space-y-4" data-testid="historico-taxas">
+            @for (taxa of taxas.history; track taxa.id) {
+              <li class="border-b border-brand-navy/5 pb-3 last:border-0">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                  <p class="font-semibold text-brand-navy">
+                    {{ methodLabel(taxa.method) }} · {{ formatPercent(taxa.percentBasisPoints) }}
+                    @if (taxa.fixedCents > 0) {
+                      + {{ formatCents(taxa.fixedCents) }}
+                    }
+                  </p>
+                  @if (taxa.validTo === null) {
+                    <ui-badge variant="success" label="Em vigor" />
+                  }
+                </div>
+                <p class="mt-1 text-xs text-slate-600">
+                  de {{ formatDate(taxa.validFrom) }}
+                  @if (taxa.validTo) {
+                    até {{ formatDate(taxa.validTo) }}
+                  } @else {
+                    em diante
+                  }
+                </p>
+                <p class="mt-1 text-xs text-slate-500">
+                  cadastrada por {{ taxa.createdByEmail }} em {{ formatDate(taxa.createdAt) }}
+                </p>
+                @if (taxa.note) {
+                  <p class="mt-1 text-xs italic text-slate-500">{{ taxa.note }}</p>
+                }
+              </li>
+            }
+          </ul>
+        }
+      } @else {
+        <p class="text-sm text-slate-500">Carregando…</p>
+      }
+    </ui-card>
+
+    <ui-card variant="default" padding="md" [hover]="false">
+      <h3 class="mb-1 text-lg font-semibold text-brand-navy">Nova vigência</h3>
+      <p class="mb-4 text-xs text-slate-500">
+        cadastrar encerra a vigência anterior do mesmo método na data de início desta — os meses já
+        fechados continuam calculados com a taxa que valia neles
+      </p>
+
+      <form [formGroup]="feeForm" (ngSubmit)="submitFee()" class="space-y-4">
+        <div>
+          <label for="taxa-metodo" class="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">
+            Método
+          </label>
+          <select
+            id="taxa-metodo"
+            formControlName="method"
+            class="w-full rounded-xl border border-brand-navy/10 bg-white/80 px-3 py-2 text-sm text-slate-800 outline-none transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
+            <option value="PIX">PIX</option>
+            <option value="CREDIT_CARD">Cartão de crédito</option>
+          </select>
+        </div>
+
+        <ui-input
+          label="Percentual (%)"
+          placeholder="4,99"
+          inputMode="decimal"
+          formControlName="percent"
+          [error]="feeForm.controls.percent.touched && feeForm.controls.percent.invalid ? 'Informe o percentual, como 4,99.' : ''" />
+
+        <ui-input
+          label="Valor fixo por transação (R$)"
+          placeholder="0,40"
+          inputMode="decimal"
+          formControlName="fixed"
+          [error]="feeForm.controls.fixed.touched && feeForm.controls.fixed.invalid ? 'Informe o valor fixo, ou 0.' : ''" />
+
+        <div>
+          <label for="taxa-inicio" class="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">
+            Válida a partir de
+          </label>
+          <input
+            id="taxa-inicio"
+            type="date"
+            formControlName="validFrom"
+            class="w-full rounded-xl border border-brand-navy/10 bg-white/80 px-3 py-2 text-sm text-slate-800 outline-none transition-all focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20" />
+        </div>
+
+        <ui-input
+          label="Observação"
+          placeholder="reajuste anunciado em 10/09"
+          formControlName="note" />
+
+        @if (feeError(); as erro) {
+          <p class="text-sm text-state-danger">{{ erro }}</p>
+        }
+
+        @if (feeSaved()) {
+          <p class="text-sm text-state-success">Vigência cadastrada.</p>
+        }
+
+        <ui-button type="submit" [loading]="feeSaving()" [fullWidth]="true">Cadastrar vigência</ui-button>
+      </form>
+    </ui-card>
+  </div>
+}

@@ -401,6 +401,68 @@ describe('OrdersService', () => {
       expect(access.revokeByOrder).toHaveBeenCalledWith('ord-1');
     });
 
+    // Decisao 8: sem data propria, um estorno so poderia ser lancado no mes da
+    // venda — reabrindo um mes ja fechado — ou ficar invisivel na serie.
+    it('carimba `refundedAt` na transicao para REFUNDED', async () => {
+      const { service, prisma } = await build({
+        storedOrder: {
+          id: 'ord-1',
+          userId: ALUNO.uid,
+          status: 'PAID',
+          mpOrderId: 'ORD-1',
+          paidAt: new Date('2026-09-10T12:00:00Z'),
+          items: [],
+        },
+        gatewayOrder: { ...APPROVED_ORDER, status: 'refunded', statusDetail: 'refunded' },
+      });
+
+      await service.applyFromGateway('ORD-1');
+
+      const { data } = prisma.order.updateMany.mock.calls[0][0];
+
+      expect(data.refundedAt).toBeInstanceOf(Date);
+    });
+
+    // O estorno nao apaga a venda: o mes em que o dinheiro entrou continua
+    // sendo o mes em que o dinheiro entrou.
+    it('nao reescreve `paidAt` ao estornar', async () => {
+      const { service, prisma } = await build({
+        storedOrder: {
+          id: 'ord-1',
+          userId: ALUNO.uid,
+          status: 'PAID',
+          mpOrderId: 'ORD-1',
+          paidAt: new Date('2026-09-10T12:00:00Z'),
+          items: [],
+        },
+        gatewayOrder: { ...APPROVED_ORDER, status: 'refunded', statusDetail: 'refunded' },
+      });
+
+      await service.applyFromGateway('ORD-1');
+
+      expect(prisma.order.updateMany.mock.calls[0][0].data).not.toHaveProperty('paidAt');
+    });
+
+    // A gravacao e condicionada ao estado anterior, e REFUNDED nao esta entre os
+    // estados de partida: reprocessar o webhook nao reescreve a data do estorno.
+    it('nao reescreve a data de um pedido ja estornado', async () => {
+      const { service, prisma } = await build({
+        storedOrder: {
+          id: 'ord-1',
+          userId: ALUNO.uid,
+          status: 'REFUNDED',
+          mpOrderId: 'ORD-1',
+          items: [],
+        },
+        gatewayOrder: { ...APPROVED_ORDER, status: 'refunded', statusDetail: 'refunded' },
+        transitionCount: 0,
+      });
+
+      await service.applyFromGateway('ORD-1');
+
+      expect(prisma.order.updateMany.mock.calls[0][0].where.status.in).not.toContain('REFUNDED');
+    });
+
     it('ignora notificacao de order que nao e desta plataforma', async () => {
       const { service, access, gateway } = await build({ storedOrder: null });
 

@@ -335,6 +335,17 @@ model Order {
   /// Passado sem pagamento, o pedido vira `EXPIRED` (decisao 10).
   expiresAt DateTime?
 
+  /// Instante da transicao para `REFUNDED` (Spec 016, decisao 8). Nulo
+  /// significa **duas** coisas: pedido nao estornado, ou estorno anterior a
+  /// esta coluna — a migration nao inventa data retroativa, e o painel lanca
+  /// esses casos em uma linha propria, nunca distribuidos em um mes por chute.
+  ///
+  /// Nao existe valor estornado: `amountCents` e o pedido inteiro, e
+  /// `REFUNDED` e o pedido inteiro devolvido. Estorno parcial feito no painel
+  /// do Mercado Pago nao e representavel aqui, e fica como limite conhecido
+  /// (decisao 9).
+  refundedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -343,6 +354,10 @@ model Order {
   accesses ModuleAccess[]
 
   @@index([userId, createdAt])
+  // O indice acima e o historico de **um** aluno. O relatorio financeiro faz a
+  // pergunta oposta — todos os pedidos de um periodo, por situacao — e e este
+  // que ele percorre (Spec 016, decisao 12).
+  @@index([status, paidAt])
   @@map("orders")
 }
 
@@ -367,6 +382,66 @@ enum PaymentMethodKind {
   CREDIT_CARD
 
   @@map("payment_method_kind")
+}
+
+/// Vigencia de uma taxa do gateway, mantida **a mao** pelo administrador
+/// (Spec 016, decisoes 3, 4 e 7).
+///
+/// A Orders API do Mercado Pago nao devolve o custo da transacao: `fee_details`
+/// vive na API de Pagamentos, outra API. Buscar a taxa por pedido poria uma
+/// chamada externa a mais em cada venda e faria um numero de relatorio depender
+/// de a rede estar de pe. As taxas sao fixas e conhecidas por contrato, entao
+/// elas viram dado da plataforma: o custo e constante, o calculo e nosso, e o
+/// relatorio fecha sem terceiro.
+///
+/// **Vigencia, e nao coluna global.** Uma taxa e um numero que valeu de uma
+/// data ate outra. Uma coluna unica reescreveria o historico a cada reajuste —
+/// o liquido de marco mudaria porque a taxa de setembro mudou, que e o oposto
+/// do que um relatorio serve para fazer. O casamento com o pedido e por
+/// `Order.paidAt`, e nao por `createdAt`: o custo nasce quando o dinheiro
+/// entra.
+///
+/// **Append-only, e auditada.** E o primeiro dado auditado do projeto, e isso e
+/// deliberado: papel, bloqueio e cortesia tem efeito visivel na propria tela,
+/// mas uma taxa reescreve receita ja reportada, e alguem vai olhar um liquido
+/// estranho de tres meses atras e precisar saber quem digitou aquilo e quando.
+/// Corrigir uma taxa **cria uma linha nova** e encerra a anterior; nada e
+/// editado no lugar e nada e apagado — por isso nao ha `updatedAt` e nao ha
+/// rota de edicao ou de remocao.
+///
+/// **Sem recorte por parcela.** O juro do parcelamento e do comprador (Spec
+/// 014, decisao 9): o vendedor recebe o mesmo em 1x ou em 6x. Abrir a tabela
+/// por faixa de parcela criaria seis linhas para preencher, cinco delas
+/// iguais, e cinco oportunidades de digitar errado.
+model GatewayFeeRate {
+  id     String            @id @default(cuid())
+  method PaymentMethodKind
+
+  /// Percentual em pontos-base: `499` e 4,99%. Inteiro pela mesma razao que o
+  /// valor e — nenhum float toca dinheiro nesta plataforma (decisao 2).
+  percentBasisPoints Int
+  /// Parcela fixa por transacao, em centavos. `0` quando nao ha.
+  fixedCents         Int   @default(0)
+
+  /// Inicio da vigencia, **inclusivo**.
+  validFrom DateTime
+  /// Fim da vigencia, **exclusivo**. Nulo e a vigencia corrente.
+  validTo   DateTime?
+
+  /// UID do administrador que cadastrou, tirado do token e nunca do corpo da
+  /// requisicao: autoria que o cliente declara nao e autoria.
+  createdById    String
+  /// **Copia** do e-mail, e nao relacao: o autor precisa continuar legivel
+  /// depois de a conta dele sair da plataforma.
+  createdByEmail String
+  /// Por que mudou — "reajuste anunciado em 10/09", "correcao de digitacao".
+  note           String?
+
+  createdAt DateTime @default(now())
+
+  // A pergunta e sempre "qual taxa deste metodo valia nesta data".
+  @@index([method, validFrom])
+  @@map("gateway_fee_rates")
 }
 
 /// Item do pedido, com **snapshot** de preco e titulo (decisao 6). O

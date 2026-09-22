@@ -5,10 +5,11 @@ import { LegalLinks } from '../../ui/legal-links/legal-links';
 import { NavHeader } from '../../ui/nav-header/nav-header';
 import { Sidebar, SidebarNavItem } from '../../ui/sidebar/sidebar';
 
-export type AdminTab = 'visao-geral' | 'aulas' | 'comunicacao' | 'termos';
+export type AdminTab = 'visao-geral' | 'financeiro' | 'aulas' | 'comunicacao' | 'termos';
 
 export const ADMIN_TABS: SidebarNavItem[] = [
   { id: 'visao-geral', icon: 'grid', label: 'Visão Geral' },
+  { id: 'financeiro', icon: 'chart', label: 'Financeiro' },
   { id: 'aulas', icon: 'play', label: 'Gestão de Aulas' },
   { id: 'comunicacao', icon: 'mail', label: 'Disparos de E-mail' },
   { id: 'termos', icon: 'document', label: 'Políticas & Termos' },

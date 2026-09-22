@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 /** Chaves de icone suportadas pela sidebar. */
 export type SidebarIcon =
   | 'home' | 'user' | 'book' | 'download' | 'article'
-  | 'logout' | 'grid' | 'play' | 'mail' | 'document';
+  | 'logout' | 'grid' | 'play' | 'mail' | 'document' | 'chart';
 
 const PATHS: Record<SidebarIcon, string> = {
   home: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
@@ -16,6 +16,9 @@ const PATHS: Record<SidebarIcon, string> = {
   play: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   mail: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
   document: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+  // Barras: a aba Financeiro e a primeira do painel a ser, ela propria, um
+  // relatorio (Spec 016).
+  chart: 'M9 19v-6a1 1 0 00-1-1H5a1 1 0 00-1 1v6a1 1 0 001 1h3a1 1 0 001-1zm0 0V9a1 1 0 011-1h3a1 1 0 011 1v10m0 0h4a1 1 0 001-1V5a1 1 0 00-1-1h-3a1 1 0 00-1 1v14z',
 };
 
 @Component({
