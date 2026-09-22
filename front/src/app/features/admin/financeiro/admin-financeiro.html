@@ -376,7 +376,10 @@
           </div>
 
           <div class="w-full sm:w-64">
+            <!-- O rotulo e visivel, como nos dois filtros ao lado: placeholder
+                 nao e rotulo, e some assim que a pessoa digita. -->
             <ui-input
+              label="Buscar"
               placeholder="E-mail, ORD… ou PAY…"
               [value]="search()"
               (valueChange)="onSearch($event)" />
