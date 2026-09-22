@@ -50,6 +50,7 @@ interface OrderRow {
   mpStatus: string | null;
   mpStatusDetail: string | null;
   paidAt: Date | null;
+  refundedAt: Date | null;
   expiresAt: Date | null;
   items: { moduleId: string; priceCents: number; titleSnapshot: string }[];
 }
@@ -268,6 +269,10 @@ export class OrdersService {
         mpStatus: mpOrder?.status ?? order.mpStatus,
         mpStatusDetail: mpOrder?.statusDetail ?? order.mpStatusDetail,
         ...(status === 'PAID' ? { paidAt: new Date() } : {}),
+        // Spec 016, decisao 8: o estorno precisa de mes proprio. `paidAt`
+        // continua onde esta — o dinheiro entrou naquele mes, e devolve-lo
+        // depois nao muda isso.
+        ...(status === 'REFUNDED' ? { refundedAt: new Date() } : {}),
         ...(this.pixExpirationDate(order, status, mpOrder)
           ? { expiresAt: this.pixExpirationDate(order, status, mpOrder) }
           : {}),
