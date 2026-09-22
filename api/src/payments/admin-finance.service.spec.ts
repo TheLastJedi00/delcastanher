@@ -636,6 +636,26 @@ describe('AdminFinanceService — resumo', () => {
       expect(series?.values).toContain('America/Sao_Paulo');
     });
 
+    /**
+     * Regressao encontrada na verificacao em navegador (Fase 7): `paidAt` e
+     * `timestamp` **sem** fuso guardando UTC, e `AT TIME ZONE` sobre uma
+     * coluna assim interpreta o valor como sendo daquele fuso. Com uma
+     * conversao so, a venda das 21h de 17/09 em Sao Paulo caia no dia 18.
+     */
+    it('diz de onde o instante vem antes de escreve-lo no fuso do relatorio', async () => {
+      const { service, prisma } = await build({ orders: [pago('a')], rates: [PIX_RATE] });
+
+      await service.summary({ ...SETEMBRO, granularity: 'day' });
+
+      for (const field of ['paidAt', 'refundedAt']) {
+        const call = prisma.rawCalls.find((row) => row.sql.includes(`"${field}" AT TIME ZONE`));
+
+        expect(call?.sql.replace(/s+/g, ' ')).toContain(
+          `("${field}" AT TIME ZONE 'UTC') AT TIME ZONE`,
+        );
+      }
+    });
+
     it('poe a venda das 21h de 30/09 em Sao Paulo no ultimo ponto de setembro', async () => {
       const { service } = await build({
         // 01/10 00:00 UTC = 30/09 21:00 em Sao Paulo.

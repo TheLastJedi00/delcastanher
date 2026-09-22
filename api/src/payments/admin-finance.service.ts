@@ -641,6 +641,13 @@ export class AdminFinanceService {
    * e a operacao. Uma venda as 21h de terca em Brasilia e quarta em UTC:
    * agrupar pelo fuso do banco jogaria tres horas de vendas de todo dia para o
    * dia seguinte.
+   *
+   * **Sao duas conversoes, e nao uma.** `paidAt` e `timestamp` sem fuso
+   * guardando UTC, e `AT TIME ZONE` sobre uma coluna assim **interpreta** o
+   * valor como sendo daquele fuso — o oposto do que se quer. O primeiro
+   * `AT TIME ZONE 'UTC'` diz de onde o instante vem, e so entao o segundo o
+   * escreve no fuso do relatorio. Com uma conversao so, a venda das 21h de
+   * 17/09 caia no dia 18.
    */
   private async seriesOf(
     period: ResolvedPeriod,
@@ -652,7 +659,10 @@ export class AdminFinanceService {
     const [paid, refunded] = await Promise.all([
       this.prisma.$queryRaw<SeriesRow[]>`
         SELECT to_char(
-                 date_trunc(${unit}::text, "paidAt" AT TIME ZONE ${REPORT_TIME_ZONE}),
+                 date_trunc(
+                   ${unit}::text,
+                   ("paidAt" AT TIME ZONE 'UTC') AT TIME ZONE ${REPORT_TIME_ZONE}
+                 ),
                  ${format}::text
                ) AS bucket,
                COALESCE(SUM("amountCents"), 0)::int AS cents,
@@ -664,7 +674,10 @@ export class AdminFinanceService {
       `,
       this.prisma.$queryRaw<SeriesRow[]>`
         SELECT to_char(
-                 date_trunc(${unit}::text, "refundedAt" AT TIME ZONE ${REPORT_TIME_ZONE}),
+                 date_trunc(
+                   ${unit}::text,
+                   ("refundedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${REPORT_TIME_ZONE}
+                 ),
                  ${format}::text
                ) AS bucket,
                COALESCE(SUM("amountCents"), 0)::int AS cents,
