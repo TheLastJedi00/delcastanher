@@ -5,6 +5,7 @@ import { AccessService } from './access.service';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessService } from './admin-access.service';
 import { AdminFinanceController } from './admin-finance.controller';
+import { AdminFinanceService } from './admin-finance.service';
 import { GatewayFeesService } from './gateway-fees.service';
 import { MercadoPagoService } from './mercado-pago.service';
 import { MercadoPagoWebhookController } from './mercado-pago-webhook.controller';
@@ -34,6 +35,7 @@ import { StoreService } from './store.service';
   providers: [
     AccessService,
     AdminAccessService,
+    AdminFinanceService,
     GatewayFeesService,
     MercadoPagoService,
     OrdersService,

@@ -1,9 +1,12 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { AdminFinanceService } from './admin-finance.service';
+import type { FinanceSummary } from './admin-finance.types';
+import { FinanceSummaryDto } from './dto/finance-query.dto';
 import { CreateGatewayFeeDto } from './dto/gateway-fee.dto';
 import { CurrentFeeRates, GatewayFeeRateView, GatewayFeesService } from './gateway-fees.service';
 
@@ -30,7 +33,23 @@ export interface GatewayFeesResult {
 @UseGuards(FirebaseAuthGuard, RolesGuard)
 @Roles('admin')
 export class AdminFinanceController {
-  constructor(private readonly fees: GatewayFeesService) {}
+  constructor(
+    private readonly finance: AdminFinanceService,
+    private readonly fees: GatewayFeesService,
+  ) {}
+
+  /**
+   * O painel inteiro de um periodo: indicadores, comparacao com o anterior,
+   * quebras por metodo e por modulo, serie temporal e o recorte de engajamento.
+   *
+   * Sem `from` e `to` o recorte cai nos ultimos 30 dias — a mesma janela do
+   * `ACTIVITY_WINDOW_DAYS` da Spec 013, para que as duas abas do painel nao
+   * tenham dois "recente" diferentes.
+   */
+  @Get('summary')
+  summary(@Query() query: FinanceSummaryDto): Promise<FinanceSummary> {
+    return this.finance.summary(query);
+  }
 
   /** Vigencias de taxa, da mais recente para a mais antiga, com autor e data. */
   @Get('fees')

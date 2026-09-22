@@ -7,6 +7,7 @@ import { AuthUser, Role } from '../auth/auth.types';
 import { AuthenticatedRequest, FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { AdminFinanceController } from './admin-finance.controller';
+import { AdminFinanceService } from './admin-finance.service';
 import { GatewayFeesService } from './gateway-fees.service';
 
 function userWith(role: Role): AuthUser {
@@ -33,7 +34,10 @@ const VIGENCIA = {
  * token; o `RolesGuard` e o **real**, que e o que esta sob teste aqui.
  */
 async function buildApp(
-  overrides: { fees?: Partial<Record<keyof GatewayFeesService, jest.Mock>> } = {},
+  overrides: {
+    fees?: Partial<Record<keyof GatewayFeesService, jest.Mock>>;
+    finance?: Partial<Record<keyof AdminFinanceService, jest.Mock>>;
+  } = {},
   role: Role | null = 'admin',
 ) {
   const moduleRef = await Test.createTestingModule({
@@ -48,6 +52,13 @@ async function buildApp(
           current: jest.fn().mockResolvedValue({ PIX: VIGENCIA, CREDIT_CARD: null }),
           create: jest.fn().mockResolvedValue(VIGENCIA),
           ...overrides.fees,
+        },
+      },
+      {
+        provide: AdminFinanceService,
+        useValue: {
+          summary: jest.fn().mockResolvedValue({ totals: { grossCents: 0 } }),
+          ...overrides.finance,
         },
       },
       { provide: AuthService, useValue: { verify: jest.fn() } },
