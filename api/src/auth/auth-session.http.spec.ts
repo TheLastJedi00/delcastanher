@@ -113,4 +113,55 @@ describe('sessao por cookie em /auth', () => {
       expect(refreshCookie(response)).toBeUndefined();
     });
   });
+
+  describe('POST /auth/refresh', () => {
+    it('troca o cookie por uma sessao nova e regrava o cookie com o token devolvido (decisao 14)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .set('Origin', FRONT)
+        .set('Cookie', '__Secure-refresh=refresh-do-login')
+        .expect(200);
+
+      expect(auth.refresh).toHaveBeenCalledWith('refresh-do-login');
+      expect(response.body).toEqual(SESSION);
+      expect(refreshCookie(response)).toMatch(/^__Secure-refresh=refresh-rotacionado;.*Max-Age=2592000/);
+    });
+
+    it('repassa ao servico a ausencia de cookie, que decide o 401', async () => {
+      auth.refresh.mockRejectedValue(new UnauthorizedException('Sessao encerrada.'));
+
+      await request(app.getHttpServer()).post('/auth/refresh').set('Origin', FRONT).expect(401);
+
+      expect(auth.refresh).toHaveBeenCalledWith(undefined);
+    });
+
+    it('apaga o cookie quando o Firebase recusa o token — um cookie morto so geraria 401 em loop', async () => {
+      auth.refresh.mockRejectedValue(new UnauthorizedException('Sessao encerrada.'));
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .set('Origin', FRONT)
+        .set('Cookie', '__Secure-refresh=revogado')
+        .expect(401);
+
+      const cookie = refreshCookie(response);
+
+      expect(isCleared(cookie)).toBe(true);
+      expect(cookie).toMatch(/; Path=\/auth(;|$)/);
+      expect(cookie).toMatch(/; HttpOnly/);
+      expect(cookie).toMatch(/; SameSite=Strict/);
+    });
+
+    it('mantem o cookie quando o Firebase esta fora do ar: o token nao foi recusado', async () => {
+      auth.refresh.mockRejectedValue(new ServiceUnavailableException('Tente novamente.'));
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .set('Origin', FRONT)
+        .set('Cookie', '__Secure-refresh=valido')
+        .expect(503);
+
+      expect(refreshCookie(response)).toBeUndefined();
+    });
+  });
 });
