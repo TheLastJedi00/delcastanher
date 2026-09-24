@@ -12,4 +12,4 @@ Disallow: /admin
 Disallow: /onboarding
 Disallow: /checkout
 
-Sitemap: https://delcastanher.vercel.app/sitemap.xml
+Sitemap: https://www.delcastanher.srv.br/sitemap.xml
