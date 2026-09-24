@@ -164,4 +164,42 @@ describe('sessao por cookie em /auth', () => {
       expect(refreshCookie(response)).toBeUndefined();
     });
   });
+
+  /**
+   * CSRF (decisao 16): o CORS impede outra origem de LER a resposta, mas nao
+   * de disparar o POST. A conferencia de `Origin` impede o disparo.
+   */
+  describe('conferencia de Origin nas rotas com cookie', () => {
+    it.each([['/auth/refresh'], ['/auth/logout']])('%s recusa origem fora de CORS_ORIGINS com 403', async path => {
+      const response = await request(app.getHttpServer())
+        .post(path)
+        .set('Origin', 'https://atacante.example')
+        .set('Cookie', '__Secure-refresh=valido')
+        .expect(403);
+
+      expect(refreshCookie(response)).toBeUndefined();
+      expect(auth.refresh).not.toHaveBeenCalled();
+    });
+
+    it.each([['/auth/refresh'], ['/auth/logout']])('%s recusa requisicao sem Origin com 403', async path => {
+      await request(app.getHttpServer()).post(path).set('Cookie', '__Secure-refresh=valido').expect(403);
+
+      expect(auth.refresh).not.toHaveBeenCalled();
+    });
+
+    it('nao confunde origem parecida com a liberada', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .set('Origin', `${FRONT}.atacante.example`)
+        .set('Cookie', '__Secure-refresh=valido')
+        .expect(403);
+    });
+
+    it('o login nao le cookie e continua aceitando chamada sem Origin', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'aluno@delcastanher.com', password: 'senha123' })
+        .expect(200);
+    });
+  });
 });
