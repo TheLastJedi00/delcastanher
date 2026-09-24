@@ -8,8 +8,9 @@ import { environment } from '../../../environments/environment';
  *
  * O canonical e a URL absoluta precisam de um host, e o prerender roda no Node,
  * onde nao existe `location`. O valor vem da variavel `SITE_ORIGIN` do projeto
- * na Vercel (ver `scripts/apply-env.mjs`): quando o dominio proprio entrar no
- * ar, e um campo no painel que muda, nao um commit.
+ * na Vercel (ver `scripts/apply-env.mjs`) — em producao,
+ * `https://www.delcastanher.srv.br` (Spec 017). Trocar de dominio e um campo
+ * no painel que muda, nao um commit.
  */
 export const SITE_ORIGIN = environment.siteOrigin;
 
