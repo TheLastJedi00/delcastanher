@@ -10,19 +10,19 @@ describe('corsOrigins', () => {
   describe('leitura de CORS_ORIGINS', () => {
     it('usa a origem unica declarada na variavel', () => {
       const config = configWith({
-        CORS_ORIGINS: 'https://delcastanher.vercel.app',
+        CORS_ORIGINS: 'https://www.delcastanher.srv.br',
       });
 
-      expect(corsOrigins(config)).toEqual(['https://delcastanher.vercel.app']);
+      expect(corsOrigins(config)).toEqual(['https://www.delcastanher.srv.br']);
     });
 
     it('aceita varias origens separadas por virgula', () => {
       const config = configWith({
-        CORS_ORIGINS: 'https://delcastanher.vercel.app,http://localhost:4200',
+        CORS_ORIGINS: 'https://www.delcastanher.srv.br,http://localhost:4200',
       });
 
       expect(corsOrigins(config)).toEqual([
-        'https://delcastanher.vercel.app',
+        'https://www.delcastanher.srv.br',
         'http://localhost:4200',
       ]);
     });
@@ -30,11 +30,11 @@ describe('corsOrigins', () => {
     it('remove os espacos em volta de cada origem', () => {
       const config = configWith({
         CORS_ORIGINS:
-          ' https://delcastanher.vercel.app , http://localhost:4200 ',
+          ' https://www.delcastanher.srv.br , http://localhost:4200 ',
       });
 
       expect(corsOrigins(config)).toEqual([
-        'https://delcastanher.vercel.app',
+        'https://www.delcastanher.srv.br',
         'http://localhost:4200',
       ]);
     });
@@ -84,10 +84,10 @@ describe('corsOrigins', () => {
     it('usa as origens declaradas', () => {
       const config = configWith({
         NODE_ENV: 'production',
-        CORS_ORIGINS: 'https://delcastanher.vercel.app',
+        CORS_ORIGINS: 'https://www.delcastanher.srv.br',
       });
 
-      expect(corsOrigins(config)).toEqual(['https://delcastanher.vercel.app']);
+      expect(corsOrigins(config)).toEqual(['https://www.delcastanher.srv.br']);
     });
   });
 });

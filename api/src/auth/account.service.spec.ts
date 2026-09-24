@@ -24,7 +24,7 @@ function userNotFound() {
 describe('AuthService - criacao de conta e definicao de senha', () => {
   let service: AuthService;
   let fetchMock: jest.Mock;
-  const env: Record<string, string | undefined> = { FRONTEND_URL: 'https://app.delcastanher.com' };
+  const env: Record<string, string | undefined> = { FRONTEND_URL: 'https://www.delcastanher.srv.br' };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -76,7 +76,7 @@ describe('AuthService - criacao de conta e definicao de senha', () => {
       expect(JSON.parse(init.body as string)).toEqual({
         requestType: 'PASSWORD_RESET',
         email: 'novo@delcastanher.com',
-        continueUrl: 'https://app.delcastanher.com/login',
+        continueUrl: 'https://www.delcastanher.srv.br/login',
         canHandleCodeInApp: false,
       });
     });
@@ -89,7 +89,7 @@ describe('AuthService - criacao de conta e definicao de senha', () => {
 
       const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(JSON.parse(init.body as string).continueUrl).toBe('http://localhost:4200/login');
-      env.FRONTEND_URL = 'https://app.delcastanher.com';
+      env.FRONTEND_URL = 'https://www.delcastanher.srv.br';
     });
 
     it('devolve a mesma mensagem para conta nova e conta existente', async () => {
