@@ -202,6 +202,18 @@ export class AuthService {
   private translate(rawMessage?: string): HttpException {
     // O Firebase devolve variacoes como "TOO_MANY_ATTEMPTS_TRY_LATER : ...".
     const code = (rawMessage ?? '').split(':')[0].trim();
+
+    // O Firebase recusa `continueUrl` fora de "Authorized domains", e o e-mail
+    // de senha nao sai. A causa vai para o log, onde quem opera consegue agir;
+    // ao usuario so cabe tentar de novo (Spec 017, decisao 8).
+    if (code === 'UNAUTHORIZED_DOMAIN') {
+      this.logger.error(
+        `FRONTEND_URL (${this.frontendUrl()}) nao esta em Authentication > Settings > Authorized domains do Firebase.`,
+      );
+
+      return new ServiceUnavailableException('Nao foi possivel enviar o link agora. Tente novamente em instantes.');
+    }
+
     const factory = ERROR_FACTORIES[code];
 
     if (factory) {
