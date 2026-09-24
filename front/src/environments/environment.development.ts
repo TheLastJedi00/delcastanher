@@ -13,7 +13,7 @@ export const environment = {
    * o dominio real de proposito: canonical com `localhost` mascararia um erro
    * que so apareceria em producao.
    */
-  siteOrigin: 'https://delcastanher.vercel.app',
+  siteOrigin: 'https://www.delcastanher.srv.br',
   /**
    * Vazio por regra (Spec 009, decisao 5): o `AnalyticsService` loga cada
    * evento no console em vez de carregar o container, o que permite validar
