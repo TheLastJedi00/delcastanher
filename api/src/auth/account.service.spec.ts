@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { FirebaseService } from '../firebase/firebase.service';
 
@@ -114,6 +114,25 @@ describe('AuthService - criacao de conta e definicao de senha', () => {
       fetchMock.mockReturnValue(restResponse(false, { error: { message: 'INVALID_EMAIL' } }));
 
       await expect(service.requestAccount('a@b.com')).rejects.toThrow('E-mail invalido.');
+    });
+
+    it('loga a causa explicita quando o dominio de FRONTEND_URL nao esta autorizado no Firebase', async () => {
+      // Spec 017, decisao 8: sem o dominio em "Authorized domains" o e-mail
+      // simplesmente nao sai, e o erro generico nao diz a ninguem por que.
+      const logError = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      getUserByEmail.mockResolvedValue({ uid: 'uid-1' });
+      fetchMock.mockReturnValue(
+        restResponse(false, { error: { message: 'UNAUTHORIZED_DOMAIN : Domain not allowlisted by project' } }),
+      );
+
+      const attempt = service.requestAccount('a@b.com');
+
+      await expect(attempt).rejects.toThrow(ServiceUnavailableException);
+      await expect(attempt).rejects.not.toThrow(/dominio|FRONTEND_URL/i);
+      expect(logError).toHaveBeenCalledWith(
+        expect.stringMatching(/FRONTEND_URL.*www\.delcastanher\.srv\.br.*Authorized domains/),
+      );
+      logError.mockRestore();
     });
 
     it('sinaliza indisponibilidade quando o Firebase nao responde', async () => {
