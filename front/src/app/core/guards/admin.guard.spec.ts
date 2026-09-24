@@ -2,21 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
-import { Role } from '../services/auth.service';
+import { signInForTest as signIn } from '../testing/session';
 import { adminGuard } from './admin.guard';
-
-/** Grava uma sessao do papel pedido, como o AuthService a le do storage. */
-function signIn(role: Role): void {
-  localStorage.setItem(
-    'delcastanher.session',
-    JSON.stringify({
-      idToken: 'token',
-      refreshToken: 'refresh',
-      expiresAt: Date.now() + 60 * 60 * 1000,
-      user: { uid: 'uid-123', email: 'pessoa@delcastanher.com', name: 'Pessoa', role },
-    }),
-  );
-}
 
 function run() {
   return TestBed.runInInjectionContext(() =>

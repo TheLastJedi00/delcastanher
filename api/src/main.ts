@@ -1,6 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { corsOrigins } from './config/cors.config';
 
@@ -11,6 +12,9 @@ async function bootstrap() {
   const config = app.get(ConfigService);
 
   app.enableCors({ origin: corsOrigins(config), credentials: true });
+  // O refresh token chega em cookie HttpOnly em `/auth/refresh` e
+  // `/auth/logout` (Spec 017, decisao 12).
+  app.use(cookieParser());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

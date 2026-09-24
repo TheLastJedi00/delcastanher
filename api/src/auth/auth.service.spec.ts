@@ -62,11 +62,10 @@ describe('AuthService', () => {
         role: 'admin',
       });
 
-      const session = await service.login('aluno@delcastanher.com', 'senha123');
+      const issued = await service.login('aluno@delcastanher.com', 'senha123');
 
-      expect(session).toEqual({
+      expect(issued.session).toEqual({
         idToken: 'id-token',
-        refreshToken: 'refresh-token',
         expiresIn: 3600,
         user: {
           uid: 'uid-1',
@@ -75,6 +74,16 @@ describe('AuthService', () => {
           role: 'admin',
         },
       });
+    });
+
+    it('separa o refresh token da sessao, que vai para o corpo da resposta (Spec 017, decisao 13)', async () => {
+      fetchMock.mockReturnValue(restResponse(true, SIGN_IN_OK));
+      verifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'aluno@delcastanher.com' });
+
+      const issued = await service.login('aluno@delcastanher.com', 'senha123');
+
+      expect(issued.refreshToken).toBe('refresh-token');
+      expect(issued.session).not.toHaveProperty('refreshToken');
     });
 
     it('chama o endpoint signInWithPassword com a web api key', async () => {
@@ -98,7 +107,7 @@ describe('AuthService', () => {
       fetchMock.mockReturnValue(restResponse(true, SIGN_IN_OK));
       verifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'aluno@delcastanher.com' });
 
-      const session = await service.login('aluno@delcastanher.com', 'senha123');
+      const { session } = await service.login('aluno@delcastanher.com', 'senha123');
 
       expect(session.user.role).toBe('aluno');
       expect(session.user.name).toBeNull();
@@ -187,6 +196,91 @@ describe('AuthService', () => {
       verifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'a@b.com', role: 'root' });
 
       await expect(service.verify('id-token')).resolves.toMatchObject({ role: 'aluno' });
+    });
+  });
+
+  /**
+   * Troca do refresh token por um idToken novo (Spec 017, decisao 14). A
+   * resposta da Secure Token API usa snake_case, ao contrario da Identity
+   * Toolkit do login.
+   */
+  describe('refresh', () => {
+    const TOKEN_OK = {
+      id_token: 'id-token-novo',
+      refresh_token: 'refresh-token-novo',
+      expires_in: '3600',
+      token_type: 'Bearer',
+      user_id: 'uid-1',
+    };
+
+    it('troca o refresh token na Secure Token API com a web api key', async () => {
+      fetchMock.mockReturnValue(restResponse(true, TOKEN_OK));
+      verifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'aluno@delcastanher.com' });
+
+      await service.refresh('refresh-token');
+
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://securetoken.googleapis.com/v1/token?key=web-key');
+      expect(init.method).toBe('POST');
+      expect(new URLSearchParams(init.body as string).get('grant_type')).toBe('refresh_token');
+      expect(new URLSearchParams(init.body as string).get('refresh_token')).toBe('refresh-token');
+    });
+
+    it('devolve a sessao nova e o refresh token que o Firebase devolveu, para regravar o cookie', async () => {
+      fetchMock.mockReturnValue(restResponse(true, TOKEN_OK));
+      verifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'aluno@delcastanher.com', name: 'Aluno' });
+
+      await expect(service.refresh('refresh-token')).resolves.toEqual({
+        session: {
+          idToken: 'id-token-novo',
+          expiresIn: 3600,
+          user: { uid: 'uid-1', email: 'aluno@delcastanher.com', name: 'Aluno', role: 'aluno' },
+        },
+        refreshToken: 'refresh-token-novo',
+      });
+    });
+
+    it('revalida o idToken novo pelo Admin SDK e traz o papel atual, nao o do login', async () => {
+      fetchMock.mockReturnValue(restResponse(true, TOKEN_OK));
+      // Promovido a admin depois do login: o refresh e o momento em que o
+      // papel novo chega ao front sem novo login.
+      verifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'aluno@delcastanher.com', role: 'admin' });
+
+      const { session } = await service.refresh('refresh-token');
+
+      expect(verifyIdToken).toHaveBeenCalledWith('id-token-novo', true);
+      expect(session.user.role).toBe('admin');
+    });
+
+    it.each([[undefined], [''], ['   ']])('recusa sem tocar no Firebase quando nao ha refresh token (%p)', async token => {
+      await expect(service.refresh(token)).rejects.toThrow(UnauthorizedException);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['TOKEN_EXPIRED'],
+      ['USER_DISABLED'],
+      ['USER_NOT_FOUND'],
+      ['INVALID_REFRESH_TOKEN'],
+      ['INVALID_GRANT_TYPE'],
+      ['MISSING_REFRESH_TOKEN'],
+    ])('trata %s como sessao encerrada (401)', async code => {
+      fetchMock.mockReturnValue(restResponse(false, { error: { message: code } }));
+
+      await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('trata como sessao encerrada quando o idToken novo nao passa no Admin SDK (token revogado)', async () => {
+      fetchMock.mockReturnValue(restResponse(true, TOKEN_OK));
+      verifyIdToken.mockRejectedValue(Object.assign(new Error('revoked'), { code: 'auth/id-token-revoked' }));
+
+      await expect(service.refresh('refresh-token')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('sinaliza indisponibilidade (503), e nao sessao encerrada, quando o Firebase nao responde', async () => {
+      fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
+
+      await expect(service.refresh('refresh-token')).rejects.toThrow(ServiceUnavailableException);
     });
   });
 });

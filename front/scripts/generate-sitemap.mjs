@@ -17,7 +17,7 @@ import { join } from 'node:path';
 const DIST = join(import.meta.dirname, '..', 'dist', 'delcastanher-front');
 // Mesma variavel que alimenta o canonical no app (ver scripts/apply-env.mjs):
 // sitemap e canonical divergentes mandariam o rastreador para dois lugares.
-const ORIGIN = process.env.SITE_ORIGIN ?? 'https://delcastanher.vercel.app';
+const ORIGIN = process.env.SITE_ORIGIN ?? 'https://www.delcastanher.srv.br';
 
 /** Espelha as rotas com `indexable: false` em `core/services/seo-route.ts`. */
 const NOT_INDEXABLE = ['/login'];

@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
 import { FirebaseService } from '../firebase/firebase.service';
-import { AccountRequestResult, AuthSession, AuthUser, Role } from './auth.types';
+import { AccountRequestResult, AuthUser, IssuedSession, Role } from './auth.types';
 
 const IDENTITY_TOOLKIT = 'https://identitytoolkit.googleapis.com/v1';
 
@@ -34,6 +34,18 @@ const ERROR_FACTORIES: Record<string, () => HttpException> = {
     ),
 };
 
+const SECURE_TOKEN = 'https://securetoken.googleapis.com/v1/token';
+
+/** Mensagem unica para refresh recusado: o front so precisa saber que acabou. */
+const SESSION_ENDED = 'Sessao encerrada. Entre novamente.';
+
+/** Resposta da Secure Token API, em snake_case. */
+interface RefreshResponse {
+  id_token: string;
+  refresh_token: string;
+  expires_in: string;
+}
+
 interface SignInResponse {
   localId: string;
   email: string;
@@ -56,7 +68,7 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
-  async login(email: string, password: string): Promise<AuthSession> {
+  async login(email: string, password: string): Promise<IssuedSession> {
     const signIn = await this.identityToolkit<SignInResponse>('accounts:signInWithPassword', {
       email: this.normalizeEmail(email),
       password,
@@ -67,10 +79,31 @@ export class AuthService {
     const user = await this.verify(signIn.idToken);
 
     return {
-      idToken: signIn.idToken,
+      session: { idToken: signIn.idToken, expiresIn: Number(signIn.expiresIn), user },
       refreshToken: signIn.refreshToken,
-      expiresIn: Number(signIn.expiresIn),
-      user,
+    };
+  }
+
+  /**
+   * Troca o refresh token do cookie por um idToken novo (Spec 017, decisao 14).
+   *
+   * Qualquer recusa — token ausente, expirado, revogado, usuario desativado —
+   * e `401`: a sessao acabou e o cookie deve ser apagado. Falha de rede e
+   * `503`, porque o token nao foi recusado e continua valendo.
+   */
+  async refresh(refreshToken: string | undefined): Promise<IssuedSession> {
+    if (!refreshToken?.trim()) {
+      throw new UnauthorizedException(SESSION_ENDED);
+    }
+
+    const tokens = await this.secureToken(refreshToken);
+
+    // Revalida pelo Admin SDK: traz o papel atual e respeita revogacao.
+    const user = await this.verify(tokens.id_token);
+
+    return {
+      session: { idToken: tokens.id_token, expiresIn: Number(tokens.expires_in), user },
+      refreshToken: tokens.refresh_token,
     };
   }
 
@@ -199,9 +232,48 @@ export class AuthService {
     return payload;
   }
 
+  /** Chamada a Secure Token API, que troca refresh token por idToken. */
+  private async secureToken(refreshToken: string): Promise<RefreshResponse> {
+    let response: Response;
+
+    try {
+      response = await fetch(`${SECURE_TOKEN}?key=${this.firebase.webApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }).toString(),
+      });
+    } catch (error) {
+      this.logger.error('Falha ao contatar o Firebase (securetoken).', error as Error);
+      throw new ServiceUnavailableException(
+        'Nao foi possivel contatar o servico de autenticacao. Tente novamente.',
+      );
+    }
+
+    const payload = (await response.json()) as RefreshResponse & { error?: { message?: string } };
+
+    if (!response.ok) {
+      this.logger.warn(`Refresh recusado pelo Firebase: ${payload.error?.message ?? 'desconhecido'}`);
+      throw new UnauthorizedException(SESSION_ENDED);
+    }
+
+    return payload;
+  }
+
   private translate(rawMessage?: string): HttpException {
     // O Firebase devolve variacoes como "TOO_MANY_ATTEMPTS_TRY_LATER : ...".
     const code = (rawMessage ?? '').split(':')[0].trim();
+
+    // O Firebase recusa `continueUrl` fora de "Authorized domains", e o e-mail
+    // de senha nao sai. A causa vai para o log, onde quem opera consegue agir;
+    // ao usuario so cabe tentar de novo (Spec 017, decisao 8).
+    if (code === 'UNAUTHORIZED_DOMAIN') {
+      this.logger.error(
+        `FRONTEND_URL (${this.frontendUrl()}) nao esta em Authentication > Settings > Authorized domains do Firebase.`,
+      );
+
+      return new ServiceUnavailableException('Nao foi possivel enviar o link agora. Tente novamente em instantes.');
+    }
+
     const factory = ERROR_FACTORIES[code];
 
     if (factory) {

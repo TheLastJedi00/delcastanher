@@ -9,13 +9,21 @@ export interface AuthUser {
   role: Role;
 }
 
-/** Resposta de um login bem sucedido. */
+/**
+ * Corpo da resposta de login e de refresh. O refresh token nao esta aqui: ele
+ * so trafega no cookie HttpOnly (Spec 017, decisao 13).
+ */
 export interface AuthSession {
   idToken: string;
-  refreshToken: string;
   /** Validade do idToken, em segundos. */
   expiresIn: number;
   user: AuthUser;
+}
+
+/** Sessao emitida pelo `AuthService`, com o refresh token para o cookie. */
+export interface IssuedSession {
+  session: AuthSession;
+  refreshToken: string;
 }
 
 /** Resposta dos fluxos que disparam e-mail (criar conta / recuperar senha). */

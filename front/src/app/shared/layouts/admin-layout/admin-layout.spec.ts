@@ -4,20 +4,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { signInForTest } from '../../../core/testing/session';
 import { AdminLayout } from './admin-layout';
-
-/** Grava uma sessao de admin, como o AuthService a le do storage. */
-function signIn(): void {
-  localStorage.setItem(
-    'delcastanher.session',
-    JSON.stringify({
-      idToken: 'token',
-      refreshToken: 'refresh',
-      expiresAt: Date.now() + 60 * 60 * 1000,
-      user: { uid: 'uid-123', email: 'admin@delcastanher.com', name: 'Admin', role: 'admin' },
-    }),
-  );
-}
 
 /**
  * Spec 011, Task 1.4.
@@ -38,7 +26,7 @@ describe('AdminLayout', () => {
   afterEach(() => localStorage.clear());
 
   it('encerra a sessao ao clicar em "Sair" no cabecalho', () => {
-    signIn();
+    signInForTest('admin');
     const auth = TestBed.inject(AuthService);
     expect(auth.isAuthenticated()).toBeTrue();
 
@@ -54,11 +42,11 @@ describe('AdminLayout', () => {
     fixture.detectChanges();
 
     expect(auth.isAuthenticated()).toBeFalse();
-    expect(localStorage.getItem('delcastanher.session')).toBeNull();
+    expect(localStorage.getItem('delcastanher.has-session')).toBeNull();
   });
 
   it('encerra a sessao pelo "Sair" da sidebar', () => {
-    signIn();
+    signInForTest('admin');
     const auth = TestBed.inject(AuthService);
 
     const fixture = TestBed.createComponent(AdminLayout);
@@ -68,6 +56,6 @@ describe('AdminLayout', () => {
     sidebar.componentInstance.logout.emit();
 
     expect(auth.isAuthenticated()).toBeFalse();
-    expect(localStorage.getItem('delcastanher.session')).toBeNull();
+    expect(localStorage.getItem('delcastanher.has-session')).toBeNull();
   });
 });

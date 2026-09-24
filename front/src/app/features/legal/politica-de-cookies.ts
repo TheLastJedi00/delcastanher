@@ -17,11 +17,15 @@ import { LegalPage, LegalSection, p, ul } from './legal-page';
  * jurisprudencia.
  *
  * Por isso cada afirmacao daqui foi conferida contra o codigo, e nao herdada de
- * modelo de politica de cookies. A consequencia mais visivel e que a pagina fala
- * de **armazenamento local**, e nao de cookies proprios: a plataforma nao grava
- * nenhum cookie seu. Descrever um `_session` que nao existe seria o mesmo erro
- * de redigir clausula plausivel — texto que parece certo e nao corresponde ao
- * que o sistema faz.
+ * modelo de politica de cookies. Descrever um cookie que nao existe seria o
+ * mesmo erro de redigir clausula plausivel — texto que parece certo e nao
+ * corresponde ao que o sistema faz.
+ *
+ * Desde a Spec 017 a plataforma grava **um** cookie proprio: o
+ * `__Secure-refresh`, HttpOnly, emitido pela API para manter a sessao. Ele e
+ * necessario, nao depende de consentimento, e por isso nao sobe a
+ * `CONSENT_POLICY_VERSION`: o que o banner pergunta — a medicao de audiencia —
+ * nao mudou.
  */
 @Component({
   selector: 'app-politica-de-cookies',
@@ -64,10 +68,10 @@ export class PoliticaDeCookies {
       title: '1. O que são cookies',
       body: [
         p(
-          'Cookies são pequenos arquivos que um site grava no seu navegador para reconhecê-lo em visitas seguintes. Tecnologias semelhantes — como o armazenamento local do navegador, que é o mecanismo efetivamente usado por esta plataforma — cumprem a mesma função guardando informação no seu dispositivo, e recebem aqui o mesmo tratamento.'
+          'Cookies são pequenos arquivos que um site grava no seu navegador para reconhecê-lo em visitas seguintes. Tecnologias semelhantes — como o armazenamento local do navegador — cumprem a mesma função guardando informação no seu dispositivo, e recebem aqui o mesmo tratamento.'
         ),
         p(
-          'Chamamos de próprio aquilo que é gravado pela própria Delcastanher, e de terceiro aquilo gravado por uma empresa contratada por nós, cujo conteúdo fica sob o domínio dela. Esta plataforma não grava nenhum cookie próprio: o que ela guarda no seu dispositivo são os dois itens de armazenamento local descritos na seção 2. Cookies de terceiro só existem no cenário da seção 3, e apenas após o seu aceite.'
+          'Chamamos de próprio aquilo que é gravado pela própria Delcastanher, e de terceiro aquilo gravado por uma empresa contratada por nós, cujo conteúdo fica sob o domínio dela. Esta plataforma grava um único cookie próprio, necessário para manter você autenticado, e dois itens de armazenamento local — todos descritos na seção 2. Cookies de terceiro só existem no cenário da seção 3, e apenas após o seu aceite.'
         ),
       ],
     },
@@ -75,14 +79,20 @@ export class PoliticaDeCookies {
       title: '2. Itens necessários ao funcionamento',
       body: [
         p(
-          'Os itens abaixo são gravados no armazenamento local do seu navegador, permanecem no seu dispositivo e não são enviados a terceiros:'
+          'O cookie abaixo é gravado pelo servidor da plataforma quando você entra na conta. Ele é inacessível a scripts da página, só trafega em conexão segura e só é enviado de volta à própria plataforma:'
         ),
         ul(
-          'delcastanher.session — mantém você autenticado na área do aluno entre uma página e outra, e entre visitas, para que não seja necessário entrar novamente a cada acesso. É apagado quando você sai da conta.',
+          '__Secure-refresh — mantém você autenticado na área do aluno entre uma página e outra, e entre visitas, para que não seja necessário entrar novamente a cada acesso. Vale por 30 dias, renovados a cada uso, e é apagado quando você sai da conta.'
+        ),
+        p(
+          'Os itens abaixo são gravados no armazenamento local do seu navegador, permanecem no seu dispositivo e não são enviados a ninguém:'
+        ),
+        ul(
+          'delcastanher.has-session — indica apenas que existe uma sessão aberta neste navegador, para que a plataforma saiba se deve retomá-la. Não contém nenhuma credencial e é apagado quando você sai da conta.',
           'delcastanher.consent — guarda a sua própria escolha sobre a medição de audiência, com a data em que foi feita e a versão desta política. É o registro que comprova o consentimento e o que impede o banner de perguntar de novo a cada página.'
         ),
         p(
-          'Nenhum dos dois depende de consentimento prévio, e por motivos diferentes. O primeiro é indispensável para prestar o serviço que você solicitou ao entrar na conta: sem ele, não há área do aluno. O segundo existe justamente para respeitar a sua escolha — pedir permissão para guardar a sua recusa tornaria impossível registrá-la. Recusar qualquer um deles significaria, na prática, não usar a plataforma.'
+          'Nenhum deles depende de consentimento prévio, e por motivos diferentes. Os dois primeiros são indispensáveis para prestar o serviço que você solicitou ao entrar na conta: sem eles, não há área do aluno. O último existe justamente para respeitar a sua escolha — pedir permissão para guardar a sua recusa tornaria impossível registrá-la. Recusar qualquer um deles significaria, na prática, não usar a plataforma.'
         ),
       ],
     },

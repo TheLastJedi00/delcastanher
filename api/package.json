@@ -25,7 +25,8 @@
     "migration:snapshot": "ts-node -P tsconfig.json scripts/verify-lesson-migration.ts snapshot",
     "migration:verify": "ts-node -P tsconfig.json scripts/verify-lesson-migration.ts verify",
     "spec014:cenario": "ts-node -P tsconfig.json scripts/spec014-cenario.ts",
-    "spec016:cenario": "ts-node -P tsconfig.json scripts/spec016-cenario.ts"
+    "spec016:cenario": "ts-node -P tsconfig.json scripts/spec016-cenario.ts",
+    "spec017:firebase-dominio": "ts-node -P tsconfig.json scripts/spec017-firebase-dominio.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -36,6 +37,7 @@
     "@prisma/client": "^7.10.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "cookie-parser": "^1.4.7",
     "firebase-admin": "^14.3.0",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
@@ -52,6 +54,7 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",

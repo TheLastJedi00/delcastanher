@@ -52,7 +52,6 @@ describe('Login', () => {
 
     http.expectOne(req => req.url.endsWith('/auth/login')).flush({
       idToken: 't',
-      refreshToken: 'r',
       expiresIn: 3600,
       user: { uid: 'u', email: 'aluno@delcastanher.com', name: null, role: 'aluno' },
     });

@@ -2,6 +2,7 @@ import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
+import { signInForTest } from '../testing/session';
 import { AdminContentService, UploadProgress } from './admin-content.service';
 
 const LESSON_ID = 'les-1';
@@ -84,15 +85,8 @@ describe('AdminContentService', () => {
   });
 
   it('nao manda o token da sessao para o bucket', () => {
-    localStorage.setItem(
-      'delcastanher.session',
-      JSON.stringify({
-        idToken: 'token',
-        refreshToken: 'r',
-        expiresAt: Date.now() + 3600000,
-        user: { uid: 'u', email: 'a@b.c', name: null, role: 'admin' },
-      }),
-    );
+    signInForTest('admin');
+
 
     service.uploadVideo(LESSON_ID, videoFile()).subscribe({ error: () => undefined });
 
