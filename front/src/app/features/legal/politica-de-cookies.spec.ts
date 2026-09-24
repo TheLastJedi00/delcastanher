@@ -11,7 +11,8 @@ import { PoliticaDeCookies } from './politica-de-cookies';
  * desatualizada em relacao ao codigo.
  *
  * Estes testes amarram o texto ao que o `ConsentService` de fato faz — os dois
- * itens que ele grava, a ausencia de cookie proprio e a invalidacao por versao.
+ * itens que ele grava, o unico cookie proprio (Spec 017) e a invalidacao por
+ * versao.
  * Se alguem trocar a chave de armazenamento ou passar a gravar cookie de
  * verdade, a suite cai junto com a afirmacao que deixou de ser verdadeira.
  */
@@ -53,12 +54,17 @@ describe('PoliticaDeCookies', () => {
   });
 
   it('nomeia exatamente os itens que a plataforma grava no navegador', () => {
-    expect(texto()).toContain('delcastanher.session');
+    expect(texto()).toContain('delcastanher.has-session');
     expect(texto()).toContain('delcastanher.consent');
+    // Chave anterior a Spec 017, que o AuthService apaga: citar seria mentir.
+    expect(texto()).not.toContain('delcastanher.session ');
   });
 
-  it('afirma que nenhum cookie próprio é gravado, que é o que o código faz', () => {
-    expect(texto()).toContain('não grava nenhum cookie próprio');
+  it('declara o único cookie próprio, o do refresh token emitido pela API (Spec 017)', () => {
+    expect(texto()).toContain('grava um único cookie próprio');
+    expect(texto()).toContain('__Secure-refresh');
+    expect(texto()).toContain('Vale por 30 dias, renovados a cada uso');
+    expect(texto()).not.toContain('não grava nenhum cookie próprio');
   });
 
   it('garante que nada de medição carrega antes do aceite', () => {
