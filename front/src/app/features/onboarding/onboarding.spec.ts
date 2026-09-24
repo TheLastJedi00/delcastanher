@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { CONSENT_POLICY_VERSION } from '../../core/services/consent.service';
+import { signInForTest } from '../../core/testing/session';
 import { Onboarding } from './onboarding';
 
 const ME = `${environment.apiUrl}/users/me`;
@@ -25,20 +26,13 @@ describe('Onboarding', () => {
 
   beforeEach(async () => {
     localStorage.clear();
-    localStorage.setItem(
-      'delcastanher.session',
-      JSON.stringify({
-        idToken: 't',
-        refreshToken: 'r',
-        expiresAt: Date.now() + 3_600_000,
-        user: { uid: 'uid-123', email: 'aluno@delcastanher.com', name: null, role: 'aluno' },
-      }),
-    );
 
     await TestBed.configureTestingModule({
       imports: [Onboarding],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
+
+    signInForTest('aluno', { email: 'aluno@delcastanher.com', name: null });
 
     fixture = TestBed.createComponent(Onboarding);
     component = fixture.componentInstance;

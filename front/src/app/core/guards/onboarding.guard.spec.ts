@@ -5,6 +5,7 @@ import { ActivatedRouteSnapshot, GuardResult, RouterStateSnapshot, provideRouter
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { UserService } from '../services/user.service';
+import { signInForTest } from '../testing/session';
 import { onboardingGuard } from './onboarding.guard';
 
 const ME = `${environment.apiUrl}/users/me`;
@@ -36,15 +37,6 @@ describe('onboardingGuard', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem(
-      'delcastanher.session',
-      JSON.stringify({
-        idToken: 't',
-        refreshToken: 'r',
-        expiresAt: Date.now() + 3_600_000,
-        user: { uid: 'uid-123', email: 'aluno@delcastanher.com', name: null, role: 'aluno' },
-      }),
-    );
 
     TestBed.configureTestingModule({
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
@@ -52,6 +44,7 @@ describe('onboardingGuard', () => {
 
     backend = TestBed.inject(HttpTestingController);
     users = TestBed.inject(UserService);
+    signInForTest('aluno', { email: 'aluno@delcastanher.com', name: null });
   });
 
   afterEach(() => backend.verify());

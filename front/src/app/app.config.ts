@@ -3,6 +3,7 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 import { provideRouter, withInMemoryScrolling, withViewTransitions } from '@angular/router';
 
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { provideSessionRestore } from './core/services/session-restore';
 import { routes } from './app.routes';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 
@@ -11,6 +12,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideSessionRestore(),
     provideRouter(
       routes,
       withViewTransitions(),
