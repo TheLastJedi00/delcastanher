@@ -30,6 +30,8 @@ separadas por vírgula) é opcional em desenvolvimento — assume
 `http://localhost:4200` — e **obrigatória em produção**. Sem ela a API falha na
 subida, de propósito: cair no `localhost` silenciosamente deixaria o front
 publicado bloqueado pelo navegador, um sintoma bem mais caro de diagnosticar.
+Em produção, o front é `https://www.delcastanher.srv.br` e a API,
+`https://api.delcastanher.srv.br`.
 
 ## Rodando
 
@@ -108,7 +110,13 @@ npm run storage:cors -- https://delcastanher-git-minha-branch-leno.vercel.app
 ```
 
 Na maior parte dos casos isso nem é necessário: quem sobe arquivo é o
-administrador, e o painel de produção já está na lista.
+administrador, e o painel de produção (`https://www.delcastanher.srv.br`) já
+está na lista.
+
+**Troca de domínio:** quando uma origem deixa de existir — como o antigo
+`delcastanher.vercel.app` depois da Spec 017 —, atualize `STORAGE_CORS_ORIGINS`
+e rode com `--replace`. O modo padrão só acrescenta, e a origem aposentada
+ficaria liberada no bucket indefinidamente.
 
 ### Endpoints
 
