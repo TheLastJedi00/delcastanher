@@ -202,4 +202,49 @@ describe('sessao por cookie em /auth', () => {
         .expect(200);
     });
   });
+
+  /**
+   * Logout (decisao 17): com o token em HttpOnly o front nao consegue apagar
+   * o cookie sozinho. Sair deste navegador nao derruba os outros dispositivos.
+   */
+  describe('POST /auth/logout', () => {
+    it('responde 204 e apaga o cookie com os mesmos atributos com que foi gravado', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Origin', FRONT)
+        .set('Cookie', '__Secure-refresh=valido')
+        .expect(204);
+
+      const cookie = refreshCookie(response);
+
+      expect(isCleared(cookie)).toBe(true);
+      expect(cookie).toMatch(/; Path=\/auth(;|$)/);
+      expect(cookie).toMatch(/; Secure/);
+      expect(cookie).not.toMatch(/Domain=/i);
+    });
+
+    it('responde igual sem cookie: sair duas vezes nao e erro', async () => {
+      const response = await request(app.getHttpServer()).post('/auth/logout').set('Origin', FRONT).expect(204);
+
+      expect(isCleared(refreshCookie(response))).toBe(true);
+    });
+
+    it('nao fala com o Firebase: nenhuma revogacao, que encerraria todos os dispositivos', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Origin', FRONT)
+        .set('Cookie', '__Secure-refresh=valido')
+        .expect(204);
+
+      for (const method of Object.values(auth)) {
+        expect(method).not.toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe('POST /auth/verify', () => {
+    it('deixou de existir: a retomada de sessao e o /auth/refresh (decisao 21)', async () => {
+      await request(app.getHttpServer()).post('/auth/verify').send({ idToken: 'id-token' }).expect(404);
+    });
+  });
 });
