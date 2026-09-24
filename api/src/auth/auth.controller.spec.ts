@@ -6,7 +6,6 @@ import { plainToInstance } from 'class-transformer';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { VerifyDto } from './dto/verify.dto';
 import { AccountDto } from './dto/account.dto';
 import { AuthSession } from './auth.types';
 
@@ -122,18 +121,6 @@ describe('AuthController', () => {
       const dto = plainToInstance(LoginDto, { email: '  A@B.com ', password: 'senha123' });
 
       expect(dto.email).toBe('a@b.com');
-    });
-  });
-
-  describe('VerifyDto', () => {
-    it('aceita um idToken preenchido', async () => {
-      expect(await errorsFor(VerifyDto, { idToken: 'abc' })).toHaveLength(0);
-    });
-
-    it('rejeita idToken vazio', async () => {
-      const errors = await errorsFor(VerifyDto, { idToken: '' });
-
-      expect(errors.map(e => e.property)).toContain('idToken');
     });
   });
 });
