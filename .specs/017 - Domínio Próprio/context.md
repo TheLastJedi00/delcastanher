@@ -116,6 +116,9 @@ Com front e API sob o mesmo domínio registrável, passa a ser possível guardar
 22. **Desenvolvimento local continua funcionando, previews de branch não renovam sessão.**
     `localhost:4200` e `localhost:3000` são o mesmo site (a porta não conta), e Chrome e Firefox aceitam `Secure` em `http://localhost`. Um preview em `*.vercel.app` falando com `api.delcastanher.srv.br` é *cross-site*: o cookie não vai, e a sessão do preview dura só a hora do `idToken`. O login funciona e a limitação fica aceita — preview é para conferir tela, não para sessão longa.
 
+23. **A Política de Cookies passa a declarar o cookie de sessão, sem subir a versão do consentimento.**
+    A Spec 015 redigiu a política afirmando que a plataforma "não grava nenhum cookie próprio" e listando `delcastanher.session` como item de armazenamento local — as duas afirmações deixam de ser verdade nesta spec. A seção 2 passa a descrever o `__Secure-refresh` (necessário, 30 dias renovados a cada uso, apagado ao sair) e o indicador `delcastanher.has-session`, sem credencial. A `CONSENT_POLICY_VERSION` **não** sobe: o banner pergunta sobre medição de audiência, e isso não mudou; reabrir o consentimento da base inteira por um cookie que não depende de consentimento seria pedir de novo uma decisão que continua valendo.
+
 ## Ordem de virada
 
 A migração tem dependências de ordem; feita fora dela, algum fluxo quebra no intervalo:
