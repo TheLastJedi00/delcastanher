@@ -4,12 +4,12 @@
 export const environment = {
   production: true,
   /** URL base da API. */
-  apiUrl: "https://delcastanher-api-gamma.vercel.app",
+  apiUrl: "https://api.delcastanher.srv.br",
   /**
    * Dominio canonico da vitrine. Alimenta canonical, og:url e o sitemap — o
    * prerender roda no Node, onde nao existe `location` para deduzir o host.
    */
-  siteOrigin: "https://delcastanher.vercel.app",
+  siteOrigin: "https://www.delcastanher.srv.br",
   /**
    * Container do Google Tag Manager (Spec 009, decisao 5).
    *

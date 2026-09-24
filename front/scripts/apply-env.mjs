@@ -20,8 +20,8 @@ import { join } from 'node:path';
 const TARGET = join(import.meta.dirname, '..', 'src', 'environments', 'environment.ts');
 
 const env = {
-  apiUrl: process.env.API_URL ?? 'https://delcastanher-api-gamma.vercel.app',
-  siteOrigin: process.env.SITE_ORIGIN ?? 'https://delcastanher.vercel.app',
+  apiUrl: process.env.API_URL ?? 'https://api.delcastanher.srv.br',
+  siteOrigin: process.env.SITE_ORIGIN ?? 'https://www.delcastanher.srv.br',
   gtmId: process.env.GTM_ID ?? '',
   ga4Id: process.env.GA4_ID ?? '',
 };
