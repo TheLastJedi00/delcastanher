@@ -12,8 +12,8 @@ const BEARER = /^Bearer (.+)$/i;
 
 /**
  * Protege as rotas que dependem de um usuario logado. A validacao do idToken
- * e a mesma do `POST /auth/verify` (`AuthService.verify`), para que exista uma
- * unica definicao de "sessao valida" na API, e o usuario resolvido fica na
+ * e a mesma do login e do `POST /auth/refresh` (`AuthService.verify`), para que
+ * exista uma unica definicao de "sessao valida" na API, e o usuario resolvido fica na
  * requisicao para os controllers consumirem via `@CurrentUser()`.
  */
 @Injectable()
