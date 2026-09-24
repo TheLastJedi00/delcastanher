@@ -1,10 +1,11 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
+import type { Response } from 'express';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { VerifyDto } from './dto/verify.dto';
 import { AccountDto } from './dto/account.dto';
 import { AuthSession } from './auth.types';
 
@@ -33,36 +34,38 @@ describe('AuthController', () => {
 
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: authService }],
+      providers: [
+        { provide: AuthService, useValue: authService },
+        { provide: ConfigService, useValue: { get: () => undefined } },
+      ],
     }).compile();
 
     controller = moduleRef.get(AuthController);
   });
 
   describe('POST /auth/login', () => {
-    it('delega ao AuthService e devolve a sessao', async () => {
-      authService.login.mockResolvedValue(SESSION);
+    const res = () => ({ cookie: jest.fn() }) as unknown as Response;
+
+    it('delega ao AuthService e devolve so a sessao, com o refresh token no cookie', async () => {
+      authService.login.mockResolvedValue({ session: SESSION, refreshToken: 'refresh-token' });
+      const response = res();
 
       await expect(
-        controller.login({ email: 'aluno@delcastanher.com', password: 'senha123' }),
+        controller.login({ email: 'aluno@delcastanher.com', password: 'senha123' }, response),
       ).resolves.toEqual(SESSION);
       expect(authService.login).toHaveBeenCalledWith('aluno@delcastanher.com', 'senha123');
+      expect(response.cookie).toHaveBeenCalledWith(
+        '__Secure-refresh',
+        'refresh-token',
+        expect.objectContaining({ httpOnly: true }),
+      );
     });
 
     it('propaga o erro do servico sem mascarar', async () => {
       const boom = new Error('falhou');
       authService.login.mockRejectedValue(boom);
 
-      await expect(controller.login({ email: 'a@b.com', password: 'x' })).rejects.toBe(boom);
-    });
-  });
-
-  describe('POST /auth/verify', () => {
-    it('devolve o usuario correspondente ao idToken', async () => {
-      authService.verify.mockResolvedValue(SESSION.user);
-
-      await expect(controller.verify({ idToken: 'id-token' })).resolves.toEqual(SESSION.user);
-      expect(authService.verify).toHaveBeenCalledWith('id-token');
+      await expect(controller.login({ email: 'a@b.com', password: 'x' }, res())).rejects.toBe(boom);
     });
   });
 
@@ -118,18 +121,6 @@ describe('AuthController', () => {
       const dto = plainToInstance(LoginDto, { email: '  A@B.com ', password: 'senha123' });
 
       expect(dto.email).toBe('a@b.com');
-    });
-  });
-
-  describe('VerifyDto', () => {
-    it('aceita um idToken preenchido', async () => {
-      expect(await errorsFor(VerifyDto, { idToken: 'abc' })).toHaveLength(0);
-    });
-
-    it('rejeita idToken vazio', async () => {
-      const errors = await errorsFor(VerifyDto, { idToken: '' });
-
-      expect(errors.map(e => e.property)).toContain('idToken');
     });
   });
 });
