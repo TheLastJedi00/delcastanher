@@ -5,7 +5,7 @@ export const DEFAULT_DEV_ORIGIN = 'http://localhost:4200';
 
 /**
  * Origens liberadas no CORS, lidas de `CORS_ORIGINS` — uma lista separada por
- * virgula (ex.: `https://delcastanher.vercel.app,http://localhost:4200`).
+ * virgula (ex.: `https://www.delcastanher.srv.br,http://localhost:4200`).
  *
  * Fora de producao a variavel e opcional e cai no front local. Em producao a
  * ausencia e erro de bootstrap: cair no `localhost` silenciosamente subiria a
