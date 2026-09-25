@@ -400,10 +400,13 @@ model Order {
 /// por OAuth, e por isso nasce na conta dele — 100% do valor, sem comissao da
 /// plataforma (decisao 2).
 ///
-/// **Uma ativa por vez** (decisao 1): ativa e `disconnectedAt` nulo, garantido
-/// por indice unico parcial escrito a mao na migration — o Prisma nao expressa
-/// indice parcial. Conectar outra conta desconecta esta, e a linha fica: e ela
-/// que diz em qual conta nasceram os pedidos antigos (decisao 3).
+/// **Uma ativa por ambiente** (decisoes 1 e 13): ativa e `disconnectedAt`
+/// nulo, e o ambiente e `liveMode` — preview e producao compartilham o banco,
+/// e o vendedor de teste do preview nao pode virar o recebedor de producao. A
+/// regra e um indice unico parcial escrito a mao na migration, porque o Prisma
+/// nao expressa indice parcial. Conectar outra conta desconecta a do mesmo
+/// ambiente, e a linha fica: e ela que diz em qual conta nasceram os pedidos
+/// antigos (decisao 3).
 ///
 /// Os tokens sao gravados **cifrados** (AES-256-GCM, decisao 4) e so o
 /// `TokenCipher` os abre. Nenhum dos dois sai em resposta de API ou em log.

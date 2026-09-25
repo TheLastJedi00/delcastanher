@@ -52,8 +52,9 @@ O mecanismo é o do **Split de Pagamentos 1:1** do Mercado Pago, sem a parte do 
                           disconnectedAt?, disconnectReason?,
                           lastRefreshedAt?, createdAt, updatedAt
    ```
-   - **Ativa** é `disconnectedAt IS NULL`, garantida por índice único parcial (`WHERE disconnected_at IS NULL`) criado em SQL na migration — mesmo recurso do diploma de curso (Spec 008).
-   - **Conectar outra conta desconecta a anterior** na mesma transação. A linha antiga fica: é ela que diz em qual conta nasceram os pedidos antigos (decisão 6).
+   - **Ativa** é `disconnectedAt IS NULL`, e há **uma ativa por ambiente**: índice único parcial sobre `liveMode` (`WHERE "disconnectedAt" IS NULL`), criado em SQL na migration — mesmo recurso do diploma de curso (Spec 008). Preview e produção compartilham o banco (decisão 13); sem o recorte por `liveMode`, conectar o vendedor de teste em preview trocaria o recebedor de produção.
+   - **Cada ambiente só enxerga a conexão dele:** a conexão ativa é a de `liveMode = !MP_SANDBOX`.
+   - **Conectar outra conta desconecta a anterior do mesmo ambiente** na mesma transação. A linha antiga fica: é ela que diz em qual conta nasceram os pedidos antigos (decisão 6).
    - `connectedById` e `connectedByEmail` são do admin que **gerou o link**, tirados do token, com e-mail copiado pela mesma razão do `GatewayFeeRate` (Spec 016): a autoria continua legível depois de a conta sair.
    - `nickname` e `email` vêm de `GET /users/me` com o token recém-obtido, para o painel mostrar **qual** conta está conectada, e não só um número.
 
@@ -114,12 +115,12 @@ O mecanismo é o do **Split de Pagamentos 1:1** do Mercado Pago, sem a parte do 
     - **Aviso de vencimento:** com menos de 15 dias para o `expiresAt` e a renovação falhando, o bloco mostra o aviso.
     - Desconectar pede confirmação e explica que a loja fecha. Não chama o Mercado Pago para revogar: a revogação da autorização é do vendedor, no painel dele.
 
-13. **Sandbox é feito com usuários de teste do próprio Mercado Pago.**
-    O modelo da Orders API continua o da Spec 014 (decisão 24). Para esta spec:
-    - A aplicação `Delcastanher`, com **credenciais de produção**, é a integradora.
-    - Um usuário de teste `seller` autoriza a aplicação pelo link, com `test_token: true` na troca do `code` quando o ambiente for sandbox (`MP_SANDBOX`).
-    - Um usuário de teste `buyer` compra.
+13. **O ambiente é o da branch, e o token do vendedor acompanha.**
+    Quem define o ambiente é a branch: **preview** roda com `MP_SANDBOX=true` e credenciais `TEST-`; **produção**, com `APP_USR-`. A troca do `code` envia `test_token` igual ao `MP_SANDBOX` do ambiente, então o vendedor conectado em preview recebe token de teste, e em produção, token real.
+    - Um usuário de teste `seller` autoriza a aplicação pelo link gerado no painel de preview, e um `buyer` de teste compra.
     - O resultado esperado é a order aparecer na conta do `seller` de teste, com o valor cheio menos a taxa, e nada na conta da plataforma.
+    - **Risco conhecido:** a Spec 014 (decisão 24) viu a Orders API recusar as chaves `TEST-` da conta da plataforma (`401 invalid_credentials`). Se o token `TEST-` do vendedor tiver a mesma resposta em preview, a verificação da Fase 6 registra o desvio e a saída é decidida com o usuário.
+    - A conexão feita em um ambiente vale só nele: preview e produção compartilham o banco (não há banco separado), então a conexão guarda `liveMode`, e o painel mostra em qual ambiente ela foi feita.
 
 ## Modelo de dados
 
