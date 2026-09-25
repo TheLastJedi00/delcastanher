@@ -10,7 +10,7 @@ import { authGuard } from './auth.guard';
  * ele, o TestBed recusa a segunda chamada por ja estar instanciado, e os casos
  * ficariam espalhados em um `it` por combinacao de papel e rota.
  */
-function run(path: string, role: Role | null): boolean | UrlTree {
+function run(path: string, role: Role | null, url = '/' + path): boolean | UrlTree {
   TestBed.resetTestingModule();
 
   TestBed.configureTestingModule({
@@ -27,7 +27,7 @@ function run(path: string, role: Role | null): boolean | UrlTree {
   });
 
   return TestBed.runInInjectionContext(() =>
-    authGuard({ routeConfig: { path } } as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+    authGuard({ routeConfig: { path } } as ActivatedRouteSnapshot, { url } as RouterStateSnapshot),
   ) as boolean | UrlTree;
 }
 
@@ -36,8 +36,11 @@ function urlOf(result: boolean | UrlTree): string {
 }
 
 describe('authGuard', () => {
-  it('manda ao login quem nao tem sessao', () => {
-    expect(urlOf(run('ava', null))).toBe('/login');
+  it('manda ao login quem nao tem sessao, levando o destino (Spec 019, decisao 17)', () => {
+    expect(urlOf(run('ava', null))).toBe('/login?redirect=%2Fava');
+    expect(urlOf(run('loja', null, '/loja?pacote=imersao-rh-lancamento'))).toBe(
+      '/login?redirect=%2Floja%3Fpacote%3Dimersao-rh-lancamento',
+    );
   });
 
   it('libera cada area para o seu papel', () => {
@@ -69,7 +72,7 @@ describe('authGuard', () => {
     });
 
     it('continua exigindo sessao', () => {
-      expect(urlOf(run('loja', null))).toBe('/login');
+      expect(urlOf(run('loja', null))).toBe('/login?redirect=%2Floja');
     });
   });
 });
