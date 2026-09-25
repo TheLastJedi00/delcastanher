@@ -4,6 +4,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AccessService } from './access.service';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessService } from './admin-access.service';
+import { AdminBundlesController } from './admin-bundles.controller';
 import { AdminFinanceController } from './admin-finance.controller';
 import { AdminFinanceService } from './admin-finance.service';
 import { BundlesService } from './bundles.service';
@@ -30,6 +31,7 @@ import { StoreService } from './store.service';
     StoreController,
     OrdersController,
     AdminAccessController,
+    AdminBundlesController,
     AdminFinanceController,
     MercadoPagoWebhookController,
   ],

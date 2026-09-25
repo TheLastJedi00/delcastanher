@@ -416,7 +416,14 @@
                   </p>
                   <p class="text-xs text-slate-500">{{ pedido.buyerEmail }}</p>
                 </td>
-                <td class="px-6 py-3 text-slate-700">{{ pedido.modules.join(', ') }}</td>
+                <!-- Spec 019, decisão 14: pedido de pacote é um item, e não doze títulos. -->
+                <td class="px-6 py-3 text-slate-700">
+                  @if (pedido.bundle; as pack) {
+                    {{ pack.title }} · {{ pack.tierName }}
+                  } @else {
+                    {{ pedido.modules.join(', ') }}
+                  }
+                </td>
                 <td class="px-6 py-3">
                   <ui-badge [variant]="statusVariant(pedido.status)" [label]="statusLabel(pedido.status)" />
                 </td>

@@ -50,6 +50,9 @@ const CSV_HEADER = [
   'Comprador',
   'E-mail',
   'Modulos',
+  // Spec 019, decisao 14: vazias no pedido de modulos avulsos.
+  'Pacote',
+  'Lote',
   'Order Mercado Pago',
   'Pagamento Mercado Pago',
   'Pago em',
@@ -103,6 +106,8 @@ interface OrderRow {
   refundedAt: Date | null;
   user: { name: string | null; email: string };
   items: { titleSnapshot: string }[];
+  bundleTitleSnapshot?: string | null;
+  tierNameSnapshot?: string | null;
 }
 
 /** Linha da serie, como o Postgres a devolve. */
@@ -272,6 +277,8 @@ export class AdminFinanceService {
         item.buyerName ?? item.buyerEmail,
         item.buyerEmail,
         item.modules.join(', '),
+        item.bundle?.title ?? '',
+        item.bundle?.tierName ?? '',
         item.mpOrderId ?? '',
         item.mpPaymentId ?? '',
         csvDate(item.paidAt),
@@ -348,6 +355,10 @@ export class AdminFinanceService {
       buyerName: row.user?.name ?? null,
       buyerEmail: row.user?.email ?? '',
       modules: (row.items ?? []).map((item) => item.titleSnapshot),
+      bundle:
+        row.bundleTitleSnapshot && row.tierNameSnapshot
+          ? { title: row.bundleTitleSnapshot, tierName: row.tierNameSnapshot }
+          : null,
       mpOrderId: row.mpOrderId,
       mpPaymentId: row.mpPaymentId,
       mpStatusDetail: row.mpStatusDetail,

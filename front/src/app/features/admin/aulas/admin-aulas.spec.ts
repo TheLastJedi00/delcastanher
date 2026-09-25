@@ -124,6 +124,9 @@ describe('AdminAulas', () => {
     fixture = TestBed.createComponent(AdminAulas);
     backend = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    // O bloco do pacote (Spec 019) carrega os lotes por conta propria; a
+    // suite dele e a admin-pacote.spec.
+    backend.expectOne(req => req.url.endsWith('/admin/bundles/imersao-rh-lancamento')).flush(null);
   });
 
   afterEach(() => backend.verify());

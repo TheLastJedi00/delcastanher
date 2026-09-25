@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStatus, PaymentMethodKind, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -129,6 +129,25 @@ export function allocateByWeight(totalCents: number, weights: number[]): number[
   return parts;
 }
 
+/** Lote no painel: com as vagas ocupadas e se e o vigente (decisao 13). */
+export interface AdminBundleTier extends TierRow {
+  occupied: number;
+  current: boolean;
+}
+
+export interface AdminBundleView {
+  slug: string;
+  title: string;
+  active: boolean;
+  tiers: AdminBundleTier[];
+}
+
+/** O que o painel pode mudar num lote: preco e vagas, e so. */
+export interface UpdateTierInput {
+  priceCents?: number;
+  capacity?: number | null;
+}
+
 /** Pedido de pacote pedido pelo `OrdersService`. Sem preco e sem lote. */
 export interface PlaceBundleOrderInput {
   slug: string;
@@ -253,6 +272,114 @@ export class BundlesService {
 
       return { order };
     });
+  }
+
+  /** Lotes do pacote para o painel, com as vagas ocupadas e o vigente. */
+  async adminView(slug: string, now: Date = new Date()): Promise<AdminBundleView> {
+    const bundle = await this.prisma.bundle.findUnique({ where: { slug }, include: { tiers: true } });
+
+    if (!bundle) {
+      throw new NotFoundException('Pacote não encontrado.');
+    }
+
+    const tiers = this.toTiers(bundle.tiers);
+    const occupied = await this.occupied(
+      tiers.map((tier) => tier.id),
+      now,
+    );
+    const current = pickTier(tiers, occupied);
+
+    return {
+      slug: bundle.slug,
+      title: bundle.title,
+      active: bundle.active,
+      tiers: tiers.map((tier) => ({
+        ...tier,
+        occupied: occupied.get(tier.id) ?? 0,
+        current: tier.id === current?.id,
+      })),
+    };
+  }
+
+  /**
+   * Preco e vagas de um lote (decisao 13), com as recusas da decisao 3:
+   *
+   * - **capacidade nula so no ultimo lote** — sem limite antes dele, os lotes
+   *   seguintes nunca seriam alcancados;
+   * - **capacidade nunca abaixo das vagas ja ocupadas** — seria vender mais do
+   *   que o lote diz ter.
+   *
+   * Roda com o pacote travado, a mesma trava do pedido: a contagem que valida
+   * a capacidade nova nao cruza com uma venda no meio do caminho.
+   */
+  async updateTier(
+    slug: string,
+    tierId: string,
+    input: UpdateTierInput,
+    now: Date = new Date(),
+  ): Promise<AdminBundleTier> {
+    return this.prisma.$transaction(async (tx) => {
+      const bundle = await tx.bundle.findUnique({ where: { slug }, include: { tiers: true } });
+
+      if (!bundle) {
+        throw new NotFoundException('Pacote não encontrado.');
+      }
+
+      await tx.$queryRaw`SELECT "id" FROM "bundles" WHERE "id" = ${bundle.id} FOR UPDATE`;
+
+      const tiers = this.toTiers(bundle.tiers);
+      const tier = tiers.find((row) => row.id === tierId);
+
+      if (!tier) {
+        throw new NotFoundException('Lote não encontrado neste pacote.');
+      }
+
+      const occupied = await this.occupied(
+        tiers.map((row) => row.id),
+        now,
+        tx,
+      );
+      const taken = occupied.get(tier.id) ?? 0;
+
+      if (input.capacity === null && tier.order !== Math.max(...tiers.map((row) => row.order))) {
+        throw new BadRequestException('Só o último lote pode ficar sem limite de vagas.');
+      }
+
+      if (typeof input.capacity === 'number' && input.capacity < taken) {
+        throw new BadRequestException(
+          `Este lote já tem ${taken} vaga(s) ocupada(s); a capacidade não pode ser menor que isso.`,
+        );
+      }
+
+      const data: UpdateTierInput = {};
+
+      if (input.priceCents !== undefined) {
+        data.priceCents = input.priceCents;
+      }
+
+      if (input.capacity !== undefined) {
+        data.capacity = input.capacity;
+      }
+
+      const saved = await tx.bundleTier.update({ where: { id: tier.id }, data });
+      const after = tiers.map((row) => (row.id === tier.id ? { ...row, ...data } : row));
+
+      return {
+        id: saved.id,
+        order: saved.order,
+        name: saved.name,
+        priceCents: saved.priceCents,
+        capacity: saved.capacity,
+        occupied: taken,
+        current: pickTier(after, occupied)?.id === tier.id,
+      };
+    });
+  }
+
+  private toTiers(rows: TierRow[]): TierRow[] {
+    return rows
+      .map(({ id, order, name, priceCents, capacity }) => ({ id, order, name, priceCents, capacity }))
+      .sort((a, b) => a.order - b.order);
   }
 
   /** Pacote ativo com o lote vigente, para a vitrine publica e a loja. */
