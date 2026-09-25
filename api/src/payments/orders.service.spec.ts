@@ -3,6 +3,7 @@ import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
+import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { MercadoPagoService } from './mercado-pago.service';
 import { OrdersService } from './orders.service';
 
@@ -89,6 +90,8 @@ interface BuildOptions {
   storedOrder?: unknown;
   transitionCount?: number;
   placed?: unknown;
+  /** Sem conta recebedora conectada (Spec 020, decisao 7). */
+  noConnection?: boolean;
 }
 
 function build(options: BuildOptions = {}) {
@@ -148,6 +151,17 @@ function build(options: BuildOptions = {}) {
     placeOrder: jest.fn().mockResolvedValue(options.placed ?? PLACED),
   };
 
+  const connections = {
+    activeCredential: jest
+      .fn()
+      .mockResolvedValue(
+        options.noConnection ? null : { connectionId: 'conn-1', accessToken: 'APP_USR-vendedor' },
+      ),
+    accessTokenFor: jest.fn(async (id: string | null) =>
+      id ? `token-da-${id}` : 'APP_USR-token-da-plataforma',
+    ),
+  };
+
   return Test.createTestingModule({
     providers: [
       OrdersService,
@@ -155,6 +169,7 @@ function build(options: BuildOptions = {}) {
       { provide: AccessService, useValue: access },
       { provide: MercadoPagoService, useValue: gateway },
       { provide: BundlesService, useValue: bundles },
+      { provide: MercadoPagoConnectionService, useValue: connections },
     ],
   })
     .compile()
@@ -164,6 +179,7 @@ function build(options: BuildOptions = {}) {
       access,
       gateway,
       bundles,
+      connections,
     }));
 }
 
@@ -529,6 +545,7 @@ describe('OrdersService — pedido de pacote', () => {
       userId: ALUNO.uid,
       method: 'PIX',
       installments: 1,
+      mpConnectionId: 'conn-1',
     });
     // O caminho de modulos avulsos nao participa: nem cria pedido nem cancela.
     expect(prisma.order.create).not.toHaveBeenCalled();
@@ -630,5 +647,99 @@ describe('OrdersService — aprovacao e estorno do pacote', () => {
     await service.applyFromGateway('ORD-2');
 
     expect(access.revokeByOrder).toHaveBeenCalledWith('ord-b');
+  });
+});
+
+/** Spec 020, decisoes 6 e 7. */
+describe('OrdersService — conta do vendedor', () => {
+  it('cria a order com o token do vendedor e grava a conta de origem no pedido', async () => {
+    const { service, prisma, gateway } = await build();
+
+    await service.create(ALUNO, pixOrder());
+
+    expect(prisma.order.create.mock.calls[0][0].data.mpConnectionId).toBe('conn-1');
+    expect(gateway.createOrder.mock.calls[0][0].accessToken).toBe('APP_USR-vendedor');
+  });
+
+  it('faz o mesmo no pedido de pacote', async () => {
+    const { service, gateway } = await build();
+
+    await service.create(ALUNO, {
+      bundleSlug: 'imersao-rh-lancamento',
+      method: 'PIX',
+      payer: PAYER,
+    });
+
+    expect(gateway.createOrder.mock.calls[0][0].accessToken).toBe('APP_USR-vendedor');
+  });
+
+  // Decisao 7: sem vendedor nao se vende — e sem gravar nada, para nao
+  // cancelar o pendente do aluno nem ocupar vaga de lote.
+  it('responde 503 sem conta conectada, antes de gravar qualquer pedido', async () => {
+    const { service, prisma, gateway, bundles } = await build({ noConnection: true });
+
+    await expect(service.create(ALUNO, pixOrder())).rejects.toMatchObject({ status: 503 });
+    await expect(
+      service.create(ALUNO, { bundleSlug: 'imersao-rh-lancamento', method: 'PIX', payer: PAYER }),
+    ).rejects.toMatchObject({ status: 503 });
+
+    expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    expect(prisma.order.create).not.toHaveBeenCalled();
+    expect(bundles.placeOrder).not.toHaveBeenCalled();
+    expect(gateway.createOrder).not.toHaveBeenCalled();
+  });
+
+  // Decisao 6: o pedido e consultado na conta em que nasceu, e nao na conta
+  // ativa hoje — que pode ser outra.
+  it('reconsulta com o token da conta de origem do pedido', async () => {
+    const { service, gateway, connections } = await build({
+      storedOrder: {
+        id: 'ord-1',
+        userId: ALUNO.uid,
+        status: 'PENDING',
+        amountCents: 19900,
+        method: 'PIX',
+        installments: 1,
+        mpOrderId: 'ORD-1',
+        mpConnectionId: 'conn-antiga',
+        expiresAt: new Date(Date.now() + 60_000),
+        items: [],
+      },
+    });
+
+    await service.findOne(ALUNO, 'ord-1');
+
+    expect(connections.accessTokenFor).toHaveBeenCalledWith('conn-antiga');
+    expect(gateway.getOrder).toHaveBeenCalledWith('ORD-1', 'token-da-conn-antiga');
+  });
+
+  it('usa o token da plataforma no pedido anterior a Spec 020', async () => {
+    const { service, gateway } = await build({
+      storedOrder: {
+        id: 'ord-1',
+        userId: ALUNO.uid,
+        status: 'PENDING',
+        amountCents: 19900,
+        method: 'PIX',
+        installments: 1,
+        mpOrderId: 'ORD-1',
+        mpConnectionId: null,
+        expiresAt: new Date(Date.now() + 60_000),
+        items: [],
+      },
+    });
+
+    await service.applyFromGateway('ORD-1');
+
+    expect(gateway.getOrder).toHaveBeenCalledWith('ORD-1', 'APP_USR-token-da-plataforma');
+  });
+
+  it('nao consulta o Mercado Pago para order desconhecida', async () => {
+    const { service, gateway, connections } = await build({ storedOrder: null });
+
+    await service.applyFromGateway('ORD-de-outra-integracao');
+
+    expect(connections.accessTokenFor).not.toHaveBeenCalled();
+    expect(gateway.getOrder).not.toHaveBeenCalled();
   });
 });

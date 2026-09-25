@@ -315,6 +315,15 @@ function buildPlace(
 const PLACE = { slug: 'imersao-rh-lancamento', userId: 'uid-aluno', method: 'PIX' as const, installments: 1 };
 
 describe('BundlesService.placeOrder (Spec 019, decisoes 5 e 6)', () => {
+  // Spec 020, decisao 6: o pedido de pacote tambem sabe em qual conta nasceu.
+  it('grava a conta recebedora de origem no pedido', async () => {
+    const { service, tx } = await buildPlace();
+
+    await service.placeOrder({ ...PLACE, mpConnectionId: 'conn-1' }, NOW);
+
+    expect(tx.order.create.mock.calls[0][0].data.mpConnectionId).toBe('conn-1');
+  });
+
   it('trava o pacote, cancela o pendente, conta as vagas e so entao grava', async () => {
     const { service, calls, prisma } = await buildPlace();
 
