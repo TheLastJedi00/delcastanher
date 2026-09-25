@@ -5,6 +5,7 @@ import { Button } from '../../shared/ui/button/button';
 import { Card } from '../../shared/ui/card/card';
 import { PaymentTrust } from '../../shared/ui/payment-trust/payment-trust';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
+import { tierLabel } from '../../core/mocks/plans.mock';
 import { InstallmentOption, MercadoPagoLoader } from '../../core/services/mercado-pago.service';
 import { PaymentMethodKind, StoreService, formatPrice } from '../../core/services/store.service';
 import { UserService } from '../../core/services/user.service';
@@ -35,9 +36,9 @@ import { UserService } from '../../core/services/user.service';
         </p>
       }
 
-      @if (selected().length === 0) {
+      @if (!hasSelection()) {
         <ui-card variant="outline" padding="md" class="mt-6">
-          <p class="text-slate-700">Nenhum módulo selecionado.</p>
+          <p class="text-slate-700">Nada selecionado para comprar.</p>
           <div class="mt-4">
             <ui-button variant="primary" size="sm" (click)="backToStore()">Voltar à loja</ui-button>
           </div>
@@ -173,6 +174,16 @@ import { UserService } from '../../core/services/user.service';
                 <p class="mt-4 text-sm text-state-danger" role="alert">{{ message }}</p>
               }
 
+              <!-- Spec 019, decisão 12: o lote virou entre a loja e aqui. O
+                   valor novo é dito antes de cobrar, e o próximo clique confirma. -->
+              @if (priceChange(); as change) {
+                <div class="mt-4 rounded-xl bg-state-warning/10 px-4 py-3 text-sm text-slate-800" role="alert">
+                  As vagas do lote anterior acabaram enquanto você escolhia. O pacote agora sai por
+                  <strong>{{ change.to }}</strong> no {{ change.tierName }} (antes, {{ change.from }}).
+                  Confira o valor e clique de novo para continuar.
+                </div>
+              }
+
               <div class="mt-6">
                 <ui-button
                   variant="primary"
@@ -192,13 +203,25 @@ import { UserService } from '../../core/services/user.service';
             <h2 class="text-lg font-semibold text-brand-navy">Resumo do pedido</h2>
 
             <ul class="mt-3 space-y-2">
-              @for (module of selected(); track module.id) {
+              @if (bundle(); as pack) {
                 <li class="flex justify-between gap-3 text-sm">
-                  <span class="text-slate-700">Módulo {{ module.order }}: {{ module.title }}</span>
-                  <span class="text-slate-900 font-medium shrink-0">
-                    {{ price(module.priceCents) }}
+                  <span class="text-slate-700">
+                    {{ pack.title }}
+                    @if (pack.tier) {
+                      <span class="block text-xs text-slate-500">{{ tierName(pack.tier) }} · 12 módulos</span>
+                    }
                   </span>
+                  <span class="text-slate-900 font-medium shrink-0">{{ total() }}</span>
                 </li>
+              } @else {
+                @for (module of selected(); track module.id) {
+                  <li class="flex justify-between gap-3 text-sm">
+                    <span class="text-slate-700">Módulo {{ module.order }}: {{ module.title }}</span>
+                    <span class="text-slate-900 font-medium shrink-0">
+                      {{ price(module.priceCents) }}
+                    </span>
+                  </li>
+                }
               }
             </ul>
 
@@ -208,7 +231,11 @@ import { UserService } from '../../core/services/user.service';
             </div>
 
             <p class="mt-3 text-xs text-slate-500">
-              Cada módulo libera 6 meses de acesso a partir da confirmação do pagamento.
+              @if (bundle()) {
+                Os 12 módulos liberam 6 meses de acesso a partir da confirmação do pagamento.
+              } @else {
+                Cada módulo libera 6 meses de acesso a partir da confirmação do pagamento.
+              }
             </p>
           </ui-card>
         </div>
@@ -235,14 +262,20 @@ export class Pagamento implements OnInit {
   private readonly errorState = signal<string | null>(null);
   private readonly submittingState = signal(false);
   private readonly fieldsMounted = signal(false);
+  private readonly priceChangeState = signal<{ from: string; to: string; tierName: string } | null>(null);
+  /** Ultimo BIN digitado: com o valor mudado, as parcelas precisam ser refeitas. */
+  private lastBin = '';
 
   readonly selected = this.store.selectedModules;
+  readonly bundle = this.store.selectedBundle;
+  readonly hasSelection = this.store.hasSelection;
+  readonly priceChange = this.priceChangeState.asReadonly();
   readonly method = this.methodState.asReadonly();
   readonly installments = this.installmentsState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly submitting = this.submittingState.asReadonly();
   readonly sandbox = computed(() => this.store.config()?.sandbox ?? false);
-  readonly maxInstallments = computed(() => this.store.config()?.maxInstallments ?? 6);
+  readonly maxInstallments = computed(() => this.store.config()?.maxInstallments ?? 12);
   readonly total = computed(() => formatPrice(this.store.totalCents()));
 
   readonly form = this.fb.nonNullable.group({
@@ -273,9 +306,13 @@ export class Pagamento implements OnInit {
 
     this.store.loadPaymentConfig().subscribe({ error: () => undefined });
 
-    if (this.selected().length === 0) {
+    if (!this.hasSelection()) {
       this.store.loadCatalog().subscribe({ error: () => undefined });
     }
+  }
+
+  tierName(tier: { order: number; name: string }): string {
+    return tierLabel(tier);
   }
 
   invalid(field: string): boolean {
@@ -322,8 +359,12 @@ export class Pagamento implements OnInit {
     this.errorState.set(null);
 
     try {
+      if (this.bundle() && (await this.bundlePriceChanged())) {
+        return;
+      }
+
       const payload = {
-        moduleIds: this.store.selectedIds(),
+        ...this.store.orderTarget(),
         method: this.methodState(),
         payer: this.form.getRawValue(),
         deviceId: this.mp.deviceId(),
@@ -343,6 +384,51 @@ export class Pagamento implements OnInit {
     } finally {
       this.submittingState.set(false);
     }
+  }
+
+  /**
+   * Rele a oferta antes de cobrar o pacote (Spec 019, decisao 12). Se o lote
+   * virou desde a loja, mostra o valor novo, refaz as parcelas do cartao e
+   * **nao** cobra: o proximo clique e a confirmacao.
+   *
+   * Quem escolhe o lote cobrado continua sendo o servidor. Esta releitura so
+   * evita que o aluno descubra o preco novo depois de pagar.
+   */
+  private async bundlePriceChanged(): Promise<boolean> {
+    const before = this.store.totalCents();
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.store.loadOffer().subscribe({ next: () => resolve(), error: reject });
+      });
+    } catch {
+      // Sem a releitura, segue com o que a tela mostra: o servidor cobra o
+      // lote vigente de qualquer jeito, e a tela do pedido mostra o valor.
+      return false;
+    }
+
+    const after = this.store.totalCents();
+    const tier = this.bundle()?.tier;
+
+    if (after === before || !tier) {
+      this.priceChangeState.set(null);
+
+      return false;
+    }
+
+    this.priceChangeState.set({
+      from: formatPrice(before),
+      to: formatPrice(after),
+      tierName: tierLabel(tier),
+    });
+
+    if (this.methodState() === 'CREDIT_CARD' && this.lastBin) {
+      this.installmentsState.set(
+        await this.mp.installments(after, this.lastBin, this.maxInstallments()),
+      );
+    }
+
+    return true;
   }
 
   /**
@@ -390,9 +476,12 @@ export class Pagamento implements OnInit {
           onBinChange: async (data: { bin?: string }) => {
             if (!data?.bin || data.bin.length < 6) {
               this.installmentsState.set([]);
+              this.lastBin = '';
 
               return;
             }
+
+            this.lastBin = data.bin;
 
             const [methods, options] = await Promise.all([
               sdk.getPaymentMethods({ bin: data.bin }),
