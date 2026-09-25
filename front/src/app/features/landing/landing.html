@@ -2,12 +2,32 @@
   <ui-nav-header variant="landing" [navLinks]="navLinks" />
 
   <!-- Hero -->
-  <header class="relative overflow-hidden bg-gradient-hero">
-    <span class="blob-teal -left-24 top-10 h-96 w-96 animate-float bg-brand-teal-light/20" aria-hidden="true"></span>
-    <span class="blob-navy -right-32 bottom-0 h-[28rem] w-[28rem] animate-pulse-soft bg-white/10" aria-hidden="true"></span>
+  <!--
+    Tres camadas (Spec 018, decisao 11): foto (z-0), gradiente que se dissolve
+    sobre ela (z-10) e texto (z-20). `--hero-photo-h` e a altura da foto no
+    mobile e tambem o ponto onde a mascara do gradiente fica opaca.
+  -->
+  <header class="relative overflow-hidden bg-brand-navy [--hero-photo-h:26rem]">
+    <!-- Foto no topo no mobile; bloco a direita a partir de md, com 65% da
+         largura para o arquivo de 1280px nao ser esticado num monitor largo. -->
+    <div class="relative z-0 h-[var(--hero-photo-h)] md:absolute md:inset-y-0 md:right-0 md:h-auto md:w-[65%]">
+      <img
+        ngSrc="assets/aula1.jpeg"
+        fill
+        priority
+        alt="Lidiane Delcastanher palestrando para uma turma"
+        class="object-cover object-[60%_30%]" />
+    </div>
 
-    <div class="relative mx-auto flex max-w-6xl flex-col items-center gap-12 px-4 py-20 md:flex-row md:py-28">
-      <div class="z-10 w-full animate-fade-in-up md:w-1/2">
+    <div class="hero-fade absolute inset-0 z-10 bg-gradient-hero" aria-hidden="true">
+      <span class="blob-teal -left-24 top-10 h-96 w-96 animate-float bg-brand-teal-light/20"></span>
+    </div>
+
+    <!-- Texto a esquerda, sempre sobre a parte opaca do gradiente: abaixo da
+         foto no mobile, na metade esquerda a partir de md. O min-h evita que a
+         foto seja cortada rente ao rosto quando o texto for curto. -->
+    <div class="relative z-20 mx-auto flex max-w-6xl px-4 pb-20 pt-8 md:min-h-[600px] md:items-center md:py-28">
+      <div class="w-full animate-fade-in-up md:w-1/2 lg:max-w-xl">
         <span class="mb-6 inline-block rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-white backdrop-blur-md">
           Inspirando Perspectivas
         </span>
@@ -31,14 +51,6 @@
           </a>
         </div>
       </div>
-
-      <div class="relative hidden w-full md:block md:w-1/2">
-        <span class="blob-teal inset-6 bg-brand-teal-light/30" aria-hidden="true"></span>
-        <img
-          src="assets/aula1.jpeg"
-          alt="Lidiane Delcastanher palestrando para uma turma"
-          class="relative z-10 h-[500px] w-full animate-float rounded-3xl object-cover shadow-glass-lg" />
-      </div>
     </div>
   </header>
 
@@ -48,7 +60,9 @@
       <div class="group relative w-full md:w-5/12" animateOnScroll="animate-slide-in-left">
         <div class="absolute inset-0 translate-x-4 translate-y-4 rounded-3xl bg-gradient-brand opacity-20 transition-transform duration-500 group-hover:translate-x-6 group-hover:translate-y-6"></div>
         <img
-          src="assets/nova_mentora.jpeg"
+          ngSrc="assets/nova_mentora.jpeg"
+          width="1130"
+          height="1392"
           alt="Lidiane Delcastanher"
           class="relative z-10 aspect-[4/5] w-full rounded-3xl object-cover shadow-glass-lg transition-transform duration-500 group-hover:-translate-y-2" />
       </div>
@@ -95,6 +109,28 @@
     </div>
   </section>
 
+  <!-- Na mídia: prova de terceiros logo depois da fala da propria Lidiane (Spec 018, decisao 1) -->
+  <section id="midia" class="bg-white px-4 py-20 md:py-28">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-12 md:mb-16" animateOnScroll="animate-fade-in-up">
+        <ui-section-header
+          align="center"
+          overline="Na mídia"
+          title="Reconhecimento além da sala de aula"
+          subtitle="Capa de revista, entrevistas em podcasts e coautoria em livro sobre liderança no Brasil." />
+      </div>
+
+      <!-- 1 -> 2x2 -> 4: sem passar por 3 colunas, nenhum card fica orfao (decisao 10). -->
+      <div class="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
+        @for (item of media; track item.title; let i = $index) {
+          <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+            <ui-media-card [item]="item" />
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
   <!-- Método -->
   <section id="metodo" class="bg-brand-surface px-4 py-20 md:py-28">
     <div class="mx-auto max-w-6xl">
@@ -106,12 +142,18 @@
             subtitle="Nossa abordagem é consultiva e prática. Mais do que teoria, entregamos experiência aplicada na transformação de pessoas, líderes e organizações." />
         </div>
         <div class="grid w-full grid-cols-2 gap-4 md:w-1/2">
-          <img
-            src="assets/aula2.jpeg" alt="Metodologia na prática"
-            class="h-48 w-full rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
-          <img
-            src="assets/aula1.jpeg" alt="Engajamento da turma"
-            class="mt-8 h-48 w-full rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
+          <!-- fill: a caixa h-48 recorta o 3:2 do arquivo, e so no fill o
+               NgOptimizedImage aceita a proporcao renderizada diferente. -->
+          <div class="relative h-48">
+            <img
+              ngSrc="assets/aula2.jpeg" fill alt="Metodologia na prática"
+              class="rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
+          </div>
+          <div class="relative mt-8 h-48">
+            <img
+              ngSrc="assets/aula1.jpeg" fill alt="Engajamento da turma"
+              class="rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
+          </div>
         </div>
       </div>
 
