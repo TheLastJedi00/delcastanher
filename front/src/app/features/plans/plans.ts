@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { ENTERPRISE_PLAN, LAUNCH_BUNDLE_COPY } from '../../core/mocks/plans.mock';
+import { ENTERPRISE_PLAN, LAUNCH_BUNDLE_COPY, tierLabel } from '../../core/mocks/plans.mock';
 import { AuthService } from '../../core/services/auth.service';
 import { StoreService, formatPrice } from '../../core/services/store.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
@@ -9,6 +9,7 @@ import { BundlePrice } from '../../shared/ui/bundle-price/bundle-price';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
+import { ScarcityBanner } from '../../shared/ui/scarcity-banner/scarcity-banner';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
 
 /** Estado da leitura da oferta: o preco so existe no navegador (decisao 10). */
@@ -27,7 +28,16 @@ type OfferState = 'loading' | 'ready' | 'error';
 @Component({
   selector: 'app-plans',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, NavHeader, Footer, Button, SectionHeader, AnimateOnScroll, BundlePrice],
+  imports: [
+    RouterLink,
+    NavHeader,
+    Footer,
+    Button,
+    SectionHeader,
+    AnimateOnScroll,
+    BundlePrice,
+    ScarcityBanner,
+  ],
   templateUrl: './plans.html',
 })
 export class Plans {
@@ -51,6 +61,25 @@ export class Plans {
   protected readonly bundle = computed(() => this.store.offer()?.bundle ?? null);
   protected readonly modules = computed(() => this.store.offer()?.modules ?? []);
   protected readonly tier = computed(() => this.bundle()?.tier ?? null);
+
+  /**
+   * Escassez com numero verdadeiro (decisao 11): so em lote com vagas. No
+   * Preco oficial, sem limite, nao ha o que anunciar e a faixa some.
+   */
+  protected readonly scarcity = computed(() => {
+    const tier = this.tier();
+
+    if (!tier || tier.remaining === null) {
+      return null;
+    }
+
+    const next = this.bundle()?.nextTier;
+
+    return {
+      headline: `Restam ${tier.remaining} ${tier.remaining === 1 ? 'vaga' : 'vagas'} no ${tierLabel(tier)}`,
+      next: next ? `${formatPrice(next.priceCents)} no ${next.name}` : '',
+    };
+  });
 
   constructor() {
     // So no navegador: no prerender nao ha chamada, e o HTML sai com o

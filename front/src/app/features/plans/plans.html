@@ -21,6 +21,15 @@
       </div>
     </header>
 
+    <!-- Escassez do lote vigente, com o número que a API contou. -->
+    @if (scarcity(); as banner) {
+      <ui-scarcity-banner
+        [headline]="banner.headline"
+        deadline=""
+        seatsLabel="Depois:"
+        [seats]="banner.next" />
+    }
+
     <!-- Pacote de Lançamento (Spec 019, decisão 11) -->
     <section id="pacote" class="relative overflow-hidden bg-brand-surface px-4 py-20 md:py-28" aria-labelledby="pacote-titulo">
       <span class="blob-teal -right-20 top-0 h-80 w-80" aria-hidden="true"></span>
