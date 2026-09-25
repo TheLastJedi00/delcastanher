@@ -90,7 +90,7 @@ O mecanismo é o do **Split de Pagamentos 1:1** do Mercado Pago, sem a parte do 
 8. **O token é renovado antes de vencer, em dois lugares.**
    O `access_token` vale 180 dias. Deixá-lo vencer fecha a loja.
    - **Na hora do uso.** Antes de criar ou consultar uma order, se `expiresAt` está a menos de **30 dias**, o serviço renova. A renovação trava a linha da conexão (`SELECT … FOR UPDATE`) e relê o `expiresAt` já travado, porque o `refresh_token` troca a cada uso: duas renovações simultâneas com o mesmo `refresh_token` fariam a segunda falhar e poderiam perder o par novo.
-   - **Por agendamento.** Uma loja sem venda por cinco meses não passaria pela renovação na hora do uso. Uma rota interna `POST /internal/mercadopago/refresh`, protegida por `CRON_SECRET`, é chamada **diariamente** pelo Vercel Cron e aplica a mesma regra.
+   - **Por agendamento.** Uma loja sem venda por cinco meses não passaria pela renovação na hora do uso. Uma rota interna `GET /internal/mercadopago/refresh` (o Vercel Cron chama por GET), protegida por `CRON_SECRET`, é chamada **diariamente** pelo Vercel Cron e aplica a mesma regra.
    - **Renovação recusada** (`invalid_grant`, vendedor revogou) marca a conexão com `disconnectedAt` e `disconnectReason = 'revoked'`, e a loja fecha pela decisão 7. O painel mostra o motivo.
    - O escopo `offline_access` é conferido na troca do `code`. Sem ele não há renovação, e a conexão é **recusada** com o motivo `sem_offline_access` — melhor falhar na conexão do que 180 dias depois.
 
@@ -162,8 +162,8 @@ Order                   + mpConnectionId?   (onDelete: Restrict)
 | `POST` | `/admin/mercadopago/connection/link` | admin | nova — gera `state` + PKCE e devolve a URL de autorização |
 | `DELETE` | `/admin/mercadopago/connection` | admin | nova — desconecta |
 | `GET` | `/mercadopago/oauth/callback` | **público**, autenticado pelo `state` | nova — troca o `code` e redireciona ao front |
-| `POST` | `/internal/mercadopago/refresh` | Vercel Cron (`CRON_SECRET`) | nova — renovação diária |
-| `GET` | `/store/payment-config` | aluno | `enabled: false` sem conexão (decisão 7) |
+| `GET` | `/internal/mercadopago/refresh` | Vercel Cron (`CRON_SECRET`) | nova — renovação diária |
+| `GET` | `/store/payment-config` | aluno | `enabled: false` e `reason` sem conexão (decisão 7) |
 | `POST` | `/orders` | aluno | order criada com o token do vendedor; `503` sem conexão |
 | `GET` | `/orders/:id` | dono | reconsulta com o token da conexão do pedido |
 | `POST` | `/webhooks/mercadopago` | público, assinatura | consulta com o token da conexão do pedido |
@@ -211,6 +211,16 @@ Order                   + mpConnectionId?   (onDelete: Restrict)
 - A notificação da order chega ao webhook com assinatura válida (decisão 10).
 - A order é aceita sem `marketplace_fee` (decisão 2).
 - Desconectar fecha a loja; reconectar abre.
+
+## Desvios registrados na execução
+
+- **`test_token` segue o ambiente (decisão 13).** A primeira versão mandava sempre `false`, porque a Orders API recusou chaves `TEST-` na Spec 014. O usuário definiu que o ambiente é o da branch — preview com `TEST-`, produção com `APP_USR-` —, e a troca do `code` passou a enviar `test_token` igual ao `MP_SANDBOX`. O risco da Spec 014 fica para a verificação em preview.
+- **Uma conexão ativa por ambiente, e não uma só (decisões 1, 3 e 13).** Preview e produção dividem o banco. Com uma conexão única, conectar o vendedor de teste no preview trocaria o recebedor de produção. O índice único parcial passou a ser sobre `liveMode`, e cada ambiente só enxerga a conexão de `liveMode = !MP_SANDBOX`. O `liveMode` gravado é o do ambiente, e não o que o token declara.
+- **Rotina diária por `GET` (decisão 8).** O Vercel Cron chama as rotas por `GET`, com `Authorization: Bearer <CRON_SECRET>`. A rota é `GET /internal/mercadopago/refresh`, e o cron está em `api/vercel.json` (todo dia às 09:00 UTC).
+- **`integration_data.application_id` não é enviado (decisão 2).** Na documentação da Orders API ele aparece como campo **da resposta** ("aplicação que criou a order"), preenchido pelo Mercado Pago a partir do token. Nada a enviar.
+- **`payment-config` ganhou `reason` (decisão 7):** `not_configured` (sem credencial da aplicação) ou `seller_not_connected`. A loja só abre com conexão ativa **e** token no prazo; a leitura não renova, quem renova é o pedido e a rotina diária.
+- **`/conexao-mercado-pago` também no `robots.txt`**, ao lado do `noindex` e da renderização só no navegador.
+- **Migration não aplicada pelo agente.** `prisma migrate deploy` contra o banco (o único, de produção) foi bloqueado pelo classificador de segurança. Fica para o usuário: `cd api && npx prisma migrate deploy`.
 
 ## Fora de escopo
 - Vários vendedores, vendedor por curso ou por produto (decisão 1).

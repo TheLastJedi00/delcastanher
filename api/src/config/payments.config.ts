@@ -12,7 +12,11 @@ import { optionalEnv, requiredEnv } from './media.config';
  * assim alternar sandbox e producao e um deploy so, e nao dois coordenados.
  */
 
-/** Credencial de servidor. */
+/**
+ * Credencial de servidor da conta da plataforma. Desde a Spec 020 (decisao 6)
+ * ela so consulta os pedidos anteriores a conta recebedora: pedido novo nasce
+ * na conta do vendedor, com o token OAuth dele.
+ */
 export function mercadoPagoAccessToken(config: ConfigService): string {
   return requiredEnv(config, 'MP_ACCESS_TOKEN');
 }
