@@ -1,6 +1,13 @@
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
-import { BundlesService, TierRow, occupiesSeat, occupiedWhere, pickTier } from './bundles.service';
+import {
+  BundlesService,
+  TierRow,
+  allocateByWeight,
+  occupiesSeat,
+  occupiedWhere,
+  pickTier,
+} from './bundles.service';
 
 const NOW = new Date('2026-09-25T12:00:00.000Z');
 const LATER = new Date(NOW.getTime() + 10 * 60 * 1000);
@@ -200,5 +207,48 @@ describe('BundlesService.offer (Spec 019, decisoes 4 e 10)', () => {
     const offer = await service.offer(NOW);
 
     expect(Object.keys(offer?.modules[0] ?? {}).sort()).toEqual(['order', 'priceCents', 'title']);
+  });
+});
+
+describe('allocateByWeight — rateio do lote pelos itens (Spec 019, decisao 6)', () => {
+  const LOTES = [59000, 79700, 99700, 149700];
+
+  it('a soma dos itens e sempre o valor do pedido, nos quatro lotes', () => {
+    for (const total of LOTES) {
+      const parts = allocateByWeight(total, PRICES);
+
+      expect(parts).toHaveLength(12);
+      expect(parts.reduce((sum, part) => sum + part, 0)).toBe(total);
+    }
+  });
+
+  it('no Fundador, o modulo de R$ 297 fica com R$ 68,34 e o de R$ 197 com R$ 45,33', () => {
+    const parts = allocateByWeight(59000, PRICES);
+
+    expect(parts[2]).toBe(6834);
+    expect(parts[0]).toBe(4533);
+    expect(parts[2]).toBeGreaterThan(parts[0]);
+  });
+
+  it('a sobra de centavos do arredondamento vai para o ultimo item', () => {
+    const parts = allocateByWeight(59000, PRICES);
+    const floors = PRICES.map((price) => Math.floor((59000 * price) / 256400));
+    const remainder = 59000 - floors.reduce((sum, part) => sum + part, 0);
+
+    expect(remainder).toBeGreaterThan(0);
+    expect(parts.slice(0, 11)).toEqual(floors.slice(0, 11));
+    expect(parts[11]).toBe(floors[11] + remainder);
+  });
+
+  it('nenhum item fica zerado ou negativo', () => {
+    for (const total of LOTES) {
+      expect(allocateByWeight(total, PRICES).every((part) => part > 0)).toBe(true);
+    }
+  });
+
+  it('sem peso algum (todos sem preco), divide em partes iguais', () => {
+    const parts = allocateByWeight(1000, [0, 0, 0]);
+
+    expect(parts).toEqual([333, 333, 334]);
   });
 });
