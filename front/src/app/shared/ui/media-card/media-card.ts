@@ -75,7 +75,7 @@ const EMBEDS: Record<MediaEmbed['provider'], { pattern: RegExp; src: (id: string
     <article class="flex h-full flex-col overflow-hidden rounded-2xl border border-brand-navy/8 bg-white shadow-card transition-shadow duration-300 hover:shadow-card-hover">
       <!-- Celula de altura fixa: retrato e paisagem convivem em object-contain,
            com a propria peca desfocada preenchendo as sobras (decisao 6). -->
-      <div class="relative h-72 overflow-hidden bg-brand-navy">
+      <div class="relative overflow-hidden bg-brand-navy transition-[height] duration-300" [class]="cellHeight()">
         @if (playing() && embedSrc(); as src) {
           <iframe
             class="absolute inset-0 h-full w-full"
@@ -155,6 +155,15 @@ export class MediaCard {
   protected readonly playing = signal(false);
 
   protected readonly kindLabel = computed(() => KIND_LABEL[this.item().kind]);
+
+  /**
+   * O embed do Instagram e vertical e traz cabecalho proprio: na celula de
+   * h-72 o reel ficava cortado com rolagem interna. So ele, e so depois do
+   * play, ganha a altura do video 9:16 mais o cabecalho (decisao 3).
+   */
+  protected readonly cellHeight = computed(() =>
+    this.playing() && this.item().embed?.provider === 'instagram' ? 'h-[34rem]' : 'h-72'
+  );
 
   /** `null` quando nao ha embed ou o id nao casa com o formato do provedor. */
   protected readonly embedSrc = computed<SafeResourceUrl | null>(() => {
