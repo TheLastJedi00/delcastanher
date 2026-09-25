@@ -315,6 +315,13 @@ export class StoreService {
     }
   }
 
+  /** Alvo do pedido como a API o recebe: o pacote ou os ids dos modulos. */
+  orderTarget(): Pick<CreateOrderPayload, 'moduleIds' | 'bundleSlug'> {
+    const selection = this.selection();
+
+    return selection.kind === 'bundle' ? { bundleSlug: selection.slug } : { moduleIds: selection.ids };
+  }
+
   isBundleSelected(slug: string): boolean {
     return this.bundleState() === slug;
   }
