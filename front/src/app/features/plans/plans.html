@@ -22,7 +22,11 @@
     </header>
 
     <!-- Escassez do lote vigente, com o número que a API contou. -->
-    @if (scarcity(); as banner) {
+    <!-- Enquanto a oferta não chega, a faixa já ocupa o lugar dela: inserida
+         depois, empurraria a página inteira para baixo (decisão 10). -->
+    @if (offerState() === 'loading') {
+      <div class="h-[5.5rem] animate-pulse bg-gradient-brand opacity-40 sm:h-[3.25rem]" aria-hidden="true" data-testid="faixa-carregando"></div>
+    } @else if (scarcity(); as banner) {
       <ui-scarcity-banner
         [headline]="banner.headline"
         deadline=""

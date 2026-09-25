@@ -63,6 +63,8 @@ describe('Plans', () => {
   it('mostra o esqueleto no lugar do preço enquanto a oferta não chega', () => {
     expect(el().querySelector('ui-bundle-price [aria-busy="true"]')).not.toBeNull();
     expect(text()).not.toContain('R$ 590,00');
+    // A faixa de escassez tem o lugar reservado: chegar depois nao empurra a pagina.
+    expect(el().querySelector('[data-testid="faixa-carregando"]')).not.toBeNull();
 
     request().flush(offer());
   });
@@ -76,6 +78,7 @@ describe('Plans', () => {
     expect(text()).toContain('em até 12x no cartão');
     expect(text()).toContain('Restam 7 vagas no 🔥 Lote Fundador');
     expect(text()).toContain('R$ 797,00 no 2º Lote');
+    expect(el().querySelector('[data-testid="faixa-carregando"]')).toBeNull();
   });
 
   it('não promete o valor da parcela', () => {
