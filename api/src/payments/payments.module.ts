@@ -7,14 +7,20 @@ import { AdminAccessService } from './admin-access.service';
 import { AdminBundlesController } from './admin-bundles.controller';
 import { AdminFinanceController } from './admin-finance.controller';
 import { AdminFinanceService } from './admin-finance.service';
+import { AdminMercadoPagoController } from './admin-mercado-pago.controller';
 import { BundlesService } from './bundles.service';
 import { GatewayFeesService } from './gateway-fees.service';
+import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
+import { MercadoPagoLinkService } from './mercado-pago-link.service';
+import { InternalMercadoPagoController, MercadoPagoOAuthController } from './mercado-pago-oauth.controller';
+import { MercadoPagoOAuthService } from './mercado-pago-oauth.service';
 import { MercadoPagoService } from './mercado-pago.service';
 import { MercadoPagoWebhookController } from './mercado-pago-webhook.controller';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { StoreController } from './store.controller';
 import { StoreService } from './store.service';
+import { TokenCipher } from './token-cipher';
 
 /**
  * Pagamento e acesso (Spec 014).
@@ -33,7 +39,10 @@ import { StoreService } from './store.service';
     AdminAccessController,
     AdminBundlesController,
     AdminFinanceController,
+    AdminMercadoPagoController,
     MercadoPagoWebhookController,
+    MercadoPagoOAuthController,
+    InternalMercadoPagoController,
   ],
   providers: [
     AccessService,
@@ -41,9 +50,13 @@ import { StoreService } from './store.service';
     AdminFinanceService,
     BundlesService,
     GatewayFeesService,
+    MercadoPagoConnectionService,
+    MercadoPagoLinkService,
+    MercadoPagoOAuthService,
     MercadoPagoService,
     OrdersService,
     StoreService,
+    TokenCipher,
   ],
   exports: [AccessService, OrdersService],
 })

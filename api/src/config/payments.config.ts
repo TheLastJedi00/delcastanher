@@ -66,6 +66,11 @@ export function mercadoPagoOAuthClient(config: ConfigService): {
   };
 }
 
+/** Segredo que o Vercel Cron manda na rotina diaria (Spec 020, decisao 8). */
+export function cronSecret(config: ConfigService): string {
+  return requiredEnv(config, 'CRON_SECRET');
+}
+
 /**
  * Chave dos tokens do vendedor (Spec 020, decisao 4): 32 bytes em base64.
  *
