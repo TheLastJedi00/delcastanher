@@ -39,6 +39,7 @@ export class Landing {
   readonly navLinks: NavLink[] = [
     { label: 'Método', href: '#metodo' },
     { label: 'A Mentora', href: '#mentora' },
+    { label: 'Na mídia', href: '#midia' },
     { label: 'Trilha', href: '#trilha' },
     { label: 'Planos', href: '/planos', routerLink: '/planos' },
   ];
