@@ -8,11 +8,15 @@
     mobile e tambem o ponto onde a mascara do gradiente fica opaca.
   -->
   <header class="relative overflow-hidden bg-brand-navy [--hero-photo-h:26rem]">
-    <div class="relative z-0 hidden md:absolute md:inset-y-0 md:right-0 md:block md:w-[65%]">
+    <!-- Foto no topo no mobile; bloco a direita a partir de md, com 65% da
+         largura para o arquivo de 1280px nao ser esticado num monitor largo. -->
+    <div class="relative z-0 h-[var(--hero-photo-h)] md:absolute md:inset-y-0 md:right-0 md:h-auto md:w-[65%]">
       <img
-        src="assets/aula1.jpeg"
+        ngSrc="assets/aula1.jpeg"
+        fill
+        priority
         alt="Lidiane Delcastanher palestrando para uma turma"
-        class="h-full w-full object-cover" />
+        class="object-cover object-[60%_30%]" />
     </div>
 
     <div class="hero-fade absolute inset-0 z-10 bg-gradient-hero" aria-hidden="true">
