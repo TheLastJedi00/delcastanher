@@ -184,15 +184,27 @@ import { UserService } from '../../core/services/user.service';
                 </div>
               }
 
+              <!-- Spec 020, decisão 7: sem conta recebedora a loja não cobra.
+                   O botão sai; o servidor também recusa com 503. -->
               <div class="mt-6">
-                <ui-button
-                  variant="primary"
-                  [fullWidth]="true"
-                  [loading]="submitting()"
-                  [disabled]="form.invalid"
-                  (click)="pay()">
-                  {{ method() === 'PIX' ? 'Gerar PIX de ' + total() : 'Pagar ' + total() }}
-                </ui-button>
+                @if (unavailable()) {
+                  <p
+                    class="rounded-xl bg-state-warning/10 px-4 py-3 text-sm text-slate-800"
+                    role="status"
+                    data-testid="pagamento-indisponivel">
+                    <strong>Pagamentos temporariamente indisponíveis.</strong> Sua escolha continua
+                    salva: tente de novo em alguns instantes ou fale com o suporte.
+                  </p>
+                } @else {
+                  <ui-button
+                    variant="primary"
+                    [fullWidth]="true"
+                    [loading]="submitting()"
+                    [disabled]="form.invalid"
+                    (click)="pay()">
+                    {{ method() === 'PIX' ? 'Gerar PIX de ' + total() : 'Pagar ' + total() }}
+                  </ui-button>
+                }
               </div>
 
               <ui-payment-trust class="mt-4" />
@@ -275,6 +287,8 @@ export class Pagamento implements OnInit {
   readonly error = this.errorState.asReadonly();
   readonly submitting = this.submittingState.asReadonly();
   readonly sandbox = computed(() => this.store.config()?.sandbox ?? false);
+  /** A API respondeu que a loja esta fechada (Spec 020, decisao 7). */
+  readonly unavailable = computed(() => this.store.config()?.enabled === false);
   readonly maxInstallments = computed(() => this.store.config()?.maxInstallments ?? 12);
   readonly total = computed(() => formatPrice(this.store.totalCents()));
 

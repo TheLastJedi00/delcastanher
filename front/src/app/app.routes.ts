@@ -87,6 +87,16 @@ export const routes: Routes = [
       import('./features/legal/politica-de-cookies').then(m => m.PoliticaDeCookies),
   },
   {
+    // Retorno da conexao da conta recebedora (Spec 020, decisao 5). Publica:
+    // quem chega e o dono da conta vendedora, sem sessao aqui. Nao indexavel.
+    path: 'conexao-mercado-pago',
+    data: { [SEO_DATA_KEY]: privateSeo('Conexão do Mercado Pago') },
+    loadComponent: () =>
+      import('./features/conexao-mercado-pago/conexao-mercado-pago').then(
+        m => m.ConexaoMercadoPago,
+      ),
+  },
+  {
     path: 'login',
     // Quem ja tem sessao vai para a propria area em vez de ver o formulario de
     // novo (Spec 019, decisao 16).

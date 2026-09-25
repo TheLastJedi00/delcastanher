@@ -27,6 +27,9 @@ export const serverRoutes: ServerRoute[] = [
   // que ainda nao existem (Spec 014).
   { path: 'loja', renderMode: RenderMode.Client },
   { path: 'loja/**', renderMode: RenderMode.Client },
+  // O resultado vem na query e so existe no navegador; prerenderizar geraria
+  // um HTML de erro generico e poria a rota no sitemap (Spec 020, decisao 5).
+  { path: 'conexao-mercado-pago', renderMode: RenderMode.Client },
 
   // --- Vitrine: HTML pronto em build ---
   {

@@ -123,7 +123,7 @@ describe('AdminFinanceiro', () => {
 
     const cards = fixture.debugElement.queryAll(By.css('ui-stat-card'));
     const liquido = cards.find(card =>
-      (card.nativeElement as HTMLElement).textContent?.includes('líquido'),
+      (card.nativeElement as HTMLElement).textContent?.includes('Líquido do vendedor'),
     );
 
     expect(liquido!.nativeElement.textContent).toContain('Não apurado');
