@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -8,7 +8,8 @@ import {
   mercadoPagoSandbox,
   paymentsEnabled,
 } from '../config/payments.config';
-import { StoreModuleItem, StoreService } from './store.service';
+import { MAX_INSTALLMENTS } from './dto/create-order.dto';
+import { StoreModuleItem, StoreOffer, StoreService } from './store.service';
 
 /** Configuracao que o navegador precisa para tokenizar o cartao. */
 export interface PaymentConfigView {
@@ -23,19 +24,34 @@ export interface PaymentConfigView {
 }
 
 /**
- * Loja de modulos (Spec 014). Exige sessao e onboarding — comprar e um ato de
- * quem ja tem conta (decisao 21).
+ * Loja de modulos (Spec 014). Comprar e um ato de quem ja tem conta (decisao
+ * 21), e as rotas de compra exigem sessao.
+ *
+ * O guard vai por rota, e nao na classe, desde a Spec 019: a oferta publica
+ * mora aqui e e a unica que dispensa sessao. Na classe, esquecer o guard de
+ * uma rota nova seria impossivel; por rota, cada uma o declara de proposito.
  */
 @Controller('store')
-@UseGuards(FirebaseAuthGuard)
 export class StoreController {
   constructor(
     private readonly store: StoreService,
     private readonly config: ConfigService,
   ) {}
 
+  /**
+   * Modulos avulsos e pacote ativo com o lote vigente, **sem sessao** (Spec
+   * 019, decisao 10) — o `/planos` e publico. Trinta segundos de cache nao
+   * vendem uma vaga a mais: quem decide o lote cobrado e o `POST /orders`.
+   */
+  @Get('offer')
+  @Header('Cache-Control', 'public, max-age=30')
+  offer(): Promise<StoreOffer> {
+    return this.store.offer();
+  }
+
   /** Catalogo com preco e o que este aluno ja tem. */
   @Get('catalog')
+  @UseGuards(FirebaseAuthGuard)
   catalog(@CurrentUser() user: AuthUser): Promise<StoreModuleItem[]> {
     return this.store.catalog(user);
   }
@@ -49,6 +65,7 @@ export class StoreController {
    * aqui.
    */
   @Get('payment-config')
+  @UseGuards(FirebaseAuthGuard)
   paymentConfig(): PaymentConfigView {
     const enabled = paymentsEnabled(this.config);
 
@@ -56,7 +73,7 @@ export class StoreController {
       publicKey: enabled ? mercadoPagoPublicKey(this.config) : null,
       sandbox: mercadoPagoSandbox(this.config),
       enabled,
-      maxInstallments: 6,
+      maxInstallments: MAX_INSTALLMENTS,
     };
   }
 }
