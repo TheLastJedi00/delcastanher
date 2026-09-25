@@ -19,63 +19,69 @@ Ordem das fases:
 - [ ] **Task 0.4:** Criar pelo MCP do Mercado Pago (`create_test_user`) um usuário de teste `seller` e um `buyer`, e registrar os usuários (sem senha) nas notas da spec. Destrava a Fase 6 e a task 7.8 da Spec 019.
 
 ## Fase 1: Backend - Modelo e Cifragem (TDD)
-- [ ] **Task 1.1:** Acrescentar ao `schema.prisma` os models `MercadoPagoConnection` e `MercadoPagoOAuthState` e a coluna `mpConnectionId?` em `Order`, com `onDelete: Restrict` e comentários no padrão do arquivo (decisões 3 e 6).
-- [ ] **Task 1.2:** Gerar a migration e acrescentar à mão o índice único parcial `WHERE disconnected_at IS NULL` (decisão 3). Aplicar com `prisma migrate deploy` **só com autorização explícita**: o banco é o de produção.
-- [ ] **Task 1.3:** Escrever a suíte do `TokenCipher` (decisão 4): ida e volta; IV diferente a cada cifragem; adulteração e chave errada falham; chave com tamanho errado recusada na inicialização.
-- [ ] **Task 1.4:** Implementar o `TokenCipher` com `node:crypto` (AES-256-GCM), lendo `MP_TOKEN_ENCRYPTION_KEY` pelo `payments.config.ts`.
+- [x] **Task 1.1:** Acrescentar ao `schema.prisma` os models `MercadoPagoConnection` e `MercadoPagoOAuthState` e a coluna `mpConnectionId?` em `Order`, com `onDelete: Restrict` e comentários no padrão do arquivo (decisões 3 e 6).
+- [x] **Task 1.2:** Gerar a migration e acrescentar à mão o índice único parcial `WHERE disconnected_at IS NULL` (decisão 3). Aplicar com `prisma migrate deploy` **só com autorização explícita**: o banco é o de produção.
+  - Migration escrita, com o índice único parcial sobre `liveMode` (uma conexão ativa **por ambiente**; ver desvios no `context.md`). **Não aplicada:** o `migrate deploy` foi bloqueado pelo classificador de segurança. Falta rodar `cd api && npx prisma migrate deploy`.
+- [x] **Task 1.3:** Escrever a suíte do `TokenCipher` (decisão 4): ida e volta; IV diferente a cada cifragem; adulteração e chave errada falham; chave com tamanho errado recusada na inicialização.
+- [x] **Task 1.4:** Implementar o `TokenCipher` com `node:crypto` (AES-256-GCM), lendo `MP_TOKEN_ENCRYPTION_KEY` pelo `payments.config.ts`.
 
 ## Fase 2: Backend - Conexão por OAuth (TDD)
-- [ ] **Task 2.1:** Escrever a suíte do `MercadoPagoOAuthService`:
+- [x] **Task 2.1:** Escrever a suíte do `MercadoPagoOAuthService`:
   - URL de autorização com `client_id`, `response_type=code`, `platform_id=mp`, `redirect_uri` fixa, `state`, `code_challenge` e `code_challenge_method=S256`;
   - `code_verifier` com 43–128 caracteres e `code_challenge` = BASE64URL(SHA256(verifier));
   - troca do `code` em `POST /oauth/token` com `grant_type=authorization_code`, `code_verifier` e `test_token` conforme `MP_SANDBOX`;
   - renovação com `grant_type=refresh_token`;
   - `GET /users/me` para apelido e e-mail.
   - O `fetch` é simulado, como no `mercado-pago.service.spec.ts`.
-- [ ] **Task 2.2:** Implementar o `MercadoPagoOAuthService`. Erros do Mercado Pago vão para o log **sem** corpo de requisição, que contém `client_secret` e `code`.
-- [ ] **Task 2.3:** Escrever a suíte do `MercadoPagoConnectionService`:
+- [x] **Task 2.2:** Implementar o `MercadoPagoOAuthService`. Erros do Mercado Pago vão para o log **sem** corpo de requisição, que contém `client_secret` e `code`.
+  - `test_token` segue o `MP_SANDBOX` do ambiente, por definição do usuário (preview = `TEST-`, produção = `APP_USR-`).
+- [x] **Task 2.3:** Escrever a suíte do `MercadoPagoConnectionService`:
   - conexão ativa ou nula;
   - conectar desconecta a anterior na mesma transação;
   - token em claro só por método interno, nunca na visão do painel;
   - renovação na janela de 30 dias, com trava e releitura (decisão 8), e duas chamadas simultâneas resultando em **uma** renovação;
   - `invalid_grant` desconecta com `revoked`;
   - desconectar marca `disconnectedAt` e `disconnectReason = 'manual'`.
-- [ ] **Task 2.4:** Implementar o `MercadoPagoConnectionService`, com a trava por `SELECT … FOR UPDATE` via `$queryRaw`, como no pacote da Spec 019.
-- [ ] **Task 2.5:** Escrever a suíte das rotas admin (`GET`, `POST …/link`, `DELETE`): 401 sem token, 403 com `aluno`, nenhum token na resposta, e gerar link invalida os anteriores não usados.
-- [ ] **Task 2.6:** Escrever a suíte do callback `GET /mercadopago/oauth/callback` (decisão 5):
+- [x] **Task 2.4:** Implementar o `MercadoPagoConnectionService`, com a trava por `SELECT … FOR UPDATE` via `$queryRaw`, como no pacote da Spec 019.
+- [x] **Task 2.5:** Escrever a suíte das rotas admin (`GET`, `POST …/link`, `DELETE`): 401 sem token, 403 com `aluno`, nenhum token na resposta, e gerar link invalida os anteriores não usados.
+- [x] **Task 2.6:** Escrever a suíte do callback `GET /mercadopago/oauth/callback` (decisão 5):
   - `state` inexistente, vencido ou usado → redireciona com `expirado` ou `usado`, sem chamar o Mercado Pago;
   - `error=access_denied` → `negado`;
   - sucesso → conexão gravada, `state` consumido, redireciona com `resultado=ok`;
   - o mesmo `state` duas vezes conecta uma vez só;
   - token sem `offline_access` → recusado com `sem_offline_access`;
   - falha na troca → `falha`, sem a mensagem do Mercado Pago na URL.
-- [ ] **Task 2.7:** Implementar os controllers: o admin com `FirebaseAuthGuard`, `RolesGuard` e `@Roles('admin')` na classe; o callback público, fora dos guards, como o webhook. O redirecionamento ao front usa a origem do front da Spec 017, e nunca uma URL vinda da query.
-- [ ] **Task 2.8:** Escrever a suíte e implementar `POST /internal/mercadopago/refresh`: recusa sem `Authorization: Bearer <CRON_SECRET>`; renova na janela; limpa `MercadoPagoOAuthState` vencidos há mais de 7 dias. Configurar o cron diário no projeto da API na Vercel.
+- [x] **Task 2.7:** Implementar os controllers: o admin com `FirebaseAuthGuard`, `RolesGuard` e `@Roles('admin')` na classe; o callback público, fora dos guards, como o webhook. O redirecionamento ao front usa a origem do front da Spec 017, e nunca uma URL vinda da query.
+- [x] **Task 2.8:** Escrever a suíte e implementar `POST /internal/mercadopago/refresh`: recusa sem `Authorization: Bearer <CRON_SECRET>`; renova na janela; limpa `MercadoPagoOAuthState` vencidos há mais de 7 dias. Configurar o cron diário no projeto da API na Vercel.
+  - **Desvio:** a rota é `GET`, porque é o método com que o Vercel Cron chama. Cron em `api/vercel.json`, todo dia às 09:00 UTC.
 
 ## Fase 3: Backend - Pagamento na Conta do Vendedor (TDD)
-- [ ] **Task 3.1:** Alterar a suíte do `MercadoPagoService`: `createOrder` e `getOrder` recebem o token como argumento e o usam no `Authorization`; o corpo da order **não** tem `marketplace_fee` (decisão 2).
-- [ ] **Task 3.2:** Implementar a mudança. `mercadoPagoAccessToken` deixa de ser lido dentro do serviço. Conferir na Referência da Orders API se order criada por OAuth pede `integration_data.application_id`, e registrar o resultado aqui.
-- [ ] **Task 3.3:** Escrever a suíte do `OrdersService`:
+- [x] **Task 3.1:** Alterar a suíte do `MercadoPagoService`: `createOrder` e `getOrder` recebem o token como argumento e o usam no `Authorization`; o corpo da order **não** tem `marketplace_fee` (decisão 2).
+- [x] **Task 3.2:** Implementar a mudança. `mercadoPagoAccessToken` deixa de ser lido dentro do serviço. Conferir na Referência da Orders API se order criada por OAuth pede `integration_data.application_id`, e registrar o resultado aqui.
+  - `integration_data.application_id` é campo **da resposta** da Orders API, preenchido pelo Mercado Pago a partir do token: não é enviado.
+- [x] **Task 3.3:** Escrever a suíte do `OrdersService`:
   - pedido novo grava `mpConnectionId` da conexão ativa e cria a order com o token dela;
   - sem conexão, `503` antes de gravar qualquer pedido (e sem ocupar vaga de lote da Spec 019);
   - reconsulta e `applyFromGateway` usam o token da conexão do pedido, mesmo desconectada;
   - pedido sem `mpConnectionId` usa `MP_ACCESS_TOKEN`;
   - `mpOrderId` desconhecido não chama o Mercado Pago.
-- [ ] **Task 3.4:** Implementar no `OrdersService`. A escolha do token fica num método só, e o pedido de pacote da Spec 019 passa pelo mesmo caminho.
-- [ ] **Task 3.5:** `GET /store/payment-config` devolve `enabled` e `reason` (decisão 7). Cobrir no `store.http.spec.ts`.
-- [ ] **Task 3.6:** Rodar `npm test` no `api/` e corrigir regressões. `orders.service.ts` é compartilhado com as Specs 014, 016 e 019.
+- [x] **Task 3.4:** Implementar no `OrdersService`. A escolha do token fica num método só, e o pedido de pacote da Spec 019 passa pelo mesmo caminho.
+- [x] **Task 3.5:** `GET /store/payment-config` devolve `enabled` e `reason` (decisão 7). Cobrir no `store.http.spec.ts`.
+- [x] **Task 3.6:** Rodar `npm test` no `api/` e corrigir regressões. `orders.service.ts` é compartilhado com as Specs 014, 016 e 019.
+  - `npm test`: 823 testes em 57 suítes. O `tsc --noEmit` segue só com os 2 erros que já existiam (`auth.controller.spec` e `certificates.service.spec`).
 
 ## Fase 4: Front
-- [ ] **Task 4.1:** Criar o `AdminMercadoPagoService` (signals) com estado da conexão, gerar link e desconectar.
-- [ ] **Task 4.2:** Montar o bloco "Conta recebedora" na aba Financeiro (decisão 12): estados conectado, não conectado, revogado e link gerado; botão de copiar; confirmação ao desconectar; aviso de vencimento. Componente próprio, como o `admin-pacote` da Spec 019.
-- [ ] **Task 4.3:** Trocar o rótulo do líquido no painel de finanças para "Líquido do vendedor" (decisão 11).
-- [ ] **Task 4.4:** Criar a página pública `/conexao-mercado-pago` com texto fixo por `resultado` e `motivo`, `noindex`, fora do prerender e do sitemap.
-- [ ] **Task 4.5:** Na loja, com `enabled: false`, trocar o botão de pagar pelo aviso "Pagamentos temporariamente indisponíveis".
-- [ ] **Task 4.6:** Cobrir nos specs e rodar `ng test` e `ng build`.
+- [x] **Task 4.1:** Criar o `AdminMercadoPagoService` (signals) com estado da conexão, gerar link e desconectar.
+- [x] **Task 4.2:** Montar o bloco "Conta recebedora" na aba Financeiro (decisão 12): estados conectado, não conectado, revogado e link gerado; botão de copiar; confirmação ao desconectar; aviso de vencimento. Componente próprio, como o `admin-pacote` da Spec 019.
+- [x] **Task 4.3:** Trocar o rótulo do líquido no painel de finanças para "Líquido do vendedor" (decisão 11).
+- [x] **Task 4.4:** Criar a página pública `/conexao-mercado-pago` com texto fixo por `resultado` e `motivo`, `noindex`, fora do prerender e do sitemap.
+- [x] **Task 4.5:** Na loja, com `enabled: false`, trocar o botão de pagar pelo aviso "Pagamentos temporariamente indisponíveis".
+- [x] **Task 4.6:** Cobrir nos specs e rodar `ng test` e `ng build`.
+  - `ng test`: 475 testes. `ng build` com as mesmas 8 rotas prerenderizadas; `/conexao-mercado-pago` fica fora delas, e portanto fora do sitemap.
 
 ## Fase 5: Documentação
-- [ ] **Task 5.1:** Atualizar o comentário de `payments.config.ts` e o `api/.env.example`: o `MP_ACCESS_TOKEN` passa a servir só para pedidos anteriores (decisão 6).
-- [ ] **Task 5.2:** Registrar nesta spec os desvios e o resultado das confirmações das decisões 2 e 10.
+- [x] **Task 5.1:** Atualizar o comentário de `payments.config.ts` e o `api/.env.example`: o `MP_ACCESS_TOKEN` passa a servir só para pedidos anteriores (decisão 6).
+- [x] **Task 5.2:** Registrar nesta spec os desvios e o resultado das confirmações das decisões 2 e 10.
 
 ## Fase 6: Verificação em Sandbox
 - [ ] **Task 6.1:** No painel, gerar o link e conectar o `seller` de teste. O bloco mostra o apelido e o ambiente de teste.
