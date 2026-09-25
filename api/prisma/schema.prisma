@@ -361,16 +361,27 @@ model Order {
   bundleTitleSnapshot String?
   tierNameSnapshot    String?
 
+  /// Conta Mercado Pago em que a order nasceu (Spec 020, decisao 6). E com o
+  /// token **dela** que o pedido e reconsultado, pelo polling e pelo webhook —
+  /// e nao com o da conexao ativa hoje, que pode ser outra conta.
+  ///
+  /// Nulo e o pedido anterior a Spec 020, criado na conta da plataforma: esse
+  /// e consultado com `MP_ACCESS_TOKEN`.
+  mpConnectionId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items      OrderItem[]
-  accesses   ModuleAccess[]
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items        OrderItem[]
+  accesses     ModuleAccess[]
   /// `Restrict`: pacote e lote que ja venderam nao sao removiveis, como
   /// modulo ja vendido nao e (Spec 014).
-  bundle     Bundle?        @relation(fields: [bundleId], references: [id], onDelete: Restrict)
-  bundleTier BundleTier?    @relation(fields: [bundleTierId], references: [id], onDelete: Restrict)
+  bundle       Bundle?                @relation(fields: [bundleId], references: [id], onDelete: Restrict)
+  bundleTier   BundleTier?            @relation(fields: [bundleTierId], references: [id], onDelete: Restrict)
+  /// `Restrict`: conexao que ja vendeu nao e apagavel, porque e ela que diz
+  /// com que token consultar o pedido. Desconectar e marcar, nao apagar.
+  mpConnection MercadoPagoConnection? @relation(fields: [mpConnectionId], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt])
   // O indice acima e o historico de **um** aluno. O relatorio financeiro faz a
@@ -381,6 +392,83 @@ model Order {
   // cada leitura da oferta e a cada pedido de pacote.
   @@index([bundleTierId, status])
   @@map("orders")
+}
+
+/// Conta Mercado Pago que recebe as vendas (Spec 020).
+///
+/// A order e criada com o `access_token` que o vendedor concedeu a aplicacao
+/// por OAuth, e por isso nasce na conta dele — 100% do valor, sem comissao da
+/// plataforma (decisao 2).
+///
+/// **Uma ativa por vez** (decisao 1): ativa e `disconnectedAt` nulo, garantido
+/// por indice unico parcial escrito a mao na migration — o Prisma nao expressa
+/// indice parcial. Conectar outra conta desconecta esta, e a linha fica: e ela
+/// que diz em qual conta nasceram os pedidos antigos (decisao 3).
+///
+/// Os tokens sao gravados **cifrados** (AES-256-GCM, decisao 4) e so o
+/// `TokenCipher` os abre. Nenhum dos dois sai em resposta de API ou em log.
+model MercadoPagoConnection {
+  id String @id @default(cuid())
+
+  /// `user_id` da conta no Mercado Pago.
+  mpUserId String
+  /// Apelido e e-mail da conta, de `GET /users/me`: o painel mostra **qual**
+  /// conta recebe, e nao so um numero.
+  nickname String?
+  email    String?
+
+  accessTokenEncrypted  String
+  /// Troca a cada renovacao: o Mercado Pago devolve um par novo, e o anterior
+  /// deixa de valer (decisao 8).
+  refreshTokenEncrypted String
+  scope                 String
+  /// Falso quando o token e de usuario de teste (sandbox).
+  liveMode              Boolean
+  /// Vencimento do `access_token` (180 dias a partir da emissao).
+  expiresAt             DateTime
+
+  connectedAt      DateTime @default(now())
+  /// Admin que **gerou o link**, tirado do token; o e-mail e copia, e nao
+  /// relacao, para a autoria continuar legivel depois de a conta sair.
+  connectedById    String
+  connectedByEmail String
+
+  /// Preenchido ao desconectar. Nulo e a conexao ativa.
+  disconnectedAt   DateTime?
+  /// `manual` (pelo painel), `replaced` (outra conta foi conectada) ou
+  /// `revoked` (o Mercado Pago recusou a renovacao).
+  disconnectReason String?
+  lastRefreshedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@map("mercado_pago_connections")
+}
+
+/// Tentativa de conexao por OAuth (Spec 020, decisao 5).
+///
+/// O `state` e o que autentica o retorno publico do Mercado Pago: precisa
+/// existir, estar no prazo e nao ter sido usado. Vale 24 horas, e nao os 10
+/// minutos do `code` — o link precisa sobreviver ao tempo de o vendedor ler a
+/// mensagem. O `codeVerifier` do PKCE nunca sai do banco.
+model MercadoPagoOAuthState {
+  id           String @id @default(cuid())
+  state        String @unique
+  codeVerifier String
+
+  createdById    String
+  createdByEmail String
+
+  expiresAt DateTime
+  /// Consumido na mesma transacao que grava a conexao: um segundo uso falha.
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@map("mercado_pago_oauth_states")
 }
 
 /// Pacote de modulos vendido como um item so na loja (Spec 019, decisao 2) —
