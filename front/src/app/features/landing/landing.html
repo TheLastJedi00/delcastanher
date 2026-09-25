@@ -21,11 +21,13 @@
 
     <div class="hero-fade absolute inset-0 z-10 bg-gradient-hero" aria-hidden="true">
       <span class="blob-teal -left-24 top-10 h-96 w-96 animate-float bg-brand-teal-light/20"></span>
-      <span class="blob-navy -right-32 bottom-0 h-[28rem] w-[28rem] animate-pulse-soft bg-white/10"></span>
     </div>
 
-    <div class="relative z-20 mx-auto flex max-w-6xl flex-col items-center gap-12 px-4 py-20 md:flex-row md:py-28">
-      <div class="w-full animate-fade-in-up md:w-1/2">
+    <!-- Texto a esquerda, sempre sobre a parte opaca do gradiente: abaixo da
+         foto no mobile, na metade esquerda a partir de md. O min-h evita que a
+         foto seja cortada rente ao rosto quando o texto for curto. -->
+    <div class="relative z-20 mx-auto flex max-w-6xl px-4 pb-20 pt-8 md:min-h-[600px] md:items-center md:py-28">
+      <div class="w-full animate-fade-in-up md:w-1/2 lg:max-w-xl">
         <span class="mb-6 inline-block rounded-full bg-white/15 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-white backdrop-blur-md">
           Inspirando Perspectivas
         </span>
