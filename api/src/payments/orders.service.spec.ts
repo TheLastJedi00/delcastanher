@@ -401,7 +401,7 @@ describe('OrdersService', () => {
 
       const view = await service.findOne(ALUNO, 'ord-1');
 
-      expect(gateway.getOrder).toHaveBeenCalledWith('ORD-1');
+      expect(gateway.getOrder).toHaveBeenCalledWith('ORD-1', 'APP_USR-token-da-plataforma');
       expect(view.status).toBe('PAID');
     });
 

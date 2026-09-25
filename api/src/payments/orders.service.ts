@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { OrderStatus, PaymentMethodKind } from '../generated/prisma/client';
@@ -11,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
 import { CreateOrderDto, MAX_INSTALLMENTS } from './dto/create-order.dto';
+import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { MercadoPagoService } from './mercado-pago.service';
 import { MercadoPagoOrder, PixDetails, rejectionMessage, toOrderStatus } from './payments.types';
 
@@ -57,6 +59,7 @@ interface OrderRow {
   expiresAt: Date | null;
   bundleTitleSnapshot?: string | null;
   tierNameSnapshot?: string | null;
+  mpConnectionId?: string | null;
   items: { moduleId: string; priceCents: number; titleSnapshot: string }[];
 }
 
@@ -90,6 +93,7 @@ export class OrdersService {
     private readonly access: AccessService,
     private readonly gateway: MercadoPagoService,
     private readonly bundles: BundlesService,
+    private readonly connections: MercadoPagoConnectionService,
   ) {}
 
   /** Cria o pedido, cobra e devolve o desfecho — ou o QR, no caso do PIX. */
@@ -101,6 +105,8 @@ export class OrdersService {
     const items = await this.resolveItems(user, dto);
 
     this.validatePayment(dto);
+
+    const credential = await this.sellerCredential();
 
     const amountCents = items.reduce((total, item) => total + item.priceCents, 0);
 
@@ -117,6 +123,7 @@ export class OrdersService {
         amountCents,
         method: dto.method,
         installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
+        mpConnectionId: credential.connectionId,
         items: {
           create: items.map((item) => ({
             moduleId: item.moduleId,
@@ -130,6 +137,7 @@ export class OrdersService {
 
     const mpOrder = await this.gateway.createOrder({
       orderId: order.id,
+      accessToken: credential.accessToken,
       amountCents,
       method: dto.method,
       payer: dto.payer,
@@ -156,16 +164,20 @@ export class OrdersService {
   private async createBundleOrder(user: AuthUser, dto: CreateOrderDto): Promise<OrderView> {
     this.validatePayment(dto);
 
+    const credential = await this.sellerCredential();
+
     const { order: placed } = await this.bundles.placeOrder({
       slug: dto.bundleSlug as string,
       userId: user.uid,
       method: dto.method,
       installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
+      mpConnectionId: credential.connectionId,
     });
     const order = placed as unknown as OrderRow;
 
     const mpOrder = await this.gateway.createOrder({
       orderId: order.id,
+      accessToken: credential.accessToken,
       amountCents: order.amountCents,
       method: dto.method,
       payer: dto.payer,
@@ -235,7 +247,7 @@ export class OrdersService {
       return;
     }
 
-    const mpOrder = await this.gateway.getOrder(mpOrderId);
+    const mpOrder = await this.gateway.getOrder(mpOrderId, await this.tokenFor(order));
 
     await this.apply(order, mpOrder);
   }
@@ -254,7 +266,7 @@ export class OrdersService {
       return this.toView(order);
     }
 
-    const mpOrder = await this.gateway.getOrder(order.mpOrderId);
+    const mpOrder = await this.gateway.getOrder(order.mpOrderId, await this.tokenFor(order));
 
     return this.apply(order, mpOrder);
   }
@@ -395,6 +407,28 @@ export class OrdersService {
 
       return { moduleId: module.id, title: module.title, priceCents: module.priceCents as number };
     });
+  }
+
+  /**
+   * Conta que vai receber a order nova (Spec 020, decisao 7). Sem conta
+   * conectada neste ambiente, 503 — e nunca o token da plataforma, que faria o
+   * dinheiro entrar na conta errada sem ninguem perceber. Chamada antes de
+   * gravar qualquer coisa: sem ela, o pendente do aluno nao e cancelado e
+   * nenhuma vaga de lote e ocupada.
+   */
+  private async sellerCredential(): Promise<ActiveCredential> {
+    const credential = await this.connections.activeCredential();
+
+    if (!credential) {
+      throw new ServiceUnavailableException('Pagamentos temporariamente indisponíveis.');
+    }
+
+    return credential;
+  }
+
+  /** Token da conta em que o pedido nasceu (Spec 020, decisao 6). */
+  private tokenFor(order: OrderRow): Promise<string> {
+    return this.connections.accessTokenFor(order.mpConnectionId ?? null);
   }
 
   /** Regras do meio de pagamento (decisao 9). */
