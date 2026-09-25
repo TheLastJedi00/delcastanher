@@ -220,7 +220,7 @@ Order                   + mpConnectionId?   (onDelete: Restrict)
 - **`integration_data.application_id` não é enviado (decisão 2).** Na documentação da Orders API ele aparece como campo **da resposta** ("aplicação que criou a order"), preenchido pelo Mercado Pago a partir do token. Nada a enviar.
 - **`payment-config` ganhou `reason` (decisão 7):** `not_configured` (sem credencial da aplicação) ou `seller_not_connected`. A loja só abre com conexão ativa **e** token no prazo; a leitura não renova, quem renova é o pedido e a rotina diária.
 - **`/conexao-mercado-pago` também no `robots.txt`**, ao lado do `noindex` e da renderização só no navegador.
-- **Migration não aplicada pelo agente.** `prisma migrate deploy` contra o banco (o único, de produção) foi bloqueado pelo classificador de segurança. Fica para o usuário: `cd api && npx prisma migrate deploy`.
+- **Migration aplicada pelo usuário.** O `prisma migrate deploy` contra o banco (o único, de produção) foi bloqueado para o agente pelo classificador de segurança, e o usuário aplicou a migration em 2026-09-25.
 
 ## Fora de escopo
 - Vários vendedores, vendedor por curso ou por produto (decisão 1).

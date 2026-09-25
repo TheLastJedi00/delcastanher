@@ -2,6 +2,8 @@
 
 Spec de `api/` (NestJS + Prisma + Jest) e `front/` (Angular standalone + signals + Tailwind). No backend a suíte vem **antes** da implementação, conforme `.claude/RULES.md`. Valem o Design System da Spec 002 e os componentes de `front/src/app/shared/ui/`. As decisões referenciadas estão no `context.md`.
 
+> **Spec encerrada com pendências de configuração e verificação** (tasks 0.2, 0.3, 0.4 e 6.1 a 6.7). O código está entregue e coberto por testes. As pendências estão na seção "Pendências desta spec para a próxima", no fim, e no Trello (quadro Lidiane, coluna "Pendências (specs anteriores)").
+
 Ordem das fases:
 1. A preparação no Mercado Pago e na Vercel vem primeiro, porque sem `redirect_uri` cadastrada e sem PKCE ligado nenhum teste de ponta a ponta é possível.
 2. Depois vem o modelo e a cifragem, a base de tudo.
@@ -21,7 +23,7 @@ Ordem das fases:
 ## Fase 1: Backend - Modelo e Cifragem (TDD)
 - [x] **Task 1.1:** Acrescentar ao `schema.prisma` os models `MercadoPagoConnection` e `MercadoPagoOAuthState` e a coluna `mpConnectionId?` em `Order`, com `onDelete: Restrict` e comentários no padrão do arquivo (decisões 3 e 6).
 - [x] **Task 1.2:** Gerar a migration e acrescentar à mão o índice único parcial `WHERE disconnected_at IS NULL` (decisão 3). Aplicar com `prisma migrate deploy` **só com autorização explícita**: o banco é o de produção.
-  - Migration escrita, com o índice único parcial sobre `liveMode` (uma conexão ativa **por ambiente**; ver desvios no `context.md`). **Não aplicada:** o `migrate deploy` foi bloqueado pelo classificador de segurança. Falta rodar `cd api && npx prisma migrate deploy`.
+  - Migration escrita, com o índice único parcial sobre `liveMode` (uma conexão ativa **por ambiente**; ver desvios no `context.md`). O `migrate deploy` foi bloqueado para o agente pelo classificador de segurança, e o usuário aplicou a migration em 2026-09-25.
 - [x] **Task 1.3:** Escrever a suíte do `TokenCipher` (decisão 4): ida e volta; IV diferente a cada cifragem; adulteração e chave errada falham; chave com tamanho errado recusada na inicialização.
 - [x] **Task 1.4:** Implementar o `TokenCipher` com `node:crypto` (AES-256-GCM), lendo `MP_TOKEN_ENCRYPTION_KEY` pelo `payments.config.ts`.
 
@@ -94,3 +96,10 @@ Ordem das fases:
 - [ ] **Task 6.5:** Desconectar no painel: a loja fecha e `POST /orders` dá 503. Reconectar: a loja abre.
 - [ ] **Task 6.6:** Abrir um link já usado e um link vencido: a página de retorno mostra `usado` e `expirado`.
 - [ ] **Task 6.7:** Antes de produção: conectar a conta real do vendedor (KYC nível 6) e cadastrar no painel de finanças as taxas da conta dele.
+
+## Pendências desta spec para a próxima
+
+- [ ] **Subir os segredos na Vercel (task 0.3).** `MP_CLIENT_SECRET`, `MP_TOKEN_ENCRYPTION_KEY` e `CRON_SECRET`, em produção e preview. [Card](https://trello.com/c/bgFBefqp)
+- [ ] **URL de retorno do OAuth para o preview da API.** Hoje só a URL de produção está cadastrada, e a conexão feita pelo preview voltaria para a API de produção. Precisa de um domínio fixo de preview, da URL cadastrada na aplicação e do `MP_OAUTH_REDIRECT_URI` do preview. [Card](https://trello.com/c/MMypS7OC)
+- [ ] **Verificação em sandbox (tasks 0.2, 0.4 e 6.1 a 6.6).** Usuários de teste, conexão, `offline_access`, compra por PIX e cartão, order sem `marketplace_fee`, webhook, estorno, desconexão e links usado e vencido. Tem o risco do token `TEST-` na Orders API. [Card](https://trello.com/c/OFOW0gkA)
+- [ ] **Conta real em produção (task 6.7).** Depois do deploy da 020, a loja de produção fica fechada até a conta do vendedor ser conectada. [Card](https://trello.com/c/pETrDOmX)
