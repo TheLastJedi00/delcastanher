@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessService } from './access.service';
+import { BundleOffer, BundlesService, OfferModule } from './bundles.service';
 
 /**
  * Modulo na vitrine.
@@ -24,6 +25,15 @@ export interface StoreModuleItem {
 }
 
 /**
+ * Vitrine publica (Spec 019, decisao 10): os modulos avulsos e o pacote ativo
+ * com o lote vigente. Nada de quem pergunta — a rota nem sabe quem e.
+ */
+export interface StoreOffer {
+  modules: OfferModule[];
+  bundle: BundleOffer | null;
+}
+
+/**
  * Vitrine da loja de modulos (Spec 014).
  *
  * Ela responde uma pergunta so — "o que existe, quanto custa e o que eu ja
@@ -34,7 +44,27 @@ export class StoreService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: AccessService,
+    private readonly bundles: BundlesService,
   ) {}
+
+  /**
+   * Oferta publica para o `/planos` e para a loja (Spec 019, decisao 10).
+   *
+   * O `/planos` e prerenderizado, e um preco gravado no HTML do build seria o
+   * do dia do deploy — por isso a pagina le isto no navegador. Quem decide o
+   * lote cobrado e o `POST /orders`, e nao esta leitura.
+   */
+  async offer(): Promise<StoreOffer> {
+    const [modules, bundle] = await Promise.all([
+      this.prisma.module.findMany({
+        orderBy: { order: 'asc' },
+        select: { order: true, title: true, priceCents: true },
+      }),
+      this.bundles.offer(),
+    ]);
+
+    return { modules, bundle };
+  }
 
   /** Catalogo na ordem da trilha, com o estado de acesso do solicitante. */
   async catalog(user: AuthUser): Promise<StoreModuleItem[]> {
