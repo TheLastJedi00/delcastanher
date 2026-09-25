@@ -18,13 +18,13 @@ datasource db {
 /// que continua sendo a fonte de verdade da autenticacao: aqui ficam apenas os
 /// dados de perfil e o estado do onboarding.
 model User {
-  id                  String   @id
-  email               String   @unique
+  id                  String  @id
+  email               String  @unique
   name                String?
   bio                 String?
   phone               String?
   linkedin            String?
-  onboardingCompleted Boolean  @default(false)
+  onboardingCompleted Boolean @default(false)
 
   /// **Espelho de leitura** do custom claim `role` do Firebase, que continua
   /// sendo a fonte da autorizacao: `FirebaseAuthGuard` e `RolesGuard` decidem
@@ -35,19 +35,19 @@ model User {
   /// Escrita em duas portas: `PATCH /admin/users/:id/role`, sempre depois do
   /// `setCustomUserClaims`, e a propria entrada do usuario, que reconcilia o
   /// espelho com o claim que veio no token (decisao 4).
-  role                Role     @default(aluno)
+  role Role @default(aluno)
 
   /// Ultima entrada na plataforma, carimbada em `GET /users/me` — e nao a cada
   /// requisicao autenticada, que poria um UPDATE no caminho quente. A
   /// granularidade e de sessao, nao de clique (Spec 013, decisao 5). Nulo
   /// significa "nao acessou desde que a coluna existe", e nao "inativo".
-  lastSeenAt          DateTime?
+  lastSeenAt DateTime?
 
   /// Preenchido enquanto a conta esta bloqueada; espelha o `disabled` do
   /// Firebase, que e quem de fato recusa o login. Bloquear nao apaga nada:
   /// exclusao de conta e o direito de eliminacao da Spec 009, outro fluxo
   /// (Spec 013, decisao 9).
-  blockedAt           DateTime?
+  blockedAt DateTime?
 
   /// Aceite da Politica de Privacidade, registrado no onboarding — o primeiro
   /// passo autenticado, e o unico lugar onde existe usuario para gravar: o
@@ -62,7 +62,7 @@ model User {
   /// fazem e "este titular aceitou, quando, e qual versao" — uma linha por
   /// usuario responde. "Quantas vezes aceitou ao longo do tempo" nao e
   /// perguntado por nenhuma tela desta plataforma.
-  policyAcceptedAt      DateTime?
+  policyAcceptedAt DateTime?
 
   /// Versao vigente no momento do aceite (ex.: `2026-09-13`). Sem ela,
   /// "aceitou em 18/09" nao diz **o que** foi aceito, e a proxima revisao do
@@ -70,8 +70,8 @@ model User {
   /// qual o `ConsentRecord` do front ja carrega `policyVersion`.
   policyAcceptedVersion String?
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   progress     LessonProgress[]
   certificates Certificate[]
@@ -112,6 +112,7 @@ model Course {
 
   modules      Module[]
   certificates Certificate[]
+  bundles      Bundle[]
 
   @@map("courses")
 }
@@ -144,11 +145,12 @@ model Module {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course       Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons      Lesson[]
   certificates Certificate[]
   orderItems   OrderItem[]
   accesses     ModuleAccess[]
+  bundles      BundleModule[]
 
   @@unique([courseId, order])
   @@map("modules")
@@ -311,17 +313,17 @@ model Order {
   status OrderStatus @default(PENDING)
 
   /// Soma dos itens, em centavos, no instante da compra.
-  amountCents Int
-  method      PaymentMethodKind
+  amountCents  Int
+  method       PaymentMethodKind
   /// Sempre 1 no PIX; 1..6 no cartao, com juros do comprador (decisao 9).
-  installments Int              @default(1)
+  installments Int               @default(1)
 
   /// `ORD...` da Orders API do Mercado Pago: e a chave da reconsulta
   /// (`GET /v1/orders/:id`) e do webhook do topico `order` (decisoes 7 e 12).
-  mpOrderId String? @unique
+  mpOrderId      String? @unique
   /// `PAY...` da transacao dentro da order. Guardado porque e o numero que o
   /// aluno ve no extrato e o que o suporte procura no painel do Mercado Pago.
-  mpPaymentId String?
+  mpPaymentId    String?
   /// Par cru devolvido pelo gateway, sem traducao: quando o desfecho nao
   /// fizer sentido, quem responde e o que o Mercado Pago disse, e nao a nossa
   /// interpretacao dele. `mpStatusDetail` tambem e a origem da mensagem
@@ -330,7 +332,7 @@ model Order {
   mpStatusDetail String?
 
   /// Instante da aprovacao. E dele que saem os 6 meses de acesso (decisao 5).
-  paidAt DateTime?
+  paidAt    DateTime?
   /// Vencimento do PIX, espelhando o `expiration_time` enviado na order.
   /// Passado sem pagamento, o pedido vira `EXPIRED` (decisao 10).
   expiresAt DateTime?
@@ -346,19 +348,111 @@ model Order {
   /// (decisao 9).
   refundedAt DateTime?
 
+  /// Pacote comprado, quando o pedido e de pacote (Spec 019, decisao 6). Nulo
+  /// no pedido de modulos avulsos. Os itens continuam sendo um por modulo, com
+  /// o preco do lote rateado: e por eles que acesso, estorno e financeiro ja
+  /// funcionam.
+  bundleId            String?
+  /// Lote em que o pedido entrou. E a contagem destes pedidos, por situacao,
+  /// que ocupa as vagas do lote (decisao 3).
+  bundleTierId        String?
+  /// Copias do instante da compra, pela mesma razao do snapshot do item: o
+  /// recibo diz "Lote Fundador" mesmo depois de o lote ser renomeado.
+  bundleTitleSnapshot String?
+  tierNameSnapshot    String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items    OrderItem[]
-  accesses ModuleAccess[]
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items      OrderItem[]
+  accesses   ModuleAccess[]
+  /// `Restrict`: pacote e lote que ja venderam nao sao removiveis, como
+  /// modulo ja vendido nao e (Spec 014).
+  bundle     Bundle?        @relation(fields: [bundleId], references: [id], onDelete: Restrict)
+  bundleTier BundleTier?    @relation(fields: [bundleTierId], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt])
   // O indice acima e o historico de **um** aluno. O relatorio financeiro faz a
   // pergunta oposta — todos os pedidos de um periodo, por situacao — e e este
   // que ele percorre (Spec 016, decisao 12).
   @@index([status, paidAt])
+  // A contagem de vagas ocupadas de um lote (Spec 019, decisao 3), feita a
+  // cada leitura da oferta e a cada pedido de pacote.
+  @@index([bundleTierId, status])
   @@map("orders")
+}
+
+/// Pacote de modulos vendido como um item so na loja (Spec 019, decisao 2) —
+/// hoje, o Pacote de Lancamento com os 12 modulos da Imersao.
+///
+/// E entidade propria, e nao um "modulo 13" com preco de pacote (que entraria
+/// na trilha e na conclusao do curso) nem um desconto automatico ao marcar os
+/// 12 modulos (que nao teria lote, vaga nem nome no recibo).
+model Bundle {
+  id       String  @id @default(cuid())
+  slug     String  @unique
+  title    String
+  courseId String
+  /// Falso tira o pacote da loja e do `/planos` sem apagar historico.
+  active   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course  Course         @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  modules BundleModule[]
+  tiers   BundleTier[]
+  orders  Order[]
+
+  @@map("bundles")
+}
+
+/// Modulos do pacote, listados um a um — e nao "todos os modulos do curso".
+/// Um modulo novo criado no painel nao entra no pacote de quem ja comprou nem
+/// muda o que o pacote promete, a menos que alguem o inclua aqui.
+model BundleModule {
+  bundleId String
+  moduleId String
+
+  bundle Bundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  /// `Restrict`: modulo que esta num pacote nao e removivel.
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  @@id([bundleId, moduleId])
+  @@map("bundle_modules")
+}
+
+/// Lote de venda do pacote: Fundador, 2o, 3o e Preco oficial (Spec 019).
+///
+/// **Nao existe coluna "lote atual".** O lote vigente e o primeiro, na ordem,
+/// cujas vagas ocupadas ainda nao chegaram a capacidade (decisao 3). Guardado,
+/// ele criaria o estado impossivel de uma coluna dizendo "Fundador" com 25
+/// vendas no Fundador — e alguem precisaria virar a chave. Derivado, o lote
+/// vira no instante em que a ultima vaga e ocupada.
+///
+/// Ocupa vaga o pedido do lote em `PENDING` ainda no prazo, `PAID` ou
+/// `REFUNDED`. O estornado nao devolve a vaga: o lote que virou nao volta.
+model BundleTier {
+  id         String @id @default(cuid())
+  bundleId   String
+  order      Int
+  /// Nome sem emoji ("Lote Fundador"): ele vai para o snapshot do pedido, o
+  /// recibo e o painel. O emoji e copy de marketing e fica no front.
+  name       String
+  priceCents Int
+  /// Vagas do lote. **Nulo e "sem limite"**, e so o ultimo lote pode te-lo
+  /// nulo — senao os lotes seguintes nunca seriam alcancados.
+  capacity   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bundle Bundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([bundleId, order])
+  @@map("bundle_tiers")
 }
 
 /// Estados do pedido nesta plataforma. Sao **nossos**: a traducao a partir do
@@ -421,7 +515,7 @@ model GatewayFeeRate {
   /// valor e — nenhum float toca dinheiro nesta plataforma (decisao 2).
   percentBasisPoints Int
   /// Parcela fixa por transacao, em centavos. `0` quando nao ha.
-  fixedCents         Int   @default(0)
+  fixedCents         Int @default(0)
 
   /// Inicio da vigencia, **inclusivo**.
   validFrom DateTime
@@ -458,7 +552,7 @@ model OrderItem {
 
   createdAt DateTime @default(now())
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   /// `Restrict`, e nao `Cascade`: modulo ja vendido nao e removivel, pelo
   /// mesmo motivo que modulo ja certificado nao e (Spec 012, decisao 15).
   /// Apagar em cascata sumiria com o historico de uma compra paga.
@@ -485,14 +579,14 @@ model ModuleAccess {
   moduleId String
 
   /// Instante da ultima concessao — compra, recompra ou cortesia.
-  grantedAt DateTime @default(now())
+  grantedAt DateTime     @default(now())
   /// Fim do acesso. Vencido, o conteudo tranca, mas progresso e certificado
   /// continuam intactos: nada e apagado (decisoes 5 e 18).
   expiresAt DateTime
   source    AccessSource
   /// Preenchido quando a origem e uma compra. E por ele que o estorno revoga
   /// exatamente o que aquele pedido liberou (decisao 22).
-  orderId String?
+  orderId   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
