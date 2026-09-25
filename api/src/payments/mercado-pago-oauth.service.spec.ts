@@ -34,8 +34,9 @@ function mockFetch(response: unknown, ok = true, status = ok ? 200 : 400) {
   return fetchMock;
 }
 
-function service(): MercadoPagoOAuthService {
-  const config = { get: jest.fn((name: string) => CONFIG[name]) };
+function service(overrides: Record<string, string> = {}): MercadoPagoOAuthService {
+  const values = { ...CONFIG, ...overrides };
+  const config = { get: jest.fn((name: string) => values[name]) };
 
   return new MercadoPagoOAuthService(config as unknown as ConfigService);
 }
@@ -97,19 +98,20 @@ describe('MercadoPagoOAuthService (Spec 020)', () => {
         code: 'TG-code-1',
         code_verifier: 'verifier-1',
         redirect_uri: 'https://api.delcastanher.srv.br/mercadopago/oauth/callback',
-        test_token: 'false',
+        test_token: 'true',
       });
     });
 
-    // Desvio da decisao 13: `test_token: true` gera um token `TEST-`, que a
-    // Orders API recusa (Spec 014, decisao 24). O sandbox e o vendedor de TESTE
-    // autorizando pelo fluxo normal, que devolve `APP_USR-` da conta de teste.
-    it('nunca pede token de teste, nem em sandbox', async () => {
-      const fetchMock = mockFetch(TOKEN_RESPONSE);
-
+    // O ambiente e da branch: preview roda com `MP_SANDBOX=true` e credencial
+    // `TEST-`, producao com `APP_USR-`. O token do vendedor acompanha.
+    it('pede token de teste em sandbox, e de producao fora dele', async () => {
+      const sandbox = mockFetch(TOKEN_RESPONSE);
       await service().exchangeCode('TG-code-1', 'verifier-1');
+      expect(bodyOf(sandbox).test_token).toBe('true');
 
-      expect(bodyOf(fetchMock).test_token).toBe('false');
+      const production = mockFetch(TOKEN_RESPONSE);
+      await service({ MP_SANDBOX: 'false' }).exchangeCode('TG-code-1', 'verifier-1');
+      expect(bodyOf(production).test_token).toBe('false');
     });
 
     it('devolve tokens, conta, escopo, ambiente e vencimento', async () => {

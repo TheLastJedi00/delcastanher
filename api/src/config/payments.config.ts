@@ -51,6 +51,22 @@ export function mercadoPagoSandbox(config: ConfigService): boolean {
 }
 
 /**
+ * Aplicacao que o vendedor autoriza por OAuth (Spec 020). O `client_secret` e
+ * segredo, como o access token; os outros dois sao configuracao.
+ */
+export function mercadoPagoOAuthClient(config: ConfigService): {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+} {
+  return {
+    clientId: requiredEnv(config, 'MP_CLIENT_ID'),
+    clientSecret: requiredEnv(config, 'MP_CLIENT_SECRET'),
+    redirectUri: requiredEnv(config, 'MP_OAUTH_REDIRECT_URI'),
+  };
+}
+
+/**
  * Chave dos tokens do vendedor (Spec 020, decisao 4): 32 bytes em base64.
  *
  * O tamanho e conferido aqui, e nao no primeiro erro do `createCipheriv`: uma
