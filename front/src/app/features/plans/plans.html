@@ -77,6 +77,57 @@
       </div>
     </section>
 
+    <!-- Módulos avulsos: para quem quer comprar só um tema. -->
+    <section id="modulos" class="bg-white px-4 py-20 md:py-28" aria-labelledby="modulos-titulo">
+      <div class="mx-auto max-w-5xl">
+        <div class="mb-12" animateOnScroll="animate-fade-in-up">
+          <ui-section-header
+            align="center"
+            overline="Módulos avulsos"
+            title="Precisa de um tema só?"
+            subtitle="Cada módulo avulso libera 6 meses de acesso a ele, com as aulas, a apostila e os materiais do tema." />
+        </div>
+
+        @if (offerState() === 'loading') {
+          <ul class="grid gap-3 md:grid-cols-2" aria-busy="true" aria-label="Carregando os módulos">
+            @for (row of skeletonRows; track row) {
+              <li class="h-[4.5rem] animate-pulse rounded-2xl bg-slate-100"></li>
+            }
+          </ul>
+        } @else if (modules().length) {
+          <ul class="grid gap-3 md:grid-cols-2">
+            @for (module of modules(); track module.order) {
+              <li class="flex items-center justify-between gap-4 rounded-2xl border border-brand-navy/10 bg-brand-surface px-5 py-4">
+                <div class="min-w-0">
+                  <p class="text-xs font-bold uppercase tracking-[0.12em] text-brand-teal-deep">
+                    Módulo {{ module.order < 10 ? '0' + module.order : module.order }}
+                  </p>
+                  <h3 class="text-base font-semibold text-brand-navy">{{ module.title }}</h3>
+                </div>
+
+                <div class="flex shrink-0 flex-col items-end gap-1">
+                  <span class="text-lg font-extrabold text-brand-navy">{{ price(module.priceCents) }}</span>
+                  @if (module.priceCents !== null) {
+                    <a
+                      [routerLink]="['/loja']"
+                      [queryParams]="{ modulo: module.order }"
+                      class="text-sm font-semibold text-brand-teal-deep underline-offset-2 hover:underline">
+                      Comprar este módulo
+                    </a>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="text-center text-slate-600">
+            Os módulos avulsos estão na loja.
+            <a routerLink="/loja" class="font-semibold text-brand-teal-deep underline">Ver os módulos</a>
+          </p>
+        }
+      </div>
+    </section>
+
     <!-- Dúvidas -->
     <section id="duvidas" class="bg-white px-4 py-20 md:py-28">
       <div class="mx-auto max-w-3xl text-center">

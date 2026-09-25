@@ -58,6 +58,9 @@ export class Plans {
 
   protected readonly offerState = signal<OfferState>('loading');
 
+  /** Linhas do esqueleto da lista de modulos: as 12 da grade. */
+  protected readonly skeletonRows = Array.from({ length: 12 }, (_, index) => index);
+
   protected readonly bundle = computed(() => this.store.offer()?.bundle ?? null);
   protected readonly modules = computed(() => this.store.offer()?.modules ?? []);
   protected readonly tier = computed(() => this.bundle()?.tier ?? null);
