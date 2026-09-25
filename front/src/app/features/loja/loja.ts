@@ -208,6 +208,22 @@ import { UserService } from '../../core/services/user.service';
               <span class="text-slate-700">Total</span>
               <span class="text-2xl font-semibold text-brand-navy">{{ price(totalCents()) }}</span>
             </div>
+
+            <!-- Decisão 12: com três ou mais avulsos acima do lote, o pacote
+                 sai mais barato — e o resumo diz isso antes do pagamento. -->
+            @if (economy(); as deal) {
+              <div class="mt-4 rounded-xl bg-brand-teal/10 px-4 py-3" role="status">
+                <p class="text-sm text-brand-navy">
+                  O pacote com os 12 módulos sai por <strong>{{ price(deal.priceCents) }}</strong>
+                  no {{ deal.tierName }}.
+                </p>
+                <div class="mt-3">
+                  <ui-button variant="outline" size="sm" (click)="toggleBundle(deal.slug)">
+                    Trocar pelo pacote
+                  </ui-button>
+                </div>
+              </div>
+            }
           }
 
           <div class="mt-5">
@@ -258,6 +274,24 @@ export class Loja implements OnInit {
     const catalog = this.catalog();
 
     return catalog.length > 0 && catalog.every(module => module.access.unlocked);
+  });
+
+  /**
+   * Oferta de troca pelo pacote (decisao 12): tres ou mais avulsos e a soma
+   * acima do lote vigente. No Fundador isso acontece ja no terceiro modulo
+   * (3 x R$ 197 = R$ 591, contra R$ 590).
+   */
+  readonly economy = computed(() => {
+    const pack = this.bundle();
+    const tier = pack?.tier;
+
+    if (!pack || !tier || this.bundleSelected() || this.selected().length < 3) {
+      return null;
+    }
+
+    return this.totalCents() > tier.priceCents
+      ? { slug: pack.slug, priceCents: tier.priceCents, tierName: tierLabel(tier) }
+      : null;
   });
 
   /** Recarrega mesmo com catalogo em memoria: a compra pode ter vindo de outra aba. */
