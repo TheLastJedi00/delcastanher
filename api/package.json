@@ -28,6 +28,7 @@
     "spec016:cenario": "ts-node -P tsconfig.json scripts/spec016-cenario.ts",
     "spec019:precos": "ts-node -P tsconfig.json scripts/spec019-precos.ts",
     "spec019:concorrencia": "ts-node -P tsconfig.json scripts/spec019-concorrencia.ts",
+    "spec019:vagas": "ts-node -P tsconfig.json scripts/spec019-vagas.ts",
     "spec017:firebase-dominio": "ts-node -P tsconfig.json scripts/spec017-firebase-dominio.ts"
   },
   "dependencies": {
