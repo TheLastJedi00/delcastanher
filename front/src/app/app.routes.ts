@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { accessGuard } from './core/guards/access.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { authGuard } from './core/guards/auth.guard';
+import { guestGuard } from './core/guards/guest.guard';
 import { onboardingGuard } from './core/guards/onboarding.guard';
 import { PLANS_META } from './core/mocks/plans.mock';
 import { DEFAULT_SEO, SEO_DATA_KEY, courseSeoResolver, privateSeo } from './core/services/seo-route';
@@ -87,6 +88,9 @@ export const routes: Routes = [
   },
   {
     path: 'login',
+    // Quem ja tem sessao vai para a propria area em vez de ver o formulario de
+    // novo (Spec 019, decisao 16).
+    canActivate: [guestGuard],
     data: {
       [SEO_DATA_KEY]: {
         title: 'Entrar | Delcastanher',
@@ -111,6 +115,12 @@ export const routes: Routes = [
     path: 'loja',
     canActivate: [authGuard, onboardingGuard],
     data: { [SEO_DATA_KEY]: privateSeo('Loja de módulos') },
+    // Spec 019, decisao 15: a loja mora no mesmo shell do AVA. Solta, ela era
+    // uma pagina sem sidebar nem cabecalho, e o aluno que saia da trilha para
+    // comprar so voltava ao painel digitando a URL. O `path` continua `loja`:
+    // e por ele que o `authGuard` decide o papel, e mudar a arvore sem mante-lo
+    // aqui reabriria o laco `/ava` -> `/loja` da Spec 014.
+    loadComponent: () => import('./features/student/layout/layout').then(m => m.StudentLayout),
     loadChildren: () => import('./features/loja/loja.routes').then(m => m.LOJA_ROUTES),
   },
   {

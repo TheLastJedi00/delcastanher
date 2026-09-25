@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
 import { RouterLink } from '@angular/router';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
@@ -21,7 +22,7 @@ import { NavHeader } from '../../shared/ui/nav-header/nav-header';
   imports: [RouterLink, NavHeader, Footer, Button],
   template: `
     <div class="flex min-h-screen flex-col text-slate-800">
-      <ui-nav-header variant="landing" />
+      <ui-nav-header variant="landing" [authenticated]="authenticated()" />
 
       <main class="flex flex-1 items-center justify-center px-4 py-20">
         <div class="mx-auto max-w-lg text-center">
@@ -51,4 +52,7 @@ import { NavHeader } from '../../shared/ui/nav-header/nav-header';
     </div>
   `,
 })
-export class NotFound {}
+export class NotFound {
+  /** Rotulo do botao do cabecalho conforme a sessao (Spec 019, decisao 16). */
+  protected readonly authenticated = inject(AuthService).isAuthenticated;
+}

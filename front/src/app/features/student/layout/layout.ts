@@ -95,5 +95,9 @@ export class StudentLayout {
     { icon: 'book', label: 'Trilha de Estudos', link: '/ava/trilha' },
     { icon: 'download', label: 'Materiais', link: '/ava/materiais' },
     { icon: 'article', label: 'Artigos', link: '/ava/artigos' },
+    // Spec 019, decisao 15: o caminho de compra deixa de existir so no
+    // cadeado da trilha. Quem ja tem acesso e quer o pacote ou outro modulo
+    // chega aqui, e volta ao painel pela mesma sidebar.
+    { icon: 'bag', label: 'Comprar módulos', link: '/loja' },
   ];
 }

@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 /** Chaves de icone suportadas pela sidebar. */
 export type SidebarIcon =
   | 'home' | 'user' | 'book' | 'download' | 'article'
-  | 'logout' | 'grid' | 'play' | 'mail' | 'document' | 'chart';
+  | 'logout' | 'grid' | 'play' | 'mail' | 'document' | 'chart' | 'bag';
 
 const PATHS: Record<SidebarIcon, string> = {
   home: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
@@ -18,6 +18,8 @@ const PATHS: Record<SidebarIcon, string> = {
   document: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
   // Barras: a aba Financeiro e a primeira do painel a ser, ela propria, um
   // relatorio (Spec 016).
+  // Sacola: a loja de modulos dentro do AVA (Spec 019, decisao 15).
+  bag: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
   chart: 'M9 19v-6a1 1 0 00-1-1H5a1 1 0 00-1 1v6a1 1 0 001 1h3a1 1 0 001-1zm0 0V9a1 1 0 011-1h3a1 1 0 011 1v10m0 0h4a1 1 0 001-1V5a1 1 0 00-1-1h-3a1 1 0 00-1 1v14z',
 };
 

@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { COMPANY } from './company-info';
 import { LEGAL_PLACEHOLDER } from './legal-page';
@@ -20,7 +22,7 @@ describe('PoliticaDePrivacidade', () => {
   beforeEach(() => {
     localStorage.clear();
 
-    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.configureTestingModule({ providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] });
 
     fixture = TestBed.createComponent(PoliticaDePrivacidade);
     fixture.detectChanges();
