@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { Badge } from '../../shared/ui/badge/badge';
 import { Button } from '../../shared/ui/button/button';
 import { Card } from '../../shared/ui/card/card';
@@ -17,7 +17,7 @@ import { UserService } from '../../core/services/user.service';
 @Component({
   selector: 'app-loja',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, PageContainer, Card, Button, Badge],
+  imports: [PageContainer, Card, Button, Badge],
   template: `
     <ui-page-container>
       <header class="mb-8">
@@ -132,11 +132,6 @@ import { UserService } from '../../core/services/user.service';
 
           <p class="mt-4 text-xs text-slate-500">
             Pagamento por PIX ou cartão de crédito, processado pelo Mercado Pago.
-          </p>
-
-          <p class="mt-4 text-xs text-slate-500">
-            Precisa só ajustar seus dados?
-            <a routerLink="/ava/perfil" class="text-brand-teal-deep underline">Abrir meu perfil</a>.
           </p>
         </ui-card>
       </div>

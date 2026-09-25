@@ -115,6 +115,12 @@ export const routes: Routes = [
     path: 'loja',
     canActivate: [authGuard, onboardingGuard],
     data: { [SEO_DATA_KEY]: privateSeo('Loja de módulos') },
+    // Spec 019, decisao 15: a loja mora no mesmo shell do AVA. Solta, ela era
+    // uma pagina sem sidebar nem cabecalho, e o aluno que saia da trilha para
+    // comprar so voltava ao painel digitando a URL. O `path` continua `loja`:
+    // e por ele que o `authGuard` decide o papel, e mudar a arvore sem mante-lo
+    // aqui reabriria o laco `/ava` -> `/loja` da Spec 014.
+    loadComponent: () => import('./features/student/layout/layout').then(m => m.StudentLayout),
     loadChildren: () => import('./features/loja/loja.routes').then(m => m.LOJA_ROUTES),
   },
   {
