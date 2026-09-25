@@ -9,6 +9,7 @@ import {
   paymentsEnabled,
 } from '../config/payments.config';
 import { MAX_INSTALLMENTS } from './dto/create-order.dto';
+import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { StoreModuleItem, StoreOffer, StoreService } from './store.service';
 
 /** Configuracao que o navegador precisa para tokenizar o cartao. */
@@ -17,8 +18,13 @@ export interface PaymentConfigView {
   publicKey: string | null;
   /** Verdadeiro em ambiente de teste: a tela avisa que a cobranca e simulada. */
   sandbox: boolean;
-  /** Falso quando a loja esta sem credencial configurada. */
+  /** Falso quando a loja nao pode cobrar; o motivo vai em `reason`. */
   enabled: boolean;
+  /**
+   * Por que a loja esta fechada: sem credencial da aplicacao, ou sem conta
+   * recebedora conectada neste ambiente (Spec 020, decisao 7). Nulo aberta.
+   */
+  reason: 'not_configured' | 'seller_not_connected' | null;
   /** Teto de parcelas da plataforma (decisao 9). */
   maxInstallments: number;
 }
@@ -36,6 +42,7 @@ export class StoreController {
   constructor(
     private readonly store: StoreService,
     private readonly config: ConfigService,
+    private readonly connections: MercadoPagoConnectionService,
   ) {}
 
   /**
@@ -66,13 +73,19 @@ export class StoreController {
    */
   @Get('payment-config')
   @UseGuards(FirebaseAuthGuard)
-  paymentConfig(): PaymentConfigView {
-    const enabled = paymentsEnabled(this.config);
+  async paymentConfig(): Promise<PaymentConfigView> {
+    const reason = !paymentsEnabled(this.config)
+      ? 'not_configured'
+      : !(await this.connections.hasActive())
+        ? 'seller_not_connected'
+        : null;
+    const enabled = reason === null;
 
     return {
       publicKey: enabled ? mercadoPagoPublicKey(this.config) : null,
       sandbox: mercadoPagoSandbox(this.config),
       enabled,
+      reason,
       maxInstallments: MAX_INSTALLMENTS,
     };
   }

@@ -259,6 +259,17 @@ describe('MercadoPagoConnectionService (Spec 020)', () => {
 
       await expect(service.activeCredential(NOW)).resolves.toBeNull();
     });
+
+    it('abre a loja so com conta ativa e token no prazo, sem renovar', async () => {
+      const valid = buildWith((cipher) => [row(cipher)]);
+      await expect(valid.service.hasActive(NOW)).resolves.toBe(true);
+
+      const expired = buildWith((cipher) => [row(cipher, { expiresAt: new Date(NOW.getTime() - DAY) })]);
+      await expect(expired.service.hasActive(NOW)).resolves.toBe(false);
+      expect(expired.oauth.refresh).not.toHaveBeenCalled();
+
+      await expect(build().service.hasActive(NOW)).resolves.toBe(false);
+    });
   });
 
   describe('credencial para consultar um pedido (decisao 6)', () => {

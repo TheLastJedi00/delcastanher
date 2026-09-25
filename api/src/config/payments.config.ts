@@ -28,9 +28,13 @@ export function mercadoPagoWebhookSecret(config: ConfigService): string {
 }
 
 /**
- * Se o pagamento esta configurado. Falso desliga a loja com uma mensagem
+ * Se a aplicacao esta configurada. Falso desliga a loja com uma mensagem
  * honesta em vez de estourar 500 no meio do checkout — o que interessa em
  * desenvolvimento, onde nem toda maquina tem credencial.
+ *
+ * Desde a Spec 020 isso e **metade** da condicao: a loja so abre com uma conta
+ * recebedora conectada (decisao 7), o que o `StoreController` pergunta ao
+ * `MercadoPagoConnectionService`.
  */
 export function paymentsEnabled(config: ConfigService): boolean {
   return !!optionalEnv(config, 'MP_ACCESS_TOKEN') && !!optionalEnv(config, 'MP_PUBLIC_KEY');
