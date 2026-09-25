@@ -183,17 +183,19 @@ Ordem das fases:
 - [x] **Task 7.5:** Testar `/login?redirect=https://example.com` e `/login?redirect=//example.com` logado e deslogado: nenhum dos dois sai do site.
   - Logado, `/login?redirect=https://example.com` terminou em `/admin`. Deslogado, o `authGuard` gerou `/login?redirect=%2Floja%3Fpacote%3Dimersao-rh-lancamento` a partir do CTA do `/planos`.
 - [ ] **Task 7.6:** No `/planos`, conferir o esqueleto, o preço do Fundador, a âncora de R$ 2.564,00, "Restam 20 vagas" e a lista de módulos com os preços da tabela. Em mobile, tablet e desktop, sem salto de layout quando o preço chega.
-  - Parcial. Desktop conferido: faixa "Restam 20 vagas no 🔥 Lote Fundador", R$ 590,00, ancora R$ 2.564,00 e os 12 modulos com os precos da tabela. Mobile e tablet nao foram conferidos no navegador.
+  - Parcial. Desktop conferido: faixa "Restam 20 vagas no 🔥 Lote Fundador", R$ 590,00, ancora R$ 2.564,00 e os 12 modulos com os precos da tabela. Mobile e tablet nao foram conferidos: a janela do Chrome estava maximizada e nao aceitou redimensionar.
+  - **Defeito achado e corrigido:** a faixa de escassez era inserida acima do card so quando a oferta chegava, e empurrava a pagina. Agora uma faixa-esqueleto ocupa o lugar dela durante o carregamento. Depois da correcao, o `PerformanceObserver` de `layout-shift` registrou CLS 0 no recarregamento do `/planos` (desktop). A altura reservada no mobile (`5.5rem`) e estimativa, sem conferencia visual.
 - [ ] **Task 7.7:** No painel, baixar a capacidade do Fundador para o número de vagas já ocupadas e conferir que `/planos` e `/loja` passam a mostrar o 2º Lote a R$ 797 em até 30 s. Depois, restaurar para 20.
-  - Nao feito: baixar a capacidade do Fundador altera o lote vigente **em producao**. O painel foi conferido com uma recusa, que nao grava: "sem limite" no 2º Lote devolveu "Só o último lote pode ficar sem limite de vagas." e a oferta seguiu com 20 vagas.
+  - Nao feito. O usuario liberou testes em producao (app nao lancado), mas o classificador de seguranca bloqueou digitar a capacidade nova no painel; fica para o usuario. O painel foi conferido com uma recusa, que nao grava: "sem limite" no 2º Lote devolveu "Só o último lote pode ficar sem limite de vagas." e a oferta seguiu com 20 vagas.
 - [ ] **Task 7.8:** Comprar o pacote em sandbox por PIX e por cartão:
   - o pedido sai no lote vigente com o valor do lote;
   - o cartão oferece até 12x com o valor que o Mercado Pago devolve;
   - aprovado, os 12 módulos abrem na trilha com 6 meses;
   - a vaga aparece como ocupada na oferta e no painel;
   - a aba Financeiro mostra "Pacote de Lançamento · Lote …".
-  - Nao feito: a Orders API recusa credenciais `TEST-` (Spec 014, decisao 24), e um pedido de pacote contra o banco de producao reservaria uma vaga real do Fundador por 30 minutos.
-- [ ] **Task 7.9:** Abrir o PIX do pacote, deixar expirar (ou cancelar gerando outro pedido) e conferir que a vaga volta a ficar livre.
-  - Nao feito, pelo mesmo motivo da 7.8. A regra de vaga liberada esta coberta no `bundles.service.spec`.
+  - Pagamento de ponta a ponta nao feito: o `api/.env` tem credenciais `TEST-`, que a Orders API recusa (Spec 014, decisao 24). Falta a aplicacao criada na conta do vendedor de teste, o que exige login no painel do Mercado Pago.
+  - A parte do banco foi feita no pacote real com `npm run spec019:vagas` (usuario temporario, pedido pelo mesmo `placeOrder` do checkout): pedido no Fundador com 59000 centavos e 12 itens somando 59000; vagas 20 -> 19 com PIX pendente no prazo; pago e estornado ocupam. Tudo apagado no fim, com 20 vagas de novo.
+- [x] **Task 7.9:** Abrir o PIX do pacote, deixar expirar (ou cancelar gerando outro pedido) e conferir que a vaga volta a ficar livre.
+  - Feito no banco com `npm run spec019:vagas`: PIX vencido libera (19 -> 20) e pedido cancelado libera (19 -> 20). O fluxo pela tela do PIX depende das credenciais da 7.8.
 - [ ] **Task 7.10:** Conferir a hierarquia de cabeçalhos do `/planos` e da `/loja`, a navegação por teclado da seleção exclusiva e o anúncio do valor alterado para leitor de tela.
   - Nao feito no navegador. O aviso de valor alterado usa `role="alert"`, e a selecao usa `checkbox` com `label` e `fieldset`/`legend`.
