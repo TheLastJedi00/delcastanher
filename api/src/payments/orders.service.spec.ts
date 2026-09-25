@@ -583,3 +583,52 @@ describe('OrdersService — pedido de pacote', () => {
     expect(view.bundle).toBeNull();
   });
 });
+
+/**
+ * Spec 019, decisao 7: aprovado, o pacote libera os 12 modulos; estornado,
+ * revoga os 12. A extensao de quem ja tinha o modulo ativo e do `grant`, e a
+ * suite do `AccessService` ja a cobre ("soma seis meses ao que resta").
+ */
+describe('OrdersService — aprovacao e estorno do pacote', () => {
+  const REFUNDED_ORDER = { ...APPROVED_ORDER, status: 'refunded', statusDetail: 'refunded' };
+
+  it('aprovado, concede acesso de compra nos 12 modulos do pacote', async () => {
+    const { service, access } = await build({ storedOrder: PLACED.order, gatewayOrder: APPROVED_ORDER });
+
+    await service.applyFromGateway('ORD-2');
+
+    expect(access.grant).toHaveBeenCalledTimes(12);
+    expect(access.grant.mock.calls.map(([input]) => input.moduleId)).toEqual(
+      BUNDLE_ITEMS.map((item) => item.moduleId),
+    );
+    expect(access.grant).toHaveBeenCalledWith({
+      userId: 'uid-aluno',
+      moduleId: 'mod-1',
+      source: 'PURCHASE',
+      orderId: 'ord-b',
+    });
+  });
+
+  it('reprocessar a mesma order aprovada nao concede de novo', async () => {
+    const { service, access } = await build({
+      storedOrder: PLACED.order,
+      gatewayOrder: APPROVED_ORDER,
+      transitionCount: 0,
+    });
+
+    await service.applyFromGateway('ORD-2');
+
+    expect(access.grant).not.toHaveBeenCalled();
+  });
+
+  it('estornado, revoga tudo o que o pedido liberou', async () => {
+    const { service, access } = await build({
+      storedOrder: { ...PLACED.order, status: 'PAID' },
+      gatewayOrder: REFUNDED_ORDER,
+    });
+
+    await service.applyFromGateway('ORD-2');
+
+    expect(access.revokeByOrder).toHaveBeenCalledWith('ord-b');
+  });
+});
