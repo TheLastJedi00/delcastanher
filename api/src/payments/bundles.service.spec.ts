@@ -12,6 +12,8 @@ import {
 const NOW = new Date('2026-09-25T12:00:00.000Z');
 const LATER = new Date(NOW.getTime() + 10 * 60 * 1000);
 const EARLIER = new Date(NOW.getTime() - 10 * 60 * 1000);
+/** Criado ha mais de 30 minutos: a reserva sem prazo ja venceu. */
+const STALE = new Date(NOW.getTime() - 31 * 60 * 1000);
 
 /** Os quatro lotes da Spec 019, fora de ordem de proposito. */
 const TIERS: TierRow[] = [
@@ -24,22 +26,28 @@ const TIERS: TierRow[] = [
 describe('Lote vigente (Spec 019, decisao 3)', () => {
   describe('occupiesSeat — o que ocupa uma vaga', () => {
     it('pago e estornado ocupam: o lote que virou nao volta', () => {
-      expect(occupiesSeat({ status: 'PAID', expiresAt: null }, NOW)).toBe(true);
-      expect(occupiesSeat({ status: 'REFUNDED', expiresAt: null }, NOW)).toBe(true);
+      expect(occupiesSeat({ status: 'PAID', expiresAt: null, createdAt: STALE }, NOW)).toBe(true);
+      expect(occupiesSeat({ status: 'REFUNDED', expiresAt: null, createdAt: STALE }, NOW)).toBe(true);
     });
 
     it('pendente no prazo reserva a vaga; vencido nao', () => {
-      expect(occupiesSeat({ status: 'PENDING', expiresAt: LATER }, NOW)).toBe(true);
-      expect(occupiesSeat({ status: 'PENDING', expiresAt: EARLIER }, NOW)).toBe(false);
+      expect(occupiesSeat({ status: 'PENDING', expiresAt: LATER, createdAt: EARLIER }, NOW)).toBe(true);
+      expect(occupiesSeat({ status: 'PENDING', expiresAt: EARLIER, createdAt: STALE }, NOW)).toBe(false);
     });
 
-    it('pendente ainda sem prazo (cartao em processamento) reserva a vaga', () => {
-      expect(occupiesSeat({ status: 'PENDING', expiresAt: null }, NOW)).toBe(true);
+    it('pendente ainda sem prazo (cartao em processamento) reserva a vaga por 30 minutos', () => {
+      expect(occupiesSeat({ status: 'PENDING', expiresAt: null, createdAt: EARLIER }, NOW)).toBe(true);
+    });
+
+    // Pedido gravado cuja chamada ao gateway falhou fica pendente e sem prazo:
+    // sem este teto, ele seguraria a vaga do lote para sempre.
+    it('pendente sem prazo criado ha mais de 30 minutos nao segura a vaga', () => {
+      expect(occupiesSeat({ status: 'PENDING', expiresAt: null, createdAt: STALE }, NOW)).toBe(false);
     });
 
     it('cancelado, expirado e recusado liberam a vaga', () => {
       for (const status of ['CANCELLED', 'EXPIRED', 'REJECTED'] as const) {
-        expect(occupiesSeat({ status, expiresAt: LATER }, NOW)).toBe(false);
+        expect(occupiesSeat({ status, expiresAt: LATER, createdAt: EARLIER }, NOW)).toBe(false);
       }
     });
   });
@@ -80,7 +88,13 @@ describe('Lote vigente (Spec 019, decisao 3)', () => {
         bundleTierId: { in: ['t1', 't2'] },
         OR: [
           { status: { in: ['PAID', 'REFUNDED'] } },
-          { status: 'PENDING', OR: [{ expiresAt: null }, { expiresAt: { gt: NOW } }] },
+          {
+            status: 'PENDING',
+            OR: [
+              { expiresAt: { gt: NOW } },
+              { expiresAt: null, createdAt: { gt: new Date(NOW.getTime() - 30 * 60 * 1000) } },
+            ],
+          },
         ],
       });
     });
@@ -250,5 +264,121 @@ describe('allocateByWeight — rateio do lote pelos itens (Spec 019, decisao 6)'
     const parts = allocateByWeight(1000, [0, 0, 0]);
 
     expect(parts).toEqual([333, 333, 334]);
+  });
+});
+
+/**
+ * Transacao do pedido de pacote (Spec 019, decisao 5). O double registra a
+ * ordem das chamadas: a trava precisa vir antes da contagem, e a contagem
+ * antes da gravacao — em outra ordem, a trava nao protege nada.
+ */
+function buildPlace(
+  options: { bundle?: unknown; groups?: { bundleTierId: string; _count: { _all: number } }[] } = {},
+) {
+  const calls: string[] = [];
+  const bundle = options.bundle === undefined ? bundleRow() : options.bundle;
+  const tx = {
+    $queryRaw: jest.fn(async () => {
+      calls.push('lock');
+      return [];
+    }),
+    bundle: {
+      findUnique: jest.fn(async () => {
+        calls.push('bundle');
+        return bundle;
+      }),
+    },
+    order: {
+      updateMany: jest.fn(async () => {
+        calls.push('cancel');
+        return { count: 1 };
+      }),
+      groupBy: jest.fn(async () => {
+        calls.push('count');
+        return options.groups ?? [];
+      }),
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        calls.push('create');
+        return { id: 'ord-b', ...data, items: (data.items as { create: unknown[] }).create };
+      }),
+    },
+  };
+  const prisma = { $transaction: jest.fn(async (fn: (client: unknown) => unknown) => fn(tx)) };
+
+  return Test.createTestingModule({
+    providers: [BundlesService, { provide: PrismaService, useValue: prisma }],
+  })
+    .compile()
+    .then((moduleRef) => ({ service: moduleRef.get(BundlesService), tx, prisma, calls }));
+}
+
+const PLACE = { slug: 'imersao-rh-lancamento', userId: 'uid-aluno', method: 'PIX' as const, installments: 1 };
+
+describe('BundlesService.placeOrder (Spec 019, decisoes 5 e 6)', () => {
+  it('trava o pacote, cancela o pendente, conta as vagas e so entao grava', async () => {
+    const { service, calls, prisma } = await buildPlace();
+
+    await service.placeOrder(PLACE, NOW);
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(['bundle', 'lock', 'cancel', 'count', 'create']);
+  });
+
+  it('cancela o pendente anterior do aluno, liberando a vaga que ele segurava', async () => {
+    const { service, tx } = await buildPlace();
+
+    await service.placeOrder(PLACE, NOW);
+
+    expect(tx.order.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'uid-aluno', status: 'PENDING' },
+      data: { status: 'CANCELLED' },
+    });
+  });
+
+  it('grava o lote vigente, os snapshots, o valor do lote e 12 itens rateados', async () => {
+    const { service, tx } = await buildPlace();
+
+    const placed = await service.placeOrder(PLACE, NOW);
+    const data = tx.order.create.mock.calls[0][0].data as Record<string, unknown>;
+    const items = (data.items as { create: { moduleId: string; priceCents: number; titleSnapshot: string }[] })
+      .create;
+
+    expect(data).toMatchObject({
+      userId: 'uid-aluno',
+      amountCents: 59000,
+      method: 'PIX',
+      installments: 1,
+      bundleId: 'b1',
+      bundleTierId: 't1',
+      bundleTitleSnapshot: 'Pacote de Lançamento — Imersão RH Estratégico',
+      tierNameSnapshot: 'Lote Fundador',
+    });
+    expect(items).toHaveLength(12);
+    expect(items.map((item) => item.moduleId)).toEqual(
+      Array.from({ length: 12 }, (_, index) => `m${index + 1}`),
+    );
+    expect(items.reduce((sum, item) => sum + item.priceCents, 0)).toBe(59000);
+    expect(placed.items).toHaveLength(12);
+  });
+
+  it('com o Fundador esgotado, o pedido entra no 2º Lote', async () => {
+    const { service, tx } = await buildPlace({ groups: [{ bundleTierId: 't1', _count: { _all: 20 } }] });
+
+    await service.placeOrder(PLACE, NOW);
+
+    expect(tx.order.create.mock.calls[0][0].data).toMatchObject({
+      amountCents: 79700,
+      bundleTierId: 't2',
+      tierNameSnapshot: '2º Lote',
+    });
+  });
+
+  it('recusa pacote inexistente ou inativo sem gravar nada', async () => {
+    for (const bundle of [null, bundleRow({ active: false })]) {
+      const { service, tx } = await buildPlace({ bundle });
+
+      await expect(service.placeOrder(PLACE, NOW)).rejects.toMatchObject({ status: 404 });
+      expect(tx.order.create).not.toHaveBeenCalled();
+    }
   });
 });

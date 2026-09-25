@@ -44,24 +44,39 @@ export interface BundleOffer {
 /** Estados que ocupam vaga independentemente do prazo. */
 const SEAT_TAKEN: OrderStatus[] = ['PAID', 'REFUNDED'];
 
+/** Janela da reserva: a mesma validade do PIX (Spec 014, decisao 10). */
+export const SEAT_HOLD_MS = 30 * 60 * 1000;
+
 /**
  * Um pedido ocupa vaga do lote se esta pago, estornado ou pendente dentro do
  * prazo (decisao 3).
  *
  * - **Pendente reserva.** Sem isso, 25 pessoas gerariam o QR do Fundador ao
- *   mesmo tempo e todas pagariam R$ 590. Pendente sem prazo e o cartao em
- *   processamento, que tambem reserva.
+ *   mesmo tempo e todas pagariam R$ 590. Pendente sem prazo (cartao em
+ *   processamento, ou pedido cuja chamada ao gateway falhou) reserva por 30
+ *   minutos a partir da criacao — sem esse teto, um pedido que nunca chegou ao
+ *   Mercado Pago seguraria a vaga para sempre. O estado do pedido nao muda: um
+ *   cartao aprovado depois disso continua sendo aprovado.
  * - **Estornado nao devolve.** Um "restam 3" que vira "restam 4" depois de um
  *   estorno desmente a escassez que a pagina anunciou.
  *
  * `occupiedWhere` e a mesma regra escrita como consulta; as duas mudam juntas.
  */
-export function occupiesSeat(order: { status: OrderStatus; expiresAt: Date | null }, now: Date): boolean {
+export function occupiesSeat(
+  order: { status: OrderStatus; expiresAt: Date | null; createdAt: Date },
+  now: Date,
+): boolean {
   if (SEAT_TAKEN.includes(order.status)) {
     return true;
   }
 
-  return order.status === 'PENDING' && (order.expiresAt === null || order.expiresAt > now);
+  if (order.status !== 'PENDING') {
+    return false;
+  }
+
+  return order.expiresAt !== null
+    ? order.expiresAt > now
+    : order.createdAt.getTime() > now.getTime() - SEAT_HOLD_MS;
 }
 
 export function occupiedWhere(tierIds: string[], now: Date): Prisma.OrderWhereInput {
@@ -69,7 +84,13 @@ export function occupiedWhere(tierIds: string[], now: Date): Prisma.OrderWhereIn
     bundleTierId: { in: tierIds },
     OR: [
       { status: { in: SEAT_TAKEN } },
-      { status: 'PENDING', OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      {
+        status: 'PENDING',
+        OR: [
+          { expiresAt: { gt: now } },
+          { expiresAt: null, createdAt: { gt: new Date(now.getTime() - SEAT_HOLD_MS) } },
+        ],
+      },
     ],
   };
 }
