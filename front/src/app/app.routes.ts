@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { accessGuard } from './core/guards/access.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { authGuard } from './core/guards/auth.guard';
+import { guestGuard } from './core/guards/guest.guard';
 import { onboardingGuard } from './core/guards/onboarding.guard';
 import { PLANS_META } from './core/mocks/plans.mock';
 import { DEFAULT_SEO, SEO_DATA_KEY, courseSeoResolver, privateSeo } from './core/services/seo-route';
@@ -87,6 +88,9 @@ export const routes: Routes = [
   },
   {
     path: 'login',
+    // Quem ja tem sessao vai para a propria area em vez de ver o formulario de
+    // novo (Spec 019, decisao 16).
+    canActivate: [guestGuard],
     data: {
       [SEO_DATA_KEY]: {
         title: 'Entrar | Delcastanher',
