@@ -14,6 +14,9 @@
 </div>
 
 @if (view() === 'painel') {
+  <!-- Spec 020, decisao 12: quem recebe as vendas, e se a loja esta aberta. -->
+  <app-admin-conta-recebedora class="mb-6 block" />
+
   <!-- Filtro de periodo. O recorte vive na URL por query param: a tela
        filtrada vira link compartilhavel e sobrevive ao F5 (Task 6.2). -->
   <ui-card variant="default" padding="md" [hover]="false" class="mb-6">
