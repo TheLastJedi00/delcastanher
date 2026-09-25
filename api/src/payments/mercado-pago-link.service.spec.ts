@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { MercadoPagoLinkService } from './mercado-pago-link.service';
-import { MercadoPagoOAuthService } from './mercado-pago-oauth.service';
+import { MercadoPagoOAuthService, OAuthGrantError } from './mercado-pago-oauth.service';
 
 const NOW = new Date('2026-09-25T12:00:00.000Z');
 const HOUR = 60 * 60 * 1000;
@@ -162,6 +162,120 @@ describe('MercadoPagoLinkService (Spec 020, decisao 5)', () => {
 
       await expect(service.purgeStates(NOW)).resolves.toBe(1);
       expect(prisma.states.map((row) => row.id)).toEqual(['recente']);
+    });
+  });
+
+  describe('retorno do Mercado Pago', () => {
+    const result = (query: string) => `${FRONT}/conexao-mercado-pago?${query}`;
+
+    it('conecta, consome o state e manda para a pagina de sucesso', async () => {
+      const { service, prisma, oauth, connections } = build({ states: [stateRow()] });
+
+      const redirect = await service.complete({ code: 'TG-code', state: 'estado-valido' }, NOW);
+
+      expect(oauth.exchangeCode).toHaveBeenCalledWith('TG-code', 'verifier-1', NOW);
+      expect(connections.connect).toHaveBeenCalledWith(
+        TOKENS,
+        { nickname: 'LIDIANE', email: 'l@exemplo.com' },
+        { id: ADMIN.id, email: ADMIN.email },
+        NOW,
+        prisma,
+      );
+      expect(prisma.states[0].usedAt).toEqual(NOW);
+      expect(redirect).toBe(result('resultado=ok'));
+    });
+
+    it('state inexistente vira "expirado", sem chamar o Mercado Pago', async () => {
+      const { service, oauth } = build();
+
+      await expect(service.complete({ code: 'TG-code', state: 'inventado' }, NOW)).resolves.toBe(
+        result('resultado=erro&motivo=expirado'),
+      );
+      expect(oauth.exchangeCode).not.toHaveBeenCalled();
+    });
+
+    it('state vencido vira "expirado", sem chamar o Mercado Pago', async () => {
+      const { service, oauth } = build({ states: [stateRow({ expiresAt: new Date(NOW.getTime() - 1) })] });
+
+      await expect(service.complete({ code: 'TG-code', state: 'estado-valido' }, NOW)).resolves.toBe(
+        result('resultado=erro&motivo=expirado'),
+      );
+      expect(oauth.exchangeCode).not.toHaveBeenCalled();
+    });
+
+    it('state ja usado vira "usado", sem chamar o Mercado Pago', async () => {
+      const { service, oauth } = build({ states: [stateRow({ usedAt: new Date(NOW.getTime() - HOUR) })] });
+
+      await expect(service.complete({ code: 'TG-code', state: 'estado-valido' }, NOW)).resolves.toBe(
+        result('resultado=erro&motivo=usado'),
+      );
+      expect(oauth.exchangeCode).not.toHaveBeenCalled();
+    });
+
+    it('conecta uma vez so com o mesmo state duas vezes', async () => {
+      const { service, connections } = build({ states: [stateRow()] });
+
+      await service.complete({ code: 'TG-code', state: 'estado-valido' }, NOW);
+      const second = await service.complete({ code: 'TG-code', state: 'estado-valido' }, NOW);
+
+      expect(connections.connect).toHaveBeenCalledTimes(1);
+      expect(second).toBe(result('resultado=erro&motivo=usado'));
+    });
+
+    // Dois retornos quase simultaneos: os dois passam pela leitura do state,
+    // mas so um consegue marca-lo como usado dentro da transacao.
+    it('recusa quem perde a corrida pelo state', async () => {
+      const { service, prisma, connections } = build({ states: [stateRow()] });
+      prisma.mercadoPagoOAuthState.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(service.complete({ code: 'TG-code', state: 'estado-valido' }, NOW)).resolves.toBe(
+        result('resultado=erro&motivo=usado'),
+      );
+      expect(connections.connect).not.toHaveBeenCalled();
+    });
+
+    it('vendedor que nega a autorizacao vira "negado"', async () => {
+      const { service, oauth } = build({ states: [stateRow()] });
+
+      await expect(
+        service.complete({ error: 'access_denied', state: 'estado-valido' }, NOW),
+      ).resolves.toBe(result('resultado=erro&motivo=negado'));
+      expect(oauth.exchangeCode).not.toHaveBeenCalled();
+    });
+
+    // Sem offline_access nao ha renovacao: melhor falhar na conexao do que
+    // fechar a loja 180 dias depois (decisao 8).
+    it('recusa token sem offline_access', async () => {
+      const { service, connections } = build({
+        states: [stateRow()],
+        exchange: jest.fn().mockResolvedValue({ ...TOKENS, scope: 'read write' }),
+      });
+
+      await expect(service.complete({ code: 'TG-code', state: 'estado-valido' }, NOW)).resolves.toBe(
+        result('resultado=erro&motivo=sem_offline_access'),
+      );
+      expect(connections.connect).not.toHaveBeenCalled();
+    });
+
+    it('falha na troca vira "falha", sem a mensagem do Mercado Pago na URL', async () => {
+      const { service, connections } = build({
+        states: [stateRow()],
+        exchange: jest.fn().mockRejectedValue(new OAuthGrantError('invalid_grant')),
+      });
+
+      const redirect = await service.complete({ code: 'TG-code', state: 'estado-valido' }, NOW);
+
+      expect(redirect).toBe(result('resultado=erro&motivo=falha'));
+      expect(redirect).not.toContain('invalid_grant');
+      expect(connections.connect).not.toHaveBeenCalled();
+    });
+
+    it('retorno sem code vira "falha"', async () => {
+      const { service } = build({ states: [stateRow()] });
+
+      await expect(service.complete({ state: 'estado-valido' }, NOW)).resolves.toBe(
+        result('resultado=erro&motivo=falha'),
+      );
     });
   });
 });
