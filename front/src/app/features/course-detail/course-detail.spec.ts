@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
@@ -20,7 +22,7 @@ describe('CourseDetail', () => {
     await TestBed.configureTestingModule({
       imports: [CourseDetail],
       providers: [
-        provideRouter([]),
+        provideRouter([]), provideHttpClient(), provideHttpClientTesting(),
         { provide: ActivatedRoute, useValue: { paramMap: paramMap.asObservable() } },
       ],
     }).compileComponents();

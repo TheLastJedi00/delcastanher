@@ -16,6 +16,48 @@ export interface StoreModuleItem {
   access: { unlocked: boolean; expiresAt: string | null };
 }
 
+/** Modulo na vitrine publica: so o que a pagina exibe (Spec 019). */
+export interface OfferModule {
+  order: number;
+  title: string;
+  priceCents: number | null;
+}
+
+/** Lote vigente, com as vagas que sobram. `remaining` nulo = sem limite. */
+export interface OfferTier {
+  id: string;
+  order: number;
+  name: string;
+  priceCents: number;
+  capacity: number | null;
+  remaining: number | null;
+}
+
+/** Pacote ativo com o lote vigente, como `GET /store/offer` o devolve. */
+export interface BundleOffer {
+  slug: string;
+  title: string;
+  modules: OfferModule[];
+  /** Soma dos precos avulsos — a ancora riscada. Nula se algum esta sem preco. */
+  modulesTotalCents: number | null;
+  tier: OfferTier | null;
+  nextTier: { name: string; priceCents: number } | null;
+}
+
+/** Vitrine publica: modulos avulsos e o pacote ativo (Spec 019, decisao 10). */
+export interface StoreOffer {
+  modules: OfferModule[];
+  bundle: BundleOffer | null;
+}
+
+/**
+ * O que o aluno escolheu comprar: **ou** o pacote **ou** modulos avulsos, e
+ * nunca os dois — o pedido e um ou outro (Spec 019, decisoes 5 e 12).
+ */
+export type StoreSelection =
+  | { kind: 'modules'; ids: string[] }
+  | { kind: 'bundle'; slug: string };
+
 /** Chave publica e ambiente, vindos da API e nao do build (decisao 16). */
 export interface PaymentConfig {
   publicKey: string | null;
@@ -54,6 +96,8 @@ export interface OrderView {
   message: string | null;
   mpOrderId: string | null;
   mpPaymentId: string | null;
+  /** Pacote e lote do pedido de pacote (Spec 019); nulo no avulso. */
+  bundle: { title: string; tierName: string } | null;
 }
 
 /** Dados do comprador. Nenhum campo de cartao aqui (decisao 8). */
@@ -66,7 +110,10 @@ export interface OrderPayer {
 }
 
 export interface CreateOrderPayload {
-  moduleIds: string[];
+  /** Modulos avulsos, ou... */
+  moduleIds?: string[];
+  /** ...o pacote. Nunca os dois, e nunca preco nem lote (Spec 019, decisao 5). */
+  bundleSlug?: string;
   method: PaymentMethodKind;
   payer: OrderPayer;
   installments?: number;
@@ -100,8 +147,9 @@ export function formatPrice(cents: number | null): string {
  * do outro lado: recarregar a pagina no meio do pagamento nao perde a compra,
  * porque ela tem id no servidor.
  *
- * **Nenhum preco sai daqui para a API**: o pedido leva ids de modulo, e o valor
- * e somado no servidor (decisao 2).
+ * **Nenhum preco sai daqui para a API**: o pedido leva ids de modulo ou o slug
+ * do pacote, e o valor e somado — ou o lote, escolhido — no servidor (Spec 014,
+ * decisao 2; Spec 019, decisao 5).
  */
 @Injectable({ providedIn: 'root' })
 export class StoreService {
@@ -113,12 +161,34 @@ export class StoreService {
   private readonly errorState = signal<string | null>(null);
   private readonly configState = signal<PaymentConfig | null>(null);
   private readonly orderState = signal<OrderView | null>(null);
+  private readonly offerState = signal<StoreOffer | null>(null);
+  /** Slug do pacote escolhido. Exclusivo com `selectedState` (Spec 019). */
+  private readonly bundleState = signal<string | null>(null);
 
   readonly catalog = this.catalogState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly config = this.configState.asReadonly();
   readonly order = this.orderState.asReadonly();
+  readonly offer = this.offerState.asReadonly();
+
+  /** Pacote ativo da vitrine, ou nulo se nao ha (ou se a oferta nao carregou). */
+  readonly bundleOffer = computed(() => this.offerState()?.bundle ?? null);
+
+  /** O pacote escolhido, quando a escolha e o pacote. */
+  readonly selectedBundle = computed(() => {
+    const slug = this.bundleState();
+    const bundle = this.bundleOffer();
+
+    return slug && bundle?.slug === slug ? bundle : null;
+  });
+
+  /** A escolha como o pedido a envia: pacote ou modulos (decisao 12). */
+  readonly selection = computed<StoreSelection>(() => {
+    const slug = this.bundleState();
+
+    return slug ? { kind: 'bundle', slug } : { kind: 'modules', ids: this.selectedIds() };
+  });
 
   /** Ids escolhidos, na ordem da trilha — e a ordem em que o resumo lista. */
   readonly selectedIds = computed(() =>
@@ -131,12 +201,19 @@ export class StoreService {
     this.catalogState().filter(module => this.selectedState().has(module.id)),
   );
 
-  /** Total do carrinho. E conferencia visual: quem soma de verdade e o servidor. */
-  readonly totalCents = computed(() =>
-    this.selectedModules().reduce((total, module) => total + (module.priceCents ?? 0), 0),
-  );
+  /**
+   * Total do carrinho. E conferencia visual: quem soma — e quem escolhe o lote
+   * do pacote — de verdade e o servidor.
+   */
+  readonly totalCents = computed(() => {
+    if (this.bundleState()) {
+      return this.selectedBundle()?.tier?.priceCents ?? 0;
+    }
 
-  readonly hasSelection = computed(() => this.selectedState().size > 0);
+    return this.selectedModules().reduce((total, module) => total + (module.priceCents ?? 0), 0);
+  });
+
+  readonly hasSelection = computed(() => this.bundleState() !== null || this.selectedState().size > 0);
 
   /** O que o aluno ja tem, para o AVA e a loja concordarem. */
   readonly unlockedIds = computed(() =>
@@ -173,6 +250,17 @@ export class StoreService {
     );
   }
 
+  /**
+   * Vitrine publica: modulos avulsos e pacote com o lote vigente (Spec 019,
+   * decisao 10). Sem sessao — o `/planos` usa a mesma chamada que a loja.
+   */
+  loadOffer(): Observable<StoreOffer> {
+    return this.http.get<StoreOffer>(`${environment.apiUrl}/store/offer`).pipe(
+      tap(offer => this.offerState.set(offer)),
+      catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
+    );
+  }
+
   /** Chave publica e ambiente. Carregado uma vez por sessao. */
   loadPaymentConfig(): Observable<PaymentConfig> {
     const current = this.configState();
@@ -190,7 +278,9 @@ export class StoreService {
     );
   }
 
+  /** Marca ou desmarca um modulo avulso. Marcar desfaz a escolha do pacote. */
   toggle(moduleId: string): void {
+    this.bundleState.set(null);
     this.selectedState.update(current => {
       const next = new Set(current);
 
@@ -206,11 +296,39 @@ export class StoreService {
 
   /** Pre-seleciona um modulo — o caminho de "comprar" vindo da trilha trancada. */
   select(moduleId: string): void {
+    this.bundleState.set(null);
     this.selectedState.update(current => new Set(current).add(moduleId));
+  }
+
+  /** Escolhe o pacote e desmarca os avulsos: o pedido e um ou outro. */
+  selectBundle(slug: string): void {
+    this.selectedState.set(new Set());
+    this.bundleState.set(slug);
+  }
+
+  /** Marca ou desmarca o pacote. */
+  toggleBundle(slug: string): void {
+    if (this.bundleState() === slug) {
+      this.bundleState.set(null);
+    } else {
+      this.selectBundle(slug);
+    }
+  }
+
+  /** Alvo do pedido como a API o recebe: o pacote ou os ids dos modulos. */
+  orderTarget(): Pick<CreateOrderPayload, 'moduleIds' | 'bundleSlug'> {
+    const selection = this.selection();
+
+    return selection.kind === 'bundle' ? { bundleSlug: selection.slug } : { moduleIds: selection.ids };
+  }
+
+  isBundleSelected(slug: string): boolean {
+    return this.bundleState() === slug;
   }
 
   clearSelection(): void {
     this.selectedState.set(new Set());
+    this.bundleState.set(null);
   }
 
   /** Cria o pedido e cobra. O valor nao vai no corpo (decisao 2). */

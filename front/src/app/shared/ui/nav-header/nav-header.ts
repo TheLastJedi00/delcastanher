@@ -80,7 +80,7 @@ export interface NavLink {
         <div class="flex items-center gap-3">
           @if (variant() === 'landing') {
             <a routerLink="/login">
-              <ui-button variant="primary" size="sm">Área do Aluno</ui-button>
+              <ui-button variant="primary" size="sm">{{ authenticated() ? 'Ir para o meu painel' : 'Área do Aluno' }}</ui-button>
             </a>
           } @else {
             @if (userName()) {
@@ -105,6 +105,13 @@ export class NavHeader {
   readonly userName = input('');
   readonly userInitials = input('');
   readonly navLinks = input<NavLink[]>([]);
+  /**
+   * Sessao ativa na vitrine (Spec 019, decisao 16). So troca o rotulo: o
+   * destino continua `/login`, e e o `guestGuard` de la que leva quem ja entrou
+   * para a propria area. O estado chega por input, e nao pelo `AuthService`,
+   * para o `shared/ui` continuar sem servico de dominio.
+   */
+  readonly authenticated = input(false);
 
   readonly menuToggle = output<void>();
   readonly logout = output<void>();

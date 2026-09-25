@@ -9,6 +9,7 @@ import { AuthUser } from '../auth/auth.types';
 import { OrderStatus, PaymentMethodKind } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessService } from './access.service';
+import { BundlesService } from './bundles.service';
 import { CreateOrderDto, MAX_INSTALLMENTS } from './dto/create-order.dto';
 import { MercadoPagoService } from './mercado-pago.service';
 import { MercadoPagoOrder, PixDetails, rejectionMessage, toOrderStatus } from './payments.types';
@@ -35,6 +36,8 @@ export interface OrderView {
   message: string | null;
   mpOrderId: string | null;
   mpPaymentId: string | null;
+  /** Pacote e lote do pedido de pacote (Spec 019); nulo no avulso. */
+  bundle: { title: string; tierName: string } | null;
 }
 
 /** Linha do pedido com os itens, como o Prisma a devolve. */
@@ -52,6 +55,8 @@ interface OrderRow {
   paidAt: Date | null;
   refundedAt: Date | null;
   expiresAt: Date | null;
+  bundleTitleSnapshot?: string | null;
+  tierNameSnapshot?: string | null;
   items: { moduleId: string; priceCents: number; titleSnapshot: string }[];
 }
 
@@ -84,10 +89,15 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly access: AccessService,
     private readonly gateway: MercadoPagoService,
+    private readonly bundles: BundlesService,
   ) {}
 
   /** Cria o pedido, cobra e devolve o desfecho — ou o QR, no caso do PIX. */
   async create(user: AuthUser, dto: CreateOrderDto): Promise<OrderView> {
+    if (dto.bundleSlug) {
+      return this.createBundleOrder(user, dto);
+    }
+
     const items = await this.resolveItems(user, dto);
 
     this.validatePayment(dto);
@@ -133,6 +143,42 @@ export class OrdersService {
     });
 
     return this.apply({ ...order, amountCents, method: dto.method }, mpOrder);
+  }
+
+  /**
+   * Pedido de pacote (Spec 019, decisao 5).
+   *
+   * O lote, o valor e o rateio sao decididos pelo `BundlesService`, numa
+   * transacao travada; daqui sai so o que o cliente pode escolher — pacote,
+   * meio e parcelas. Diferente do avulso, modulo ja ativo **nao** e recusado:
+   * o pacote estende os 6 meses dele, como qualquer recompra (decisao 7).
+   */
+  private async createBundleOrder(user: AuthUser, dto: CreateOrderDto): Promise<OrderView> {
+    this.validatePayment(dto);
+
+    const { order: placed } = await this.bundles.placeOrder({
+      slug: dto.bundleSlug as string,
+      userId: user.uid,
+      method: dto.method,
+      installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
+    });
+    const order = placed as unknown as OrderRow;
+
+    const mpOrder = await this.gateway.createOrder({
+      orderId: order.id,
+      amountCents: order.amountCents,
+      method: dto.method,
+      payer: dto.payer,
+      items: order.items.map((item) => ({
+        moduleId: item.moduleId,
+        title: item.titleSnapshot,
+        priceCents: item.priceCents,
+      })),
+      card: dto.card,
+      deviceId: dto.deviceId,
+    });
+
+    return this.apply(order, mpOrder);
   }
 
   /**
@@ -390,6 +436,10 @@ export class OrdersService {
       message: order.status === 'REJECTED' ? rejectionMessage(order.mpStatusDetail) : null,
       mpOrderId: order.mpOrderId,
       mpPaymentId: order.mpPaymentId,
+      bundle:
+        order.bundleTitleSnapshot && order.tierNameSnapshot
+          ? { title: order.bundleTitleSnapshot, tierName: order.tierNameSnapshot }
+          : null,
     };
   }
 }
