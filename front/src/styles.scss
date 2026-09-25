@@ -149,6 +149,36 @@
   to { transform: translateX(-50%); }
 }
 
+/*
+ * Gradiente do hero da landing que se dissolve sobre a foto (Spec 018, decisao 11).
+ *
+ * A camada e o proprio `bg-gradient-hero`; quem a faz sumir e a mascara, que
+ * apaga sem trocar cor — o tom continua identico ao dos outros heros.
+ *
+ * No mobile a foto fica no topo e o texto embaixo: a mascara e vertical e fica
+ * opaca so na base da foto, 6rem abaixo de onde comeca a transicao. Os pontos
+ * saem de `--hero-photo-h`, a mesma variavel que da altura a foto, para o
+ * gradiente nunca subir ate o rosto se a altura mudar.
+ *
+ * A partir de `md` foto e texto ficam lado a lado e a mascara vira horizontal.
+ */
+.hero-fade {
+  --hero-fade-mask: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--hero-photo-h) - 6rem),
+    #000 var(--hero-photo-h)
+  );
+  mask-image: var(--hero-fade-mask);
+  -webkit-mask-image: var(--hero-fade-mask);
+}
+
+@media (min-width: 768px) {
+  .hero-fade {
+    --hero-fade-mask: linear-gradient(to right, #000 45%, transparent 65%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
