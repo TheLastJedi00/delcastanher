@@ -79,6 +79,31 @@ describe('Landing', () => {
       expect(card.querySelector('a')).toBeNull();
     });
 
+    it('declara o Person com revista e podcasts em subjectOf, sem o livro (decisao 8)', () => {
+      const blocks = Array.from(
+        document.head.querySelectorAll('script[type="application/ld+json"][data-json-ld]')
+      ).map(node => JSON.parse(node.textContent ?? '{}'));
+      const person = blocks.find(block => block['@type'] === 'Person');
+
+      expect(person).toBeDefined();
+      expect(person.name).toBe('Lidiane Delcastanher');
+      expect(person.sameAs).toBeUndefined();
+      expect(person.subjectOf.map((item: { '@type': string }) => item['@type'])).toEqual([
+        'Article',
+        'VideoObject',
+        'VideoObject',
+      ]);
+      expect(person.subjectOf.map((item: { url: string }) => item.url)).toEqual([
+        'https://prosperebrasil.com.br/lidiane-delcastanher/',
+        'https://www.youtube.com/watch?v=Qvm2UtJkxA0',
+        'https://www.instagram.com/conexaocont/reel/DLpl5hNO-XS/',
+      ]);
+      for (const video of person.subjectOf.slice(1)) {
+        expect(video.uploadDate).toBeTruthy();
+        expect(video.thumbnailUrl).toMatch(/^https?:\/\/.+\/assets\/midia\/.+\.webp$/);
+      }
+    });
+
     it('entra no menu logo depois de A Mentora', () => {
       const hrefs = fixture.componentInstance.navLinks.map(link => link.href);
 
