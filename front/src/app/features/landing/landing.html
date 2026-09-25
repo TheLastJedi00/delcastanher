@@ -142,12 +142,18 @@
             subtitle="Nossa abordagem é consultiva e prática. Mais do que teoria, entregamos experiência aplicada na transformação de pessoas, líderes e organizações." />
         </div>
         <div class="grid w-full grid-cols-2 gap-4 md:w-1/2">
-          <img
-            ngSrc="assets/aula2.jpeg" width="1280" height="852" alt="Metodologia na prática"
-            class="h-48 w-full rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
-          <img
-            ngSrc="assets/aula1.jpeg" width="1280" height="852" alt="Engajamento da turma"
-            class="mt-8 h-48 w-full rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
+          <!-- fill: a caixa h-48 recorta o 3:2 do arquivo, e so no fill o
+               NgOptimizedImage aceita a proporcao renderizada diferente. -->
+          <div class="relative h-48">
+            <img
+              ngSrc="assets/aula2.jpeg" fill alt="Metodologia na prática"
+              class="rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
+          </div>
+          <div class="relative mt-8 h-48">
+            <img
+              ngSrc="assets/aula1.jpeg" fill alt="Engajamento da turma"
+              class="rounded-2xl object-cover shadow-card transition-transform duration-300 hover:scale-105" />
+          </div>
         </div>
       </div>
 
