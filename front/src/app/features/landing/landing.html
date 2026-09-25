@@ -109,6 +109,28 @@
     </div>
   </section>
 
+  <!-- Na mídia: prova de terceiros logo depois da fala da propria Lidiane (Spec 018, decisao 1) -->
+  <section id="midia" class="bg-white px-4 py-20 md:py-28">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-12 md:mb-16" animateOnScroll="animate-fade-in-up">
+        <ui-section-header
+          align="center"
+          overline="Na mídia"
+          title="Reconhecimento além da sala de aula"
+          subtitle="Capa de revista, entrevistas em podcasts e coautoria em livro sobre liderança no Brasil." />
+      </div>
+
+      <!-- 1 -> 2x2 -> 4: sem passar por 3 colunas, nenhum card fica orfao (decisao 10). -->
+      <div class="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
+        @for (item of media; track item.title; let i = $index) {
+          <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+            <ui-media-card [item]="item" />
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
   <!-- Método -->
   <section id="metodo" class="bg-brand-surface px-4 py-20 md:py-28">
     <div class="mx-auto max-w-6xl">
