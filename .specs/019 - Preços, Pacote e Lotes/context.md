@@ -275,6 +275,13 @@ Order               + bundleId?, bundleTierId?,
 - Visitante: `/planos` → "Garantir minha vaga" → login → loja com o pacote marcado.
 - Compra de pacote em sandbox: o pedido sai no Fundador com R$ 590, e a vaga aparece como ocupada na oferta e no painel.
 
+## Desvios registrados na execução
+
+- **Reserva de pendente sem prazo (decisão 3).** Pendente sem `expiresAt` reserva a vaga por no máximo 30 minutos a partir da criação. Um pedido gravado cuja chamada ao Mercado Pago falhou fica pendente e sem prazo; sem o teto, seguraria a vaga do lote para sempre. O estado do pedido não muda.
+- **`GET /store/catalog` sem mudança de formato (tabela de rotas).** A loja lê o pacote de `GET /store/offer`. Trocar o array do catálogo por um objeto quebraria o `accessGuard` e a trilha sem ganho.
+- **Bloco do pacote no painel (decisão 13)** é um componente próprio (`admin-pacote`), e não mais um bloco dentro do `AdminAulas`.
+- **Banco.** Não existe banco separado de desenvolvimento: as migrations desta spec foram aplicadas em produção com `prisma migrate deploy`, com autorização explícita, e o teste de concorrência usa um pacote e usuários temporários, apagados no fim.
+
 ## Fora de escopo
 - Abatimento no pacote para quem já comprou módulos avulsos (decisão 8).
 - Parcelamento sem juros (juros absorvidos pelo vendedor).
