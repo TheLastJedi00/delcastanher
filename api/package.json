@@ -26,6 +26,7 @@
     "migration:verify": "ts-node -P tsconfig.json scripts/verify-lesson-migration.ts verify",
     "spec014:cenario": "ts-node -P tsconfig.json scripts/spec014-cenario.ts",
     "spec016:cenario": "ts-node -P tsconfig.json scripts/spec016-cenario.ts",
+    "spec019:precos": "ts-node -P tsconfig.json scripts/spec019-precos.ts",
     "spec017:firebase-dominio": "ts-node -P tsconfig.json scripts/spec017-firebase-dominio.ts"
   },
   "dependencies": {
