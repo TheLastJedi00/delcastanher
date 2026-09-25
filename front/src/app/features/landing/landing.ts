@@ -1,6 +1,8 @@
 import { NgOptimizedImage } from '@angular/common';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { JsonLdService } from '../../core/services/json-ld.service';
+import { SITE_ORIGIN } from '../../core/services/seo.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
@@ -164,4 +166,54 @@ export class Landing {
       },
     },
   ];
+
+  private readonly jsonLd = inject(JsonLdService);
+
+  constructor() {
+    // O `App` limpa os blocos em todo NavigationStart; a landing declara o seu
+    // durante a propria ativacao, logo depois disso. Via DOCUMENT, entao o
+    // bloco sai pronto no HTML prerenderizado.
+    this.jsonLd.set([this.personSchema()]);
+  }
+
+  /**
+   * `Person` da Lidiane com as aparicoes em `subjectOf` (Spec 018, decisao 8).
+   *
+   * Entra so o que e conteudo *sobre* ela e tem link confirmado: o livro e obra
+   * dela, nao sobre ela, e item sem `url` nao e descrito para o buscador. Sem
+   * `sameAs` enquanto os perfis do footer forem `href="#"`.
+   */
+  private personSchema(): Record<string, unknown> {
+    const subjectOf = this.media
+      .filter(item => item.kind !== 'livro' && item.url)
+      .map(item =>
+        item.kind === 'revista'
+          ? {
+              '@type': 'Article',
+              headline: item.title,
+              url: item.url,
+              datePublished: item.datePublished,
+              publisher: { '@type': 'Organization', name: item.outlet },
+            }
+          : {
+              '@type': 'VideoObject',
+              name: item.title,
+              description: `${item.title} — ${item.outlet}`,
+              url: item.url,
+              uploadDate: item.datePublished,
+              thumbnailUrl: item.cover ? `${SITE_ORIGIN}/${item.cover.src}` : undefined,
+            }
+      );
+
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      name: 'Lidiane Delcastanher',
+      jobTitle: 'CEO',
+      url: SITE_ORIGIN,
+      image: `${SITE_ORIGIN}/assets/nova_mentora.jpeg`,
+      worksFor: { '@type': 'Organization', name: 'Delcastanher', url: SITE_ORIGIN },
+      subjectOf,
+    };
+  }
 }
