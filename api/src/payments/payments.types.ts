@@ -64,7 +64,7 @@ export interface OrderPaymentMethodPayload {
   type: 'bank_transfer' | 'credit_card';
   /** Token do cartao gerado no navegador. Ausente no PIX. */
   token?: string;
-  /** 1..6 (decisao 9). Ausente no PIX. */
+  /** 1..12 (Spec 014, decisao 9; Spec 019, decisao 9). Ausente no PIX. */
   installments?: number;
   /** O que aparece na fatura do cartao. */
   statement_descriptor?: string;

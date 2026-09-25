@@ -196,8 +196,9 @@ describe('OrdersService', () => {
       });
     });
 
-    // Decisao 9: teto de UI que o servidor nao valida nao e teto.
-    it('recusa parcelamento acima de 6', async () => {
+    // Decisao 9: teto de UI que o servidor nao valida nao e teto. A Spec 019
+    // (decisao 9) subiu o teto para 12.
+    it('recusa parcelamento acima de 12', async () => {
       const { service } = await build();
 
       await expect(
@@ -205,8 +206,8 @@ describe('OrdersService', () => {
           moduleIds: ['mod-1'],
           method: 'CREDIT_CARD',
           payer: PAYER,
-          installments: 12,
-          card: { token: 'tok', paymentMethodId: 'master', installments: 12 },
+          installments: 13,
+          card: { token: 'tok', paymentMethodId: 'master', installments: 13 },
         }),
       ).rejects.toMatchObject({ status: 400 });
     });

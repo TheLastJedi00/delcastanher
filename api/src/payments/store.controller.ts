@@ -8,6 +8,7 @@ import {
   mercadoPagoSandbox,
   paymentsEnabled,
 } from '../config/payments.config';
+import { MAX_INSTALLMENTS } from './dto/create-order.dto';
 import { StoreModuleItem, StoreService } from './store.service';
 
 /** Configuracao que o navegador precisa para tokenizar o cartao. */
@@ -56,7 +57,7 @@ export class StoreController {
       publicKey: enabled ? mercadoPagoPublicKey(this.config) : null,
       sandbox: mercadoPagoSandbox(this.config),
       enabled,
-      maxInstallments: 6,
+      maxInstallments: MAX_INSTALLMENTS,
     };
   }
 }
