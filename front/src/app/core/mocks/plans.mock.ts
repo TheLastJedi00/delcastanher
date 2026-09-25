@@ -150,3 +150,41 @@ export const PLANS_META = {
   description:
     'Compare os planos da Delcastanher: curso individual, trilhas, formação completa e soluções para empresas. Escolha o formato certo para estruturar o seu RH.',
 };
+
+/**
+ * Copy fixa do Pacote de Lancamento (Spec 019). Preco, lote e vagas **nao**
+ * moram aqui: mudam com a venda e chegam de `GET /store/offer`, lido no
+ * navegador (decisao 10). Isto e so o texto que nao muda de um dia para outro.
+ */
+export const LAUNCH_BUNDLE_COPY = {
+  slug: 'imersao-rh-lancamento',
+  overline: 'Pacote de lançamento — Imersão RH Estratégico',
+  headline: 'Estruture o RH da sua empresa',
+  subheadline: 'Do Zero ao Estratégico',
+  support: '12 módulos | Método RH 360° | Materiais práticos | Templates | Plano de Ação',
+  benefits: [
+    '12 módulos completos',
+    'Videoaulas objetivas de 5–8 minutos',
+    '12 apostilas práticas',
+    'Exercícios de aplicação',
+    'Estudos de caso',
+    'Templates e ferramentas de RH',
+    'Checklists',
+    'Prompts de Inteligência Artificial',
+    'Método RH 360°',
+    'Plano de Ação Final',
+    'Certificado de conclusão',
+  ],
+} as const;
+
+/**
+ * Emoji de cada lote, pela ordem. O banco guarda o nome sem ele, porque o nome
+ * vai para o recibo e para o painel; o emoji e copy de marketing.
+ */
+const TIER_EMOJI: Record<number, string> = { 1: '🔥', 2: '🚀', 3: '⭐', 4: '💎' };
+
+export function tierLabel(tier: { order: number; name: string }): string {
+  const emoji = TIER_EMOJI[tier.order];
+
+  return emoji ? `${emoji} ${tier.name}` : tier.name;
+}
