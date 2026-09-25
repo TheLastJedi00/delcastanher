@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { OrderStatus, Prisma } from '../generated/prisma/client';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { OrderStatus, PaymentMethodKind, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Lote como as regras desta spec o leem. */
@@ -129,6 +129,19 @@ export function allocateByWeight(totalCents: number, weights: number[]): number[
   return parts;
 }
 
+/** Pedido de pacote pedido pelo `OrdersService`. Sem preco e sem lote. */
+export interface PlaceBundleOrderInput {
+  slug: string;
+  userId: string;
+  method: PaymentMethodKind;
+  installments: number;
+}
+
+/** Linha gravada do pedido de pacote, com os itens rateados. */
+export interface PlacedBundleOrder {
+  order: Prisma.OrderGetPayload<{ include: { items: true } }>;
+}
+
 /** Cliente aceito nas consultas: o servico ou a transacao em curso. */
 type Db = Pick<PrismaService, 'order'>;
 
@@ -156,6 +169,90 @@ export class BundlesService {
         .filter((group) => group.bundleTierId !== null)
         .map((group) => [group.bundleTierId as string, group._count._all]),
     );
+  }
+
+  /**
+   * Grava o pedido de pacote no lote vigente, numa transacao que trava o
+   * pacote (decisao 5).
+   *
+   * A trava existe para a ultima vaga: sem ela, dois pedidos simultaneos
+   * leriam "falta 1" e os dois entrariam no Fundador. Ela vale so para pedidos
+   * do mesmo pacote, e so pelo tempo de uma contagem e um INSERT — a chamada
+   * ao Mercado Pago fica **fora**, no `OrdersService`, como no pedido de
+   * modulos avulsos.
+   *
+   * O pendente anterior do aluno e cancelado aqui dentro, antes da contagem:
+   * a vaga que ele segurava volta para este pedido (Spec 014, decisao 11).
+   */
+  async placeOrder(input: PlaceBundleOrderInput, now: Date = new Date()): Promise<PlacedBundleOrder> {
+    return this.prisma.$transaction(async (tx) => {
+      const bundle = await tx.bundle.findUnique({
+        where: { slug: input.slug },
+        include: {
+          modules: { include: { module: { select: { id: true, order: true, title: true, priceCents: true } } } },
+          tiers: true,
+        },
+      });
+
+      if (!bundle || !bundle.active) {
+        throw new NotFoundException('Este pacote não está disponível.');
+      }
+
+      await tx.$queryRaw`SELECT "id" FROM "bundles" WHERE "id" = ${bundle.id} FOR UPDATE`;
+
+      await tx.order.updateMany({
+        where: { userId: input.userId, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      });
+
+      const tiers: TierRow[] = bundle.tiers.map(({ id, order, name, priceCents, capacity }) => ({
+        id,
+        order,
+        name,
+        priceCents,
+        capacity,
+      }));
+      const occupied = await this.occupied(
+        tiers.map((tier) => tier.id),
+        now,
+        tx,
+      );
+      const tier = pickTier(tiers, occupied);
+
+      if (!tier) {
+        throw new ConflictException('As vagas deste pacote se esgotaram.');
+      }
+
+      // Na ordem da trilha: e a ordem do recibo e do resumo na tela.
+      const modules = bundle.modules.map(({ module }) => module).sort((a, b) => a.order - b.order);
+      const parts = allocateByWeight(
+        tier.priceCents,
+        modules.map((module) => module.priceCents ?? 0),
+      );
+
+      const order = await tx.order.create({
+        data: {
+          userId: input.userId,
+          amountCents: tier.priceCents,
+          method: input.method,
+          installments: input.installments,
+          bundleId: bundle.id,
+          bundleTierId: tier.id,
+          bundleTitleSnapshot: bundle.title,
+          tierNameSnapshot: tier.name,
+          items: {
+            create: modules.map((module, index) => ({
+              moduleId: module.id,
+              priceCents: parts[index],
+              titleSnapshot: module.title,
+            })),
+          },
+        },
+        include: { items: true },
+      });
+
+      return { order };
+    });
   }
 
   /** Pacote ativo com o lote vigente, para a vitrine publica e a loja. */

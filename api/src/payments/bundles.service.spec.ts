@@ -358,7 +358,7 @@ describe('BundlesService.placeOrder (Spec 019, decisoes 5 e 6)', () => {
       Array.from({ length: 12 }, (_, index) => `m${index + 1}`),
     );
     expect(items.reduce((sum, item) => sum + item.priceCents, 0)).toBe(59000);
-    expect(placed.items).toHaveLength(12);
+    expect(placed.order.items).toHaveLength(12);
   });
 
   it('com o Fundador esgotado, o pedido entra no 2º Lote', async () => {
