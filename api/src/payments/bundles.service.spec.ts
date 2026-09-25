@@ -103,3 +103,102 @@ describe('Lote vigente (Spec 019, decisao 3)', () => {
     });
   });
 });
+
+/** Os 12 modulos com os precos da tabela comercial (soma 256400). */
+const PRICES = [19700, 19700, 29700, 19700, 19700, 19700, 19700, 19700, 19700, 19700, 24700, 24700];
+
+function bundleRow(overrides: { active?: boolean; prices?: (number | null)[] } = {}) {
+  const prices = overrides.prices ?? PRICES;
+
+  return {
+    id: 'b1',
+    slug: 'imersao-rh-lancamento',
+    title: 'Pacote de Lançamento — Imersão RH Estratégico',
+    active: overrides.active ?? true,
+    // Fora de ordem de proposito: a oferta ordena pela ordem da trilha.
+    modules: prices
+      .map((priceCents, index) => ({
+        module: { id: `m${index + 1}`, order: index + 1, title: `Módulo ${index + 1}`, priceCents },
+      }))
+      .reverse(),
+    tiers: TIERS,
+  };
+}
+
+async function buildOffer(bundle: unknown, groups: { bundleTierId: string; _count: { _all: number } }[] = []) {
+  const prisma = {
+    bundle: { findFirst: jest.fn().mockResolvedValue(bundle) },
+    order: { groupBy: jest.fn().mockResolvedValue(groups) },
+  };
+  const moduleRef = await Test.createTestingModule({
+    providers: [BundlesService, { provide: PrismaService, useValue: prisma }],
+  }).compile();
+
+  return { service: moduleRef.get(BundlesService), prisma };
+}
+
+describe('BundlesService.offer (Spec 019, decisoes 4 e 10)', () => {
+  it('procura so pacote ativo', async () => {
+    const { service, prisma } = await buildOffer(null);
+
+    expect(await service.offer(NOW)).toBeNull();
+    expect(prisma.bundle.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { active: true } }),
+    );
+  });
+
+  it('traz o lote vigente com as vagas restantes e o proximo lote', async () => {
+    const { service } = await buildOffer(bundleRow(), [{ bundleTierId: 't1', _count: { _all: 13 } }]);
+
+    const offer = await service.offer(NOW);
+
+    expect(offer?.tier).toEqual({
+      id: 't1',
+      order: 1,
+      name: 'Lote Fundador',
+      priceCents: 59000,
+      capacity: 20,
+      remaining: 7,
+    });
+    expect(offer?.nextTier).toEqual({ name: '2º Lote', priceCents: 79700 });
+  });
+
+  it('no ultimo lote, sem vagas contadas e sem proximo', async () => {
+    const { service } = await buildOffer(bundleRow(), [
+      { bundleTierId: 't1', _count: { _all: 20 } },
+      { bundleTierId: 't2', _count: { _all: 30 } },
+      { bundleTierId: 't3', _count: { _all: 50 } },
+    ]);
+
+    const offer = await service.offer(NOW);
+
+    expect(offer?.tier?.name).toBe('Preço oficial');
+    expect(offer?.tier?.remaining).toBeNull();
+    expect(offer?.nextTier).toBeNull();
+  });
+
+  it('a ancora e a soma dos precos do banco, e os modulos vem na ordem da trilha', async () => {
+    const { service } = await buildOffer(bundleRow());
+
+    const offer = await service.offer(NOW);
+
+    expect(offer?.modulesTotalCents).toBe(256400);
+    expect(offer?.modules.map((module) => module.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  });
+
+  it('sem ancora quando algum modulo do pacote esta sem preco: nao se soma "a definir"', async () => {
+    const prices = [...PRICES];
+    prices[4] = null as unknown as number;
+    const { service } = await buildOffer(bundleRow({ prices }));
+
+    expect((await service.offer(NOW))?.modulesTotalCents).toBeNull();
+  });
+
+  it('nao expoe dado de aluno nem id interno de modulo', async () => {
+    const { service } = await buildOffer(bundleRow());
+
+    const offer = await service.offer(NOW);
+
+    expect(Object.keys(offer?.modules[0] ?? {}).sort()).toEqual(['order', 'priceCents', 'title']);
+  });
+});
