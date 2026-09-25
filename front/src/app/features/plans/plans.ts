@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
 import { RouterLink } from '@angular/router';
 
 import { PLAN_BENEFITS, PLANS, Plan } from '../../core/mocks/plans.mock';
@@ -21,6 +22,9 @@ interface PlanView extends Plan {
   templateUrl: './plans.html',
 })
 export class Plans {
+  /** Rotulo do botao do cabecalho conforme a sessao (Spec 019, decisao 16). */
+  protected readonly authenticated = inject(AuthService).isAuthenticated;
+
   protected readonly navLinks: NavLink[] = [
     { label: 'Planos', href: '#planos' },
     { label: 'Dúvidas', href: '#duvidas' },
