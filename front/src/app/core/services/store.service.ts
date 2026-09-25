@@ -63,6 +63,11 @@ export interface PaymentConfig {
   publicKey: string | null;
   sandbox: boolean;
   enabled: boolean;
+  /**
+   * Por que a loja esta fechada (Spec 020, decisao 7): sem credencial da
+   * aplicacao, ou sem conta recebedora conectada. Nulo com a loja aberta.
+   */
+  reason: 'not_configured' | 'seller_not_connected' | null;
   maxInstallments: number;
 }
 
