@@ -119,6 +119,9 @@ Com front e API sob o mesmo domínio registrável, passa a ser possível guardar
 23. **A Política de Cookies passa a declarar o cookie de sessão, sem subir a versão do consentimento.**
     A Spec 015 redigiu a política afirmando que a plataforma "não grava nenhum cookie próprio" e listando `delcastanher.session` como item de armazenamento local — as duas afirmações deixam de ser verdade nesta spec. A seção 2 passa a descrever o `__Secure-refresh` (necessário, 30 dias renovados a cada uso, apagado ao sair) e o indicador `delcastanher.has-session`, sem credencial. A `CONSENT_POLICY_VERSION` **não** sobe: o banner pergunta sobre medição de audiência, e isso não mudou; reabrir o consentimento da base inteira por um cookie que não depende de consentimento seria pedir de novo uma decisão que continua valendo.
 
+24. **Na execução, o redirect de `delcastanher.vercel.app` foi descartado, e o endereço saiu do CORS mesmo assim.**
+    A decisão 1 previa o 301 do `vercel.app` para o `www`; na virada, o responsável optou por não configurá-lo e por deixar a API e o bucket liberados só para o `www`. O endereço antigo continua servindo o site, mas login, loja e aulas não funcionam por ele. Links já compartilhados abrem uma vitrine sem backend, não um redirecionamento. O apex redireciona para o `www` normalmente (308). Se o redirect voltar a ser desejado, é configuração de domínio na Vercel, sem mudança de código.
+
 ## Ordem de virada
 
 A migração tem dependências de ordem; feita fora dela, algum fluxo quebra no intervalo:
