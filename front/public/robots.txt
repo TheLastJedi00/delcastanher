@@ -11,5 +11,6 @@ Disallow: /ava
 Disallow: /admin
 Disallow: /onboarding
 Disallow: /checkout
+Disallow: /conexao-mercado-pago
 
 Sitemap: https://www.delcastanher.srv.br/sitemap.xml
