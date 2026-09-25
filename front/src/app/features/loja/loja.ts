@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { LAUNCH_BUNDLE_COPY, tierLabel } from '../../core/mocks/plans.mock';
 import { Badge } from '../../shared/ui/badge/badge';
 import { BundlePrice } from '../../shared/ui/bundle-price/bundle-price';
@@ -254,6 +254,7 @@ export class Loja implements OnInit {
   private readonly store = inject(StoreService);
   private readonly router = inject(Router);
   private readonly users = inject(UserService);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly copy = LAUNCH_BUNDLE_COPY;
 
@@ -296,11 +297,44 @@ export class Loja implements OnInit {
 
   /** Recarrega mesmo com catalogo em memoria: a compra pode ter vindo de outra aba. */
   ngOnInit(): void {
-    this.store.loadCatalog().subscribe({ error: () => undefined });
+    const params = this.route.snapshot.queryParamMap;
+    const bundleSlug = params.get('pacote');
+    const moduleOrder = Number(params.get('modulo'));
+
+    this.store.loadCatalog().subscribe({
+      next: catalog => {
+        // `?modulo=<ordem>` (Spec 019, decisao 11): a ordem, e nao o id, deixa
+        // o link do `/planos` legivel e igual em todos os ambientes.
+        const module = catalog.find(item => item.order === moduleOrder && item.purchasable);
+
+        if (!bundleSlug && module) {
+          this.store.select(module.id);
+        }
+      },
+      error: () => undefined,
+    });
     // A oferta e publica e opcional aqui: sem ela, a loja segue vendendo os
     // avulsos, so sem o card do pacote.
-    this.store.loadOffer().subscribe({ error: () => undefined });
+    this.store.loadOffer().subscribe({
+      next: offer => {
+        if (bundleSlug && offer.bundle?.slug === bundleSlug) {
+          this.store.selectBundle(bundleSlug);
+        }
+      },
+      error: () => undefined,
+    });
     this.users.ensureProfile().subscribe({ error: () => undefined });
+
+    // O parametro sai da URL depois de lido: sem isso, o voltar do navegador
+    // remarcaria o que o aluno ja desmarcou.
+    if (params.has('pacote') || params.has('modulo')) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { pacote: null, modulo: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
   }
 
   reload(): void {
