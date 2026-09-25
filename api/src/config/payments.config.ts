@@ -1,3 +1,4 @@
+import { InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { optionalEnv, requiredEnv } from './media.config';
 
@@ -47,6 +48,25 @@ export function paymentsEnabled(config: ConfigService): boolean {
  */
 export function mercadoPagoSandbox(config: ConfigService): boolean {
   return (optionalEnv(config, 'MP_SANDBOX') ?? 'true').toLowerCase() !== 'false';
+}
+
+/**
+ * Chave dos tokens do vendedor (Spec 020, decisao 4): 32 bytes em base64.
+ *
+ * O tamanho e conferido aqui, e nao no primeiro erro do `createCipheriv`: uma
+ * chave colada pela metade daria uma mensagem de criptografia que ninguem
+ * associa a variavel de ambiente.
+ */
+export function mercadoPagoTokenKey(config: ConfigService): Buffer {
+  const key = Buffer.from(requiredEnv(config, 'MP_TOKEN_ENCRYPTION_KEY'), 'base64');
+
+  if (key.length !== 32) {
+    throw new InternalServerErrorException(
+      'MP_TOKEN_ENCRYPTION_KEY precisa ter 32 bytes em base64.',
+    );
+  }
+
+  return key;
 }
 
 /**
