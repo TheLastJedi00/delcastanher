@@ -25,6 +25,19 @@ describe('StudentLayout', () => {
 
   afterEach(() => localStorage.clear());
 
+  /** Spec 019, decisao 15. */
+  it('leva a loja pela sidebar, depois de Artigos', () => {
+    signInForTest('aluno');
+    const fixture = TestBed.createComponent(StudentLayout);
+    fixture.detectChanges();
+
+    const links = fixture.componentInstance.links.map(link => link.link);
+
+    expect(links.at(-1)).toBe('/loja');
+    expect(links.indexOf('/loja')).toBe(links.indexOf('/ava/artigos') + 1);
+    expect(fixture.nativeElement.textContent).toContain('Comprar módulos');
+  });
+
   it('encerra a sessao pelo "Sair" da sidebar', () => {
     signInForTest('aluno');
     const auth = TestBed.inject(AuthService);
