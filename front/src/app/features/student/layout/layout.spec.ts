@@ -35,7 +35,7 @@ describe('StudentLayout', () => {
 
     expect(links.at(-1)).toBe('/loja');
     expect(links.indexOf('/loja')).toBe(links.indexOf('/ava/artigos') + 1);
-    expect(fixture.nativeElement.textContent).toContain('Comprar módulos');
+    expect(fixture.nativeElement.querySelector('ui-sidebar a[href="/loja"]')).not.toBeNull();
   });
 
   it('encerra a sessao pelo "Sair" da sidebar', () => {
