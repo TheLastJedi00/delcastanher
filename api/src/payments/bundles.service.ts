@@ -154,6 +154,8 @@ export interface PlaceBundleOrderInput {
   userId: string;
   method: PaymentMethodKind;
   installments: number;
+  /** Conta recebedora em que a order vai nascer (Spec 020, decisao 6). */
+  mpConnectionId?: string | null;
 }
 
 /** Linha gravada do pedido de pacote, com os itens rateados. */
@@ -259,6 +261,7 @@ export class BundlesService {
           bundleTierId: tier.id,
           bundleTitleSnapshot: bundle.title,
           tierNameSnapshot: tier.name,
+          mpConnectionId: input.mpConnectionId ?? null,
           items: {
             create: modules.map((module, index) => ({
               moduleId: module.id,

@@ -144,9 +144,14 @@ export class MercadoPagoConnectionService {
     return { connectionId: current.id, accessToken: this.cipher.decrypt(current.accessTokenEncrypted) };
   }
 
-  /** Se ha conta ativa neste ambiente — o que abre e fecha a loja. */
-  async hasActive(): Promise<boolean> {
-    return (await this.active()) !== null;
+  /**
+   * Se ha conta ativa, com token no prazo, neste ambiente — o que abre e fecha
+   * a loja. So leitura: renovar e papel do pedido e da rotina diaria.
+   */
+  async hasActive(now: Date = new Date()): Promise<boolean> {
+    const active = await this.active();
+
+    return !!active && active.expiresAt.getTime() > now.getTime();
   }
 
   /**

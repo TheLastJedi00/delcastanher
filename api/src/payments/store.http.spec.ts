@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthService } from '../auth/auth.service';
 import { AuthenticatedRequest, FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { StoreController } from './store.controller';
 import { StoreService } from './store.service';
 
@@ -24,7 +25,18 @@ const OFFER = {
  * **recusa** quando o teste pede "sem token": e assim que se prova que a
  * vitrine publica nao passa por ele, e que as outras rotas continuam passando.
  */
-async function buildApp(authenticated: boolean) {
+/** Credenciais da aplicacao, como a Vercel as entrega em producao. */
+const CONFIGURED: Record<string, string> = {
+  MP_ACCESS_TOKEN: 'APP_USR-plataforma',
+  MP_PUBLIC_KEY: 'APP_USR-public',
+  MP_SANDBOX: 'false',
+};
+
+async function buildApp(
+  authenticated: boolean,
+  options: { env?: Record<string, string>; connected?: boolean } = {},
+) {
+  const env = options.env ?? {};
   const moduleRef = await Test.createTestingModule({
     controllers: [StoreController],
     providers: [
@@ -35,7 +47,11 @@ async function buildApp(authenticated: boolean) {
           offer: jest.fn().mockResolvedValue(OFFER),
         },
       },
-      { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(undefined) } },
+      { provide: ConfigService, useValue: { get: jest.fn((name: string) => env[name]) } },
+      {
+        provide: MercadoPagoConnectionService,
+        useValue: { hasActive: jest.fn().mockResolvedValue(options.connected ?? false) },
+      },
       { provide: AuthService, useValue: { verify: jest.fn() } },
     ],
   })
@@ -110,5 +126,41 @@ describe('Loja (HTTP)', () => {
     const response = await request(app.getHttpServer()).get('/store/payment-config').expect(200);
 
     expect(response.body.maxInstallments).toBe(12);
+  });
+
+  // Spec 020, decisao 7: sem conta recebedora a loja fecha, com o motivo.
+  describe('GET /store/payment-config — conta recebedora', () => {
+    it('abre a loja com credenciais e conta conectada', async () => {
+      app = await buildApp(true, { env: CONFIGURED, connected: true });
+
+      const response = await request(app.getHttpServer()).get('/store/payment-config').expect(200);
+
+      expect(response.body).toMatchObject({
+        enabled: true,
+        reason: null,
+        publicKey: 'APP_USR-public',
+        sandbox: false,
+      });
+    });
+
+    it('fecha a loja sem conta conectada, e diz por que', async () => {
+      app = await buildApp(true, { env: CONFIGURED, connected: false });
+
+      const response = await request(app.getHttpServer()).get('/store/payment-config').expect(200);
+
+      expect(response.body).toMatchObject({
+        enabled: false,
+        reason: 'seller_not_connected',
+        publicKey: null,
+      });
+    });
+
+    it('fecha a loja sem credencial da aplicacao', async () => {
+      app = await buildApp(true, { env: {}, connected: true });
+
+      const response = await request(app.getHttpServer()).get('/store/payment-config').expect(200);
+
+      expect(response.body).toMatchObject({ enabled: false, reason: 'not_configured' });
+    });
   });
 });
