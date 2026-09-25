@@ -60,15 +60,18 @@ CREATE INDEX "mercado_pago_oauth_states_expiresAt_idx" ON "mercado_pago_oauth_st
 ALTER TABLE "orders" ADD CONSTRAINT "orders_mpConnectionId_fkey" FOREIGN KEY ("mpConnectionId") REFERENCES "mercado_pago_connections"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 
--- Uma conexao ATIVA por vez (decisao 1).
+-- Uma conexao ATIVA por AMBIENTE (decisoes 1 e 13).
 --
--- Ativa e `disconnectedAt` nulo. Sem o indice, um clique duplo no callback ou
--- duas conexoes simultaneas deixariam duas contas "ativas", e a order sairia
--- na primeira que a consulta devolvesse. O indice e sobre uma expressao
--- constante: todas as linhas ativas colidem entre si, e as desconectadas nao
--- entram nele. O Prisma nao expressa indice parcial no schema, entao ele e
--- escrito aqui e fica fora do `prisma migrate diff`: nao remova ao gerar
--- migrations futuras.
+-- Ativa e `disconnectedAt` nulo. Preview e producao compartilham este banco, e
+-- o ambiente e da branch: preview conecta com token de teste (`liveMode`
+-- falso), producao com token real. Sem separar por `liveMode`, conectar o
+-- vendedor de teste no preview trocaria a conta que recebe as vendas de
+-- producao.
+--
+-- O indice tambem impede que um clique duplo no callback deixe duas contas
+-- ativas no mesmo ambiente. O Prisma nao expressa indice parcial no schema,
+-- entao ele e escrito aqui e fica fora do `prisma migrate diff`: nao remova ao
+-- gerar migrations futuras.
 CREATE UNIQUE INDEX "mercado_pago_connections_single_active"
-  ON "mercado_pago_connections" ((true))
+  ON "mercado_pago_connections" ("liveMode")
   WHERE "disconnectedAt" IS NULL;
