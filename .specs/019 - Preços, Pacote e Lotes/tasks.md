@@ -2,6 +2,8 @@
 
 Spec de `api/` (NestJS + Prisma + Jest) e `front/` (Angular standalone + signals + Tailwind). No backend a suíte vem **antes** da implementação, conforme `.claude/RULES.md`. Valem o Design System da Spec 002 e os componentes de `front/src/app/shared/ui/`. As decisões referenciadas estão no `context.md`.
 
+> **Spec encerrada com 6 tasks de verificação pendentes** (7.2, 7.4, 7.6, 7.7, 7.8 e 7.10). Todas são conferência em navegador ou pagamento real; nenhuma é código faltando. Estão na seção "Pendências desta spec para a próxima", no fim, e no Trello, coluna "Pendências (specs anteriores)" do quadro Lidiane.
+
 Ordem das fases:
 1. A correção de navegação vem primeiro. Ela é só de front, não depende de preço nenhum e resolve o problema que o aluno já tem hoje. As fases 4 e 5 usam o `?redirect=` que ela cria.
 2. Depois vem o modelo, com os preços e o pacote no banco.
@@ -199,3 +201,13 @@ Ordem das fases:
   - Feito no banco com `npm run spec019:vagas`: PIX vencido libera (19 -> 20) e pedido cancelado libera (19 -> 20). O fluxo pela tela do PIX depende das credenciais da 7.8.
 - [ ] **Task 7.10:** Conferir a hierarquia de cabeçalhos do `/planos` e da `/loja`, a navegação por teclado da seleção exclusiva e o anúncio do valor alterado para leitor de tela.
   - Nao feito no navegador. O aviso de valor alterado usa `role="alert"`, e a selecao usa `checkbox` com `label` e `fieldset`/`legend`.
+
+## Pendências desta spec para a próxima
+
+Todas são de verificação: o código está entregue e coberto por testes automatizados. Ficaram de fora porque dependem de credencial do Mercado Pago, de uma conta de aluno, de um passo manual no painel de produção ou de um navegador em tamanho de celular. Cada uma tem card no Trello (quadro Lidiane, coluna "Pendências (specs anteriores)").
+
+- [ ] **Comprar o pacote por PIX e cartão em sandbox (task 7.8).** Bloqueado pelas credenciais: a Orders API recusa as chaves `TEST-` do `api/.env`. Falta criar uma aplicação na conta do vendedor de teste `TESTUSER8605452672838458141` e usar as credenciais dela, o mesmo bloqueio da task 9.6 da Spec 014. A regra de vagas já foi verificada no banco com `npm run spec019:vagas`. [Card](https://trello.com/c/i0441VIY)
+- [ ] **Virar o lote pelo painel (task 7.7).** Fundador com 0 vagas, conferir o 2º Lote a R$ 797,00 no `/planos` e na loja, e voltar para 20. O classificador de segurança bloqueou o passo no painel de produção, então é manual. Junto, e opcional: a contraprova do teste de concorrência com a trava desligada. [Card](https://trello.com/c/1fzbhh5z)
+- [ ] **Aluno com acesso parcial e conta nova pelo onboarding (tasks 7.2 e 7.4).** Precisa de uma conta de aluno: a conta usada é admin, e o `/ava` dela volta para `/admin`. [Card](https://trello.com/c/joXAKT2B)
+- [ ] **`/planos` e loja no celular e no tablet (task 7.6).** Conferir também a altura reservada da faixa de escassez no celular (`h-[5.5rem]`), que é estimativa. [Card](https://trello.com/c/vY5utQo0)
+- [ ] **Acessibilidade do `/planos` e da loja (task 7.10).** Cabeçalhos, teclado na escolha exclusiva e anúncio do valor alterado. Vale fazer junto com a task 9.3 da Spec 014. [Card](https://trello.com/c/SI8u6lcX)
