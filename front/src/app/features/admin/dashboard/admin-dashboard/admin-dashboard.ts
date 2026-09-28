@@ -6,6 +6,7 @@ import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { ADMIN_TABS, AdminLayout, AdminTab } from '../../../../shared/layouts/admin-layout/admin-layout';
 import { AdminAulas } from '../../aulas/admin-aulas';
 import { AdminFinanceiro } from '../../financeiro/admin-financeiro';
+import { AddAdminDialog } from '../add-admin-dialog/add-admin-dialog';
 import { AuthService } from '../../../../core/services/auth.service';
 import {
   AdminAccessItem,
@@ -59,6 +60,7 @@ type PendingAction =
   imports: [
     AdminAulas,
     AdminFinanceiro,
+    AddAdminDialog,
     AdminLayout,
     PageContainer,
     SectionHeader,
@@ -106,10 +108,14 @@ export class AdminDashboard {
   readonly actionRunning = signal(false);
   readonly actionError = signal<string | null>(null);
   readonly exporting = signal(false);
+  /** Dialogo de adicionar administrador aberto (Spec 021). */
+  readonly addingAdmin = signal(false);
 
   private readonly searchInput = new Subject<string>();
   /** Linha que abriu o detalhe, para devolver o foco ao fechar. */
   private lastTrigger: HTMLElement | null = null;
+  /** Botao que abriu o dialogo de adicionar administrador (Spec 021). */
+  private addAdminTrigger: HTMLElement | null = null;
 
   constructor() {
     // A busca vai ao servidor (decisao 7), mas nao a cada tecla: sem o
@@ -298,6 +304,20 @@ export class AdminDashboard {
         this.actionError.set(message);
       },
     });
+  }
+
+  openAddAdmin(event: Event) {
+    // O `(click)` e do host `ui-button`, que nao recebe foco: guarda o
+    // `<button>` de dentro, para o foco voltar a ele ao fechar.
+    const host = event.currentTarget as HTMLElement;
+    this.addAdminTrigger = host.querySelector('button') ?? host;
+    this.addingAdmin.set(true);
+  }
+
+  closeAddAdmin() {
+    this.addingAdmin.set(false);
+    this.addAdminTrigger?.focus();
+    this.addAdminTrigger = null;
   }
 
   /**
