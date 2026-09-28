@@ -5,9 +5,10 @@
 -- `changeKind = INITIAL`. Os Termos de Uso **nao** ganham versao: sao
 -- publicados pelo painel quando o texto do juridico chegar.
 --
--- Gerada por `npm run spec022:carga-legal`, a partir das `LegalSection` do
--- front, e nao redigitada. O script confere que o texto volta as mesmas
--- secoes pelo parser antes de escrever este arquivo.
+-- Gerada por script (Task 2.6), a partir das `LegalSection` que o front
+-- tinha no codigo, e nao redigitada. O script conferiu que o texto volta as
+-- mesmas secoes pelo parser antes de escrever este arquivo; o conteudo e
+-- conferido em `api/src/legal/legal-initial-load.spec.ts`.
 --
 -- Os dados da controladora (razao social, CNPJ, contato) entram como texto
 -- literal: muda-los passa a ser uma publicacao de correcao pelo painel.

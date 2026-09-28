@@ -85,25 +85,3 @@ export function parseLegalText(text: string): LegalSection[] {
 
   return sections;
 }
-
-/**
- * Caminho inverso do `parseLegalText`: escreve as secoes no formato da
- * decisao 1.
- *
- * Existe para a carga inicial (Task 2.6): o texto que estava no codigo vira
- * conteudo do banco por script, e nao redigitado. `parseLegalText` sobre a
- * saida devolve as mesmas secoes.
- */
-export function formatLegalText(sections: readonly LegalSection[]): string {
-  return sections
-    .map(section => {
-      const blocks = (section.body ?? []).map(block =>
-        block.kind === 'paragraph'
-          ? block.text
-          : block.items.map(item => `${ITEM}${item}`).join('\n'),
-      );
-
-      return (section.title ? [`${HEADING}${section.title}`, ...blocks] : blocks).join('\n\n');
-    })
-    .join('\n\n');
-}
