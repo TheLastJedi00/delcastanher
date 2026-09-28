@@ -6,6 +6,7 @@ import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { ADMIN_TABS, AdminLayout, AdminTab } from '../../../../shared/layouts/admin-layout/admin-layout';
 import { AdminAulas } from '../../aulas/admin-aulas';
 import { AdminFinanceiro } from '../../financeiro/admin-financeiro';
+import { AddAdminDialog } from '../add-admin-dialog/add-admin-dialog';
 import { AuthService } from '../../../../core/services/auth.service';
 import {
   AdminAccessItem,
@@ -59,6 +60,7 @@ type PendingAction =
   imports: [
     AdminAulas,
     AdminFinanceiro,
+    AddAdminDialog,
     AdminLayout,
     PageContainer,
     SectionHeader,
@@ -106,6 +108,8 @@ export class AdminDashboard {
   readonly actionRunning = signal(false);
   readonly actionError = signal<string | null>(null);
   readonly exporting = signal(false);
+  /** Dialogo de adicionar administrador aberto (Spec 021). */
+  readonly addingAdmin = signal(false);
 
   private readonly searchInput = new Subject<string>();
   /** Linha que abriu o detalhe, para devolver o foco ao fechar. */
@@ -298,6 +302,14 @@ export class AdminDashboard {
         this.actionError.set(message);
       },
     });
+  }
+
+  openAddAdmin(_event: Event) {
+    this.addingAdmin.set(true);
+  }
+
+  closeAddAdmin() {
+    this.addingAdmin.set(false);
   }
 
   /**

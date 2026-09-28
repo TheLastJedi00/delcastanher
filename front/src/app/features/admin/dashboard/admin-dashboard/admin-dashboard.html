@@ -5,9 +5,14 @@
         <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
           <ui-section-header overline="Painel de controle" title="Visão Geral e Alunos" />
 
-          <ui-button variant="outline" [loading]="exporting()" (click)="exportCsv()">
-            Exportar CSV
-          </ui-button>
+          <div class="flex flex-wrap gap-3">
+            <ui-button variant="outline" [loading]="exporting()" (click)="exportCsv()">
+              Exportar CSV
+            </ui-button>
+            <ui-button variant="primary" (click)="openAddAdmin($event)">
+              Adicionar administrador
+            </ui-button>
+          </div>
         </div>
 
         <!-- Spec 013, decisao 6: cada numero carrega a definicao que usa. Um
@@ -610,4 +615,9 @@
       </ui-button>
     </div>
   </ui-modal>
+}
+
+<!-- Spec 021: adicionar administrador por e-mail, com ou sem conta. -->
+@if (addingAdmin()) {
+  <app-add-admin-dialog (closed)="closeAddAdmin()" (added)="closeAddAdmin()" />
 }
