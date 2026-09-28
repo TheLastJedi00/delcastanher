@@ -1,6 +1,6 @@
 # Relatório de Bug: falhas do checkout na primeira venda real
 
-> **Status: em aberto.** Os bugs 1 a 3 (API) têm causa encontrada no código. O bug 4 (front) tem causas prováveis, a confirmar na reprodução. Falta a correção (TDD) e a validação em produção. A causa do `processing_error` em si é provavelmente da conta recebedora, e não do código (ver "Causa provável do `processing_error`").
+> **Status: em aberto.** Os bugs 1 a 3 (API) têm causa encontrada no código. O bug 4 (front) tem causas prováveis, a confirmar na reprodução. Falta a correção (TDD) e a validação em produção. A causa do `processing_error` foi **confirmada na conta recebedora** (sem chave Pix) e corrigida lá em 28/09/2026. O PIX volta a ser gerado; o pagamento ainda não foi testado.
 
 > Este relatório é independente da Spec 022 (Políticas e Termos pelo Painel), que só divide a pasta com ele.
 
@@ -33,7 +33,7 @@ Estado no banco (consulta de leitura, mesmo dia):
 | `cmulmjg1m000204l32drdkp9c` | `PENDING` | nulo | Segunda tentativa, 9 s depois. Órfão. |
 | `cmu5ygmu60000i0uao83byzt5` | `PENDING` | nulo | De 17/09, anterior à Spec 020. Mesmo sintoma. Órfão. |
 
-## Causa provável do `processing_error`
+## Causa do `processing_error`: conta recebedora sem chave Pix (confirmada)
 A order nasceu na conta da vendedora (`ORD01M3…`, com o `application_id` da
 aplicação `Delcastanher`). O token e a conexão da Spec 020 funcionaram, e quem
 falhou foi a geração do PIX.
@@ -54,14 +54,20 @@ conta que não pode receber PIX. Esconder o PIX por configuração seria um
 remendo para uma conta que precisa estar certa antes de vender.
 
 ### Conferência na conta (manual)
-- [ ] No app do Mercado Pago da Lidiane (conta `130465493`), conferir se há
+- [x] No app do Mercado Pago da Lidiane (conta `130465493`), conferir se há
   **chave Pix cadastrada** em Seu negócio → Pix → Minhas chaves. Sem chave,
   cadastrar uma. É passo da vendedora, porque exige o login dela.
-- [ ] Se a chave já existia, procurar na conta avisos de restrição ou de
-  identificação (KYC) pendente. Se o problema continuar, abrir chamado no
-  suporte do Mercado Pago com a order `ORD01M3MPWQTQ37RVKH5VX3034G8Z` e a
-  transação `PAY01M3MPWQV0DMJW5BM6QKNX82VQ`.
-- [ ] Registrar aqui a causa confirmada.
+  - A conta **não tinha chave**. A chave foi cadastrada pela vendedora em 28/09/2026.
+- [x] ~~Se a chave já existia, procurar restrição ou KYC pendente e abrir
+  chamado no suporte.~~ Não foi necessário.
+- [x] Registrar aqui a causa confirmada.
+  - **Causa:** conta recebedora sem chave Pix. Com a chave cadastrada, o PIX
+    seguinte foi gerado: pedido `cmuloq9r7000004kx4vrpikxz`, order
+    `ORD01M3MTD83FXTGGP72N7YEBC3W2`, às 20:13 de Brasília, R$ 5,00, com
+    `mpStatus = action_required` e `mpStatusDetail = waiting_transfer`, QR
+    válido por 30 min (consulta de leitura ao banco).
+- [ ] Pagar um PIX gerado e conferir que o pedido vira `PAID` e libera o
+  acesso. A geração funciona, mas o **pagamento ainda não foi testado**.
 
 ## Bugs
 
@@ -178,18 +184,22 @@ também trava ou se só os três Secure Fields travam.
 - [ ] Corrigir a montagem dos Secure Fields.
 - [ ] `npm test` no `api/`, `ng test` e `ng build` no `front/`.
 - [ ] Fechar como `CANCELLED`, por script de uma vez, os pedidos órfãos
-  (`PENDING` sem `mpOrderId`): `cmulmjg1m000204l32drdkp9c`,
-  `cmu5ygmu60000i0uao83byzt5` e os que surgirem até a correção entrar. Rodar
+  (`PENDING` sem `mpOrderId`): `cmu5ygmu60000i0uao83byzt5` e os que surgirem
+  até a correção entrar. O `cmulmjg1m000204l32drdkp9c` já foi fechado como
+  `CANCELLED` pela tentativa de 20:13, pela regra de um pendente por vez. Rodar
   **depois** do deploy da correção, para não sobrar órfão novo. É escrita no
   banco de produção: só com autorização explícita. Registrar aqui os ids
   fechados.
 
 ## Como testar de novo
-1. Com a conta recebedora **sem** PIX (antes de cadastrar a chave, em
-   "Conferência na conta"), tentar um PIX:
-   a tela mostra a mensagem do PIX e oferece cartão; o pedido fica `REJECTED`
-   com `mpOrderId` e `mpStatusDetail = processing_error`.
-2. Tentar de novo: nenhum pedido `PENDING` sem `mpOrderId` sobra no banco.
-3. Depois da chave Pix cadastrada, o mesmo PIX gera o QR normalmente.
+1. **Não é mais reproduzível em produção:** a conta recebedora já tem chave
+   Pix, e o `402` com `processing_error` não volta a acontecer. Os bugs 1 a 3
+   ficam verificados pelas suítes do checklist, com a resposta `402` do log
+   acima usada como fixture: a tela mostra a mensagem do PIX e oferece cartão,
+   e o pedido fica `REJECTED` com `mpOrderId` e
+   `mpStatusDetail = processing_error`.
+2. Nenhum pedido `PENDING` sem `mpOrderId` sobra no banco depois da limpeza.
+3. ~~Depois da chave Pix cadastrada, o mesmo PIX gera o QR normalmente.~~
+   Confirmado em 28/09/2026 (ver "Conferência na conta").
 4. Em `/loja/pagamento`, alternar PIX → Cartão → PIX → Cartão: nas duas vezes os
    campos do cartão aceitam digitação. Sair para a loja, voltar e repetir.
