@@ -14,7 +14,7 @@ Ordem das fases: primeiro a extração do fluxo de conta no `AuthService`, sem m
 - [x] **Task 2.2:** Escrever a suíte para conta existente: claim gravado preservando os claims anteriores, `upsert` no Postgres (inclusive quando a conta existe no Firebase e ainda não tem linha no banco), **nenhum** e-mail enviado e `outcome: 'promoted'` (decisões 5 e 6).
 - [x] **Task 2.3:** Escrever a suíte dos casos de borda: conta que já é admin devolvendo `outcome: 'already-admin'` sem escrita no Firebase (decisão 7); conta com `disabled` recebendo 409 sem tocar claim nem banco (decisão 8); falha do `setCustomUserClaims` **não** gravando o Postgres nem enviando e-mail; falha só do envio de e-mail devolvendo sucesso com `inviteEmailSent: false` (decisão 4); e e-mail com maiúsculas e espaços caindo na mesma conta (decisão 9).
 - [x] **Task 2.4:** Criar o `AddAdminDto` com `@IsEmail()` e normalização, e o tipo `AddAdminResult` (`userId`, `email`, `outcome`, `inviteEmailSent`) em `users.admin.types.ts`.
-- [ ] **Task 2.5:** Implementar `AdminUsersService.addAdmin` na ordem conta → claim → Postgres → e-mail (decisão 4).
+- [x] **Task 2.5:** Implementar `AdminUsersService.addAdmin` na ordem conta → claim → Postgres → e-mail (decisão 4).
 - [ ] **Task 2.6:** Implementar `POST /admin/users/admins` no `AdminUsersController`, conferindo que o caminho não colide com `GET /admin/users/:id` nem com as rotas de `admin/users` do `AdminAccessController` (Spec 014).
 - [ ] **Task 2.7:** Estender `users.admin.http.spec.ts`: admin autorizado recebendo 201, papel `aluno` recebendo 403, sem token recebendo 401, e-mail inválido ou ausente recebendo 400 e conta bloqueada recebendo 409.
 - [ ] **Task 2.8:** Rodar `npm test` no `api/` e corrigir regressões.
