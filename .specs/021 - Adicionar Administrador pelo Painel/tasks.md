@@ -11,7 +11,7 @@ Ordem das fases: primeiro a extração do fluxo de conta no `AuthService`, sem m
 
 ## Fase 2: Backend - Rota de Adicionar Administrador (TDD)
 - [x] **Task 2.1:** Escrever a suíte do `AdminUsersService.addAdmin` para e-mail sem conta: conta criada, `setCustomUserClaims` com `role: 'admin'`, `upsert` no Postgres com `role = admin`, `name` e `lastSeenAt` nulos, e-mail de definição de senha enviado, e `outcome: 'created'` (decisões 2, 4 e 5).
-- [ ] **Task 2.2:** Escrever a suíte para conta existente: claim gravado preservando os claims anteriores, `upsert` no Postgres (inclusive quando a conta existe no Firebase e ainda não tem linha no banco), **nenhum** e-mail enviado e `outcome: 'promoted'` (decisões 5 e 6).
+- [x] **Task 2.2:** Escrever a suíte para conta existente: claim gravado preservando os claims anteriores, `upsert` no Postgres (inclusive quando a conta existe no Firebase e ainda não tem linha no banco), **nenhum** e-mail enviado e `outcome: 'promoted'` (decisões 5 e 6).
 - [ ] **Task 2.3:** Escrever a suíte dos casos de borda: conta que já é admin devolvendo `outcome: 'already-admin'` sem escrita no Firebase (decisão 7); conta com `disabled` recebendo 409 sem tocar claim nem banco (decisão 8); falha do `setCustomUserClaims` **não** gravando o Postgres nem enviando e-mail; falha só do envio de e-mail devolvendo sucesso com `inviteEmailSent: false` (decisão 4); e e-mail com maiúsculas e espaços caindo na mesma conta (decisão 9).
 - [ ] **Task 2.4:** Criar o `AddAdminDto` com `@IsEmail()` e normalização, e o tipo `AddAdminResult` (`userId`, `email`, `outcome`, `inviteEmailSent`) em `users.admin.types.ts`.
 - [ ] **Task 2.5:** Implementar `AdminUsersService.addAdmin` na ordem conta → claim → Postgres → e-mail (decisão 4).

@@ -91,4 +91,50 @@ describe('AdminUsersService.addAdmin', () => {
       });
     });
   });
+
+  describe('conta existente', () => {
+    const ALUNA = {
+      uid: 'uid-aluna',
+      email: 'aluna@empresa.com',
+      disabled: false,
+      customClaims: { role: 'aluno', plano: 'pacote' },
+    };
+
+    it('promove preservando os claims que ja existiam', async () => {
+      const { service, firebaseAuth } = await build({ account: ALUNA, created: false });
+
+      await service.addAdmin('aluna@empresa.com');
+
+      expect(firebaseAuth.setCustomUserClaims).toHaveBeenCalledWith('uid-aluna', {
+        role: 'admin',
+        plano: 'pacote',
+      });
+    });
+
+    it('faz upsert no Postgres, cobrindo a conta que ainda nao tem linha no banco', async () => {
+      const { service, upsert } = await build({ account: ALUNA, created: false });
+
+      await service.addAdmin('aluna@empresa.com');
+
+      expect(upsert).toHaveBeenCalledWith({
+        where: { id: 'uid-aluna' },
+        update: { email: 'aluna@empresa.com', role: 'admin' },
+        create: { id: 'uid-aluna', email: 'aluna@empresa.com', role: 'admin' },
+      });
+    });
+
+    it('nao envia e-mail de definicao de senha para quem ja tem senha (decisao 6)', async () => {
+      const { service, auth } = await build({ account: ALUNA, created: false });
+
+      const result = await service.addAdmin('aluna@empresa.com');
+
+      expect(auth.sendPasswordSetupEmail).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        userId: 'uid-aluna',
+        email: 'aluna@empresa.com',
+        outcome: 'promoted',
+        inviteEmailSent: false,
+      });
+    });
+  });
 });
