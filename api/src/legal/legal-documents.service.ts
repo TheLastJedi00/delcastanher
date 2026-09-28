@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types';
-import { bucketKey } from '../payments/finance-period';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AdminLegalDocumentsView,
@@ -12,6 +11,22 @@ import {
   toAdminDraft,
   toAdminVersion,
 } from './legal.types';
+
+/**
+ * A data do dia **em Brasilia**, `AAAA-MM-DD`: uma publicacao as 22h de 28/09
+ * e dia 29 em UTC, e a versao tem de ser a data que quem publicou tem em mente.
+ *
+ * Nao reusa o `bucketKey` do financeiro de proposito: aquele modulo depende do
+ * de usuarios, que depende deste, e a importacao fecharia um ciclo.
+ */
+export function saoPauloDate(now: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
 
 /**
  * A proxima versao da politica numa **nova versao** (decisao 3): a data do
@@ -142,7 +157,7 @@ export class LegalDocumentsService {
       const policyVersion =
         changeKind === 'CORRECTION' && latest
           ? latest.policyVersion
-          : nextPolicyVersion(latest?.policyVersion ?? null, bucketKey(now, 'day'));
+          : nextPolicyVersion(latest?.policyVersion ?? null, saoPauloDate(now));
 
       const created = await tx.legalDocumentVersion.create({
         data: {

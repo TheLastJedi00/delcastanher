@@ -1,19 +1,14 @@
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   MaxLength,
   ValidateIf,
 } from 'class-validator';
-import { KNOWN_POLICY_VERSIONS } from '../policy-versions';
-// `import type` obrigatorio: o tipo aparece na assinatura de uma propriedade
-// decorada, e com `isolatedModules` + `emitDecoratorMetadata` o compilador
-// precisa saber que ele nao existe em runtime.
-import type { PolicyVersion } from '../policy-versions';
 
 /** Remove espacos das pontas; strings vazias viram `undefined`. */
 const trim = ({ value }: { value: unknown }) =>
@@ -64,10 +59,12 @@ export class UpdateUserDto {
   /**
    * Versao aceita. Exigida apenas quando ha aceite: registrar "aceitou" sem
    * dizer o que foi aceito nao registra nada.
+   *
+   * Aqui so a forma (`2026-09-28`, ou `2026-09-28.2`). Se ela e a **vigente**
+   * quem diz e o `UsersService`, contra o banco (Spec 022, decisao 7).
    */
   @ValidateIf((dto: UpdateUserDto) => dto.policyAccepted === true)
-  @IsIn(KNOWN_POLICY_VERSIONS, {
-    message: 'Versao de politica desconhecida.',
-  })
-  policyVersion?: PolicyVersion;
+  @IsString({ message: 'Versao de politica desconhecida.' })
+  @Matches(/^\d{4}-\d{2}-\d{2}(\.\d+)?$/, { message: 'Versao de politica desconhecida.' })
+  policyVersion?: string;
 }
