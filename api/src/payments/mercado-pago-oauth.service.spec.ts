@@ -42,7 +42,7 @@ function service(overrides: Record<string, string> = {}): MercadoPagoOAuthServic
 }
 
 function bodyOf(fetchMock: jest.Mock): Record<string, unknown> {
-  return JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>;
+  return Object.fromEntries(new URLSearchParams(fetchMock.mock.calls[0][1].body as string));
 }
 
 describe('MercadoPagoOAuthService (Spec 020)', () => {
@@ -100,6 +100,18 @@ describe('MercadoPagoOAuthService (Spec 020)', () => {
         redirect_uri: 'https://api.delcastanher.srv.br/mercadopago/oauth/callback',
         test_token: 'true',
       });
+    });
+
+    // Com JSON, o Mercado Pago recusou trocas com "grant_type is a required
+    // parameter" mesmo com o campo no corpo. O formulario e o que a RFC 6749 pede.
+    it('envia o corpo como formulario, e nao como JSON', async () => {
+      const fetchMock = mockFetch(TOKEN_RESPONSE);
+
+      await service().exchangeCode('TG-code-1', 'verifier-1');
+
+      const init = fetchMock.mock.calls[0][1] as RequestInit;
+      expect(init.headers).toMatchObject({ 'Content-Type': 'application/x-www-form-urlencoded' });
+      expect(init.body).toContain('grant_type=authorization_code');
     });
 
     // O ambiente e da branch: preview roda com `MP_SANDBOX=true` e credencial

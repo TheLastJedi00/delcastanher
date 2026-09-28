@@ -156,11 +156,14 @@ export class MercadoPagoOAuthService {
   private async token(body: Record<string, string>, now: Date): Promise<OAuthTokens> {
     let response: Response;
 
+    // Formulario, como a RFC 6749 pede para o endpoint de token. Com JSON, o
+    // Mercado Pago aceitou uma troca e depois recusou outras com
+    // "grant_type is a required parameter", com o campo no corpo.
     try {
       response = await fetch(TOKEN_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+        body: new URLSearchParams(body).toString(),
       });
     } catch {
       throw new ServiceUnavailableException(
