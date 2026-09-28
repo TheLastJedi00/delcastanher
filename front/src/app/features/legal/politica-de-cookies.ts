@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { CONSENT_POLICY_VERSION, ConsentService } from '../../core/services/consent.service';
+import { ConsentService } from '../../core/services/consent.service';
 import { Button } from '../../shared/ui/button/button';
 import { legalDocumentState } from './legal-document-state';
 import { LegalPage } from './legal-page';
@@ -23,9 +23,12 @@ import { LegalPage } from './legal-page';
  *
  * Desde a Spec 017 a plataforma grava **um** cookie proprio: o
  * `__Secure-refresh`, HttpOnly, emitido pela API para manter a sessao. Ele e
- * necessario, nao depende de consentimento, e por isso nao sobe a
- * `CONSENT_POLICY_VERSION`: o que o banner pergunta — a medicao de audiencia —
- * nao mudou.
+ * necessario, nao depende de consentimento, e por isso nao pede nova versao
+ * da politica: o que o banner pergunta — a medicao de audiencia — nao mudou.
+ *
+ * Desde a Spec 022 o texto vem do banco. Os blocos "sua escolha atual" e
+ * "rever preferencias" sao codigo, e ficam aqui, depois das secoes
+ * (decisao 9).
  */
 @Component({
   selector: 'app-politica-de-cookies',
@@ -44,8 +47,8 @@ import { LegalPage } from './legal-page';
         <p class="mb-4 text-sm leading-relaxed text-slate-600">
           @if (record(); as decision) {
             {{ decision.choice === 'accepted' ? 'Você aceitou' : 'Você recusou' }} os cookies de
-            medição em {{ decision.decidedAt | date: 'dd/MM/yyyy, HH:mm' }}, sob a versão
-            {{ decision.policyVersion }} desta política.
+            medição em {{ decision.decidedAt | date: 'dd/MM/yyyy, HH:mm' }}@if (decision.policyVersion) {, sob a versão
+              {{ decision.policyVersion }} desta política}.
           } @else {
             Você ainda não registrou uma escolha nesta versão da política.
           }

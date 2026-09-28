@@ -1,25 +1,8 @@
 import { Injectable, PLATFORM_ID, afterNextRender, computed, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { LegalDocumentsService } from './legal-documents.service';
 
 const STORAGE_KEY = 'delcastanher.consent';
-
-/**
- * Versao vigente das politicas apresentadas no banner.
- *
- * Quando o texto legal mudar de forma relevante, esta constante sobe: o
- * consentimento gravado sob a versao anterior deixa de valer e o banner volta
- * a aparecer. Sem isso, um aceite de 2026 seguiria valendo para uma politica
- * de 2028 que o titular nunca leu.
- *
- * A Spec 015 e a primeira aplicacao real desse mecanismo. Ate `2026-09-10` as
- * paginas legais eram esqueleto: cada clausula tinha titulo, roteiro e um aviso
- * de que nada ali estava em vigor. Quem aceitou cookies olhando aquilo nao
- * aceitou esta politica — entao a data sobe para `2026-09-13`, a do documento
- * entregue pelo juridico, e o banner reabre para a base inteira. Nao e efeito
- * colateral a mitigar: e exatamente o caso que esta constante existe para
- * capturar (Spec 015, decisao 6).
- */
-export const CONSENT_POLICY_VERSION = '2026-09-13';
 
 export type ConsentChoice = 'accepted' | 'rejected';
 
@@ -27,8 +10,12 @@ export interface ConsentRecord {
   choice: ConsentChoice;
   /** ISO 8601 do momento da escolha — e a prova de consentimento (Art. 8o). */
   decidedAt: string;
-  /** Versao da politica vigente quando a escolha foi feita. */
-  policyVersion: string;
+  /**
+   * Versao da politica vigente quando a escolha foi feita. Nula so enquanto a
+   * API nao respondeu: a versao e anotada quando chega, e se nunca chegar a
+   * escolha vale nesta visita e o banner pergunta de novo na proxima.
+   */
+  policyVersion: string | null;
 }
 
 /**
@@ -38,6 +25,12 @@ export interface ConsentRecord {
  * a escolha do titular de forma auditavel (escolha + data + versao) e expoe
  * `analyticsAllowed`, que e o portao que o `AnalyticsService` consulta antes de
  * qualquer evento.
+ *
+ * **A versao da politica vem da API** desde a Spec 022 (decisao 8), e nao mais
+ * de uma constante: publicar uma nova versao no painel reabre o banner sem
+ * deploy. Quando a versao muda, o consentimento gravado sob a anterior deixa de
+ * valer — um aceite de 2026 nao segue valendo para uma politica de 2028 que o
+ * titular nunca leu.
  */
 @Injectable({ providedIn: 'root' })
 export class ConsentService {
@@ -48,7 +41,17 @@ export class ConsentService {
    */
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  private readonly record = signal<ConsentRecord | null>(this.readStoredRecord());
+  /** O que esta gravado no navegador, de qualquer versao. */
+  private readonly stored = signal<ConsentRecord | null>(this.readStoredRecord());
+
+  /**
+   * Versao vigente segundo a API. `undefined` enquanto ela nao responde — ou
+   * se falhar —, e nesse meio tempo vale o registro gravado: quem ja decidiu
+   * nao ve o banner aparecer e sumir, e falha de rede nao vira nem
+   * "consentimento presumido" nem banner em laco (decisao 8).
+   */
+  private readonly currentVersion = signal<string | null | undefined>(undefined);
+
   /**
    * Reabertura manual pelo rodape (decisao 10): revogar precisa ser tao facil
    * quanto aceitar, entao o banner volta mesmo havendo escolha registrada.
@@ -57,8 +60,33 @@ export class ConsentService {
   /** `afterNextRender` so roda no navegador: no servidor isto fica falso. */
   private readonly hydrated = signal(false);
 
+  /** A escolha gravada que vale para a versao vigente. */
+  private readonly record = computed(() => {
+    const stored = this.stored();
+    const version = this.currentVersion();
+
+    if (!stored || version === undefined) {
+      return stored;
+    }
+
+    // Consentimento dado sob politica anterior nao vale para a atual.
+    return stored.policyVersion === version ? stored : null;
+  });
+
+  private readonly legal = inject(LegalDocumentsService);
+  private versionRequested = false;
+  /** A escolha desta visita gravada antes de a versao chegar. */
+  private unversioned: ConsentRecord | null = null;
+
   constructor() {
     afterNextRender(() => this.hydrated.set(true));
+
+    // So pergunta a versao quando ela importa: para validar uma escolha ja
+    // gravada. Quem nunca decidiu ve o banner de qualquer jeito, e a versao so
+    // e buscada quando a pessoa decidir (`persist`).
+    if (this.stored()) {
+      this.loadVersion();
+    }
   }
 
   /** Escolha vigente, ou `null` quando nao ha nenhuma valida para esta versao. */
@@ -100,11 +128,50 @@ export class ConsentService {
     const record: ConsentRecord = {
       choice,
       decidedAt: new Date().toISOString(),
-      policyVersion: CONSENT_POLICY_VERSION,
+      policyVersion: this.currentVersion() ?? null,
     };
 
-    this.record.set(record);
+    this.save(record);
     this.reopened.set(false);
+
+    if (record.policyVersion === null) {
+      this.unversioned = record;
+      this.loadVersion();
+    }
+  }
+
+  /**
+   * Busca a versao vigente, uma vez por visita, direto na rede. Se a escolha
+   * foi gravada antes de a versao chegar, a versao e anotada nela — e so nela:
+   * uma escolha de outra versao continua sendo de outra versao.
+   */
+  private loadVersion(): void {
+    if (!this.isBrowser || this.versionRequested) {
+      return;
+    }
+
+    this.versionRequested = true;
+    this.legal.policyStatus(true).subscribe({
+      next: ({ version }) => {
+        const stored = this.stored();
+
+        // So a escolha feita nesta visita, antes de a versao chegar. Um
+        // registro sem versao de uma visita anterior nao se sabe sob qual
+        // texto foi dado, e continua sem valer.
+        if (stored && stored === this.unversioned && version !== null) {
+          this.save({ ...stored, policyVersion: version });
+        }
+
+        this.unversioned = null;
+
+        this.currentVersion.set(version);
+      },
+      error: () => undefined,
+    });
+  }
+
+  private save(record: ConsentRecord): void {
+    this.stored.set(record);
 
     if (!this.isBrowser) {
       return;
@@ -140,11 +207,6 @@ export class ConsentService {
       const parsed = JSON.parse(raw) as ConsentRecord;
 
       if (parsed?.choice !== 'accepted' && parsed?.choice !== 'rejected') {
-        return null;
-      }
-
-      // Consentimento dado sob politica anterior nao vale para a atual.
-      if (parsed.policyVersion !== CONSENT_POLICY_VERSION) {
         return null;
       }
 

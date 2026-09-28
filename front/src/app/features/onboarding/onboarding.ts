@@ -4,7 +4,7 @@ import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, Validator
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { REDIRECT_PARAM, safeRedirect } from '../../core/guards/safe-redirect';
 import { AuthService } from '../../core/services/auth.service';
-import { CONSENT_POLICY_VERSION } from '../../core/services/consent.service';
+import { LegalDocumentsService, PolicyStatus } from '../../core/services/legal-documents.service';
 import { UserService } from '../../core/services/user.service';
 import { Button } from '../../shared/ui/button/button';
 import { Checkbox } from '../../shared/ui/checkbox/checkbox';
@@ -143,6 +143,7 @@ export class Onboarding {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly legal = inject(LegalDocumentsService);
 
   readonly form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
@@ -156,6 +157,11 @@ export class Onboarding {
   });
 
   readonly isLoading = signal(false);
+  /**
+   * Versao da politica vigente e documentos publicados (Spec 022, decisoes 6
+   * e 7). O aceite grava esta versao, e a API recusa qualquer outra.
+   */
+  readonly policy = signal<PolicyStatus | null>(null);
   readonly errorMessage = signal('');
 
   /** Erros so aparecem depois da primeira tentativa de envio. */
@@ -186,11 +192,24 @@ export class Onboarding {
     };
   });
 
+  constructor() {
+    this.loadPolicy();
+  }
+
   submit(): void {
     this.submitted.set(true);
     this.errorMessage.set('');
 
     if (this.form.invalid || this.isLoading()) {
+      return;
+    }
+
+    const policy = this.policy();
+
+    if (!policy?.version) {
+      this.errorMessage.set('Não foi possível carregar os documentos para o aceite. Tente de novo em instantes.');
+      this.loadPolicy();
+
       return;
     }
 
@@ -208,7 +227,7 @@ export class Onboarding {
         // aceite poderia falhar sozinho e deixar perfil completo sem aceite
         // (Spec 015, decisao 7).
         policyAccepted: true,
-        policyVersion: CONSENT_POLICY_VERSION,
+        policyVersion: policy.version,
       })
       .subscribe({
         next: () => {
@@ -222,5 +241,13 @@ export class Onboarding {
           this.errorMessage.set(message);
         },
       });
+  }
+
+  /** Le a versao vigente direto da rede: o aceite precisa ser da atual. */
+  private loadPolicy(): void {
+    this.legal.policyStatus(true).subscribe({
+      next: status => this.policy.set(status),
+      error: () => undefined,
+    });
   }
 }

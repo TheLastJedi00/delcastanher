@@ -3,11 +3,11 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
-import { CONSENT_POLICY_VERSION } from '../../core/services/consent.service';
 import { signInForTest } from '../../core/testing/session';
 import { Onboarding } from './onboarding';
 
 const ME = `${environment.apiUrl}/users/me`;
+const POLICY = `${environment.apiUrl}/legal/policy-version`;
 
 const VALID = {
   name: 'Aluno Teste',
@@ -37,6 +37,8 @@ describe('Onboarding', () => {
     fixture = TestBed.createComponent(Onboarding);
     component = fixture.componentInstance;
     backend = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    backend.expectOne(POLICY).flush({ version: '2026-09-13', published: ['PRIVACY', 'COOKIES'] });
     fixture.detectChanges();
   });
 
@@ -91,7 +93,7 @@ describe('Onboarding', () => {
       phone: '(11) 90000-0000',
       linkedin: undefined,
       policyAccepted: true,
-      policyVersion: CONSENT_POLICY_VERSION,
+      policyVersion: '2026-09-13',
     });
 
     request.flush({ id: 'uid-123', onboardingCompleted: true });
