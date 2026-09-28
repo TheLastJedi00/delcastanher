@@ -169,12 +169,14 @@ export class MercadoPagoOAuthService {
     }
 
     if (!response.ok) {
-      const error = await this.errorCode(response);
+      const { error, message } = await this.errorDetails(response);
 
-      // So o status e o codigo: o corpo da requisicao leva `client_secret`,
-      // `code` ou `refresh_token`, e nenhum deles pode acabar no log.
+      // So o status, o codigo e a explicacao da resposta: o corpo da
+      // requisicao leva `client_secret`, `code` ou `refresh_token`, e nenhum
+      // deles pode acabar no log.
       this.logger.error(
-        `Mercado Pago recusou ${body.grant_type} com ${response.status}: ${error}`,
+        `Mercado Pago recusou ${body.grant_type} com ${response.status}: ${error}` +
+          (message && message !== error ? ` (${message})` : ''),
       );
 
       throw new OAuthGrantError(error);
@@ -192,13 +194,21 @@ export class MercadoPagoOAuthService {
     };
   }
 
-  private async errorCode(response: Response): Promise<string> {
-    try {
-      const body = (await response.json()) as { error?: string };
+  /**
+   * Codigo e explicacao da recusa. O `error` sozinho nao diz qual parametro
+   * foi recusado (`invalid_request` serve para varios); o `message` diz. Vai
+   * cortado, para uma resposta inesperada nao inundar o log.
+   */
+  private async errorDetails(response: Response): Promise<{ error: string; message: string | null }> {
+    const fallback = `http_${response.status}`;
 
-      return body.error ?? `http_${response.status}`;
+    try {
+      const body = (await response.json()) as { error?: string; message?: string };
+      const message = typeof body.message === 'string' ? body.message.slice(0, 300) : null;
+
+      return { error: body.error ?? fallback, message };
     } catch {
-      return `http_${response.status}`;
+      return { error: fallback, message: null };
     }
   }
 }
