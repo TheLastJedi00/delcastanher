@@ -7,7 +7,7 @@ Ordem das fases: primeiro a extração do fluxo de conta no `AuthService`, sem m
 ## Fase 1: Backend - Extração do Fluxo de Conta (TDD)
 - [x] **Task 1.1:** Escrever a suíte dos métodos públicos do `AuthService`: `ensureAccount(email)` criando a conta com senha descartável quando o e-mail não existe e devolvendo a conta existente sem recriar quando existe, informando em ambos os casos se houve criação; `sendPasswordSetupEmail(email)` disparando o `PASSWORD_RESET` com `continueUrl` para o `/login` (decisão 2).
 - [x] **Task 1.2:** Extrair `ensureAccount` e tornar público `sendPasswordSetupEmail` no `AuthService`, fazendo o `requestAccount` passar a usá-los.
-- [ ] **Task 1.3:** Rodar as suítes existentes de `auth` e conferir que "Criar nova conta" e "Esqueci minha senha" não mudaram de comportamento — inclusive a resposta idêntica para e-mail com e sem conta (decisão 10).
+- [x] **Task 1.3:** Rodar as suítes existentes de `auth` e conferir que "Criar nova conta" e "Esqueci minha senha" não mudaram de comportamento — inclusive a resposta idêntica para e-mail com e sem conta (decisão 10).
 
 ## Fase 2: Backend - Rota de Adicionar Administrador (TDD)
 - [ ] **Task 2.1:** Escrever a suíte do `AdminUsersService.addAdmin` para e-mail sem conta: conta criada, `setCustomUserClaims` com `role: 'admin'`, `upsert` no Postgres com `role = admin`, `name` e `lastSeenAt` nulos, e-mail de definição de senha enviado, e `outcome: 'created'` (decisões 2, 4 e 5).
