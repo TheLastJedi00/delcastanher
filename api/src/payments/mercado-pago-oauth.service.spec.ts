@@ -156,6 +156,23 @@ describe('MercadoPagoOAuthService (Spec 020)', () => {
       expect(logged.join(' ')).not.toContain('TG-code-1');
     });
 
+    it('loga a explicacao do Mercado Pago junto do codigo', async () => {
+      mockFetch({ error: 'invalid_request', message: 'code_verifier is required' }, false);
+      const logged: string[] = [];
+      const oauth = service();
+      jest
+        .spyOn((oauth as unknown as { logger: { error: (m: string) => void } }).logger, 'error')
+        .mockImplementation((message: string) => logged.push(message));
+
+      await expect(oauth.exchangeCode('TG-code-1', 'verifier-1')).rejects.toEqual(
+        new OAuthGrantError('invalid_request'),
+      );
+
+      expect(logged).toEqual([
+        'Mercado Pago recusou authorization_code com 400: invalid_request (code_verifier is required)',
+      ]);
+    });
+
     it('trata falha de rede como indisponibilidade, e nao como recusa', async () => {
       global.fetch = jest.fn().mockRejectedValue(new Error('ECONNRESET')) as unknown as typeof fetch;
 
