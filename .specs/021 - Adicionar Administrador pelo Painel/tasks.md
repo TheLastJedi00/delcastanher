@@ -16,7 +16,7 @@ Ordem das fases: primeiro a extração do fluxo de conta no `AuthService`, sem m
 - [x] **Task 2.4:** Criar o `AddAdminDto` com `@IsEmail()` e normalização, e o tipo `AddAdminResult` (`userId`, `email`, `outcome`, `inviteEmailSent`) em `users.admin.types.ts`.
 - [x] **Task 2.5:** Implementar `AdminUsersService.addAdmin` na ordem conta → claim → Postgres → e-mail (decisão 4).
 - [x] **Task 2.6:** Implementar `POST /admin/users/admins` no `AdminUsersController`, conferindo que o caminho não colide com `GET /admin/users/:id` nem com as rotas de `admin/users` do `AdminAccessController` (Spec 014).
-- [ ] **Task 2.7:** Estender `users.admin.http.spec.ts`: admin autorizado recebendo 201, papel `aluno` recebendo 403, sem token recebendo 401, e-mail inválido ou ausente recebendo 400 e conta bloqueada recebendo 409.
+- [x] **Task 2.7:** Estender `users.admin.http.spec.ts`: admin autorizado recebendo 201, papel `aluno` recebendo 403, sem token recebendo 401, e-mail inválido ou ausente recebendo 400 e conta bloqueada recebendo 409.
 - [ ] **Task 2.8:** Rodar `npm test` no `api/` e corrigir regressões.
 
 ## Fase 3: Front - Botão, Modal e Serviço

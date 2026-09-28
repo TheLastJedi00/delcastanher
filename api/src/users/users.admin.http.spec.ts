@@ -371,4 +371,75 @@ describe('Admin — usuarios (HTTP)', () => {
       expect(exportCsv).not.toHaveBeenCalled();
     });
   });
+
+  /** Adicionar administrador por e-mail (Spec 021). */
+  describe('POST /admin/users/admins', () => {
+    const ADDED = {
+      userId: 'uid-nova',
+      email: 'nova@empresa.com',
+      outcome: 'created',
+      inviteEmailSent: true,
+    };
+
+    it('responde 201 com o outcome e repassa o e-mail normalizado', async () => {
+      const addAdmin = jest.fn().mockResolvedValue(ADDED);
+      app = await buildApp({ addAdmin });
+
+      const response = await request(app.getHttpServer())
+        .post('/admin/users/admins')
+        .send({ email: '  Nova@Empresa.com ' })
+        .expect(201);
+
+      expect(response.body).toEqual(ADDED);
+      expect(addAdmin).toHaveBeenCalledWith('nova@empresa.com');
+    });
+
+    it('recusa o papel aluno com 403', async () => {
+      const addAdmin = jest.fn();
+      app = await buildApp({ addAdmin }, 'aluno');
+
+      await request(app.getHttpServer())
+        .post('/admin/users/admins')
+        .send({ email: 'nova@empresa.com' })
+        .expect(403);
+      expect(addAdmin).not.toHaveBeenCalled();
+    });
+
+    it('recusa requisicao sem sessao com 401', async () => {
+      const addAdmin = jest.fn();
+      app = await buildApp({ addAdmin }, null);
+
+      await request(app.getHttpServer())
+        .post('/admin/users/admins')
+        .send({ email: 'nova@empresa.com' })
+        .expect(401);
+      expect(addAdmin).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['e-mail invalido', { email: 'nao-e-email' }],
+      ['e-mail ausente', {}],
+      ['campo extra', { email: 'nova@empresa.com', role: 'aluno' }],
+    ])('recusa %s com 400', async (_caso, body) => {
+      const addAdmin = jest.fn();
+      app = await buildApp({ addAdmin });
+
+      await request(app.getHttpServer()).post('/admin/users/admins').send(body).expect(400);
+      expect(addAdmin).not.toHaveBeenCalled();
+    });
+
+    it('devolve 409 para conta bloqueada', async () => {
+      const addAdmin = jest
+        .fn()
+        .mockRejectedValue(new ConflictException('Esta conta esta bloqueada. Desbloqueie-a na tabela.'));
+      app = await buildApp({ addAdmin });
+
+      const response = await request(app.getHttpServer())
+        .post('/admin/users/admins')
+        .send({ email: 'bloq@empresa.com' })
+        .expect(409);
+
+      expect(response.body.message).toMatch(/bloqueada/);
+    });
+  });
 });
