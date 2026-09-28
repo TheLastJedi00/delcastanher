@@ -46,13 +46,17 @@ import { Modal } from '../../../../shared/ui/modal/modal';
           [formControl]="email"
           [error]="emailError()" />
 
+        @if (serverError()) {
+          <p class="mt-3 text-sm text-state-danger" role="alert">{{ serverError() }}</p>
+        }
+
         <p class="mt-3 text-xs text-slate-500">
           Se ainda não houver conta com este e-mail, ela é criada e a pessoa recebe o link para definir a senha.
         </p>
 
         <div class="mt-6 flex justify-end gap-3">
           <ui-button variant="outline" (click)="closed.emit()">Cancelar</ui-button>
-          <ui-button variant="primary" type="submit">Adicionar</ui-button>
+          <ui-button variant="primary" type="submit" [loading]="running()">Adicionar</ui-button>
         </div>
       </form>
       }
@@ -95,7 +99,19 @@ export class AddAdminDialog {
     }
   });
 
+  /** Requisicao em voo; segura o duplo clique e o Enter repetido. */
+  readonly running = signal(false);
+  /**
+   * Erro da API (409 de conta bloqueada, 400, rede). O modal continua aberto e
+   * o e-mail digitado fica no campo: enviar de novo e a propria repeticao.
+   */
+  readonly serverError = signal<string | null>(null);
+
   submit() {
+    if (this.running()) {
+      return;
+    }
+
     this.email.markAsTouched();
     this.emailError.set(this.validationMessage());
 
@@ -103,12 +119,22 @@ export class AddAdminDialog {
       return;
     }
 
+    this.running.set(true);
+    this.serverError.set(null);
+
     this.users
       .addAdmin(this.email.value.trim())
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(result => {
-        this.result.set(result);
-        this.added.emit(result);
+      .subscribe({
+        next: result => {
+          this.running.set(false);
+          this.result.set(result);
+          this.added.emit(result);
+        },
+        error: (message: string) => {
+          this.running.set(false);
+          this.serverError.set(message);
+        },
       });
   }
 
@@ -117,6 +143,7 @@ export class AddAdminDialog {
     this.result.set(null);
     this.email.reset();
     this.emailError.set('');
+    this.serverError.set(null);
   }
 
   private validationMessage(): string {
