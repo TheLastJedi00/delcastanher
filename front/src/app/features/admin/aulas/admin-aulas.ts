@@ -15,6 +15,7 @@ import { Button } from '../../../shared/ui/button/button';
 import { Card } from '../../../shared/ui/card/card';
 import { ProgressBar } from '../../../shared/ui/progress-bar/progress-bar';
 import { SectionHeader } from '../../../shared/ui/section-header/section-header';
+import { AdminDadosCurso } from './admin-dados-curso';
 import { AdminPacote } from './admin-pacote';
 
 /** Intervalo entre consultas enquanto o Mux processa o video. */
@@ -54,7 +55,7 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
 @Component({
   selector: 'app-admin-aulas',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AdminPacote, Badge, Button, Card, ProgressBar, ReactiveFormsModule, SectionHeader],
+  imports: [AdminDadosCurso, AdminPacote, Badge, Button, Card, ProgressBar, ReactiveFormsModule, SectionHeader],
   template: `
     <div class="mb-6">
       <ui-section-header overline="Conteúdo" title="Gestão de Aulas" />
@@ -65,6 +66,9 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
         <p class="text-sm text-slate-700">{{ error() }}</p>
       </div>
     }
+
+    <!-- Carga horaria (Spec 022, decisao 12): vai para a pagina do curso e os certificados. -->
+    <app-admin-dados-curso class="mb-6 block" />
 
     <!-- Pacote e lotes (Spec 019, decisão 13): preço de venda, como o dos módulos. -->
     <app-admin-pacote class="mb-6 block" />
