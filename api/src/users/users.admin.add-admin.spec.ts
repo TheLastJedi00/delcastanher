@@ -137,4 +137,62 @@ describe('AdminUsersService.addAdmin', () => {
       });
     });
   });
+
+  describe('casos de borda', () => {
+    it('quem ja e admin e no-op: nenhuma escrita no Firebase, so o espelho reconciliado (decisao 7)', async () => {
+      const { service, firebaseAuth, upsert, auth } = await build({
+        account: { uid: 'uid-adm', email: 'adm@empresa.com', customClaims: { role: 'admin' } },
+        created: false,
+      });
+
+      const result = await service.addAdmin('adm@empresa.com');
+
+      expect(firebaseAuth.setCustomUserClaims).not.toHaveBeenCalled();
+      expect(auth.sendPasswordSetupEmail).not.toHaveBeenCalled();
+      expect(upsert).toHaveBeenCalledTimes(1);
+      expect(result.outcome).toBe('already-admin');
+    });
+
+    it('conta bloqueada recebe 409 sem tocar claim nem banco (decisao 8)', async () => {
+      const { service, firebaseAuth, upsert } = await build({
+        account: { uid: 'uid-bloq', email: 'bloq@empresa.com', disabled: true, customClaims: {} },
+        created: false,
+      });
+
+      await expect(service.addAdmin('bloq@empresa.com')).rejects.toMatchObject({
+        status: 409,
+        message: expect.stringMatching(/bloqueada/i),
+      });
+      expect(firebaseAuth.setCustomUserClaims).not.toHaveBeenCalled();
+      expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it('falha do setCustomUserClaims nao grava o Postgres nem envia e-mail (decisao 4)', async () => {
+      const { service, firebaseAuth, upsert, auth } = await build();
+      firebaseAuth.setCustomUserClaims.mockRejectedValue(new Error('firebase fora'));
+
+      await expect(service.addAdmin('nova@empresa.com')).rejects.toThrow('firebase fora');
+      expect(upsert).not.toHaveBeenCalled();
+      expect(auth.sendPasswordSetupEmail).not.toHaveBeenCalled();
+    });
+
+    it('falha so do envio do e-mail devolve sucesso com inviteEmailSent false (decisao 4)', async () => {
+      const { service, auth, upsert } = await build();
+      auth.sendPasswordSetupEmail.mockRejectedValue(new Error('smtp'));
+
+      const result = await service.addAdmin('nova@empresa.com');
+
+      expect(upsert).toHaveBeenCalled();
+      expect(result).toMatchObject({ outcome: 'created', inviteEmailSent: false });
+    });
+
+    it('e-mail com maiusculas e espacos cai na mesma conta (decisao 9)', async () => {
+      const { service, auth } = await build();
+
+      const result = await service.addAdmin('  Nova@Empresa.COM ');
+
+      expect(auth.ensureAccount).toHaveBeenCalledWith('nova@empresa.com');
+      expect(result.email).toBe('nova@empresa.com');
+    });
+  });
 });
