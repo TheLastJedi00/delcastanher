@@ -1,6 +1,6 @@
 # Relatório de Bug: troca do `code` do OAuth do Mercado Pago recusada
 
-> **Status: corrigido, falta validar.** A primeira conexão da conta recebedora (Task 6.1) ainda não fechou. As quatro falhas tiveram causa encontrada; a última (`invalid_request`) foi o corpo do `POST /oauth/token` em JSON, trocado por formulário.
+> **Status: resolvido em 2026-09-28.** A conta recebedora conectou em produção (conta do desenvolvedor, `BOJE8328493`), com acesso válido até 27/03/2027 e renovação automática. Foram três correções: o corpo do `POST /oauth/token` em formulário (PR #27), o `MP_CLIENT_SECRET` e a `MP_TOKEN_ENCRYPTION_KEY` na Vercel.
 
 ## Descrição
 Ao conectar uma conta do Mercado Pago pelo link do painel, o retorno
@@ -21,7 +21,10 @@ Os logs da Vercel mostram UTC, 3 horas à frente.
 | 10:08 | troca **aceita**, depois `500` da API | `MP_TOKEN_ENCRYPTION_KEY` sem 32 bytes em base64 | Corrigido pelo usuário, com redeploy |
 | 10:08 | `400 invalid_grant` | Reenvio do mesmo retorno: o `code` já tinha sido usado | Esperado |
 | 10:17 | `400 invalid_request` | Não confirmada | Em aberto |
-| 10:36 | `400 invalid_request` (`grant_type is a required parameter`) | Corpo em JSON não lido | Corrigido, falta validar |
+| 10:36 | `400 invalid_request` (`grant_type is a required parameter`) | Corpo em JSON não lido | Corrigido (PR #27) |
+| 11:06 | `400 invalid_client` | `MP_CLIENT_SECRET` inválido para o `client_id` | Corrigido pelo usuário, com redeploy |
+| ~11:15 | troca **aceita**, depois `500` da API | `MP_TOKEN_ENCRYPTION_KEY` ainda sem 32 bytes | Corrigido pelo usuário, com redeploy |
+| 11:19 | troca aceita e conexão gravada | — | Resolvido |
 
 ### 1. `invalid_client`
 O Mercado Pago não aceitou o par `client_id` + `client_secret`. O `client_id`
@@ -87,8 +90,13 @@ formato que a RFC 6749 pede para o endpoint de token.
 - [x] Corpo do `POST /oauth/token` em formulário em vez de JSON, na troca e na
   renovação. Teste novo garante o `Content-Type`. `npx jest src/payments`: 331
   testes passando.
-- [ ] Corrigir a causa e fechar a primeira conexão (Task 6.1). Conferir junto
-  se a resposta traz `offline_access` (Task 0.2).
+- [x] Corrigir a causa e fechar a primeira conexão. Com o formulário, o
+  Mercado Pago passou a devolver `invalid_client`, e o `MP_CLIENT_SECRET` foi
+  trocado. Depois a troca foi aceita e a gravação caiu de novo na
+  `MP_TOKEN_ENCRYPTION_KEY`: a chave "corrigida" às 10:08 nunca tinha sido
+  exercitada, porque as trocas seguintes falharam antes de cifrar. Com a chave
+  nova, a conexão gravou às 11:19. O callback aceitou o escopo, então
+  `offline_access` veio (Task 0.2).
 
 ## Achados paralelos
 Não bloqueiam a conexão, mas apareceram no caminho:
