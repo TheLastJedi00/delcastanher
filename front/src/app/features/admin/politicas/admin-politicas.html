@@ -1,0 +1,51 @@
+<div class="mb-6">
+  <ui-section-header overline="Jurídico" title="Políticas e Termos de Uso" level="h1" />
+</div>
+
+<div class="mb-6 rounded-2xl border border-state-warning/30 bg-state-warning/5 p-4">
+  <p class="text-sm font-bold text-state-warning">Área em construção</p>
+  <p class="mt-1 text-sm text-slate-600">
+    Esta tela é uma maquete: o conteúdo digitado aqui não é salvo e não altera as páginas
+    públicas de Termos e Privacidade.
+  </p>
+</div>
+
+<ui-card variant="default" padding="lg" [hover]="false">
+  <div class="mb-6 flex gap-2 border-b border-brand-navy/8">
+    <button
+      type="button"
+      (click)="setLegalTab('termos')"
+      class="border-b-2 px-4 py-2 text-sm font-bold transition-colors"
+      [class.border-brand-teal]="legalTab() === 'termos'"
+      [class.text-brand-teal-deep]="legalTab() === 'termos'"
+      [class.border-transparent]="legalTab() !== 'termos'"
+      [class.text-slate-500]="legalTab() !== 'termos'">
+      Termos de Uso
+    </button>
+    <button
+      type="button"
+      (click)="setLegalTab('privacidade')"
+      class="border-b-2 px-4 py-2 text-sm font-bold transition-colors"
+      [class.border-brand-teal]="legalTab() === 'privacidade'"
+      [class.text-brand-teal-deep]="legalTab() === 'privacidade'"
+      [class.border-transparent]="legalTab() !== 'privacidade'"
+      [class.text-slate-500]="legalTab() !== 'privacidade'">
+      Política de Privacidade
+    </button>
+  </div>
+
+  <ui-input
+    label="Conteúdo Jurídico"
+    placeholder="1. Aceitação dos Termos..."
+    [multiline]="true"
+    [rows]="14"
+    [mono]="true"
+    [(value)]="legalContent" />
+
+  <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <ui-badge variant="warning" label="Maquete" />
+    </div>
+    <ui-button variant="secondary" [disabled]="true">Atualizar Documento</ui-button>
+  </div>
+</ui-card>
