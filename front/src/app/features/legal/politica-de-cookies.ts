@@ -1,9 +1,9 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { CONSENT_POLICY_VERSION, ConsentService } from '../../core/services/consent.service';
+import { ConsentService } from '../../core/services/consent.service';
 import { Button } from '../../shared/ui/button/button';
+import { legalDocumentState } from './legal-document-state';
 import { LegalPage } from './legal-page';
-import { COOKIES_SECTIONS } from './politica-de-cookies.sections';
 
 /**
  * Politica de Cookies — documento em vigor (Spec 015, decisao 3).
@@ -23,9 +23,12 @@ import { COOKIES_SECTIONS } from './politica-de-cookies.sections';
  *
  * Desde a Spec 017 a plataforma grava **um** cookie proprio: o
  * `__Secure-refresh`, HttpOnly, emitido pela API para manter a sessao. Ele e
- * necessario, nao depende de consentimento, e por isso nao sobe a
- * `CONSENT_POLICY_VERSION`: o que o banner pergunta — a medicao de audiencia —
- * nao mudou.
+ * necessario, nao depende de consentimento, e por isso nao pede nova versao
+ * da politica: o que o banner pergunta — a medicao de audiencia — nao mudou.
+ *
+ * Desde a Spec 022 o texto vem do banco. Os blocos "sua escolha atual" e
+ * "rever preferencias" sao codigo, e ficam aqui, depois das secoes
+ * (decisao 9).
  */
 @Component({
   selector: 'app-politica-de-cookies',
@@ -35,9 +38,8 @@ import { COOKIES_SECTIONS } from './politica-de-cookies.sections';
     <app-legal-page
       title="Política de Cookies"
       summary="O que a plataforma guarda no seu navegador, para que serve, o que só existe depois do seu aceite e como revisar a sua escolha a qualquer momento."
-      [sections]="sections"
-      [policyVersion]="policyVersion"
-      [pending]="false">
+      [state]="state()"
+      unpublishedNotice="A Política de Cookies está em preparação e será publicada nesta página.">
       <!-- A revogacao vive na propria pagina que explica o que foi consentido:
            mandar o titular procurar o controle em outro lugar e atrito. -->
       <div class="rounded-xl border border-brand-navy/10 bg-white p-5 shadow-card">
@@ -45,8 +47,8 @@ import { COOKIES_SECTIONS } from './politica-de-cookies.sections';
         <p class="mb-4 text-sm leading-relaxed text-slate-600">
           @if (record(); as decision) {
             {{ decision.choice === 'accepted' ? 'Você aceitou' : 'Você recusou' }} os cookies de
-            medição em {{ decision.decidedAt | date: 'dd/MM/yyyy, HH:mm' }}, sob a versão
-            {{ decision.policyVersion }} desta política.
+            medição em {{ decision.decidedAt | date: 'dd/MM/yyyy, HH:mm' }}@if (decision.policyVersion) {, sob a versão
+              {{ decision.policyVersion }} desta política}.
           } @else {
             Você ainda não registrou uma escolha nesta versão da política.
           }
@@ -61,7 +63,5 @@ import { COOKIES_SECTIONS } from './politica-de-cookies.sections';
 export class PoliticaDeCookies {
   protected readonly consent = inject(ConsentService);
   protected readonly record = this.consent.current;
-  protected readonly policyVersion = CONSENT_POLICY_VERSION;
-
-  protected readonly sections = COOKIES_SECTIONS;
+  protected readonly state = legalDocumentState('COOKIES');
 }

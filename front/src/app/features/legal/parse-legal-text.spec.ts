@@ -1,14 +1,11 @@
 import { p, ul } from './legal-section';
-import { formatLegalText, parseLegalText } from './parse-legal-text';
-import { COOKIES_SECTIONS } from './politica-de-cookies.sections';
-import { PRIVACY_SECTIONS } from './politica-de-privacidade.sections';
+import { parseLegalText } from './parse-legal-text';
 
 /**
  * Formato de texto dos documentos legais (Spec 022, decisao 1).
  *
- * O parser e o mesmo na pre-visualizacao do painel e na pagina publica, e a
- * ida e volta com `formatLegalText` e o que a carga inicial usa para tirar o
- * texto do codigo sem redigitar (decisao 10).
+ * O parser e o mesmo na pre-visualizacao do painel e na pagina publica: o
+ * que se ve antes de publicar e o que o aluno le.
  */
 describe('parseLegalText', () => {
   it('abre uma seção a cada título "## "', () => {
@@ -80,24 +77,5 @@ describe('parseLegalText', () => {
     expect(sections).toEqual([
       { title: '<b>Título</b>', body: [p('<script>alert(1)</script>'), ul('<img src=x>')] },
     ]);
-  });
-});
-
-describe('formatLegalText', () => {
-  it('escreve título, parágrafos e listas no formato da decisão 1', () => {
-    const text = formatLegalText([
-      { title: '1. Objetivo', body: [p('Parágrafo.'), ul('A', 'B')] },
-      { title: '2. Fim', body: [p('Último.')] },
-    ]);
-
-    expect(text).toBe('## 1. Objetivo\n\nParágrafo.\n\n- A\n- B\n\n## 2. Fim\n\nÚltimo.');
-  });
-
-  it('volta às mesmas seções da Política de Privacidade pelo parser', () => {
-    expect(parseLegalText(formatLegalText(PRIVACY_SECTIONS))).toEqual([...PRIVACY_SECTIONS]);
-  });
-
-  it('volta às mesmas seções da Política de Cookies pelo parser', () => {
-    expect(parseLegalText(formatLegalText(COOKIES_SECTIONS))).toEqual([...COOKIES_SECTIONS]);
   });
 });

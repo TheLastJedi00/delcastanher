@@ -71,6 +71,16 @@ export class LegalDocumentsService {
     return latest?.policyVersion ?? null;
   }
 
+  /** Os documentos com ao menos uma versao publicada, na ordem do painel. */
+  async published(): Promise<LegalDocumentKind[]> {
+    const rows = await this.prisma.legalDocumentVersion.findMany({
+      distinct: ['kind'],
+      select: { kind: true },
+    });
+
+    return LEGAL_DOCUMENT_KINDS.filter((kind) => rows.some((row) => row.kind === kind));
+  }
+
   /** Os tres documentos, com vigente e rascunho, para a aba do painel. */
   async adminList(): Promise<AdminLegalDocumentsView> {
     const [versions, drafts] = await Promise.all([

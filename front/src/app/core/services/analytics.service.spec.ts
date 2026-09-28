@@ -1,8 +1,10 @@
 import { ApplicationRef } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
 import { AnalyticsService } from './analytics.service';
-import { CONSENT_POLICY_VERSION, ConsentService } from './consent.service';
+import { ConsentService } from './consent.service';
 
 const CONSENT_KEY = 'delcastanher.consent';
 
@@ -26,6 +28,9 @@ function gtmScripts(): HTMLScriptElement[] {
 /** Instancia limpa; o `tick` roda o effect que observa o consentimento. */
 function create(): { analytics: AnalyticsService; consent: ConsentService } {
   TestBed.resetTestingModule();
+  // O ConsentService pergunta a versao da politica a API (Spec 022); sem
+  // resposta, vale o registro gravado, que e o que estes testes preparam.
+  TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
 
   const analytics = TestBed.inject(AnalyticsService);
   const consent = TestBed.inject(ConsentService);
@@ -45,7 +50,7 @@ function storeAcceptedConsent(): void {
     JSON.stringify({
       choice: 'accepted',
       decidedAt: new Date().toISOString(),
-      policyVersion: CONSENT_POLICY_VERSION,
+      policyVersion: '2026-09-13',
     })
   );
 }

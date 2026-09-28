@@ -71,7 +71,7 @@ function fakeService() {
   };
 }
 
-/** Aba "Politicas & Termos" sobre o servico simulado (Spec 022, Fase 1). */
+/** Aba "Politicas & Termos" sobre o servico simulado (Spec 022, decisao 11). */
 describe('AdminPoliticas', () => {
   let fixture: ComponentFixture<AdminPoliticas>;
   let service: ReturnType<typeof fakeService>;
@@ -120,12 +120,13 @@ describe('AdminPoliticas', () => {
     expect(el().querySelector('h1')?.textContent).toContain('Políticas e Termos de Uso');
   });
 
-  it('mantém os avisos de maquete enquanto a aba não está ligada ao banco', () => {
-    expect(text()).toContain('Área em construção');
+  // Task 3.7: ligada ao banco, a aba deixa de se declarar maquete.
+  it('não tem mais os avisos de maquete', () => {
+    expect(text()).not.toContain('Área em construção');
 
     click('Editar', card('PRIVACY'));
 
-    expect(text()).toContain('Maquete');
+    expect(text()).not.toContain('Maquete');
   });
 
   describe('lista', () => {
