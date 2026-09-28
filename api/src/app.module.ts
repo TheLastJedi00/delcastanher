@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { ContentModule } from './content/content.module';
+import { CoursesModule } from './courses/courses.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { LegalModule } from './legal/legal.module';
 import { MuxModule } from './mux/mux.module';
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module';
     ContentModule,
     PaymentsModule,
     LegalModule,
+    CoursesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
