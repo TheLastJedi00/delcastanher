@@ -2,50 +2,47 @@
   <ui-section-header overline="Jurídico" title="Políticas e Termos de Uso" level="h1" />
 </div>
 
+<!-- Decisao 11: o aviso so sai quando a aba estiver ligada ao banco (Task 3.7).
+     Ate la, a tela nao salva nada, e dizer isso continua sendo verdade. -->
 <div class="mb-6 rounded-2xl border border-state-warning/30 bg-state-warning/5 p-4">
   <p class="text-sm font-bold text-state-warning">Área em construção</p>
   <p class="mt-1 text-sm text-slate-600">
-    Esta tela é uma maquete: o conteúdo digitado aqui não é salvo e não altera as páginas
-    públicas de Termos e Privacidade.
+    Esta tela é uma maquete: o conteúdo digitado aqui não é salvo e não altera as páginas públicas
+    de Termos e Privacidade.
   </p>
 </div>
 
-<ui-card variant="default" padding="lg" [hover]="false">
-  <div class="mb-6 flex gap-2 border-b border-brand-navy/8">
-    <button
-      type="button"
-      (click)="setLegalTab('termos')"
-      class="border-b-2 px-4 py-2 text-sm font-bold transition-colors"
-      [class.border-brand-teal]="legalTab() === 'termos'"
-      [class.text-brand-teal-deep]="legalTab() === 'termos'"
-      [class.border-transparent]="legalTab() !== 'termos'"
-      [class.text-slate-500]="legalTab() !== 'termos'">
-      Termos de Uso
-    </button>
-    <button
-      type="button"
-      (click)="setLegalTab('privacidade')"
-      class="border-b-2 px-4 py-2 text-sm font-bold transition-colors"
-      [class.border-brand-teal]="legalTab() === 'privacidade'"
-      [class.text-brand-teal-deep]="legalTab() === 'privacidade'"
-      [class.border-transparent]="legalTab() !== 'privacidade'"
-      [class.text-slate-500]="legalTab() !== 'privacidade'">
-      Política de Privacidade
-    </button>
+@if (legal.error(); as erro) {
+  <div
+    class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-state-danger/20 bg-state-danger/5 p-4">
+    <p class="text-sm text-state-danger" role="alert">{{ erro }}</p>
+    <ui-button variant="outline" size="sm" (click)="reload()">Tentar de novo</ui-button>
   </div>
+}
 
-  <ui-input
-    label="Conteúdo Jurídico"
-    placeholder="1. Aceitação dos Termos..."
-    [multiline]="true"
-    [rows]="14"
-    [mono]="true"
-    [(value)]="legalContent" />
+<ul class="grid gap-4 lg:grid-cols-3" aria-label="Documentos legais">
+  @for (doc of documents(); track doc.kind) {
+    <li>
+      <ui-card variant="default" padding="lg" [hover]="false" class="block h-full">
+        <div class="flex h-full flex-col gap-3" [attr.data-testid]="'documento-' + doc.kind">
+          <h2 class="text-lg font-semibold text-brand-navy">{{ title(doc.kind) }}</h2>
 
-  <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <ui-badge variant="warning" label="Maquete" />
-    </div>
-    <ui-button variant="secondary" [disabled]="true">Atualizar Documento</ui-button>
-  </div>
-</ui-card>
+          <p class="text-sm text-slate-600">{{ status(doc) }}</p>
+
+          @if (doc.draft; as draft) {
+            <div>
+              <ui-badge variant="warning" label="Rascunho não publicado" />
+              <p class="mt-2 text-xs text-slate-500">
+                Salvo em {{ date(draft.updatedAt) }} por {{ draft.updatedByEmail }}
+              </p>
+            </div>
+          }
+
+          <div class="mt-auto flex flex-wrap gap-2 pt-2">
+            <ui-button variant="outline" size="sm" [disabled]="true">Editar</ui-button>
+          </div>
+        </div>
+      </ui-card>
+    </li>
+  }
+</ul>
