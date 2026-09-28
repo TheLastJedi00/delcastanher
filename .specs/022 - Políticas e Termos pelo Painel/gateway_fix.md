@@ -1,9 +1,11 @@
 # Relatório de Bug: falhas do checkout na primeira venda real
 
-> **Status: em aberto.** Os bugs 1 a 3 (API) têm causa encontrada no código. O bug 4 (front) tem causas prováveis, a confirmar na reprodução. Falta a correção (TDD) e a validação em produção. A causa do `processing_error` em si é da conta recebedora, e não do código (ver `context.md`, decisão 1).
+> **Status: em aberto.** Os bugs 1 a 3 (API) têm causa encontrada no código. O bug 4 (front) tem causas prováveis, a confirmar na reprodução. Falta a correção (TDD) e a validação em produção. A causa do `processing_error` em si é provavelmente da conta recebedora, e não do código (ver "Causa provável do `processing_error`").
+
+> Este relatório é independente da Spec 022 (Políticas e Termos pelo Painel), que só divide a pasta com ele.
 
 ## Descrição
-Na primeira venda real por PIX (Spec 022), o Mercado Pago criou a order na
+Na primeira venda real por PIX em produção, o Mercado Pago criou a order na
 conta da vendedora e recusou a transação com `402`. A API respondeu `503`
 "Não foi possível falar com o provedor de pagamento", o comprador tentou de
 novo, e o pedido local ficou `PENDING` sem `mpOrderId`, sem nada que o feche.
@@ -30,6 +32,36 @@ Estado no banco (consulta de leitura, mesmo dia):
 | `cmulmj92u000004l3mt1j5m09` | `CANCELLED` | nulo | O do log. Cancelado pela tentativa seguinte (um pendente por vez), e não pela falha. |
 | `cmulmjg1m000204l32drdkp9c` | `PENDING` | nulo | Segunda tentativa, 9 s depois. Órfão. |
 | `cmu5ygmu60000i0uao83byzt5` | `PENDING` | nulo | De 17/09, anterior à Spec 020. Mesmo sintoma. Órfão. |
+
+## Causa provável do `processing_error`
+A order nasceu na conta da vendedora (`ORD01M3…`, com o `application_id` da
+aplicação `Delcastanher`). O token e a conexão da Spec 020 funcionaram, e quem
+falhou foi a geração do PIX.
+
+A documentação do Mercado Pago (consultada pelo MCP em 28/09/2026) diz que
+**o PIX só é oferecido se a conta recebedora tiver chave Pix cadastrada**.
+Hipóteses descartadas:
+
+- **Pagar a si mesmo:** o comprador é outra conta, e a recebedora é a da Lidiane.
+- **Limite noturno do Banco Central** (R$ 1 mil entre 20h e 6h): foi às 19:12, de R$ 5,00.
+- **Credencial ou escopo:** a order foi criada na conta `130465493`, e o escopo
+  tem `urn:mp:online:order:payment/read-write`.
+- **Corpo da order:** é o mesmo validado na Spec 014. Campo errado daria `400`
+  com o erro de validação, e não `402` com a order criada.
+
+Isso não se corrige no código. Nenhuma mudança no corpo da order resolve uma
+conta que não pode receber PIX. Esconder o PIX por configuração seria um
+remendo para uma conta que precisa estar certa antes de vender.
+
+### Conferência na conta (manual)
+- [ ] No app do Mercado Pago da Lidiane (conta `130465493`), conferir se há
+  **chave Pix cadastrada** em Seu negócio → Pix → Minhas chaves. Sem chave,
+  cadastrar uma. É passo da vendedora, porque exige o login dela.
+- [ ] Se a chave já existia, procurar na conta avisos de restrição ou de
+  identificação (KYC) pendente. Se o problema continuar, abrir chamado no
+  suporte do Mercado Pago com a order `ORD01M3MPWQTQ37RVKH5VX3034G8Z` e a
+  transação `PAY01M3MPWQV0DMJW5BM6QKNX82VQ`.
+- [ ] Registrar aqui a causa confirmada.
 
 ## Bugs
 
@@ -145,11 +177,16 @@ também trava ou se só os três Secure Fields travam.
   → PIX → Cartão monta de novo; `ngOnDestroy` desmonta. SDK simulado.
 - [ ] Corrigir a montagem dos Secure Fields.
 - [ ] `npm test` no `api/`, `ng test` e `ng build` no `front/`.
-- [ ] Fechar os órfãos existentes como `CANCELLED` por script (escrita no banco
-  de produção, só com autorização explícita). Fica na Task 4.2 da spec.
+- [ ] Fechar como `CANCELLED`, por script de uma vez, os pedidos órfãos
+  (`PENDING` sem `mpOrderId`): `cmulmjg1m000204l32drdkp9c`,
+  `cmu5ygmu60000i0uao83byzt5` e os que surgirem até a correção entrar. Rodar
+  **depois** do deploy da correção, para não sobrar órfão novo. É escrita no
+  banco de produção: só com autorização explícita. Registrar aqui os ids
+  fechados.
 
 ## Como testar de novo
-1. Com a conta recebedora **sem** PIX (antes da Task 0.1 da spec), tentar um PIX:
+1. Com a conta recebedora **sem** PIX (antes de cadastrar a chave, em
+   "Conferência na conta"), tentar um PIX:
    a tela mostra a mensagem do PIX e oferece cartão; o pedido fica `REJECTED`
    com `mpOrderId` e `mpStatusDetail = processing_error`.
 2. Tentar de novo: nenhum pedido `PENDING` sem `mpOrderId` sobra no banco.
