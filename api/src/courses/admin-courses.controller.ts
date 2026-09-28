@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { Roles } from '../auth/roles.decorator';
+import { NoStore } from '../common/cache-control.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AdminCourseView, CoursesService } from './courses.service';
 import { UpdateCourseDto } from './dto/update-course.dto';
@@ -14,6 +15,7 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 @Controller('admin/courses')
 @UseGuards(FirebaseAuthGuard, RolesGuard)
 @Roles('admin')
+@NoStore()
 export class AdminCoursesController {
   constructor(private readonly courses: CoursesService) {}
 

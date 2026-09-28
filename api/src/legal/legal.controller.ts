@@ -1,4 +1,5 @@
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
+import { PublicCache } from '../common/cache-control.decorator';
 import { LegalDocumentsService } from './legal-documents.service';
 import { ParseLegalKindPipe } from './legal-kind.pipe';
 import type { LegalDocumentKind, PublicLegalDocument } from './legal.types';
@@ -15,8 +16,12 @@ import type { LegalDocumentKind, PublicLegalDocument } from './legal.types';
 export class LegalController {
   constructor(private readonly legal: LegalDocumentsService) {}
 
-  /** Versao publicada vigente; 404 enquanto o documento nao foi publicado. */
+  /**
+   * Versao publicada vigente; 404 enquanto o documento nao foi publicado. O
+   * 404 tambem vai para a CDN (decisao 16).
+   */
   @Get('documents/:kind')
+  @PublicCache()
   async document(@Param('kind', ParseLegalKindPipe) kind: LegalDocumentKind): Promise<PublicLegalDocument> {
     const current = await this.legal.current(kind);
 
@@ -34,6 +39,7 @@ export class LegalController {
 
   /** A versao da politica vigente, do conjunto dos tres documentos (decisao 8). */
   @Get('policy-version')
+  @PublicCache()
   async policyVersion(): Promise<{ version: string | null }> {
     return { version: await this.legal.policyVersion() };
   }

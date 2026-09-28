@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { NoStore } from '../common/cache-control.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -36,6 +37,7 @@ import type {
 @Controller('admin/legal/documents')
 @UseGuards(FirebaseAuthGuard, RolesGuard)
 @Roles('admin')
+@NoStore()
 export class AdminLegalController {
   constructor(private readonly legal: LegalDocumentsService) {}
 

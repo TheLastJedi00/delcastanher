@@ -76,6 +76,8 @@ async function buildApp() {
 
   const app = moduleRef.createNestApplication();
 
+  // O mesmo CORS do `main.ts`: reflete a origem permitida, com credenciais.
+  app.enableCors({ origin: ['https://delcastanher.srv.br'], credentials: true });
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, stopAtFirstError: true }),
   );
@@ -120,6 +122,33 @@ describe('Cache das rotas publicas (HTTP)', () => {
       expect(logged.headers['cache-control']).toBe(PUBLIC_CACHE_CONTROL);
     });
   }
+
+  // A CDN guarda uma resposta so para todo mundo. Com o CORS por origem, a
+  // resposta gravada para o build (sem Origin) seria servida ao navegador sem
+  // `Access-Control-Allow-Origin`, e a pagina nao conseguiria le-la.
+  it('a resposta publica vale para qualquer origem, sem credenciais', async () => {
+    const semOrigem = await request(app.getHttpServer()).get('/legal/policy-version').expect(200);
+    const doSite = await request(app.getHttpServer())
+      .get('/legal/policy-version')
+      .set('Origin', 'https://delcastanher.srv.br')
+      .expect(200);
+
+    for (const response of [semOrigem, doSite]) {
+      expect(response.headers['access-control-allow-origin']).toBe('*');
+      expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+    }
+  });
+
+  it('as rotas admin mantem o CORS por origem, com credenciais', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/admin/legal/documents')
+      .set('Authorization', 'Bearer x')
+      .set('Origin', 'https://delcastanher.srv.br')
+      .expect(200);
+
+    expect(response.headers['access-control-allow-origin']).toBe('https://delcastanher.srv.br');
+    expect(response.headers['access-control-allow-credentials']).toBe('true');
+  });
 
   // Um robo pedindo os Termos em laco bate na CDN, e nao no banco.
   it('o 404 tambem vai para o cache', async () => {

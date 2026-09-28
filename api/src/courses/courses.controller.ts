@@ -1,4 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
+import { PublicCache } from '../common/cache-control.decorator';
 import { CourseSummary, CoursesService } from './courses.service';
 
 /**
@@ -11,6 +12,7 @@ export class CoursesController {
 
   /** Carga horaria e meses de acesso, para a hero e o FAQ. */
   @Get(':slug/summary')
+  @PublicCache()
   summary(@Param('slug') slug: string): Promise<CourseSummary> {
     return this.courses.summary(slug);
   }
