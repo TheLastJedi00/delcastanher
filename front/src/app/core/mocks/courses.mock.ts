@@ -305,7 +305,8 @@ const IMERSAO_RH: Course = {
         'Não. A imersão atende tanto quem está estruturando a área do zero quanto empreendedores e gestores que hoje acumulam a função de pessoas.',
     },
     {
-      question: 'As aulas são ao vivo ou gravadas?',
+      // A pergunta citava "ao vivo"; a resposta diz o que o produto e (decisao 18).
+      question: 'Como funcionam as aulas?',
       answer: ({ accessMonths }) =>
         `As aulas são gravadas e ficam na área do aluno para você assistir no seu ritmo, durante ${
           accessMonths ? `os ${accessMonths} meses` : 'o período'
