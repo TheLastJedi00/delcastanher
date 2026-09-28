@@ -1,10 +1,13 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthUser } from '../auth/auth.types';
+import { LegalDocumentsService } from '../legal/legal-documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CURRENT_POLICY_VERSION } from './policy-versions';
 import { UsersService } from './users.service';
+
+/** Versao da politica vigente no banco (Spec 022, decisao 7). */
+const VIGENTE = '2026-09-13';
 
 const USER: AuthUser = {
   uid: 'uid-123',
@@ -19,21 +22,23 @@ const ONBOARDING: UpdateUserDto = {
   bio: 'Analista de RH ha 8 anos.',
   phone: '(11) 90000-0000',
   policyAccepted: true,
-  policyVersion: CURRENT_POLICY_VERSION,
+  policyVersion: VIGENTE,
 };
 
-async function build(current: Record<string, unknown> | null) {
+async function build(current: Record<string, unknown> | null, vigente: string | null = VIGENTE) {
   const upsert = jest.fn().mockResolvedValue({ id: USER.uid });
   const findUnique = jest.fn().mockResolvedValue(current);
+  const policyVersion = jest.fn().mockResolvedValue(vigente);
 
   const moduleRef = await Test.createTestingModule({
     providers: [
       UsersService,
       { provide: PrismaService, useValue: { user: { upsert, findUnique } } },
+      { provide: LegalDocumentsService, useValue: { policyVersion } },
     ],
   }).compile();
 
-  return { service: moduleRef.get(UsersService), upsert, findUnique };
+  return { service: moduleRef.get(UsersService), upsert, findUnique, policyVersion };
 }
 
 /** Dados gravados na chamada de upsert (update e create carregam o mesmo). */
@@ -84,7 +89,7 @@ describe('UsersService — aceite da politica', () => {
         expect.objectContaining({
           onboardingCompleted: true,
           policyAcceptedAt: expect.any(Date),
-          policyAcceptedVersion: CURRENT_POLICY_VERSION,
+          policyAcceptedVersion: VIGENTE,
         }),
       );
     });
@@ -137,7 +142,7 @@ describe('UsersService — aceite da politica', () => {
       await service.update(USER, ONBOARDING);
 
       expect(gravado(upsert)).toEqual(
-        expect.objectContaining({ policyAcceptedVersion: CURRENT_POLICY_VERSION }),
+        expect.objectContaining({ policyAcceptedVersion: VIGENTE }),
       );
     });
   });
@@ -150,7 +155,7 @@ describe('UsersService — aceite da politica', () => {
         id: USER.uid,
         onboardingCompleted: true,
         policyAcceptedAt: antes,
-        policyAcceptedVersion: CURRENT_POLICY_VERSION,
+        policyAcceptedVersion: VIGENTE,
       });
 
       await service.update(USER, ONBOARDING);
@@ -175,6 +180,74 @@ describe('UsersService — aceite da politica', () => {
       await expect(
         service.update(USER, { name: 'Meio', bio: '', phone: '' } as UpdateUserDto),
       ).resolves.toBeDefined();
+    });
+  });
+
+  /**
+   * Spec 022, decisao 7: a versao aceita e validada contra a **vigente** no
+   * banco, e nao contra uma lista fixa. Gravar uma versao que ja nao esta em
+   * vigor registraria o aceite de um texto que a pessoa nao leu.
+   */
+  describe('versao vinda do banco', () => {
+    it('grava a versao vigente', async () => {
+      const { service, upsert } = await build(null, '2026-09-28');
+
+      await service.update(USER, { ...ONBOARDING, policyVersion: '2026-09-28' });
+
+      expect(gravado(upsert)).toEqual(expect.objectContaining({ policyAcceptedVersion: '2026-09-28' }));
+    });
+
+    it('recusa com 409 uma versao que ja nao esta em vigor, e devolve a vigente', async () => {
+      const { service, upsert } = await build(null, '2026-09-28');
+
+      const error = await service.update(USER, ONBOARDING).catch((reason: unknown) => reason);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toEqual(
+        expect.objectContaining({ policyVersion: '2026-09-28' }),
+      );
+      expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it('recusa versao inventada, mesmo com formato de data', async () => {
+      const { service, upsert } = await build(null);
+
+      await expect(
+        service.update(USER, { ...ONBOARDING, policyVersion: '2099-01-01' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it('não consulta a versão para quem só edita o perfil já aceito', async () => {
+      const { service, policyVersion } = await build({
+        id: USER.uid,
+        onboardingCompleted: true,
+        policyAcceptedAt: new Date('2026-09-15T10:00:00.000Z'),
+        policyAcceptedVersion: '2026-09-13',
+      });
+
+      await service.update(USER, ONBOARDING);
+
+      expect(policyVersion).not.toHaveBeenCalled();
+    });
+
+    it('sem publicação nenhuma, quem já concluiu o onboarding continua editando o perfil', async () => {
+      const { service, upsert } = await build(
+        { id: USER.uid, onboardingCompleted: true, policyAcceptedAt: null, policyAcceptedVersion: null },
+        null,
+      );
+
+      const { policyAccepted, policyVersion, ...semAceite } = ONBOARDING;
+
+      await expect(service.update(USER, semAceite as UpdateUserDto)).resolves.toBeDefined();
+      expect(upsert).toHaveBeenCalled();
+    });
+
+    it('sem publicação nenhuma, não grava aceite de texto que não existe', async () => {
+      const { service, upsert } = await build(null, null);
+
+      await expect(service.update(USER, ONBOARDING)).rejects.toBeInstanceOf(ConflictException);
+      expect(upsert).not.toHaveBeenCalled();
     });
   });
 });

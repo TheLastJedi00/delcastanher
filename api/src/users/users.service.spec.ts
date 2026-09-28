@@ -1,9 +1,12 @@
 import { Test } from '@nestjs/testing';
 import { AuthUser } from '../auth/auth.types';
+import { LegalDocumentsService } from '../legal/legal-documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CURRENT_POLICY_VERSION } from './policy-versions';
 import { UsersService } from './users.service';
+
+/** Versao da politica vigente no banco (Spec 022, decisao 7). */
+const VIGENTE = '2026-09-13';
 
 const FIREBASE_USER: AuthUser = {
   uid: 'uid-123',
@@ -22,7 +25,7 @@ const ONBOARDING: UpdateUserDto = {
   // Spec 015, decisao 7: concluir o onboarding passou a exigir o aceite da
   // Politica de Privacidade, e ele viaja na mesma requisicao do perfil.
   policyAccepted: true,
-  policyVersion: CURRENT_POLICY_VERSION,
+  policyVersion: VIGENTE,
 };
 
 async function build(upsert = jest.fn(), current: unknown = null) {
@@ -36,6 +39,7 @@ async function build(upsert = jest.fn(), current: unknown = null) {
     providers: [
       UsersService,
       { provide: PrismaService, useValue: { user: { upsert, findUnique } } },
+      { provide: LegalDocumentsService, useValue: { policyVersion: jest.fn().mockResolvedValue(VIGENTE) } },
     ],
   }).compile();
 
@@ -125,7 +129,7 @@ describe('UsersService', () => {
             linkedin: 'https://linkedin.com/in/aluno',
             onboardingCompleted: true,
             policyAcceptedAt: expect.any(Date),
-            policyAcceptedVersion: CURRENT_POLICY_VERSION,
+            policyAcceptedVersion: VIGENTE,
           },
         }),
       );
@@ -180,7 +184,7 @@ describe('UsersService', () => {
         linkedin: 'https://linkedin.com/in/aluno',
         onboardingCompleted: true,
         policyAcceptedAt: expect.any(Date),
-        policyAcceptedVersion: CURRENT_POLICY_VERSION,
+        policyAcceptedVersion: VIGENTE,
       });
     });
   });

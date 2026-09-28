@@ -21,8 +21,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { FirebaseService } from '../src/firebase/firebase.service';
+import { LegalDocumentsService } from '../src/legal/legal-documents.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { CURRENT_POLICY_VERSION } from '../src/users/policy-versions';
 
 const PASSWORD = 'Spec021-teste!';
 const ADMIN = 'spec021-admin@example.com';
@@ -36,6 +36,8 @@ async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const auth = app.get(FirebaseService).auth;
   const prisma = app.get(PrismaService);
+  // A versao vigente vem do banco desde a Spec 022 (decisao 7).
+  const policyVersion = await app.get(LegalDocumentsService).policyVersion();
 
   const uidOf = (address: string) =>
     auth.getUserByEmail(address).then(
@@ -60,7 +62,7 @@ async function main(): Promise<void> {
       role,
       onboardingCompleted: true,
       policyAcceptedAt: new Date(),
-      policyAcceptedVersion: CURRENT_POLICY_VERSION,
+      policyAcceptedVersion: policyVersion,
       blockedAt: disabled ? new Date() : null,
     };
 
