@@ -115,6 +115,26 @@ export class CourseDetail {
     ),
   );
 
+  /** Garantias com a descricao resolvida pelos dados reais (decisao 18). */
+  protected readonly guarantees = computed(() =>
+    (this.course()?.guarantees ?? []).map(item => ({
+      ...item,
+      description: resolveCourseText(item.description, this.facts()) ?? '',
+    })),
+  );
+
+  /**
+   * A faixa de escassez so aparece com prazo ou vagas de verdade: com os dois
+   * ainda placeholder, ela anunciaria uma escassez que nao existe (decisao 18).
+   */
+  protected readonly scarcityVisible = computed(() => {
+    const offer = this.course()?.offer;
+
+    return !!offer && (!isPlaceholder(offer.scarcityDeadline) || !isPlaceholder(offer.scarcitySeats));
+  });
+
+  protected readonly isPlaceholder = isPlaceholder;
+
   /** true enquanto o gateway de pagamento nao for definido. */
   protected readonly checkoutPending = computed(() =>
     isPlaceholder(this.course()?.offer.checkoutUrl)

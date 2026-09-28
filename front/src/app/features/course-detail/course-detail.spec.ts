@@ -67,9 +67,11 @@ describe('CourseDetail', () => {
       expect(faq.textContent).toContain(course.faq[0].question);
     });
 
-    it('exibe a faixa de escassez e o preço na seção de investimento', () => {
+    // Spec 022, decisao 18: com prazo e vagas ainda placeholder, a faixa de
+    // escassez anunciaria uma escassez que nao existe.
+    it('exibe o preço na seção de investimento, sem a faixa de escassez placeholder', () => {
       const oferta = el().querySelector('#investimento')!;
-      expect(oferta.querySelector('ui-scarcity-banner')).not.toBeNull();
+      expect(oferta.querySelector('ui-scarcity-banner')).toBeNull();
       expect(oferta.textContent).toContain(course.offer.price);
       expect(oferta.textContent).toContain(course.guarantees[0].title);
     });

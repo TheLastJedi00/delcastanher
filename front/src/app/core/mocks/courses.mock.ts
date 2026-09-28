@@ -18,7 +18,7 @@ export interface CourseGuarantee {
   title: string;
   /** Dado destacado ao lado do titulo (ex.: prazo) — pode ser placeholder. */
   highlight: string;
-  description: string;
+  description: CourseText;
 }
 
 /**
@@ -105,7 +105,9 @@ const IMERSAO_RH: Course = {
   subheadline:
     'Um método consultivo e aplicado para transformar o departamento de pessoas em uma área que sustenta a estratégia do negócio — com processos claros, cultura forte e indicadores que a diretoria entende.',
   format: [
-    { label: 'Formato', value: 'Imersão online ao vivo' },
+    // Decisao 18: nao ha encontro ao vivo nem turma. Sao aulas gravadas por
+    // modulo, com acesso por prazo.
+    { label: 'Formato', value: 'Aulas gravadas, no seu ritmo' },
     // Decisao 12: digitada no painel, e nao somada dos videos.
     { label: 'Carga horária', value: ({ workloadHours }) => (workloadHours ? `${workloadHours} horas` : null) },
     // Decisao 14: nao ha turma nem data de inicio. O acesso abre na confirmacao
@@ -266,26 +268,17 @@ const IMERSAO_RH: Course = {
         'Planilhas e documentos base de descrição de cargo, roteiro de entrevista, plano de onboarding e painel de indicadores.',
       value: PLACEHOLDER.price,
     },
-    {
-      title: 'Encontro de mentoria em grupo',
-      description:
-        'Sessão ao vivo para levar o seu caso real e receber direcionamento da mentora e do grupo.',
-      value: PLACEHOLDER.price,
-    },
-    {
-      title: 'Comunidade de alunos',
-      description:
-        'Acesso ao grupo de profissionais de RH para trocar prática, indicação e oportunidade.',
-      value: PLACEHOLDER.price,
-    },
+    // Mentoria em grupo e comunidade de alunos sairam (decisao 18): o produto
+    // nao tem nenhum dos dois, e prometer o que nao existe vira reembolso.
   ],
   offer: {
     priceFrom: PLACEHOLDER.priceFrom,
     price: PLACEHOLDER.price,
     installments: PLACEHOLDER.installments,
-    priceNote: 'Condição válida para a turma atual.',
+    priceNote: '',
     checkoutUrl: PLACEHOLDER.checkout,
-    ctaLabel: 'Garantir minha vaga',
+    // "Garantir minha vaga" sugeria vaga limitada, que nao existe.
+    ctaLabel: 'Quero começar agora',
     scarcityDeadline: PLACEHOLDER.deadline,
     scarcitySeats: PLACEHOLDER.seats,
   },
@@ -297,10 +290,12 @@ const IMERSAO_RH: Course = {
         'Se dentro do prazo você entender que a imersão não é para o seu momento, devolvemos o valor integral. O risco é nosso.',
     },
     {
-      title: 'Acesso ao material da turma',
+      title: 'Acesso ao material',
       highlight: '',
-      description:
-        'O material de apoio e as gravações ficam disponíveis na área do aluno durante o período da turma.',
+      description: ({ accessMonths }) =>
+        `O material de apoio e as aulas ficam disponíveis na área do aluno durante ${
+          accessMonths ? `os ${accessMonths} meses` : 'o período'
+        } de acesso de cada módulo.`,
     },
   ],
   faq: [
@@ -311,8 +306,10 @@ const IMERSAO_RH: Course = {
     },
     {
       question: 'As aulas são ao vivo ou gravadas?',
-      answer:
-        'Os encontros são ao vivo e ficam gravados na área do aluno para você rever no seu ritmo, dentro do período da turma.',
+      answer: ({ accessMonths }) =>
+        `As aulas são gravadas e ficam na área do aluno para você assistir no seu ritmo, durante ${
+          accessMonths ? `os ${accessMonths} meses` : 'o período'
+        } de acesso de cada módulo.`,
     },
     {
       question: 'Quanto tempo por semana eu preciso dedicar?',
@@ -349,7 +346,7 @@ const IMERSAO_RH: Course = {
   testimonials: [],
   metaTitle: 'Imersão RH Estratégico | Estruture o RH da sua empresa do zero',
   metaDescription:
-    'Imersão online e ao vivo com Lidiane Delcastanher: processos, cultura e indicadores para transformar o RH em parceiro de resultado. Vagas limitadas por turma.',
+    'Imersão online com Lidiane Delcastanher: processos, cultura e indicadores para transformar o RH em parceiro de resultado. Aulas gravadas, no seu ritmo.',
 };
 
 /** Mock indexado por slug. Novos cursos entram aqui sem criar componente novo. */

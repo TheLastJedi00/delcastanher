@@ -141,12 +141,17 @@
           <div class="mb-12" animateOnScroll="animate-fade-in-up">
             <ui-section-header
               align="center"
-              overline="Bônus da turma"
+              overline="Bônus"
               title="O que vem junto e não é cobrado à parte"
-              subtitle="Disponível para quem entra nesta turma." />
+              subtitle="Incluído na compra." />
           </div>
 
-          <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <!-- Com um bonus so, a grade de tres colunas o deixaria encostado a esquerda. -->
+          <div
+            class="grid grid-cols-1 gap-6"
+            [class.md:grid-cols-3]="course.bonuses.length > 1"
+            [class.mx-auto]="course.bonuses.length === 1"
+            [class.max-w-md]="course.bonuses.length === 1">
             @for (bonus of course.bonuses; track bonus.title; let i = $index) {
               <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
                 <ui-glass-card padding="lg">
@@ -160,10 +165,13 @@
                   </p>
                   <h3 class="mb-2 text-lg font-bold text-brand-navy">{{ bonus.title }}</h3>
                   <p class="mb-4 text-sm leading-relaxed text-slate-600">{{ bonus.description }}</p>
-                  <p class="flex items-center gap-2 text-sm font-bold text-slate-500">
-                    <span>Valor:</span>
-                    <ui-placeholder-text [value]="bonus.value" />
-                  </p>
+                  <!-- O valor some enquanto for placeholder (decisao 18). -->
+                  @if (!isPlaceholder(bonus.value)) {
+                    <p class="flex items-center gap-2 text-sm font-bold text-slate-500">
+                      <span>Valor:</span>
+                      <span>{{ bonus.value }}</span>
+                    </p>
+                  }
                 </ui-glass-card>
               </div>
             }
@@ -184,9 +192,12 @@
           </div>
 
           <div class="overflow-hidden rounded-3xl shadow-glass-lg" animateOnScroll="animate-fade-in-up">
-            <ui-scarcity-banner
-              [deadline]="course.offer.scarcityDeadline"
-              [seats]="course.offer.scarcitySeats" />
+            @if (scarcityVisible()) {
+              <ui-scarcity-banner
+                headline="Últimas vagas"
+                [deadline]="course.offer.scarcityDeadline"
+                [seats]="course.offer.scarcitySeats" />
+            }
 
             <div class="bg-white px-6 py-10 text-center md:px-12">
               <p class="mb-2 text-sm text-slate-500">
@@ -199,7 +210,11 @@
               <p class="mb-1 text-base font-bold text-brand-teal-deep">
                 <ui-placeholder-text [value]="course.offer.installments" />
               </p>
-              <p class="mb-8 text-sm text-slate-500">{{ course.offer.priceNote }}</p>
+              @if (course.offer.priceNote) {
+                <p class="mb-8 text-sm text-slate-500">{{ course.offer.priceNote }}</p>
+              } @else {
+                <div class="mb-8"></div>
+              }
 
               <a [routerLink]="checkoutLink()" class="block">
                 <ui-button variant="primary" size="lg" [fullWidth]="true">{{ course.offer.ctaLabel }}</ui-button>
@@ -226,7 +241,7 @@
 
           <!-- Garantias -->
           <div class="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-            @for (guarantee of course.guarantees; track guarantee.title; let i = $index) {
+            @for (guarantee of guarantees(); track guarantee.title; let i = $index) {
               <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
                 <div class="glass-dark h-full rounded-2xl p-6">
                   <span class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-brand-teal-light">
@@ -309,12 +324,17 @@
 
         <div class="relative mx-auto max-w-3xl">
           <h2 class="mb-4 text-3xl font-extrabold tracking-tight text-white md:text-4xl">
-            A próxima turma da {{ course.name }} está aberta
+            A {{ course.name }} está com as inscrições abertas
           </h2>
-          <p class="mb-8 flex flex-wrap items-center justify-center gap-2 text-base text-white/85">
-            <span>Inscrições até</span>
-            <ui-placeholder-text [value]="course.offer.scarcityDeadline" tone="light" />
-          </p>
+          <!-- O prazo so aparece quando existir (decisao 18). -->
+          @if (!isPlaceholder(course.offer.scarcityDeadline)) {
+            <p class="mb-8 flex flex-wrap items-center justify-center gap-2 text-base text-white/85">
+              <span>Inscrições até</span>
+              <span>{{ course.offer.scarcityDeadline }}</span>
+            </p>
+          } @else {
+            <div class="mb-8"></div>
+          }
           <div class="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a [routerLink]="checkoutLink()">
               <ui-button variant="primary" size="lg">{{ course.offer.ctaLabel }}</ui-button>
