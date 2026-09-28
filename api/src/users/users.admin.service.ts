@@ -1,4 +1,5 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
 import { AuthUser, Role } from '../auth/auth.types';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,6 +7,7 @@ import { isFullyCompleted, percentageOf } from '../progress/completion';
 import { DEFAULT_COURSE_SLUG } from '../progress/progress.service';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import {
+  AddAdminResult,
   AdminUserDetail,
   AdminUserItem,
   AdminUserListResult,
@@ -175,9 +177,12 @@ function activityCutoff(): Date {
  */
 @Injectable()
 export class AdminUsersService {
+  private readonly logger = new Logger(AdminUsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly firebase: FirebaseService,
+    private readonly auth: AuthService,
   ) {}
 
   /**
@@ -378,6 +383,68 @@ export class AdminUsersService {
     // Gravado mesmo quando o claim ja era o pedido: o espelho pode estar
     // defasado se alguem trocou o papel por fora do painel.
     await this.prisma.user.update({ where: { id }, data: { role } });
+  }
+
+  /**
+   * Torna administradora a pessoa dona do e-mail, com ou sem conta (Spec 021,
+   * decisao 1). A ordem e conta -> claim -> Postgres -> e-mail: o Firebase e
+   * dono do papel e o banco so espelha depois do sucesso, e o e-mail vem por
+   * ultimo porque e o unico passo que nao altera estado (decisao 4).
+   */
+  async addAdmin(email: string): Promise<AddAdminResult> {
+    const { account, created } = await this.auth.ensureAccount(email.trim().toLowerCase());
+    const address = account.email ?? email.trim().toLowerCase();
+
+    // Promover conta bloqueada daria um admin que nao consegue entrar, e
+    // esconderia o bloqueio atras de um sucesso (decisao 8).
+    if (account.disabled) {
+      throw new ConflictException(
+        'Esta conta esta bloqueada. Desbloqueie-a na tabela antes de torna-la administradora.',
+      );
+    }
+
+    const alreadyAdmin = account.customClaims?.role === 'admin';
+
+    if (!alreadyAdmin) {
+      // `setCustomUserClaims` substitui **todas** as claims: preserva as demais.
+      await this.firebase.auth.setCustomUserClaims(account.uid, { ...account.customClaims, role: 'admin' });
+    }
+
+    // A linha nasce agora, e nao no primeiro login, para que a pessoa apareca
+    // na tabela como "Onboarding pendente" e possa ser rebaixada antes de
+    // entrar (decisao 5). O `findOrCreate` do login faz upsert na mesma chave.
+    await this.prisma.user.upsert({
+      where: { id: account.uid },
+      update: { email: address, role: 'admin' },
+      create: { id: account.uid, email: address, role: 'admin' },
+    });
+
+    // Quem ja tinha conta ja tem senha: nada de link de "definir senha", que
+    // confunde e parece phishing (decisao 6).
+    const inviteEmailSent = created && (await this.sendInvite(address));
+
+    return {
+      userId: account.uid,
+      email: address,
+      outcome: created ? 'created' : alreadyAdmin ? 'already-admin' : 'promoted',
+      inviteEmailSent,
+    };
+  }
+
+  /**
+   * Falha do envio nao desfaz nada: a conta ja e admin e o "Esqueci minha
+   * senha" do login envia o mesmo link para conta existente (decisao 4).
+   */
+  private async sendInvite(email: string): Promise<boolean> {
+    try {
+      await this.auth.sendPasswordSetupEmail(email);
+
+      return true;
+    } catch (error) {
+      this.logger.error(`Convite de administrador nao enviado para ${email}.`, error as Error);
+
+      return false;
+    }
   }
 
   /**

@@ -1,14 +1,15 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { AddAdminDto } from './dto/add-admin.dto';
 import { UpdateUserRoleDto, UpdateUserStatusDto } from './dto/admin-user-action.dto';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import { AdminUsersService } from './users.admin.service';
-import type { AdminUserDetail, AdminUserListResult } from './users.admin.types';
+import type { AddAdminResult, AdminUserDetail, AdminUserListResult } from './users.admin.types';
 
 /**
  * Leitura administrativa de usuarios. Separado do `UsersController`, que e o
@@ -48,6 +49,19 @@ export class AdminUsersController {
       .header('Content-Type', 'text/csv; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="alunos-${date}.csv"`)
       .send(csv);
+  }
+
+  /**
+   * Adiciona administrador por e-mail, com ou sem conta (Spec 021). Responde
+   * 201 com o `outcome`, porque a tela precisa dizer o que aconteceu: conta
+   * criada com convite, conta promovida, ou nada, porque ja era admin.
+   *
+   * Nao colide com `:id`: e POST, e os POSTs de `admin/users` do
+   * `AdminAccessController` tem dois segmentos (`:id/access`).
+   */
+  @Post('admins')
+  addAdmin(@Body() dto: AddAdminDto): Promise<AddAdminResult> {
+    return this.users.addAdmin(dto.email);
   }
 
   /**

@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseService } from '../firebase/firebase.service';
+import { AuthService } from '../auth/auth.service';
 import { AdminUsersService } from './users.admin.service';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 
@@ -136,6 +137,7 @@ async function build(fake: Fake = {}) {
       AdminUsersService,
       { provide: PrismaService, useValue: prisma },
       { provide: FirebaseService, useValue: { auth } },
+      { provide: AuthService, useValue: {} },
     ],
   }).compile();
 
