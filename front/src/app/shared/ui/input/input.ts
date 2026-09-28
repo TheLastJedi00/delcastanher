@@ -22,6 +22,8 @@ let inputInstances = 0;
         [id]="id()"
         [rows]="rows()"
         [placeholder]="placeholder()"
+        [attr.aria-invalid]="error() ? true : null"
+        [attr.aria-describedby]="error() ? errorId() : null"
         [class]="classes()"
         [disabled]="isDisabled()"
         [value]="value()"
@@ -34,6 +36,8 @@ let inputInstances = 0;
         [attr.autocomplete]="autocomplete() || null"
         [attr.inputmode]="inputMode() || null"
         [placeholder]="placeholder()"
+        [attr.aria-invalid]="error() ? true : null"
+        [attr.aria-describedby]="error() ? errorId() : null"
         [class]="classes()"
         [disabled]="isDisabled()"
         [value]="value()"
@@ -42,7 +46,7 @@ let inputInstances = 0;
     }
 
     @if (error()) {
-      <p class="mt-1.5 text-xs font-medium text-state-danger">{{ error() }}</p>
+      <p [id]="errorId()" class="mt-1.5 text-xs font-medium text-state-danger">{{ error() }}</p>
     }
   `,
 })
@@ -67,6 +71,8 @@ export class Input implements ControlValueAccessor {
   readonly value = model('');
 
   protected readonly id = input(`ui-input-${inputInstances++}`);
+  /** Liga a mensagem de erro ao campo, para o leitor de tela le-la no foco. */
+  protected readonly errorId = computed(() => `${this.id()}-error`);
   protected readonly isDisabled = signal(false);
 
   private onChange: (value: string) => void = () => undefined;

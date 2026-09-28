@@ -222,6 +222,43 @@ describe('AdminUsersService', () => {
     request.flush(new Blob(['a;b']));
   });
 
+  describe('addAdmin (Spec 021)', () => {
+    it('envia o e-mail por POST e devolve o resultado', () => {
+      let outcome = '';
+      service.addAdmin('nova@empresa.com').subscribe(result => (outcome = result.outcome));
+
+      const request = http.expectOne(`${environment.apiUrl}/admin/users/admins`);
+
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ email: 'nova@empresa.com' });
+      request.flush({ userId: 'uid-nova', email: 'nova@empresa.com', outcome: 'created', inviteEmailSent: true });
+      expect(outcome).toBe('created');
+    });
+
+    it('traduz o 409 de conta bloqueada em mensagem acentuada e acionavel', () => {
+      let message = '';
+      service.addAdmin('bloq@empresa.com').subscribe({ error: (error: string) => (message = error) });
+
+      http
+        .expectOne(`${environment.apiUrl}/admin/users/admins`)
+        .flush({ message: 'Esta conta esta bloqueada.' }, { status: 409, statusText: 'Conflict' });
+
+      expect(message).toContain('Esta conta está bloqueada');
+      expect(message).toContain('Desbloqueie-a na tabela');
+    });
+
+    it('repassa a mensagem do 400', () => {
+      let message = '';
+      service.addAdmin('x').subscribe({ error: (error: string) => (message = error) });
+
+      http
+        .expectOne(`${environment.apiUrl}/admin/users/admins`)
+        .flush({ message: ['Informe um e-mail valido.'] }, { status: 400, statusText: 'Bad Request' });
+
+      expect(message).toBe('Informe um e-mail valido.');
+    });
+  });
+
   it('esquece o estado ao limpar', () => {
     service.setQuery({ search: 'ana', page: 2 }).subscribe();
     http.expectOne(req => req.url.includes('/admin/users')).flush(RESULT);

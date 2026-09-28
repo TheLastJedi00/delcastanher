@@ -132,3 +132,21 @@ export interface AdminUserDetail {
   modules: AdminUserModuleItem[];
   certificates: AdminUserCertificateItem[];
 }
+
+/**
+ * O que `POST /admin/users/admins` fez com o e-mail (Spec 021): criou a conta,
+ * promoveu uma que existia, ou nada, porque ja era administradora.
+ */
+export type AddAdminOutcome = 'created' | 'promoted' | 'already-admin';
+
+export interface AddAdminResult {
+  userId: string;
+  email: string;
+  outcome: AddAdminOutcome;
+  /**
+   * Se o e-mail de definicao de senha saiu. So e `true` em conta criada; falso
+   * em conta criada significa que a conta ja e admin, mas a pessoa precisa
+   * pedir o link pelo "Esqueci minha senha" (decisao 4).
+   */
+  inviteEmailSent: boolean;
+}

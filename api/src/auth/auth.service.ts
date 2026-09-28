@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
 import { FirebaseService } from '../firebase/firebase.service';
-import { AccountRequestResult, AuthUser, IssuedSession, Role } from './auth.types';
+import { AccountRequestResult, AuthUser, EnsuredAccount, IssuedSession, Role } from './auth.types';
 
 const IDENTITY_TOOLKIT = 'https://identitytoolkit.googleapis.com/v1';
 
@@ -131,22 +131,40 @@ export class AuthService {
    * dispara o e-mail do Firebase com o link de definicao de senha.
    */
   async requestAccount(email: string): Promise<AccountRequestResult> {
-    const normalized = this.requireEmail(email);
+    const { account } = await this.ensureAccount(email);
 
-    if (!(await this.userExists(normalized))) {
-      // Senha temporaria descartavel: sem um provider de senha o Firebase nao
-      // aceita o oob code de PASSWORD_RESET. O usuario nunca a conhece.
-      await this.firebase.auth.createUser({
-        email: normalized,
-        password: randomBytes(24).toString('base64url'),
-        emailVerified: false,
-      });
-      this.logger.log(`Conta criada para ${normalized}.`);
-    }
-
-    await this.sendPasswordSetupEmail(normalized);
+    await this.sendPasswordSetupEmail(account.email ?? this.normalizeEmail(email));
 
     return { message: ACCOUNT_LINK_MESSAGE };
+  }
+
+  /**
+   * Garante que exista uma conta no Firebase para o e-mail, sem enviar nada.
+   * E publico porque o painel o reaproveita para adicionar administrador
+   * (Spec 021, decisao 2). So "conta inexistente" leva a criacao: qualquer
+   * outra falha do Firebase sobe, em vez de virar uma tentativa de criar.
+   */
+  async ensureAccount(email: string): Promise<EnsuredAccount> {
+    const normalized = this.requireEmail(email);
+
+    try {
+      return { account: await this.firebase.auth.getUserByEmail(normalized), created: false };
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'auth/user-not-found') {
+        throw error;
+      }
+    }
+
+    // Senha temporaria descartavel: sem um provider de senha o Firebase nao
+    // aceita o oob code de PASSWORD_RESET. O usuario nunca a conhece.
+    const account = await this.firebase.auth.createUser({
+      email: normalized,
+      password: randomBytes(24).toString('base64url'),
+      emailVerified: false,
+    });
+    this.logger.log(`Conta criada para ${normalized}.`);
+
+    return { account, created: true };
   }
 
   /**
@@ -168,8 +186,9 @@ export class AuthService {
   /**
    * Dispara o oob code de PASSWORD_RESET. O `continueUrl` e a actionUrl do
    * template de e-mail: apos definir a senha o usuario volta para o login.
+   * Publico para o convite de administrador (Spec 021, decisao 2).
    */
-  private sendPasswordSetupEmail(email: string): Promise<unknown> {
+  sendPasswordSetupEmail(email: string): Promise<unknown> {
     return this.identityToolkit('accounts:sendOobCode', {
       requestType: 'PASSWORD_RESET',
       email,
