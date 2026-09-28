@@ -165,6 +165,12 @@ export interface FinanceOrderItem {
   buyerName: string | null;
   buyerEmail: string;
   modules: string[];
+  /**
+   * Pacote e lote do pedido de pacote (Spec 019, decisao 14); nulo no avulso.
+   * A tela mostra isto no lugar dos 12 titulos. Valores, taxas e liquido nao
+   * mudam: continuam saindo de `amountCents`.
+   */
+  bundle: { title: string; tierName: string } | null;
   mpOrderId: string | null;
   mpPaymentId: string | null;
   mpStatusDetail: string | null;

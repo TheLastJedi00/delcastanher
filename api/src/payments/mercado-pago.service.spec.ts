@@ -6,6 +6,8 @@ import { toOrderStatus } from './payments.types';
 
 const ACCESS_TOKEN = 'APP_USR-token-de-teste';
 const WEBHOOK_SECRET = 'segredo-do-webhook';
+/** Token OAuth do vendedor (Spec 020): e com ele que a order nasce na conta dele. */
+const SELLER_TOKEN = 'APP_USR-token-do-vendedor';
 
 const CONFIG: Record<string, string> = {
   MP_ACCESS_TOKEN: ACCESS_TOKEN,
@@ -107,6 +109,7 @@ describe('MercadoPagoService', () => {
 
       await service.createOrder({
         orderId: 'ord-1',
+        accessToken: SELLER_TOKEN,
         amountCents: 39800,
         method: 'PIX',
         payer: PAYER,
@@ -129,6 +132,7 @@ describe('MercadoPagoService', () => {
 
       await service.createOrder({
         orderId: 'ord-1',
+        accessToken: SELLER_TOKEN,
         amountCents: 19900,
         method: 'PIX',
         payer: PAYER,
@@ -146,6 +150,7 @@ describe('MercadoPagoService', () => {
 
       const order = await service.createOrder({
         orderId: 'ord-1',
+        accessToken: SELLER_TOKEN,
         amountCents: 19900,
         method: 'PIX',
         payer: PAYER,
@@ -168,6 +173,7 @@ describe('MercadoPagoService', () => {
 
       await service.createOrder({
         orderId: 'ord-2',
+        accessToken: SELLER_TOKEN,
         amountCents: 39800,
         method: 'CREDIT_CARD',
         payer: PAYER,
@@ -196,6 +202,7 @@ describe('MercadoPagoService', () => {
 
       await service.createOrder({
         orderId: 'ord-2',
+        accessToken: SELLER_TOKEN,
         amountCents: 19900,
         method: 'CREDIT_CARD',
         payer: PAYER,
@@ -212,6 +219,7 @@ describe('MercadoPagoService', () => {
 
       await service.createOrder({
         orderId: 'ord-2',
+        accessToken: SELLER_TOKEN,
         amountCents: 19900,
         method: 'CREDIT_CARD',
         payer: PAYER,
@@ -229,6 +237,7 @@ describe('MercadoPagoService', () => {
 
       await service.createOrder({
         orderId: 'ord-1',
+        accessToken: SELLER_TOKEN,
         amountCents: 19900,
         method: 'PIX',
         payer: PAYER,
@@ -248,6 +257,7 @@ describe('MercadoPagoService', () => {
 
       await service.createOrder({
         orderId: 'ord-1',
+        accessToken: SELLER_TOKEN,
         amountCents: 39800,
         method: 'PIX',
         payer: PAYER,
@@ -270,6 +280,7 @@ describe('MercadoPagoService', () => {
 
       await service.createOrder({
         orderId: 'ord-1',
+        accessToken: SELLER_TOKEN,
         amountCents: 19900,
         method: 'PIX',
         payer: PAYER,
@@ -277,7 +288,36 @@ describe('MercadoPagoService', () => {
       });
 
       expect(headersOf(fetchMock)['X-Idempotency-Key']).toBe('ord-1');
-      expect(headersOf(fetchMock)['Authorization']).toBe(`Bearer ${ACCESS_TOKEN}`);
+      expect(headersOf(fetchMock)['Authorization']).toBe(`Bearer ${SELLER_TOKEN}`);
+    });
+  });
+
+  describe('conta do vendedor (Spec 020)', () => {
+    // Decisao 2: a plataforma nao retem comissao, e enviar marketplace_fee "0"
+    // seria afirmar uma comissao que nao existe.
+    it('cria a order com o token recebido e sem comissao da plataforma', async () => {
+      const { service, fetchMock } = await build();
+
+      await service.createOrder({
+        orderId: 'ord-1',
+        accessToken: SELLER_TOKEN,
+        amountCents: 19900,
+        method: 'PIX',
+        payer: PAYER,
+        items: [ITEMS[0]],
+      });
+
+      expect(headersOf(fetchMock)['Authorization']).toBe(`Bearer ${SELLER_TOKEN}`);
+      expect(bodyOf(fetchMock)).not.toHaveProperty('marketplace_fee');
+      expect(JSON.stringify(bodyOf(fetchMock))).not.toContain(ACCESS_TOKEN);
+    });
+
+    it('consulta a order com o token recebido, e nao com o da plataforma', async () => {
+      const { service, fetchMock } = await build(CARD_RESPONSE);
+
+      await service.getOrder('ORD-1', SELLER_TOKEN);
+
+      expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(`Bearer ${SELLER_TOKEN}`);
     });
   });
 
@@ -285,7 +325,7 @@ describe('MercadoPagoService', () => {
     it('consulta a order pelo id e traduz o desfecho', async () => {
       const { service, fetchMock } = await build(CARD_RESPONSE);
 
-      const order = await service.getOrder('ORD01JC1KVZ0WJY8Y4WA7MZAD5S2T');
+      const order = await service.getOrder('ORD01JC1KVZ0WJY8Y4WA7MZAD5S2T', SELLER_TOKEN);
 
       expect(fetchMock.mock.calls[0][0]).toBe(
         'https://api.mercadopago.com/v1/orders/ORD01JC1KVZ0WJY8Y4WA7MZAD5S2T',
@@ -297,7 +337,7 @@ describe('MercadoPagoService', () => {
     it('propaga a falha do gateway em vez de fingir pendencia', async () => {
       const { service } = await build({ message: 'nao encontrada' }, false);
 
-      await expect(service.getOrder('ORD-inexistente')).rejects.toBeDefined();
+      await expect(service.getOrder('ORD-inexistente', SELLER_TOKEN)).rejects.toBeDefined();
     });
   });
 

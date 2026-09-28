@@ -265,3 +265,52 @@ describe('AdminFinanceService — lista de pedidos', () => {
     });
   });
 });
+
+/** Spec 019, decisao 14: pedido de pacote mostra pacote e lote. */
+describe('AdminFinanceService — pedido de pacote', () => {
+  const PACOTE = {
+    ...PEDIDO,
+    id: 'ord-b',
+    amountCents: 59000,
+    bundleTitleSnapshot: 'Pacote de Lançamento — Imersão RH Estratégico',
+    tierNameSnapshot: 'Lote Fundador',
+    items: Array.from({ length: 12 }, (_, index) => ({ titleSnapshot: `Módulo ${index + 1}` })),
+  };
+
+  it('a linha traz pacote e lote, e o pedido avulso traz nulo', async () => {
+    const { service } = await build([PACOTE, PEDIDO], 2);
+
+    const [pacote, avulso] = (await service.listOrders(query())).items;
+
+    expect(pacote.bundle).toEqual({
+      title: 'Pacote de Lançamento — Imersão RH Estratégico',
+      tierName: 'Lote Fundador',
+    });
+    expect(avulso.bundle).toBeNull();
+  });
+
+  it('o valor continua sendo o do pedido inteiro, em centavos', async () => {
+    const { service } = await build([PACOTE]);
+
+    const [pacote] = (await service.listOrders(query())).items;
+
+    expect(pacote.amountCents).toBe(59000);
+  });
+
+  it('o CSV ganha as colunas Pacote e Lote, preenchidas so no pedido de pacote', async () => {
+    const { service } = await build([PACOTE, PEDIDO], 2);
+
+    const [cabecalho, pacote, avulso] = (await service.exportOrdersCsv(query()))
+      .replace('﻿', '')
+      .split('\n');
+    const colunas = cabecalho.split(';');
+    const pacoteCol = colunas.indexOf('Pacote');
+    const loteCol = colunas.indexOf('Lote');
+
+    expect(pacoteCol).toBeGreaterThan(-1);
+    expect(loteCol).toBeGreaterThan(-1);
+    expect(pacote.split(';')[pacoteCol]).toBe('Pacote de Lançamento — Imersão RH Estratégico');
+    expect(pacote.split(';')[loteCol]).toBe('Lote Fundador');
+    expect(avulso.split(';')[pacoteCol]).toBe('');
+  });
+});

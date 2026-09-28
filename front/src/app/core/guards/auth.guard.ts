@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService, Role } from '../services/auth.service';
+import { REDIRECT_PARAM } from './safe-redirect';
 
 /**
  * Perfil exigido por rota. `null` significa "qualquer usuario autenticado" -
@@ -22,16 +23,20 @@ const REQUIRED_ROLE: Record<string, Role | null> = {
 
 /**
  * Libera a rota apenas para o perfil correspondente. Sem sessao valida,
- * redireciona ao login; com sessao de outro perfil, manda o usuario para a
- * area a que ele tem acesso.
+ * redireciona ao login levando o destino em `?redirect=` (Spec 019, decisao
+ * 17): quem clicou em "Garantir minha vaga" chega a loja com o pacote marcado
+ * depois de entrar, e nao no inicio da area. Com sessao de outro perfil, manda
+ * o usuario para a area a que ele tem acesso.
  */
-export const authGuard: CanActivateFn = route => {
+export const authGuard: CanActivateFn = (route, state) => {
   const router = inject(Router);
   const auth = inject(AuthService);
   const role = auth.role();
 
   if (!role) {
-    return router.parseUrl('/login');
+    return router.createUrlTree(['/login'], {
+      queryParams: state.url ? { [REDIRECT_PARAM]: state.url } : {},
+    });
   }
 
   const path = route.routeConfig?.path ?? '';

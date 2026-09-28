@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
@@ -36,6 +37,9 @@ import { SectionHeader } from '../../shared/ui/section-header/section-header';
   templateUrl: './course-detail.html',
 })
 export class CourseDetail {
+  /** Rotulo do botao do cabecalho conforme a sessao (Spec 019, decisao 16). */
+  protected readonly authenticated = inject(AuthService).isAuthenticated;
+
   private readonly route = inject(ActivatedRoute);
   private readonly analytics = inject(AnalyticsService);
   private readonly jsonLd = inject(JsonLdService);

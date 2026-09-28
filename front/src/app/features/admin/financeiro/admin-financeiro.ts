@@ -17,6 +17,7 @@ import { Input } from '../../../shared/ui/input/input';
 import { SectionHeader } from '../../../shared/ui/section-header/section-header';
 import { StatCard } from '../../../shared/ui/stat-card/stat-card';
 import { TimeSeriesChart, TimeSeriesPoint } from '../../../shared/ui/time-series-chart/time-series-chart';
+import { AdminContaRecebedora } from './admin-conta-recebedora';
 
 /** Um dia em milissegundos. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -92,6 +93,7 @@ function fromDateInput(value: string, edge: 'start' | 'end'): string {
   selector: 'app-admin-financeiro',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AdminContaRecebedora,
     Badge,
     Button,
     Card,

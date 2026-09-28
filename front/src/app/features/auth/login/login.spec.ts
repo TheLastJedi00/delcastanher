@@ -1,9 +1,24 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { Login } from './login';
+
+/** Preenche, envia e responde o login e a carga do perfil. */
+function loginAs(fixture: ComponentFixture<Login>, http: HttpTestingController): void {
+  const component = fixture.componentInstance;
+  component.email.set('aluno@delcastanher.com');
+  component.password.set('senha123');
+  component.doLogin();
+
+  http.expectOne(req => req.url.endsWith('/auth/login')).flush({
+    idToken: 't',
+    expiresIn: 3600,
+    user: { uid: 'u', email: 'aluno@delcastanher.com', name: null, role: 'aluno' },
+  });
+  http.expectOne(req => req.url.endsWith('/users/me')).flush({ onboardingCompleted: true });
+}
 
 describe('Login', () => {
   let fixture: ComponentFixture<Login>;
@@ -66,6 +81,13 @@ describe('Login', () => {
     expect(component.isLoading()).toBe(false);
   });
 
+  it('sem destino pedido, termina na area da pessoa', () => {
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    loginAs(fixture, http);
+
+    expect(navigate).toHaveBeenCalledWith('/ava');
+  });
+
   it('desliga o loading e mostra a mensagem quando o login falha', () => {
     const component = fixture.componentInstance;
     component.email.set('aluno@delcastanher.com');
@@ -80,5 +102,50 @@ describe('Login', () => {
     expect(component.isLoading()).toBe(false);
     expect(component.errorMessage()).toBe('E-mail ou senha invalidos.');
     expect(fixture.nativeElement.textContent).toContain('E-mail ou senha invalidos.');
+  });
+});
+
+/** Spec 019, decisao 17: o login devolve a pessoa para onde ela ia. */
+describe('Login com destino', () => {
+  function setup(redirect: string): { fixture: ComponentFixture<Login>; http: HttpTestingController } {
+    localStorage.clear();
+
+    TestBed.configureTestingModule({
+      imports: [Login],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap({ redirect }) } },
+        },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(Login);
+    fixture.detectChanges();
+
+    return { fixture, http: TestBed.inject(HttpTestingController) };
+  }
+
+  it('navega para o destino interno pedido', () => {
+    const { fixture, http } = setup('/loja?pacote=imersao-rh-lancamento');
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+
+    loginAs(fixture, http);
+
+    expect(navigate).toHaveBeenCalledWith('/loja?pacote=imersao-rh-lancamento');
+    http.verify();
+  });
+
+  it('ignora destino externo', () => {
+    const { fixture, http } = setup('https://example.com');
+    const navigate = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+
+    loginAs(fixture, http);
+
+    expect(navigate).toHaveBeenCalledWith('/ava');
+    http.verify();
   });
 });

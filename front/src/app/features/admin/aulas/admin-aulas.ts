@@ -15,6 +15,7 @@ import { Button } from '../../../shared/ui/button/button';
 import { Card } from '../../../shared/ui/card/card';
 import { ProgressBar } from '../../../shared/ui/progress-bar/progress-bar';
 import { SectionHeader } from '../../../shared/ui/section-header/section-header';
+import { AdminPacote } from './admin-pacote';
 
 /** Intervalo entre consultas enquanto o Mux processa o video. */
 const POLL_MS = 5000;
@@ -53,7 +54,7 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
 @Component({
   selector: 'app-admin-aulas',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Badge, Button, Card, ProgressBar, ReactiveFormsModule, SectionHeader],
+  imports: [AdminPacote, Badge, Button, Card, ProgressBar, ReactiveFormsModule, SectionHeader],
   template: `
     <div class="mb-6">
       <ui-section-header overline="Conteúdo" title="Gestão de Aulas" />
@@ -64,6 +65,9 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
         <p class="text-sm text-slate-700">{{ error() }}</p>
       </div>
     }
+
+    <!-- Pacote e lotes (Spec 019, decisão 13): preço de venda, como o dos módulos. -->
+    <app-admin-pacote class="mb-6 block" />
 
     <!-- Nível 1: a grade -->
     <ui-card variant="default" padding="lg" [hover]="false">
@@ -163,15 +167,12 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
                     formControlName="price"
                     [class]="fieldClass"
                     placeholder="199,00" />
-                  <!--
-                    Os R$ 199,00 vieram da migration como valor provisório do
-                    time (decisão 1) — dizer isso aqui evita que alguém o trate
-                    como preço decidido.
-                  -->
+                  <!-- Spec 019: os R$ 199,00 provisórios da Spec 014 deram
+                       lugar à tabela comercial. O aviso de pedidos passados continua. -->
                   <p class="text-xs text-slate-500">
-                    O valor de R$ 199,00 foi aplicado a todos os módulos na migração desta spec
-                    como preço provisório. Alterar aqui não muda pedidos já feitos: eles guardam o
-                    valor cobrado na época.
+                    Este é o preço avulso do módulo, e ele também entra na soma "valor dos módulos
+                    separadamente" do pacote. Alterar aqui não muda pedidos já feitos: eles guardam
+                    o valor cobrado na época.
                   </p>
                   @if (priceError(); as message) {
                     <p class="text-xs text-state-danger" role="alert">{{ message }}</p>

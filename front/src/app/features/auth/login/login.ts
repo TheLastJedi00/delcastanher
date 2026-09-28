@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { REDIRECT_PARAM, safeRedirect } from '../../../core/guards/safe-redirect';
 import { AuthService } from '../../../core/services/auth.service';
 import { CreateAccountModal } from '../create-account-modal/create-account-modal';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
@@ -16,6 +17,7 @@ import { Logo } from '../../../shared/ui/logo/logo';
 })
 export class Login {
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
 
   readonly showRecover = signal(false);
@@ -61,7 +63,10 @@ export class Login {
     this.auth.login(this.email(), this.password()).subscribe({
       next: () => {
         this.isLoading.set(false);
-        void this.router.navigateByUrl(this.auth.homeUrl());
+        // Volta para onde a pessoa ia antes de o `authGuard` pedir login
+        // (Spec 019, decisao 17). Destino fora do app cai na area dela.
+        const redirect = safeRedirect(this.route.snapshot.queryParamMap.get(REDIRECT_PARAM));
+        void this.router.navigateByUrl(redirect ?? this.auth.homeUrl());
       },
       error: (message: string) => {
         this.isLoading.set(false);

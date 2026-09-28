@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessService } from './access.service';
+import { BundlesService } from './bundles.service';
 import { StoreService } from './store.service';
 
 const ALUNO: AuthUser = {
@@ -52,6 +53,7 @@ async function build() {
       StoreService,
       { provide: PrismaService, useValue: prisma },
       { provide: AccessService, useValue: access },
+      { provide: BundlesService, useValue: { offer: jest.fn().mockResolvedValue(null) } },
     ],
   }).compile();
 

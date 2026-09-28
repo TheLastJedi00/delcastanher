@@ -14,6 +14,9 @@
 </div>
 
 @if (view() === 'painel') {
+  <!-- Spec 020, decisao 12: quem recebe as vendas, e se a loja esta aberta. -->
+  <app-admin-conta-recebedora class="mb-6 block" />
+
   <!-- Filtro de periodo. O recorte vive na URL por query param: a tela
        filtrada vira link compartilhavel e sobrevive ao F5 (Task 6.2). -->
   <ui-card variant="default" padding="md" [hover]="false" class="mb-6">
@@ -105,12 +108,12 @@
 
       <!-- Decisao 5: o liquido nao apurado e um estado, e nunca um numero. -->
       <ui-stat-card
-        label="Faturamento líquido"
+        label="Líquido do vendedor"
         [value]="totais.netCents === null ? 'Não apurado' : formatCents(totais.netCents)"
         [caption]="
           totais.netCents === null
             ? 'sem taxa cadastrada para parte do período'
-            : 'líquido de estornos e da taxa do gateway'
+            : 'o que a conta recebedora recebe, sem estornos e taxa do gateway'
         ">
         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m-6 4h6m-6 4h4M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />
@@ -416,7 +419,14 @@
                   </p>
                   <p class="text-xs text-slate-500">{{ pedido.buyerEmail }}</p>
                 </td>
-                <td class="px-6 py-3 text-slate-700">{{ pedido.modules.join(', ') }}</td>
+                <!-- Spec 019, decisão 14: pedido de pacote é um item, e não doze títulos. -->
+                <td class="px-6 py-3 text-slate-700">
+                  @if (pedido.bundle; as pack) {
+                    {{ pack.title }} · {{ pack.tierName }}
+                  } @else {
+                    {{ pedido.modules.join(', ') }}
+                  }
+                </td>
                 <td class="px-6 py-3">
                   <ui-badge [variant]="statusVariant(pedido.status)" [label]="statusLabel(pedido.status)" />
                 </td>

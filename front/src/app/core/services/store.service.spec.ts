@@ -1,7 +1,7 @@
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { StoreModuleItem, StoreService, formatPrice } from './store.service';
+import { StoreModuleItem, StoreOffer, StoreService, formatPrice } from './store.service';
 
 const CATALOG: StoreModuleItem[] = [
   {
@@ -35,6 +35,24 @@ const CATALOG: StoreModuleItem[] = [
     access: { unlocked: false, expiresAt: null },
   },
 ];
+
+/** Oferta com o Pacote de Lancamento no Fundador (Spec 019). */
+const OFFER: StoreOffer = {
+  modules: [],
+  bundle: {
+    slug: 'imersao-rh-lancamento',
+    title: 'Pacote de Lançamento — Imersão RH Estratégico',
+    modules: [],
+    modulesTotalCents: 256400,
+    tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
+    nextTier: { name: '2º Lote', priceCents: 79700 },
+  },
+};
+
+function loadOffer(service: StoreService, http: HttpTestingController, body = OFFER) {
+  service.loadOffer().subscribe({ error: () => undefined });
+  http.expectOne(req => req.url.endsWith('/store/offer')).flush(body);
+}
 
 function setup() {
   TestBed.configureTestingModule({
@@ -150,6 +168,71 @@ describe('StoreService', () => {
       expect(serialized).not.toMatch(/cardNumber|securityCode|cvv|expirationDate/i);
 
       request.flush({ id: 'ord-1', status: 'PAID', items: [] });
+    });
+  });
+
+  /** Spec 019, decisoes 5 e 12. */
+  describe('pacote', () => {
+    it('marcar o pacote desmarca os modulos, e marcar um modulo desmarca o pacote', () => {
+      const { service, http } = setup();
+
+      loadCatalog(service, http);
+      loadOffer(service, http);
+
+      service.toggle('mod-1');
+      service.selectBundle('imersao-rh-lancamento');
+
+      expect(service.selectedIds()).toEqual([]);
+      expect(service.selection()).toEqual({ kind: 'bundle', slug: 'imersao-rh-lancamento' });
+
+      service.toggle('mod-2');
+
+      expect(service.isBundleSelected('imersao-rh-lancamento')).toBeFalse();
+      expect(service.selection()).toEqual({ kind: 'modules', ids: ['mod-2'] });
+    });
+
+    it('o total segue a selecao: o preco do lote vigente no pacote, a soma nos avulsos', () => {
+      const { service, http } = setup();
+
+      loadCatalog(service, http);
+      loadOffer(service, http);
+
+      service.selectBundle('imersao-rh-lancamento');
+      expect(service.totalCents()).toBe(59000);
+
+      service.toggle('mod-1');
+      expect(service.totalCents()).toBe(19900);
+    });
+
+    it('o pedido de pacote leva o slug, e nunca preco, lote ou modulos', () => {
+      const { service, http } = setup();
+
+      loadOffer(service, http);
+      service.selectBundle('imersao-rh-lancamento');
+
+      service
+        .createOrder({
+          ...service.orderTarget(),
+          method: 'PIX',
+          payer: { firstName: 'Ana', lastName: 'Souza', email: 'a@b.com', document: '19119119100' },
+        })
+        .subscribe();
+
+      const request = http.expectOne(req => req.url.endsWith('/orders'));
+
+      expect(request.request.body.bundleSlug).toBe('imersao-rh-lancamento');
+      expect(request.request.body.moduleIds).toBeUndefined();
+      expect(JSON.stringify(request.request.body)).not.toMatch(/priceCents|amountCents|tier/);
+      request.flush({});
+    });
+
+    it('o pedido de modulos leva so os ids', () => {
+      const { service, http } = setup();
+
+      loadCatalog(service, http);
+      service.toggle('mod-2');
+
+      expect(service.orderTarget()).toEqual({ moduleIds: ['mod-2'] });
     });
   });
 

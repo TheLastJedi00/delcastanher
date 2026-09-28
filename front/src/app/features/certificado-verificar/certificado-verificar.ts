@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { PLACEHOLDER } from '../../core/mocks/placeholders';
@@ -41,7 +42,7 @@ import { SectionHeader } from '../../shared/ui/section-header/section-header';
   ],
   template: `
     <div class="flex min-h-screen flex-col bg-brand-surface">
-      <ui-nav-header variant="landing" [navLinks]="navLinks" />
+      <ui-nav-header variant="landing" [authenticated]="authenticated()" [navLinks]="navLinks" />
 
       <main class="flex-1">
         <ui-page-container maxWidth="md">
@@ -178,6 +179,9 @@ import { SectionHeader } from '../../shared/ui/section-header/section-header';
   `,
 })
 export class CertificadoVerificar {
+  /** Rotulo do botao do cabecalho conforme a sessao (Spec 019, decisao 16). */
+  protected readonly authenticated = inject(AuthService).isAuthenticated;
+
   private readonly certificates = inject(CertificateService);
   private readonly route = inject(ActivatedRoute);
 

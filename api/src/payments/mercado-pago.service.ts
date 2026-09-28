@@ -1,11 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import {
-  mercadoPagoAccessToken,
-  mercadoPagoWebhookSecret,
-  statementDescriptor,
-} from '../config/payments.config';
+import { mercadoPagoWebhookSecret, statementDescriptor } from '../config/payments.config';
 import { PaymentMethodKind } from '../generated/prisma/client';
 import {
   CreateOrderPayload,
@@ -39,6 +35,11 @@ export interface OrderModuleItem {
 export interface CreateOrderInput {
   /** Id do **nosso** pedido: vira `external_reference` e chave de idempotencia. */
   orderId: string;
+  /**
+   * Token OAuth da conta vendedora (Spec 020, decisao 6): e ele que faz a order
+   * nascer na conta de quem recebe. Quem escolhe e o `OrdersService`.
+   */
+  accessToken: string;
   amountCents: number;
   method: PaymentMethodKind;
   payer: OrderPayer;
@@ -91,6 +92,11 @@ function toAmount(cents: number): string {
  *
  * Nenhuma credencial daqui e alcancavel a partir do `front/`: elas vivem no
  * `ConfigService` do backend (decisao 16).
+ *
+ * Desde a Spec 020 o access token e argumento, e nao leitura do
+ * `ConfigService`: a order nasce na conta do vendedor, com o token OAuth dele,
+ * e a consulta usa o token da conta em que ela nasceu. Nenhuma `marketplace_fee`
+ * e enviada — a plataforma nao retem comissao (decisao 2).
  */
 @Injectable()
 export class MercadoPagoService {
@@ -110,7 +116,7 @@ export class MercadoPagoService {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${mercadoPagoAccessToken(this.config)}`,
+      Authorization: `Bearer ${input.accessToken}`,
       // Obrigatorio na Orders API: e o que impede a retentativa de rede de
       // virar uma segunda cobranca (decisao 13).
       [IDEMPOTENCY_HEADER]: input.orderId,
@@ -136,10 +142,10 @@ export class MercadoPagoService {
    * webhook quanto para a reconsulta do polling (decisoes 12 e 14) — o corpo da
    * notificacao so diz **qual** id consultar.
    */
-  async getOrder(mpOrderId: string): Promise<MercadoPagoOrder> {
+  async getOrder(mpOrderId: string, accessToken: string): Promise<MercadoPagoOrder> {
     const response = await this.request(`/orders/${encodeURIComponent(mpOrderId)}`, {
       method: 'GET',
-      headers: { Authorization: `Bearer ${mercadoPagoAccessToken(this.config)}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     return this.toOrder(response);

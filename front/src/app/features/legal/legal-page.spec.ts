@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { LEGAL_PLACEHOLDER, LegalPage, LegalSection, p, ul } from './legal-page';
 
@@ -39,7 +41,7 @@ describe('LegalPage — pendente e redigida', () => {
   beforeEach(() => {
     localStorage.clear();
 
-    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.configureTestingModule({ providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] });
 
     fixture = TestBed.createComponent(Host);
     host = fixture.componentInstance;

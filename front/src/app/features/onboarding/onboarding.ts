@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { REDIRECT_PARAM, safeRedirect } from '../../core/guards/safe-redirect';
 import { AuthService } from '../../core/services/auth.service';
 import { CONSENT_POLICY_VERSION } from '../../core/services/consent.service';
 import { UserService } from '../../core/services/user.service';
@@ -141,6 +142,7 @@ export class Onboarding {
   private readonly users = inject(UserService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   readonly form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
@@ -211,7 +213,9 @@ export class Onboarding {
       .subscribe({
         next: () => {
           this.isLoading.set(false);
-          void this.router.navigateByUrl(this.auth.homeUrl());
+          // Destino que veio do login (Spec 019, decisao 17), ou a area da pessoa.
+          const redirect = safeRedirect(this.route.snapshot.queryParamMap.get(REDIRECT_PARAM));
+          void this.router.navigateByUrl(redirect ?? this.auth.homeUrl());
         },
         error: (message: string) => {
           this.isLoading.set(false);

@@ -120,6 +120,8 @@ export interface FinanceOrderItem {
   buyerName: string | null;
   buyerEmail: string;
   modules: string[];
+  /** Pacote e lote do pedido de pacote (Spec 019); nulo no avulso. */
+  bundle: { title: string; tierName: string } | null;
   mpOrderId: string | null;
   mpPaymentId: string | null;
   mpStatusDetail: string | null;

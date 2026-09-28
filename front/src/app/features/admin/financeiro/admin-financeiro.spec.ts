@@ -123,7 +123,7 @@ describe('AdminFinanceiro', () => {
 
     const cards = fixture.debugElement.queryAll(By.css('ui-stat-card'));
     const liquido = cards.find(card =>
-      (card.nativeElement as HTMLElement).textContent?.includes('líquido'),
+      (card.nativeElement as HTMLElement).textContent?.includes('Líquido do vendedor'),
     );
 
     expect(liquido!.nativeElement.textContent).toContain('Não apurado');
@@ -272,5 +272,42 @@ describe('AdminFinanceiro', () => {
 
     expect(fixture.componentInstance.trend()).toBe('up');
     expect(fixture.componentInstance.previousLabel()).toContain('vs.');
+  });
+
+  /** Spec 019, decisao 14: o pacote e um item na lista, e nao doze titulos. */
+  it('mostra o pedido de pacote como pacote e lote', () => {
+    fixture = TestBed.createComponent(AdminFinanceiro);
+    fixture.detectChanges();
+
+    const pedido = {
+      id: 'ord-b',
+      status: 'PAID',
+      amountCents: 59000,
+      method: 'PIX',
+      installments: 1,
+      buyerName: 'Ana Souza',
+      buyerEmail: 'ana@empresa.com',
+      modules: Array.from({ length: 12 }, (_, index) => `Módulo ${index + 1}`),
+      bundle: { title: 'Pacote de Lançamento — Imersão RH Estratégico', tierName: 'Lote Fundador' },
+      mpOrderId: 'ORD-1',
+      mpPaymentId: 'PAY-1',
+      mpStatusDetail: 'accredited',
+      createdAt: '2026-09-25T12:00:00.000Z',
+      paidAt: '2026-09-25T12:01:00.000Z',
+      refundedAt: null,
+    };
+
+    http
+      .match(req => req.url === `${environment.apiUrl}/admin/finance/summary`)
+      .forEach(req => req.flush(RESUMO));
+    http
+      .match(req => req.url === `${environment.apiUrl}/admin/finance/orders`)
+      .forEach(req => req.flush({ items: [pedido], total: 1, page: 1, pageSize: 20 }));
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('Pacote de Lançamento — Imersão RH Estratégico · Lote Fundador');
+    expect(text).not.toContain('Módulo 12');
   });
 });

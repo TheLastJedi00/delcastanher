@@ -1,3 +1,4 @@
+import { InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { optionalEnv, requiredEnv } from './media.config';
 
@@ -11,7 +12,11 @@ import { optionalEnv, requiredEnv } from './media.config';
  * assim alternar sandbox e producao e um deploy so, e nao dois coordenados.
  */
 
-/** Credencial de servidor. */
+/**
+ * Credencial de servidor da conta da plataforma. Desde a Spec 020 (decisao 6)
+ * ela so consulta os pedidos anteriores a conta recebedora: pedido novo nasce
+ * na conta do vendedor, com o token OAuth dele.
+ */
 export function mercadoPagoAccessToken(config: ConfigService): string {
   return requiredEnv(config, 'MP_ACCESS_TOKEN');
 }
@@ -27,9 +32,13 @@ export function mercadoPagoWebhookSecret(config: ConfigService): string {
 }
 
 /**
- * Se o pagamento esta configurado. Falso desliga a loja com uma mensagem
+ * Se a aplicacao esta configurada. Falso desliga a loja com uma mensagem
  * honesta em vez de estourar 500 no meio do checkout — o que interessa em
  * desenvolvimento, onde nem toda maquina tem credencial.
+ *
+ * Desde a Spec 020 isso e **metade** da condicao: a loja so abre com uma conta
+ * recebedora conectada (decisao 7), o que o `StoreController` pergunta ao
+ * `MercadoPagoConnectionService`.
  */
 export function paymentsEnabled(config: ConfigService): boolean {
   return !!optionalEnv(config, 'MP_ACCESS_TOKEN') && !!optionalEnv(config, 'MP_PUBLIC_KEY');
@@ -47,6 +56,46 @@ export function paymentsEnabled(config: ConfigService): boolean {
  */
 export function mercadoPagoSandbox(config: ConfigService): boolean {
   return (optionalEnv(config, 'MP_SANDBOX') ?? 'true').toLowerCase() !== 'false';
+}
+
+/**
+ * Aplicacao que o vendedor autoriza por OAuth (Spec 020). O `client_secret` e
+ * segredo, como o access token; os outros dois sao configuracao.
+ */
+export function mercadoPagoOAuthClient(config: ConfigService): {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+} {
+  return {
+    clientId: requiredEnv(config, 'MP_CLIENT_ID'),
+    clientSecret: requiredEnv(config, 'MP_CLIENT_SECRET'),
+    redirectUri: requiredEnv(config, 'MP_OAUTH_REDIRECT_URI'),
+  };
+}
+
+/** Segredo que o Vercel Cron manda na rotina diaria (Spec 020, decisao 8). */
+export function cronSecret(config: ConfigService): string {
+  return requiredEnv(config, 'CRON_SECRET');
+}
+
+/**
+ * Chave dos tokens do vendedor (Spec 020, decisao 4): 32 bytes em base64.
+ *
+ * O tamanho e conferido aqui, e nao no primeiro erro do `createCipheriv`: uma
+ * chave colada pela metade daria uma mensagem de criptografia que ninguem
+ * associa a variavel de ambiente.
+ */
+export function mercadoPagoTokenKey(config: ConfigService): Buffer {
+  const key = Buffer.from(requiredEnv(config, 'MP_TOKEN_ENCRYPTION_KEY'), 'base64');
+
+  if (key.length !== 32) {
+    throw new InternalServerErrorException(
+      'MP_TOKEN_ENCRYPTION_KEY precisa ter 32 bytes em base64.',
+    );
+  }
+
+  return key;
 }
 
 /**

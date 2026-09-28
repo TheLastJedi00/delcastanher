@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
 import { Footer } from '../../shared/ui/footer/footer';
 import { NavHeader } from '../../shared/ui/nav-header/nav-header';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
@@ -54,7 +55,7 @@ export interface LegalSection {
   imports: [NavHeader, Footer, PageContainer, PlaceholderText],
   template: `
     <div class="flex min-h-screen flex-col text-slate-800">
-      <ui-nav-header variant="landing" />
+      <ui-nav-header variant="landing" [authenticated]="authenticated()" />
 
       <main class="flex-1 bg-slate-50">
         <ui-page-container maxWidth="sm">
@@ -146,6 +147,9 @@ export interface LegalSection {
   `,
 })
 export class LegalPage {
+  /** Rotulo do botao do cabecalho conforme a sessao (Spec 019, decisao 16). */
+  protected readonly authenticated = inject(AuthService).isAuthenticated;
+
   readonly title = input.required<string>();
   readonly summary = input.required<string>();
   readonly sections = input.required<LegalSection[]>();

@@ -1,5 +1,6 @@
 import { NgOptimizedImage } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
 import { RouterLink } from '@angular/router';
 import { JsonLdService } from '../../core/services/json-ld.service';
 import { SITE_ORIGIN } from '../../core/services/seo.service';
@@ -38,6 +39,9 @@ interface Pillar {
   templateUrl: './landing.html',
 })
 export class Landing {
+  /** Rotulo do botao do cabecalho conforme a sessao (Spec 019, decisao 16). */
+  protected readonly authenticated = inject(AuthService).isAuthenticated;
+
   readonly navLinks: NavLink[] = [
     { label: 'Método', href: '#metodo' },
     { label: 'A Mentora', href: '#mentora' },

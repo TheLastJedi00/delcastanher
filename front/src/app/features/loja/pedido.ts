@@ -45,11 +45,19 @@ const POLL_MS = 5000;
               </p>
 
               <ul class="mt-5 space-y-2">
-                @for (item of pedido.items; track item.moduleId) {
+                <!-- Spec 019: o pacote é um item para o aluno, e não doze. -->
+                @if (pedido.bundle; as pack) {
                   <li class="flex justify-between gap-3 text-sm">
-                    <span class="text-slate-700">{{ item.title }}</span>
-                    <span class="text-slate-500">acesso por 6 meses</span>
+                    <span class="text-slate-700">{{ pack.title }} · {{ pack.tierName }}</span>
+                    <span class="text-slate-500">12 módulos, acesso por 6 meses</span>
                   </li>
+                } @else {
+                  @for (item of pedido.items; track item.moduleId) {
+                    <li class="flex justify-between gap-3 text-sm">
+                      <span class="text-slate-700">{{ item.title }}</span>
+                      <span class="text-slate-500">acesso por 6 meses</span>
+                    </li>
+                  }
                 }
               </ul>
 
@@ -252,9 +260,28 @@ export class Pedido implements OnInit, OnDestroy {
     });
   }
 
-  /** Recompoe a selecao do pedido e volta ao pagamento. */
+  /**
+   * Recompoe a selecao do pedido e volta ao pagamento. No pacote, a escolha e
+   * o pacote ativo — e o lote e o que valer agora, nao o do pedido recusado.
+   */
   retry(order: OrderView): void {
     this.store.clearSelection();
+
+    if (order.bundle) {
+      this.store.loadOffer().subscribe({
+        next: offer => {
+          if (offer.bundle) {
+            this.store.selectBundle(offer.bundle.slug);
+          }
+
+          this.router.navigate(['/loja/pagamento']);
+        },
+        error: () => this.router.navigate(['/loja']),
+      });
+
+      return;
+    }
+
     order.items.forEach(item => this.store.select(item.moduleId));
     this.router.navigate(['/loja/pagamento']);
   }
