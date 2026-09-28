@@ -1,3 +1,4 @@
+import { switchMap } from 'rxjs';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import {
   AdminLegalDocument,
@@ -6,6 +7,7 @@ import {
   LEGAL_DOCUMENT_TITLES,
   LegalDocumentKind,
   LegalDocumentVersion,
+  PublishChangeKind,
 } from '../../../core/services/admin-legal.service';
 import { parseLegalText } from '../../legal/parse-legal-text';
 import { LegalSections } from '../../legal/legal-sections';
@@ -13,6 +15,7 @@ import { Badge } from '../../../shared/ui/badge/badge';
 import { Button } from '../../../shared/ui/button/button';
 import { Card } from '../../../shared/ui/card/card';
 import { Input } from '../../../shared/ui/input/input';
+import { Modal } from '../../../shared/ui/modal/modal';
 import { SectionHeader } from '../../../shared/ui/section-header/section-header';
 
 /** Data no formato da tela: 13/09/2026. */
@@ -37,7 +40,7 @@ export function describeVersion(version: LegalDocumentVersion): string {
 @Component({
   selector: 'app-admin-politicas',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Badge, Button, Card, Input, LegalSections, SectionHeader],
+  imports: [Badge, Button, Card, Input, LegalSections, Modal, SectionHeader],
   host: { '(window:beforeunload)': 'onBeforeUnload($event)' },
   templateUrl: './admin-politicas.html',
 })
@@ -82,6 +85,28 @@ export class AdminPoliticas implements OnInit {
    */
   protected readonly preview = computed(() => parseLegalText(this.content()));
 
+  /** Dialogo de publicacao aberto (decisao 3). */
+  protected readonly publishOpen = signal(false);
+  protected readonly changeKind = signal<PublishChangeKind>('NEW_VERSION');
+  protected readonly publishError = signal<string | null>(null);
+  /** Aviso de sucesso na lista, depois de publicar. */
+  protected readonly notice = signal<string | null>(null);
+
+  /**
+   * Sem versao publicada so existe "Nova versao": quem aceitou antes aceitou
+   * sem este texto, e uma correcao manteria a versao que nao o incluia. E o
+   * caso da primeira publicacao dos Termos de Uso (decisao 3).
+   */
+  protected readonly firstPublication = computed(() => !this.editingDoc()?.current);
+
+  /** A versao da politica que uma correcao mantem. */
+  protected readonly policyVersion = computed(() => this.legal.result()?.policyVersion ?? null);
+
+  /** Ha o que publicar: texto nao vazio, salvo como rascunho ou por salvar. */
+  protected readonly canPublish = computed(
+    () => this.content().trim() !== '' && (this.dirty() || !!this.editingDoc()?.draft),
+  );
+
   ngOnInit(): void {
     this.reload();
   }
@@ -95,6 +120,7 @@ export class AdminPoliticas implements OnInit {
     const text = doc.draft?.content ?? doc.current?.content ?? '';
 
     this.editorError.set(null);
+    this.notice.set(null);
     this.content.set(text);
     this.saved.set(text);
     this.editing.set(doc.kind);
@@ -153,6 +179,56 @@ export class AdminPoliticas implements OnInit {
       error: (message: string) => {
         this.saving.set(false);
         this.editorError.set(message);
+      },
+    });
+  }
+
+  protected askPublish(): void {
+    this.publishError.set(null);
+    this.changeKind.set('NEW_VERSION');
+    this.publishOpen.set(true);
+  }
+
+  protected cancelPublish(): void {
+    if (!this.saving()) {
+      this.publishOpen.set(false);
+    }
+  }
+
+  /**
+   * Publica o rascunho. Texto ainda nao salvo e salvo antes: a API publica o
+   * rascunho, e publicar outra coisa que nao o que esta na tela seria pior
+   * que pedir um clique a mais.
+   */
+  protected confirmPublish(): void {
+    const kind = this.editing();
+
+    if (!kind) {
+      return;
+    }
+
+    const text = this.content();
+    const changeKind = this.firstPublication() ? 'NEW_VERSION' : this.changeKind();
+    const publish = () => this.legal.publish(kind, changeKind);
+    const request = this.dirty()
+      ? this.legal.saveDraft(kind, text).pipe(switchMap(publish))
+      : publish();
+
+    this.saving.set(true);
+    this.publishError.set(null);
+    request.subscribe({
+      next: result => {
+        this.saving.set(false);
+        this.saved.set(text);
+        this.publishOpen.set(false);
+        this.editing.set(null);
+        this.notice.set(
+          `${this.title(kind)} publicado. Versão da política vigente: ${result.policyVersion ?? '—'}.`,
+        );
+      },
+      error: (message: string) => {
+        this.saving.set(false);
+        this.publishError.set(message);
       },
     });
   }

@@ -96,11 +96,82 @@
         <ui-button variant="outline" [loading]="saving()" [disabled]="!dirty()" (click)="saveDraft()">
           Salvar rascunho
         </ui-button>
-        <ui-button variant="secondary" [disabled]="true">Publicar</ui-button>
+        <ui-button variant="secondary" [disabled]="!canPublish() || saving()" (click)="askPublish()">
+          Publicar
+        </ui-button>
       </div>
     </div>
   </ui-card>
+
+  @if (publishOpen()) {
+    <ui-modal
+      [title]="'Publicar ' + title(doc.kind)"
+      description="O texto vai ao ar no site em até um minuto, sem deploy."
+      (closed)="cancelPublish()">
+      <fieldset>
+        <legend class="mb-3 text-sm font-semibold text-brand-navy">Tipo da mudança</legend>
+
+        <label class="mb-3 flex cursor-pointer gap-3 rounded-xl border border-brand-navy/10 p-3">
+          <input
+            type="radio"
+            name="politicas-tipo"
+            value="NEW_VERSION"
+            class="mt-1"
+            [checked]="firstPublication() || changeKind() === 'NEW_VERSION'"
+            (change)="changeKind.set('NEW_VERSION')" />
+          <span>
+            <span class="block text-sm font-bold text-brand-navy">Nova versão</span>
+            <span class="block text-sm text-slate-600">
+              A versão da política passa a ser a data de hoje. Nova versão reabre o aviso de cookies
+              para todos os visitantes, e quem aceitar a partir daí grava a versão nova.
+            </span>
+          </span>
+        </label>
+
+        @if (firstPublication()) {
+          <p class="text-sm text-slate-600" data-testid="so-nova-versao">
+            Este documento ainda não foi publicado, então a primeira publicação é sempre uma nova
+            versão: quem aceitou antes aceitou sem este texto.
+          </p>
+        } @else {
+          <label class="flex cursor-pointer gap-3 rounded-xl border border-brand-navy/10 p-3">
+            <input
+              type="radio"
+              name="politicas-tipo"
+              value="CORRECTION"
+              class="mt-1"
+              [checked]="changeKind() === 'CORRECTION'"
+              (change)="changeKind.set('CORRECTION')" />
+            <span>
+              <span class="block text-sm font-bold text-brand-navy">Correção</span>
+              <span class="block text-sm text-slate-600">
+                Para erro de digitação ou formatação. O texto novo vai ao ar, a versão da política
+                continua {{ policyVersion() ?? 'a mesma' }} e o aviso de cookies não reabre.
+              </span>
+            </span>
+          </label>
+        }
+      </fieldset>
+
+      @if (publishError(); as erro) {
+        <p class="mt-4 text-sm text-state-danger" role="alert">{{ erro }}</p>
+      }
+
+      <div class="mt-6 flex flex-wrap justify-end gap-3">
+        <ui-button variant="ghost" [disabled]="saving()" (click)="cancelPublish()">Cancelar</ui-button>
+        <ui-button variant="primary" [loading]="saving()" (click)="confirmPublish()">
+          Publicar
+        </ui-button>
+      </div>
+    </ui-modal>
+  }
 } @else {
+  @if (notice(); as aviso) {
+    <p class="mb-6 rounded-2xl border border-state-success/20 bg-state-success/5 p-4 text-sm text-state-success" role="status">
+      {{ aviso }}
+    </p>
+  }
+
   <ul class="grid gap-4 lg:grid-cols-3" aria-label="Documentos legais">
     @for (doc of documents(); track doc.kind) {
       <li>
