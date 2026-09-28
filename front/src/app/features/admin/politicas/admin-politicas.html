@@ -20,29 +20,111 @@
   </div>
 }
 
-<ul class="grid gap-4 lg:grid-cols-3" aria-label="Documentos legais">
-  @for (doc of documents(); track doc.kind) {
-    <li>
-      <ui-card variant="default" padding="lg" [hover]="false" class="block h-full">
-        <div class="flex h-full flex-col gap-3" [attr.data-testid]="'documento-' + doc.kind">
-          <h2 class="text-lg font-semibold text-brand-navy">{{ title(doc.kind) }}</h2>
+@if (editingDoc(); as doc) {
+  <ui-card variant="default" padding="lg" [hover]="false">
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-brand-navy">{{ title(doc.kind) }}</h2>
+        <p class="mt-1 text-sm text-slate-600">{{ status(doc) }}</p>
+      </div>
+      <ui-button variant="ghost" size="sm" (click)="close()">Voltar à lista</ui-button>
+    </div>
 
-          <p class="text-sm text-slate-600">{{ status(doc) }}</p>
+    @if (doc.kind === 'COOKIES') {
+      <!-- Decisao 9: este documento descreve o codigo. -->
+      <div
+        role="note"
+        class="mb-4 rounded-xl border border-state-warning/30 bg-state-warning/5 p-3 text-sm text-slate-700"
+        data-testid="aviso-cookies">
+        Este texto descreve os cookies que o código grava. Mudanças nos cookies exigem revisão técnica
+        antes de publicar.
+      </div>
+    }
 
-          @if (doc.draft; as draft) {
-            <div>
-              <ui-badge variant="warning" label="Rascunho não publicado" />
-              <p class="mt-2 text-xs text-slate-500">
-                Salvo em {{ date(draft.updatedAt) }} por {{ draft.updatedByEmail }}
-              </p>
-            </div>
+    <details class="mb-4 rounded-xl bg-brand-navy/5 p-3 text-sm text-slate-600">
+      <summary class="cursor-pointer font-semibold text-brand-navy">Como formatar o texto</summary>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        <li><code class="font-mono">## 1. Título</code> no começo da linha abre uma seção.</li>
+        <li>Linhas seguidas formam um parágrafo; uma linha em branco começa outro.</li>
+        <li><code class="font-mono">- item</code> no começo da linha vira item de lista.</li>
+        <li>Negrito, links e tabelas não são aceitos: aparecem como texto.</li>
+      </ul>
+    </details>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+      <ui-input
+        label="Texto do documento"
+        [multiline]="true"
+        [rows]="24"
+        [mono]="true"
+        [(value)]="content" />
+
+      <section aria-labelledby="politicas-previa" class="min-w-0">
+        <p id="politicas-previa" class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+          Pré-visualização
+        </p>
+        <div class="max-h-[36rem] overflow-y-auto rounded-xl border border-brand-navy/10 bg-slate-50 p-4" data-testid="previa">
+          @if (preview().length) {
+            <app-legal-sections [sections]="preview()" />
+          } @else {
+            <p class="text-sm text-slate-500">O texto aparece aqui enquanto você digita.</p>
           }
-
-          <div class="mt-auto flex flex-wrap gap-2 pt-2">
-            <ui-button variant="outline" size="sm" [disabled]="true">Editar</ui-button>
-          </div>
         </div>
-      </ui-card>
-    </li>
-  }
-</ul>
+      </section>
+    </div>
+
+    @if (editorError(); as erro) {
+      <p class="mt-4 text-sm text-state-danger" role="alert">{{ erro }}</p>
+    }
+
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+      <p class="text-xs text-slate-500" role="status">
+        @if (dirty()) {
+          Alterações não salvas.
+        } @else if (doc.draft) {
+          Rascunho salvo.
+        }
+      </p>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <ui-badge variant="warning" label="Maquete" />
+        @if (doc.draft) {
+          <ui-button variant="ghost" [disabled]="saving()" (click)="discardDraft()">
+            Descartar rascunho
+          </ui-button>
+        }
+        <ui-button variant="outline" [loading]="saving()" [disabled]="!dirty()" (click)="saveDraft()">
+          Salvar rascunho
+        </ui-button>
+        <ui-button variant="secondary" [disabled]="true">Publicar</ui-button>
+      </div>
+    </div>
+  </ui-card>
+} @else {
+  <ul class="grid gap-4 lg:grid-cols-3" aria-label="Documentos legais">
+    @for (doc of documents(); track doc.kind) {
+      <li>
+        <ui-card variant="default" padding="lg" [hover]="false" class="block h-full">
+          <div class="flex h-full flex-col gap-3" [attr.data-testid]="'documento-' + doc.kind">
+            <h2 class="text-lg font-semibold text-brand-navy">{{ title(doc.kind) }}</h2>
+
+            <p class="text-sm text-slate-600">{{ status(doc) }}</p>
+
+            @if (doc.draft; as draft) {
+              <div>
+                <ui-badge variant="warning" label="Rascunho não publicado" />
+                <p class="mt-2 text-xs text-slate-500">
+                  Salvo em {{ date(draft.updatedAt) }} por {{ draft.updatedByEmail }}
+                </p>
+              </div>
+            }
+
+            <div class="mt-auto flex flex-wrap gap-2 pt-2">
+              <ui-button variant="outline" size="sm" (click)="open(doc)">Editar</ui-button>
+            </div>
+          </div>
+        </ui-card>
+      </li>
+    }
+  </ul>
+}
