@@ -617,7 +617,8 @@
   </ui-modal>
 }
 
-<!-- Spec 021: adicionar administrador por e-mail, com ou sem conta. -->
+<!-- Spec 021: adicionar administrador por e-mail, com ou sem conta. A lista
+     recarrega no sucesso, com o filtro corrente, para a pessoa aparecer. -->
 @if (addingAdmin()) {
-  <app-add-admin-dialog (closed)="closeAddAdmin()" />
+  <app-add-admin-dialog (closed)="closeAddAdmin()" (added)="reload()" />
 }

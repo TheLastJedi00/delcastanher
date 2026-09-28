@@ -24,7 +24,7 @@ Ordem das fases: primeiro a extração do fluxo de conta no `AuthService`, sem m
 - [x] **Task 3.2:** Colocar o botão "Adicionar administrador" no cabeçalho da aba "Visão Geral e Alunos", ao lado de "Exportar CSV", abrindo um `ui-modal` com formulário reativo de um campo (`ui-input` de e-mail com `Validators.required` e `Validators.email`) e texto explicando o efeito: a pessoa passa a ter acesso ao painel administrativo.
 - [x] **Task 3.3:** Exibir no modal o resultado conforme o `outcome`: conta criada ("enviamos um e-mail para definir a senha — avise a pessoa"), conta promovida ("o acesso aparece depois que a pessoa sair e entrar de novo"), já era admin, e o aviso de `inviteEmailSent: false` orientando o "Esqueci minha senha" (decisões 3, 4, 6 e 7).
 - [x] **Task 3.4:** Tratar erros sem fechar o modal nem perder o e-mail digitado: 409 de conta bloqueada com a mensagem da decisão 8, 400 de e-mail inválido e erro de rede com opção de tentar de novo; botão de enviar com estado de carregamento e bloqueado contra duplo clique.
-- [ ] **Task 3.5:** Recarregar a listagem com a consulta corrente após o sucesso, para que a pessoa adicionada apareça na tabela sem F5 (decisão 5).
+- [x] **Task 3.5:** Recarregar a listagem com a consulta corrente após o sucesso, para que a pessoa adicionada apareça na tabela sem F5 (decisão 5).
 - [ ] **Task 3.6:** Garantir acessibilidade: foco no campo ao abrir, foco devolvido ao botão ao fechar, erro do campo associado por `aria-describedby` e resultado anunciado por `aria-live`.
 - [ ] **Task 3.7:** Escrever os `.spec.ts` do serviço e da aba: validação do formulário antes do envio, cada `outcome` exibindo a sua mensagem, 409 exibido sem quebrar a tela, recarga da lista após sucesso e nenhuma chamada em duplo clique.
 
