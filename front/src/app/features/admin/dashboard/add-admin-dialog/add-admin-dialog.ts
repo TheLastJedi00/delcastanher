@@ -11,7 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AddAdminResult, AdminUsersService } from '../../../../core/services/admin-users.service';
 import { Button } from '../../../../shared/ui/button/button';
 import { Input } from '../../../../shared/ui/input/input';
@@ -48,13 +48,13 @@ import { Modal } from '../../../../shared/ui/modal/modal';
           <ui-button variant="primary" (click)="closed.emit()">Concluir</ui-button>
         </div>
       } @else {
-      <form (ngSubmit)="submit()" novalidate>
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <ui-input
           label="E-mail"
           type="email"
           autocomplete="off"
           placeholder="nome@empresa.com"
-          [formControl]="email"
+          formControlName="email"
           [error]="emailError()" />
 
         @if (serverError()) {
@@ -88,10 +88,20 @@ export class AddAdminDialog {
   /** Emitido no sucesso, para a tela recarregar a listagem. */
   readonly added = output<AddAdminResult>();
 
-  readonly email = new FormControl('', {
-    nonNullable: true,
-    validators: [Validators.required, Validators.email],
+  /**
+   * Grupo de um campo so porque o `(ngSubmit)` e o `preventDefault` do envio
+   * vem da diretiva `[formGroup]`; sem ela o navegador faria o submit nativo.
+   */
+  readonly form = new FormGroup({
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.email],
+    }),
   });
+
+  private get email(): FormControl<string> {
+    return this.form.controls.email;
+  }
 
   /** Erro do campo, so depois de tocado ou de uma tentativa de envio. */
   readonly emailError = signal('');

@@ -452,4 +452,62 @@ describe('AdminDashboard', () => {
       expect(fixture.componentInstance.exporting()).toBe(false);
     });
   });
+
+  describe('adicionar administrador (Spec 021)', () => {
+    function addButton(fixture: ComponentFixture<AdminDashboard>): HTMLButtonElement {
+      return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(button =>
+        button.textContent?.includes('Adicionar administrador'),
+      ) as HTMLButtonElement;
+    }
+
+    it('abre o dialogo pelo botao do cabecalho', async () => {
+      const fixture = await build();
+      http = TestBed.inject(HttpTestingController);
+      flushList(http);
+
+      addButton(fixture).click();
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('app-add-admin-dialog')).not.toBeNull();
+    });
+
+    it('recarrega a listagem com o filtro corrente depois do sucesso', async () => {
+      const fixture = await build({ busca: 'ana' });
+      http = TestBed.inject(HttpTestingController);
+      flushList(http);
+
+      addButton(fixture).click();
+      fixture.detectChanges();
+
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'app-add-admin-dialog input',
+      ) as HTMLInputElement;
+      input.value = 'nova@empresa.com';
+      input.dispatchEvent(new Event('input'));
+      (fixture.nativeElement as HTMLElement).querySelector('app-add-admin-dialog form')!.dispatchEvent(new Event('submit'));
+
+      http
+        .expectOne(req => req.url.endsWith('/admin/users/admins'))
+        .flush({ userId: 'uid-nova', email: 'nova@empresa.com', outcome: 'created', inviteEmailSent: true });
+
+      const reload = http.expectOne(req => req.url.endsWith('/admin/users'));
+      expect(reload.request.params.get('search')).toBe('ana');
+      reload.flush(RESULT);
+    });
+
+    it('devolve o foco ao botao ao fechar', async () => {
+      const fixture = await build();
+      http = TestBed.inject(HttpTestingController);
+      flushList(http);
+
+      const button = addButton(fixture);
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      fixture.detectChanges();
+
+      fixture.componentInstance.closeAddAdmin();
+      fixture.detectChanges();
+
+      expect(document.activeElement).toBe(button);
+    });
+  });
 });

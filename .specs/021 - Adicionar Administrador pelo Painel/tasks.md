@@ -26,7 +26,7 @@ Ordem das fases: primeiro a extração do fluxo de conta no `AuthService`, sem m
 - [x] **Task 3.4:** Tratar erros sem fechar o modal nem perder o e-mail digitado: 409 de conta bloqueada com a mensagem da decisão 8, 400 de e-mail inválido e erro de rede com opção de tentar de novo; botão de enviar com estado de carregamento e bloqueado contra duplo clique.
 - [x] **Task 3.5:** Recarregar a listagem com a consulta corrente após o sucesso, para que a pessoa adicionada apareça na tabela sem F5 (decisão 5).
 - [x] **Task 3.6:** Garantir acessibilidade: foco no campo ao abrir, foco devolvido ao botão ao fechar, erro do campo associado por `aria-describedby` e resultado anunciado por `aria-live`.
-- [ ] **Task 3.7:** Escrever os `.spec.ts` do serviço e da aba: validação do formulário antes do envio, cada `outcome` exibindo a sua mensagem, 409 exibido sem quebrar a tela, recarga da lista após sucesso e nenhuma chamada em duplo clique.
+- [x] **Task 3.7:** Escrever os `.spec.ts` do serviço e da aba: validação do formulário antes do envio, cada `outcome` exibindo a sua mensagem, 409 exibido sem quebrar a tela, recarga da lista após sucesso e nenhuma chamada em duplo clique.
 
 ## Fase 4: Revisão e Entrega
 - [ ] **Task 4.1:** Conferir que `POST /admin/users/admins` não responde a papel `aluno` nem a requisição sem token, e que o `RolesGuard` continua decidindo pelo claim do token, sem ler a coluna `role` (Spec 013, decisão 3).
