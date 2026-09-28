@@ -1,0 +1,262 @@
+<div class="mb-6">
+  <ui-section-header overline="Jurídico" title="Políticas e Termos de Uso" level="h1" />
+</div>
+
+<!-- Decisao 11: o aviso so sai quando a aba estiver ligada ao banco (Task 3.7).
+     Ate la, a tela nao salva nada, e dizer isso continua sendo verdade. -->
+<div class="mb-6 rounded-2xl border border-state-warning/30 bg-state-warning/5 p-4">
+  <p class="text-sm font-bold text-state-warning">Área em construção</p>
+  <p class="mt-1 text-sm text-slate-600">
+    Esta tela é uma maquete: o conteúdo digitado aqui não é salvo e não altera as páginas públicas
+    de Termos e Privacidade.
+  </p>
+</div>
+
+@if (legal.error(); as erro) {
+  <div
+    class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-state-danger/20 bg-state-danger/5 p-4">
+    <p class="text-sm text-state-danger" role="alert">{{ erro }}</p>
+    <ui-button variant="outline" size="sm" (click)="reload()">Tentar de novo</ui-button>
+  </div>
+}
+
+@if (editingDoc(); as doc) {
+  <ui-card variant="default" padding="lg" [hover]="false">
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-brand-navy">{{ title(doc.kind) }}</h2>
+        <p class="mt-1 text-sm text-slate-600">{{ status(doc) }}</p>
+      </div>
+      <ui-button variant="ghost" size="sm" (click)="close()">Voltar à lista</ui-button>
+    </div>
+
+    @if (doc.kind === 'COOKIES') {
+      <!-- Decisao 9: este documento descreve o codigo. -->
+      <div
+        role="note"
+        class="mb-4 rounded-xl border border-state-warning/30 bg-state-warning/5 p-3 text-sm text-slate-700"
+        data-testid="aviso-cookies">
+        Este texto descreve os cookies que o código grava. Mudanças nos cookies exigem revisão técnica
+        antes de publicar.
+      </div>
+    }
+
+    <details class="mb-4 rounded-xl bg-brand-navy/5 p-3 text-sm text-slate-600">
+      <summary class="cursor-pointer font-semibold text-brand-navy">Como formatar o texto</summary>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        <li><code class="font-mono">## 1. Título</code> no começo da linha abre uma seção.</li>
+        <li>Linhas seguidas formam um parágrafo; uma linha em branco começa outro.</li>
+        <li><code class="font-mono">- item</code> no começo da linha vira item de lista.</li>
+        <li>Negrito, links e tabelas não são aceitos: aparecem como texto.</li>
+      </ul>
+    </details>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+      <ui-input
+        label="Texto do documento"
+        [multiline]="true"
+        [rows]="24"
+        [mono]="true"
+        [(value)]="content" />
+
+      <section aria-labelledby="politicas-previa" class="min-w-0">
+        <p id="politicas-previa" class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+          Pré-visualização
+        </p>
+        <div class="max-h-[36rem] overflow-y-auto rounded-xl border border-brand-navy/10 bg-slate-50 p-4" data-testid="previa">
+          @if (preview().length) {
+            <app-legal-sections [sections]="preview()" />
+          } @else {
+            <p class="text-sm text-slate-500">O texto aparece aqui enquanto você digita.</p>
+          }
+        </div>
+      </section>
+    </div>
+
+    @if (editorError(); as erro) {
+      <p class="mt-4 text-sm text-state-danger" role="alert">{{ erro }}</p>
+    }
+
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+      <p class="text-xs text-slate-500" role="status">
+        @if (dirty()) {
+          Alterações não salvas.
+        } @else if (doc.draft) {
+          Rascunho salvo.
+        }
+      </p>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <ui-badge variant="warning" label="Maquete" />
+        @if (doc.draft) {
+          <ui-button variant="ghost" [disabled]="saving()" (click)="discardDraft()">
+            Descartar rascunho
+          </ui-button>
+        }
+        <ui-button variant="outline" [loading]="saving()" [disabled]="!dirty()" (click)="saveDraft()">
+          Salvar rascunho
+        </ui-button>
+        <ui-button variant="secondary" [disabled]="!canPublish() || saving()" (click)="askPublish()">
+          Publicar
+        </ui-button>
+      </div>
+    </div>
+  </ui-card>
+
+  @if (publishOpen()) {
+    <ui-modal
+      [title]="'Publicar ' + title(doc.kind)"
+      description="O texto vai ao ar no site em até um minuto, sem deploy."
+      (closed)="cancelPublish()">
+      <fieldset>
+        <legend class="mb-3 text-sm font-semibold text-brand-navy">Tipo da mudança</legend>
+
+        <label class="mb-3 flex cursor-pointer gap-3 rounded-xl border border-brand-navy/10 p-3">
+          <input
+            type="radio"
+            name="politicas-tipo"
+            value="NEW_VERSION"
+            class="mt-1"
+            [checked]="firstPublication() || changeKind() === 'NEW_VERSION'"
+            (change)="changeKind.set('NEW_VERSION')" />
+          <span>
+            <span class="block text-sm font-bold text-brand-navy">Nova versão</span>
+            <span class="block text-sm text-slate-600">
+              A versão da política passa a ser a data de hoje. Nova versão reabre o aviso de cookies
+              para todos os visitantes, e quem aceitar a partir daí grava a versão nova.
+            </span>
+          </span>
+        </label>
+
+        @if (firstPublication()) {
+          <p class="text-sm text-slate-600" data-testid="so-nova-versao">
+            Este documento ainda não foi publicado, então a primeira publicação é sempre uma nova
+            versão: quem aceitou antes aceitou sem este texto.
+          </p>
+        } @else {
+          <label class="flex cursor-pointer gap-3 rounded-xl border border-brand-navy/10 p-3">
+            <input
+              type="radio"
+              name="politicas-tipo"
+              value="CORRECTION"
+              class="mt-1"
+              [checked]="changeKind() === 'CORRECTION'"
+              (change)="changeKind.set('CORRECTION')" />
+            <span>
+              <span class="block text-sm font-bold text-brand-navy">Correção</span>
+              <span class="block text-sm text-slate-600">
+                Para erro de digitação ou formatação. O texto novo vai ao ar, a versão da política
+                continua {{ policyVersion() ?? 'a mesma' }} e o aviso de cookies não reabre.
+              </span>
+            </span>
+          </label>
+        }
+      </fieldset>
+
+      @if (publishError(); as erro) {
+        <p class="mt-4 text-sm text-state-danger" role="alert">{{ erro }}</p>
+      }
+
+      <div class="mt-6 flex flex-wrap justify-end gap-3">
+        <ui-button variant="ghost" [disabled]="saving()" (click)="cancelPublish()">Cancelar</ui-button>
+        <ui-button variant="primary" [loading]="saving()" (click)="confirmPublish()">
+          Publicar
+        </ui-button>
+      </div>
+    </ui-modal>
+  }
+} @else if (historyKind(); as kind) {
+  <ui-card variant="default" padding="lg" [hover]="false">
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-brand-navy">Histórico — {{ title(kind) }}</h2>
+        <p class="mt-1 text-sm text-slate-600">
+          Versões publicadas não mudam nem são apagadas: cada uma é o texto que alguém aceitou.
+        </p>
+      </div>
+      <ui-button variant="ghost" size="sm" (click)="closeHistory()">Voltar à lista</ui-button>
+    </div>
+
+    @if (historyError(); as erro) {
+      <p class="text-sm text-state-danger" role="alert">{{ erro }}</p>
+    } @else if (historyLoading()) {
+      <p class="text-sm text-slate-500" role="status">Carregando o histórico…</p>
+    } @else if (versions().length === 0) {
+      <p class="text-sm text-slate-500">Nenhuma versão publicada.</p>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[36rem] text-left text-sm">
+          <caption class="sr-only">Versões publicadas de {{ title(kind) }}</caption>
+          <thead class="text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+              <th scope="col" class="py-2 pr-4">Data</th>
+              <th scope="col" class="py-2 pr-4">Tipo</th>
+              <th scope="col" class="py-2 pr-4">Autor</th>
+              <th scope="col" class="py-2 pr-4">Versão da política</th>
+              <th scope="col" class="py-2"><span class="sr-only">Ações</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (version of versions(); track version.id) {
+              <tr class="border-t border-brand-navy/10">
+                <td class="py-3 pr-4">{{ date(version.publishedAt) }}</td>
+                <td class="py-3 pr-4">{{ changeLabels[version.changeKind] }}</td>
+                <td class="py-3 pr-4">{{ author(version) }}</td>
+                <td class="py-3 pr-4 font-mono">{{ version.policyVersion }}</td>
+                <td class="py-3 text-right">
+                  <ui-button variant="outline" size="sm" (click)="reading.set(version)">Ler</ui-button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </ui-card>
+
+  @if (reading(); as version) {
+    <ui-modal
+      size="lg"
+      [title]="title(kind) + ' — ' + version.policyVersion"
+      [description]="changeLabels[version.changeKind] + ', publicada em ' + date(version.publishedAt) + ' por ' + author(version)"
+      (closed)="reading.set(null)">
+      <app-legal-sections [sections]="readingSections()" />
+    </ui-modal>
+  }
+} @else {
+  @if (notice(); as aviso) {
+    <p class="mb-6 rounded-2xl border border-state-success/20 bg-state-success/5 p-4 text-sm text-state-success" role="status">
+      {{ aviso }}
+    </p>
+  }
+
+  <ul class="grid gap-4 lg:grid-cols-3" aria-label="Documentos legais">
+    @for (doc of documents(); track doc.kind) {
+      <li>
+        <ui-card variant="default" padding="lg" [hover]="false" class="block h-full">
+          <div class="flex h-full flex-col gap-3" [attr.data-testid]="'documento-' + doc.kind">
+            <h2 class="text-lg font-semibold text-brand-navy">{{ title(doc.kind) }}</h2>
+
+            <p class="text-sm text-slate-600">{{ status(doc) }}</p>
+
+            @if (doc.draft; as draft) {
+              <div>
+                <ui-badge variant="warning" label="Rascunho não publicado" />
+                <p class="mt-2 text-xs text-slate-500">
+                  Salvo em {{ date(draft.updatedAt) }} por {{ draft.updatedByEmail }}
+                </p>
+              </div>
+            }
+
+            <div class="mt-auto flex flex-wrap gap-2 pt-2">
+              <ui-button variant="outline" size="sm" (click)="open(doc)">Editar</ui-button>
+              @if (doc.current) {
+                <ui-button variant="ghost" size="sm" (click)="openHistory(doc.kind)">Histórico</ui-button>
+              }
+            </div>
+          </div>
+        </ui-card>
+      </li>
+    }
+  </ul>
+}
