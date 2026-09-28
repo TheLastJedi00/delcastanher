@@ -4,8 +4,13 @@ import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, Validator
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { REDIRECT_PARAM, safeRedirect } from '../../core/guards/safe-redirect';
 import { AuthService } from '../../core/services/auth.service';
-import { LegalDocumentsService, PolicyStatus } from '../../core/services/legal-documents.service';
-import { UserService } from '../../core/services/user.service';
+import {
+  LEGAL_DOCUMENT_PATHS,
+  LEGAL_DOCUMENT_TITLES,
+  LegalDocumentsService,
+  PolicyStatus,
+} from '../../core/services/legal-documents.service';
+import { PolicyVersionConflict, UserService } from '../../core/services/user.service';
 import { Button } from '../../shared/ui/button/button';
 import { Checkbox } from '../../shared/ui/checkbox/checkbox';
 import { Input } from '../../shared/ui/input/input';
@@ -90,28 +95,31 @@ const LINKEDIN = /^(https?:\/\/)?([\w-]+\.)*linkedin\.com\/.+$/i;
                  aba nova. Caixa pre-marcada nao e consentimento livre e
                  inequivoco, e perder o formulario ja preenchido para ler a
                  politica faria a leitura custar caro. -->
-            <ui-checkbox formControlName="policyAccepted" [error]="errors().policyAccepted">
-              Li e aceito a
-              <a
-                routerLink="/politica-de-privacidade"
-                target="_blank"
-                class="font-semibold text-brand-teal-deep underline underline-offset-2">
-                Política de Privacidade</a
-              >
-              e a
-              <a
-                routerLink="/politica-de-cookies"
-                target="_blank"
-                class="font-semibold text-brand-teal-deep underline underline-offset-2">
-                Política de Cookies</a
-              >, e declaro estar ciente das condições descritas nos
-              <a
-                routerLink="/termos-de-uso"
-                target="_blank"
-                class="font-semibold text-brand-teal-deep underline underline-offset-2">
-                Termos de Uso</a
-              >.
-            </ui-checkbox>
+            <!-- Spec 022, decisao 6: o rotulo lista so o que esta publicado.
+                 Pedir aceite de um texto que nao existe nao e consentimento. -->
+            @if (policy()) {
+              <ui-checkbox formControlName="policyAccepted" [error]="errors().policyAccepted">
+                <!-- A pontuacao encosta nos links de proposito: espaco entre o
+                     fim do bloco e a virgula apareceria na tela. -->
+                Li e aceito
+                @for (doc of policies(); track doc.kind; let first = $first) {
+                  {{ first ? 'a' : 'e a' }}
+                  <a
+                    [routerLink]="doc.path"
+                    target="_blank"
+                    class="font-semibold text-brand-teal-deep underline underline-offset-2"
+                    >{{ doc.title }}</a
+                  >}@if (hasTerms()) {, e declaro estar ciente das condições descritas nos
+                  <a
+                    routerLink="/termos-de-uso"
+                    target="_blank"
+                    class="font-semibold text-brand-teal-deep underline underline-offset-2"
+                    >Termos de Uso</a
+                  >}.
+              </ui-checkbox>
+            } @else {
+              <p class="text-sm text-slate-500" role="status">Carregando os documentos para o aceite…</p>
+            }
 
             @if (errorMessage()) {
               <p role="alert" class="rounded-xl bg-state-danger/10 px-4 py-3 text-sm font-medium text-state-danger">
@@ -124,7 +132,7 @@ const LINKEDIN = /^(https?:\/\/)?([\w-]+\.)*linkedin\.com\/.+$/i;
               type="submit"
               [fullWidth]="true"
               [loading]="isLoading()"
-              [disabled]="!form.controls.policyAccepted.value">
+              [disabled]="!policy() || !form.controls.policyAccepted.value">
               Concluir cadastro
             </ui-button>
           </form>
@@ -163,6 +171,16 @@ export class Onboarding {
    */
   readonly policy = signal<PolicyStatus | null>(null);
   readonly errorMessage = signal('');
+
+  /** Politicas publicadas, na ordem do aceite: Privacidade e Cookies. */
+  protected readonly policies = computed(() =>
+    (this.policy()?.published ?? [])
+      .filter(kind => kind !== 'TERMS')
+      .map(kind => ({ kind, title: LEGAL_DOCUMENT_TITLES[kind], path: LEGAL_DOCUMENT_PATHS[kind] })),
+  );
+
+  /** Os Termos so entram no aceite depois de publicados (decisao 6). */
+  protected readonly hasTerms = computed(() => this.policy()?.published.includes('TERMS') ?? false);
 
   /** Erros so aparecem depois da primeira tentativa de envio. */
   private readonly submitted = signal(false);
@@ -236,9 +254,24 @@ export class Onboarding {
           const redirect = safeRedirect(this.route.snapshot.queryParamMap.get(REDIRECT_PARAM));
           void this.router.navigateByUrl(redirect ?? this.auth.homeUrl());
         },
-        error: (message: string) => {
+        error: (error: string | PolicyVersionConflict) => {
           this.isLoading.set(false);
-          this.errorMessage.set(message);
+
+          if (error instanceof PolicyVersionConflict) {
+            // A politica mudou enquanto a pessoa preenchia (decisao 7): o
+            // aceite era de um texto que ja nao esta em vigor. Recarrega os
+            // documentos e pede o aceite de novo, sem perder o formulario.
+            this.form.controls.policyAccepted.setValue(false);
+            this.policy.set(null);
+            this.loadPolicy();
+            this.errorMessage.set(
+              'Os documentos foram atualizados enquanto você preenchia. Leia a versão vigente e marque o aceite de novo para concluir.',
+            );
+
+            return;
+          }
+
+          this.errorMessage.set(error);
         },
       });
   }
