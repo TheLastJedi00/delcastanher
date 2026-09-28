@@ -53,7 +53,7 @@ export interface CourseTestimonial {
   name: string;
   role: string;
   quote: string;
-  /** Vazio enquanto o video nao existe; o card cai no placeholder. */
+  /** Vazio enquanto o video nao existe. */
   videoUrl: string;
 }
 
@@ -344,11 +344,9 @@ const IMERSAO_RH: Course = {
         ' de garantia incondicional. Basta pedir o reembolso dentro do prazo.',
     },
   ],
-  testimonials: [
-    { name: PLACEHOLDER.videoTestimonial, role: 'Aluna da Imersão', quote: PLACEHOLDER.videoTestimonial, videoUrl: '' },
-    { name: PLACEHOLDER.videoTestimonial, role: 'Gestor de Pessoas', quote: PLACEHOLDER.videoTestimonial, videoUrl: '' },
-    { name: PLACEHOLDER.videoTestimonial, role: 'Empresária', quote: PLACEHOLDER.videoTestimonial, videoUrl: '' },
-  ],
+  // Spec 022, decisao 15: sem depoimento real, a secao nao existe. Quando
+  // houver, ele entra aqui e a secao volta sozinha.
+  testimonials: [],
   metaTitle: 'Imersão RH Estratégico | Estruture o RH da sua empresa do zero',
   metaDescription:
     'Imersão online e ao vivo com Lidiane Delcastanher: processos, cultura e indicadores para transformar o RH em parceiro de resultado. Vagas limitadas por turma.',

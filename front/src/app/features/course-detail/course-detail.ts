@@ -104,6 +104,17 @@ export class CourseDetail {
       .filter((item): item is { question: string; answer: string } => item.answer !== null),
   );
 
+  /**
+   * Depoimentos que podem ir ao ar (Spec 022, decisao 15): entrada com nome ou
+   * citacao ainda placeholder e descartada, para que um depoimento incompleto
+   * nunca volte a pagina por engano. Vazio, a secao inteira some.
+   */
+  protected readonly testimonials = computed(() =>
+    (this.course()?.testimonials ?? []).filter(
+      item => !isPlaceholder(item.name) && !isPlaceholder(item.quote),
+    ),
+  );
+
   /** true enquanto o gateway de pagamento nao for definido. */
   protected readonly checkoutPending = computed(() =>
     isPlaceholder(this.course()?.offer.checkoutUrl)

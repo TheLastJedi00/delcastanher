@@ -15,7 +15,6 @@ export const PLACEHOLDER = {
   deadline: '[TURMA ENCERRA EM]',
   seats: '[VAGAS RESTANTES]',
   guaranteePeriod: '[PRAZO DE GARANTIA]',
-  videoTestimonial: '[DEPOIMENTO EM VÍDEO]',
   // So o certificado e a verificacao usam: la, "a definir" e dado de
   // diploma. Na vitrine a carga horaria vem da API (Spec 022, decisao 13).
   workload: '[CARGA HORÁRIA]',
