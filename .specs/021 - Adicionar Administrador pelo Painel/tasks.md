@@ -5,8 +5,8 @@ Spec full-stack. No `api/` (NestJS + Prisma + Jest) a suíte de testes vem **ant
 Ordem das fases: primeiro a extração do fluxo de conta no `AuthService`, sem mudar comportamento, para que a rota nova nasça reaproveitando-o; depois a rota; o front só entra quando a API devolve o `outcome`.
 
 ## Fase 1: Backend - Extração do Fluxo de Conta (TDD)
-- [ ] **Task 1.1:** Escrever a suíte dos métodos públicos do `AuthService`: `ensureAccount(email)` criando a conta com senha descartável quando o e-mail não existe e devolvendo a conta existente sem recriar quando existe, informando em ambos os casos se houve criação; `sendPasswordSetupEmail(email)` disparando o `PASSWORD_RESET` com `continueUrl` para o `/login` (decisão 2).
-- [ ] **Task 1.2:** Extrair `ensureAccount` e tornar público `sendPasswordSetupEmail` no `AuthService`, fazendo o `requestAccount` passar a usá-los.
+- [x] **Task 1.1:** Escrever a suíte dos métodos públicos do `AuthService`: `ensureAccount(email)` criando a conta com senha descartável quando o e-mail não existe e devolvendo a conta existente sem recriar quando existe, informando em ambos os casos se houve criação; `sendPasswordSetupEmail(email)` disparando o `PASSWORD_RESET` com `continueUrl` para o `/login` (decisão 2).
+- [x] **Task 1.2:** Extrair `ensureAccount` e tornar público `sendPasswordSetupEmail` no `AuthService`, fazendo o `requestAccount` passar a usá-los.
 - [ ] **Task 1.3:** Rodar as suítes existentes de `auth` e conferir que "Criar nova conta" e "Esqueci minha senha" não mudaram de comportamento — inclusive a resposta idêntica para e-mail com e sem conta (decisão 10).
 
 ## Fase 2: Backend - Rota de Adicionar Administrador (TDD)
