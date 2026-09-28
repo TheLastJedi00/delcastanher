@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { LegalPage, LegalPageState } from './legal-page';
+import { legalDocumentState } from './legal-document-state';
+import { LegalPage } from './legal-page';
 
 /**
  * Termos de Uso (Spec 022).
@@ -17,10 +18,10 @@ import { LegalPage, LegalPageState } from './legal-page';
     <app-legal-page
       title="Termos de Uso"
       summary="Condições que regem o acesso e o uso da plataforma Delcastanher, dos cursos e da área do aluno."
-      [state]="state"
+      [state]="state()"
       unpublishedNotice="Os Termos de Uso estão em preparação e serão publicados nesta página." />
   `,
 })
 export class TermosDeUso {
-  protected readonly state: LegalPageState = { status: 'unpublished' };
+  protected readonly state = legalDocumentState('TERMS');
 }

@@ -27,7 +27,7 @@ export function buildThenBrowser<T>(
   const attempt = (fresh: boolean): Observable<LoadResult<T>> =>
     load(fresh).pipe(
       timeout(LOAD_TIMEOUT_MS),
-      map((value) => ({ ok: true as const, value })),
+      map(value => ({ ok: true as const, value })),
       catchError(() => of({ ok: false as const })),
     );
 
@@ -59,7 +59,7 @@ export function buildThenBrowser<T>(
 
         return true;
       }),
-      map((result) => result ?? { ok: false as const }),
+      map(result => result ?? { ok: false as const }),
     );
   });
 }

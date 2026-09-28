@@ -1,31 +1,37 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { CONSENT_POLICY_VERSION, ConsentService } from '../../core/services/consent.service';
-import { COMPANY } from './company-info';
+import { ConsentService } from '../../core/services/consent.service';
+import { flushLegalDocument, legalDocument } from './legal-page.testing';
 import { PoliticaDeCookies } from './politica-de-cookies';
 
+const PUBLISHED = legalDocument(
+  'COOKIES',
+  '## 1. O que são cookies\n\nTexto publicado dos cookies.\n\n## 2. Itens necessários\n\n- delcastanher.consent',
+);
+
 /**
- * A Politica de Cookies descreve o comportamento do proprio sistema, entao ela
- * pode mentir de um jeito que a Politica de Privacidade nao pode: ficando
- * desatualizada em relacao ao codigo.
- *
- * Estes testes amarram o texto ao que o `ConsentService` de fato faz — os dois
- * itens que ele grava, o unico cookie proprio (Spec 017) e a invalidacao por
- * versao.
- * Se alguem trocar a chave de armazenamento ou passar a gravar cookie de
- * verdade, a suite cai junto com a afirmacao que deixou de ser verdadeira.
+ * A Politica de Cookies le a versao publicada (Spec 022). Os blocos "sua
+ * escolha atual" e "rever preferencias" sao codigo, e nao texto, e continuam
+ * no componente (decisao 9). O conteudo da carga inicial — os itens que o
+ * sistema grava de fato — e conferido na API, contra a migration.
  */
 describe('PoliticaDeCookies', () => {
   let fixture: ComponentFixture<PoliticaDeCookies>;
+  let backend: HttpTestingController;
 
   beforeEach(() => {
     localStorage.clear();
 
-    TestBed.configureTestingModule({ providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
 
+    backend = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(PoliticaDeCookies);
+    fixture.detectChanges();
+    flushLegalDocument(backend, 'COOKIES', PUBLISHED);
     fixture.detectChanges();
   });
 
@@ -33,57 +39,20 @@ describe('PoliticaDeCookies', () => {
     return (fixture.nativeElement as HTMLElement).textContent!.replace(/\s+/g, ' ');
   }
 
-  it('publica as seis seções redigidas', () => {
-    const titulos = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('h2')
-    ).map(h => h.textContent!.trim());
+  it('publica as seções da versão vigente, antes dos controles', () => {
+    const corpo = texto();
 
-    expect(titulos).toEqual([
-      '1. O que são cookies',
-      '2. Itens necessários ao funcionamento',
-      '3. Medição de audiência',
-      '4. Como gerenciar sua escolha',
-      '5. Prazo de validade do consentimento',
-      '6. Contato',
-    ]);
+    expect(corpo).toContain('1. O que são cookies');
+    expect(corpo).toContain('Texto publicado dos cookies.');
+    expect(corpo.indexOf('Texto publicado dos cookies.')).toBeLessThan(corpo.indexOf('Sua escolha atual'));
   });
 
-  it('não é mais um documento pendente de revisão jurídica', () => {
+  it('exibe a versão vigente do documento', () => {
+    expect(texto()).toContain('Versão vigente: 2026-09-13');
+  });
+
+  it('não tem marcador de texto a redigir', () => {
     expect(texto()).not.toContain('[TEXTO A SER REDIGIDO');
-    expect(texto()).not.toContain('Documento pendente de revisão jurídica');
-    expect(texto()).not.toContain('A cláusula deve cobrir');
-  });
-
-  it('nomeia exatamente os itens que a plataforma grava no navegador', () => {
-    expect(texto()).toContain('delcastanher.has-session');
-    expect(texto()).toContain('delcastanher.consent');
-    // Chave anterior a Spec 017, que o AuthService apaga: citar seria mentir.
-    expect(texto()).not.toContain('delcastanher.session ');
-  });
-
-  it('declara o único cookie próprio, o do refresh token emitido pela API (Spec 017)', () => {
-    expect(texto()).toContain('grava um único cookie próprio');
-    expect(texto()).toContain('__Secure-refresh');
-    expect(texto()).toContain('Vale por 30 dias, renovados a cada uso');
-    expect(texto()).not.toContain('não grava nenhum cookie próprio');
-  });
-
-  it('garante que nada de medição carrega antes do aceite', () => {
-    expect(texto()).toContain('Nada disso é carregado antes do seu aceite');
-  });
-
-  it('descreve a validade do consentimento como ligada à versão, e não a um prazo', () => {
-    expect(texto()).toContain('Não há prazo fixo de expiração');
-    expect(texto()).toContain('deixa automaticamente de valer');
-  });
-
-  it('exibe a versão vigente da política, que é a que invalida o aceite antigo', () => {
-    expect(texto()).toContain(`Versão vigente: ${CONSENT_POLICY_VERSION}`);
-  });
-
-  it('aponta para o mesmo canal de atendimento da Política de Privacidade', () => {
-    expect(texto()).toContain(COMPANY.email);
-    expect(texto()).toContain(COMPANY.phone);
   });
 
   describe('controle de preferências', () => {
@@ -99,15 +68,14 @@ describe('PoliticaDeCookies', () => {
       fixture.detectChanges();
 
       expect(texto()).toContain('Você aceitou');
-      expect(texto()).toContain(CONSENT_POLICY_VERSION);
 
       // Pelo texto, e nao pelo primeiro <button> do DOM: o cabecalho e o rodape
       // tambem tem botoes, e um deles e justamente o "Preferencias de cookies"
       // do ui-legal-links, que chamaria o mesmo metodo e faria o teste passar
       // sem provar nada sobre o controle desta pagina.
-      const botao = Array.from(
-        (fixture.nativeElement as HTMLElement).querySelectorAll('button')
-      ).find(b => b.textContent!.includes('Rever preferências de cookies'));
+      const botao = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
+        b => b.textContent!.includes('Rever preferências de cookies'),
+      );
 
       botao!.click();
 

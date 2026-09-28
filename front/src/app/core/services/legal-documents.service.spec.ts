@@ -37,7 +37,7 @@ describe('LegalDocumentsService', () => {
 
   it('busca o documento pelo kind em minúsculas', () => {
     let result: PublicLegalDocument | null = null;
-    service.document('PRIVACY').subscribe((doc) => (result = doc));
+    service.document('PRIVACY').subscribe(doc => (result = doc));
 
     backend.expectOne(`${environment.apiUrl}/legal/documents/privacy`).flush(PRIVACY);
 
@@ -46,7 +46,7 @@ describe('LegalDocumentsService', () => {
 
   it('devolve nulo para o documento não publicado', () => {
     let result: PublicLegalDocument | null | undefined;
-    service.document('TERMS').subscribe((doc) => (result = doc));
+    service.document('TERMS').subscribe(doc => (result = doc));
 
     backend
       .expectOne(`${environment.apiUrl}/legal/documents/terms`)
@@ -68,7 +68,7 @@ describe('LegalDocumentsService', () => {
 
   it('lê a versão da política e os documentos publicados', () => {
     let version: string | null = null;
-    service.policyStatus().subscribe((status) => (version = status.version));
+    service.policyStatus().subscribe(status => (version = status.version));
 
     backend
       .expectOne(`${environment.apiUrl}/legal/policy-version`)
@@ -81,7 +81,7 @@ describe('LegalDocumentsService', () => {
 describe('buildThenBrowser', () => {
   function collect<T>(source: ReturnType<typeof buildThenBrowser<T>>): LoadResult<T>[] {
     const results: LoadResult<T>[] = [];
-    source.subscribe((result) => results.push(result));
+    source.subscribe(result => results.push(result));
 
     return results;
   }

@@ -75,8 +75,7 @@ export type LegalPageState =
               @case ('unpublished') {
                 <div
                   class="rounded-xl border border-brand-navy/10 bg-white p-5 shadow-card"
-                  data-testid="em-preparacao"
-                >
+                  data-testid="em-preparacao">
                   <p class="text-base leading-relaxed text-slate-700">{{ unpublishedNotice() }}</p>
                   <p class="mt-3 text-sm leading-relaxed text-slate-600">
                     Dúvidas podem ser enviadas à {{ company.legalName }}: {{ company.email }} ou
