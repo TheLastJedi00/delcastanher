@@ -5,6 +5,7 @@ import {
   AdminLegalService,
   LEGAL_DOCUMENT_KINDS,
   LEGAL_DOCUMENT_TITLES,
+  LegalChangeKind,
   LegalDocumentKind,
   LegalDocumentVersion,
   PublishChangeKind,
@@ -29,6 +30,13 @@ export function describeVersion(version: LegalDocumentVersion): string {
 
   return `versão ${version.policyVersion}, em ${formatLegalDate(version.publishedAt)}${author}`;
 }
+
+/** Rotulo do tipo de publicacao no historico. */
+export const CHANGE_KIND_LABELS: Record<LegalChangeKind, string> = {
+  INITIAL: 'Carga inicial',
+  NEW_VERSION: 'Nova versão',
+  CORRECTION: 'Correção',
+};
 
 /**
  * Aba "Politicas & Termos" do painel (Spec 022).
@@ -106,6 +114,21 @@ export class AdminPoliticas implements OnInit {
   protected readonly canPublish = computed(
     () => this.content().trim() !== '' && (this.dirty() || !!this.editingDoc()?.draft),
   );
+
+  /** Documento cujo historico esta aberto; nulo fora do historico. */
+  protected readonly historyKind = signal<LegalDocumentKind | null>(null);
+  protected readonly versions = signal<LegalDocumentVersion[]>([]);
+  protected readonly historyLoading = signal(false);
+  protected readonly historyError = signal<string | null>(null);
+  /** Versao aberta para leitura. */
+  protected readonly reading = signal<LegalDocumentVersion | null>(null);
+  protected readonly readingSections = computed(() => {
+    const version = this.reading();
+
+    return version ? parseLegalText(version.content) : [];
+  });
+
+  protected readonly changeLabels = CHANGE_KIND_LABELS;
 
   ngOnInit(): void {
     this.reload();
@@ -231,6 +254,35 @@ export class AdminPoliticas implements OnInit {
         this.publishError.set(message);
       },
     });
+  }
+
+  /** Abre o historico: versoes publicadas, da mais recente para a mais antiga. */
+  protected openHistory(kind: LegalDocumentKind): void {
+    this.notice.set(null);
+    this.historyKind.set(kind);
+    this.versions.set([]);
+    this.historyError.set(null);
+    this.historyLoading.set(true);
+
+    this.legal.versions(kind).subscribe({
+      next: list => {
+        this.historyLoading.set(false);
+        this.versions.set(list);
+      },
+      error: (message: string) => {
+        this.historyLoading.set(false);
+        this.historyError.set(message);
+      },
+    });
+  }
+
+  protected closeHistory(): void {
+    this.historyKind.set(null);
+    this.reading.set(null);
+  }
+
+  protected author(version: LegalDocumentVersion): string {
+    return version.publishedByEmail ?? 'carga inicial';
   }
 
   /** Fechar a aba do navegador com texto nao salvo tambem pergunta. */
