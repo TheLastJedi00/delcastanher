@@ -128,19 +128,21 @@ describe('Documentos legais (HTTP)', () => {
   });
 
   describe('autorizacao das rotas admin', () => {
+    // Uma funcao por rota: o supertest abre a conexao quando a chamada e
+    // criada, e criar todas antes de esperar a primeira as derruba.
     const routes = (server: ReturnType<INestApplication['getHttpServer']>) => [
-      request(server).get(ADMIN),
-      request(server).put(`${ADMIN}/privacy/draft`).send({ content: 'x' }),
-      request(server).delete(`${ADMIN}/privacy/draft`),
-      request(server).post(`${ADMIN}/privacy/publish`).send({ changeKind: 'CORRECTION' }),
-      request(server).get(`${ADMIN}/privacy/versions`),
+      () => request(server).get(ADMIN),
+      () => request(server).put(`${ADMIN}/privacy/draft`).send({ content: 'x' }),
+      () => request(server).delete(`${ADMIN}/privacy/draft`),
+      () => request(server).post(`${ADMIN}/privacy/publish`).send({ changeKind: 'CORRECTION' }),
+      () => request(server).get(`${ADMIN}/privacy/versions`),
     ];
 
     it('401 sem sessao', async () => {
       ({ app } = await buildApp(null));
 
       for (const call of routes(app.getHttpServer())) {
-        await call.expect(401);
+        await call().expect(401);
       }
     });
 
@@ -148,7 +150,7 @@ describe('Documentos legais (HTTP)', () => {
       ({ app } = await buildApp('aluno'));
 
       for (const call of routes(app.getHttpServer())) {
-        await call.expect(403);
+        await call().expect(403);
       }
     });
   });
