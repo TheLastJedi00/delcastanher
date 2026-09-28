@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { CONSENT_POLICY_VERSION, ConsentService } from '../../core/services/consent.service';
 import { Button } from '../../shared/ui/button/button';
-import { LegalPage } from './legal-page';
+import { LegalPage, LegalPageState } from './legal-page';
 import { COOKIES_SECTIONS } from './politica-de-cookies.sections';
 
 /**
@@ -35,9 +35,8 @@ import { COOKIES_SECTIONS } from './politica-de-cookies.sections';
     <app-legal-page
       title="Política de Cookies"
       summary="O que a plataforma guarda no seu navegador, para que serve, o que só existe depois do seu aceite e como revisar a sua escolha a qualquer momento."
-      [sections]="sections"
-      [policyVersion]="policyVersion"
-      [pending]="false">
+      [state]="state"
+      unpublishedNotice="A Política de Cookies está em preparação e será publicada nesta página.">
       <!-- A revogacao vive na propria pagina que explica o que foi consentido:
            mandar o titular procurar o controle em outro lugar e atrito. -->
       <div class="rounded-xl border border-brand-navy/10 bg-white p-5 shadow-card">
@@ -61,7 +60,10 @@ import { COOKIES_SECTIONS } from './politica-de-cookies.sections';
 export class PoliticaDeCookies {
   protected readonly consent = inject(ConsentService);
   protected readonly record = this.consent.current;
-  protected readonly policyVersion = CONSENT_POLICY_VERSION;
-
-  protected readonly sections = COOKIES_SECTIONS;
+  protected readonly state: LegalPageState = {
+    status: 'ready',
+    sections: COOKIES_SECTIONS,
+    policyVersion: CONSENT_POLICY_VERSION,
+    publishedAt: '2026-09-13T12:00:00.000Z',
+  };
 }

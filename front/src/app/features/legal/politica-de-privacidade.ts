@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { CONSENT_POLICY_VERSION } from '../../core/services/consent.service';
-import { LegalPage } from './legal-page';
+import { LegalPage, LegalPageState } from './legal-page';
 import { PRIVACY_SECTIONS } from './politica-de-privacidade.sections';
 
 /**
@@ -36,9 +36,8 @@ import { PRIVACY_SECTIONS } from './politica-de-privacidade.sections';
     <app-legal-page
       title="Política de Privacidade e Proteção de Dados – LGPD"
       summary="Como a Delcastanher coleta, utiliza, armazena, compartilha e protege dados pessoais, e quais direitos você pode exercer sobre eles."
-      [sections]="sections"
-      [policyVersion]="policyVersion"
-      [pending]="false">
+      [state]="state"
+      unpublishedNotice="A Política de Privacidade está em preparação e será publicada nesta página.">
       <!-- Fecha o documento e nao e clausula: vai fora da lista, em caixa
            propria, para nao se confundir com as secoes numeradas. -->
       <div class="rounded-xl border border-brand-navy/10 bg-white p-5 shadow-card">
@@ -55,7 +54,10 @@ import { PRIVACY_SECTIONS } from './politica-de-privacidade.sections';
   `,
 })
 export class PoliticaDePrivacidade {
-  protected readonly policyVersion = CONSENT_POLICY_VERSION;
-
-  protected readonly sections = PRIVACY_SECTIONS;
+  protected readonly state: LegalPageState = {
+    status: 'ready',
+    sections: PRIVACY_SECTIONS,
+    policyVersion: CONSENT_POLICY_VERSION,
+    publishedAt: '2026-09-13T12:00:00.000Z',
+  };
 }

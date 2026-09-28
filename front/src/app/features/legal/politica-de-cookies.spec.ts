@@ -4,7 +4,6 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { CONSENT_POLICY_VERSION, ConsentService } from '../../core/services/consent.service';
 import { COMPANY } from './company-info';
-import { LEGAL_PLACEHOLDER } from './legal-page';
 import { PoliticaDeCookies } from './politica-de-cookies';
 
 /**
@@ -50,7 +49,7 @@ describe('PoliticaDeCookies', () => {
   });
 
   it('não é mais um documento pendente de revisão jurídica', () => {
-    expect(texto()).not.toContain(LEGAL_PLACEHOLDER);
+    expect(texto()).not.toContain('[TEXTO A SER REDIGIDO');
     expect(texto()).not.toContain('Documento pendente de revisão jurídica');
     expect(texto()).not.toContain('A cláusula deve cobrir');
   });
