@@ -34,4 +34,22 @@ describe('UpdateUserDto', () => {
   it('aceita o linkedin informado sem protocolo', async () => {
     await expect(errorsOf({ ...VALID, linkedin: 'linkedin.com/in/aluno' })).resolves.toEqual([]);
   });
+
+  // Spec 022, decisao 7: a versao e conferida contra o banco pelo servico; o
+  // DTO so garante a forma, inclusive o sufixo da segunda versao do dia.
+  it('aceita a versao da politica com e sem sufixo', async () => {
+    for (const policyVersion of ['2026-09-13', '2026-09-28.2']) {
+      await expect(errorsOf({ ...VALID, policyAccepted: true, policyVersion })).resolves.toEqual([]);
+    }
+  });
+
+  it('exige a versao quando ha aceite, e recusa o que nao e versao', async () => {
+    await expect(errorsOf({ ...VALID, policyAccepted: true })).resolves.toContain('policyVersion');
+
+    for (const policyVersion of [42, 'qualquer coisa', '13/09/2026', '2026-09-13.x']) {
+      await expect(errorsOf({ ...VALID, policyAccepted: true, policyVersion })).resolves.toContain(
+        'policyVersion',
+      );
+    }
+  });
 });
