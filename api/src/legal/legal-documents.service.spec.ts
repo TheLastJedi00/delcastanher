@@ -220,15 +220,17 @@ describe('LegalDocumentsService', () => {
   });
 
   describe('publicacao', () => {
-    it('nova versao usa a data do dia em Brasilia', async () => {
-      const { service } = build({ versions: INITIAL, drafts: [draft('PRIVACY')] });
+    it('nova versao usa a data do dia em Brasilia, com o autor do token', async () => {
+      const { service, prisma } = build({ versions: INITIAL, drafts: [draft('PRIVACY')] });
 
       const published = await service.publish(ADMIN, 'PRIVACY', 'NEW_VERSION', NOW);
 
       expect(published.policyVersion).toBe('2026-09-28');
       expect(published.changeKind).toBe('NEW_VERSION');
-      expect(published.publishedById).toBe(ADMIN.uid);
       expect(published.publishedByEmail).toBe(ADMIN.email);
+      // O UID fica gravado, mas nao sai na resposta do painel.
+      expect(prisma.versions.at(-1)?.publishedById).toBe(ADMIN.uid);
+      expect(published).not.toHaveProperty('publishedById');
     });
 
     it('a segunda nova versao do mesmo dia ganha o sufixo .2, e a terceira .3', async () => {
