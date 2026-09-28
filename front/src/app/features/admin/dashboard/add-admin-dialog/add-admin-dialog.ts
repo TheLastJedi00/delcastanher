@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  output,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AddAdminResult, AdminUsersService } from '../../../../core/services/admin-users.service';
@@ -21,7 +32,7 @@ import { Modal } from '../../../../shared/ui/modal/modal';
       description="A pessoa passa a ter acesso ao painel administrativo."
       (closed)="closed.emit()">
       @if (result(); as done) {
-        <div>
+        <div data-result tabindex="-1" role="status" class="outline-none">
           <p class="text-sm font-semibold text-brand-navy">{{ done.email }}</p>
           <p class="mt-2 text-sm text-slate-600">{{ outcomeMessage() }}</p>
           @if (done.outcome === 'created' && !done.inviteEmailSent) {
@@ -66,6 +77,12 @@ import { Modal } from '../../../../shared/ui/modal/modal';
 export class AddAdminDialog {
   private readonly users = inject(AdminUsersService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+
+  constructor() {
+    this.focusAfterRender('input');
+  }
 
   readonly closed = output<void>();
   /** Emitido no sucesso, para a tela recarregar a listagem. */
@@ -130,6 +147,9 @@ export class AddAdminDialog {
           this.running.set(false);
           this.result.set(result);
           this.added.emit(result);
+          // O formulario some com o botao que tinha o foco: o foco vai para o
+          // resultado, que o leitor de tela anuncia por ser `role="status"`.
+          this.focusAfterRender('[data-result]');
         },
         error: (message: string) => {
           this.running.set(false);
@@ -144,6 +164,7 @@ export class AddAdminDialog {
     this.email.reset();
     this.emailError.set('');
     this.serverError.set(null);
+    this.focusAfterRender('input');
   }
 
   private validationMessage(): string {
@@ -152,5 +173,12 @@ export class AddAdminDialog {
     }
 
     return this.email.hasError('email') ? 'Informe um e-mail válido.' : '';
+  }
+
+  /** Foca um elemento do dialogo depois que a troca de conteudo renderizar. */
+  private focusAfterRender(selector: string) {
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus(), {
+      injector: this.injector,
+    });
   }
 }
