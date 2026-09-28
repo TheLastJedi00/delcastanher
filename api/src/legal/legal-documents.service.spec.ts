@@ -69,8 +69,6 @@ function fakePrisma(initial: { versions?: LegalVersionRow[]; drafts?: DraftRow[]
         const row: LegalVersionRow = {
           id: `v${versions.length + 1}`,
           publishedAt: data.publishedAt ?? NOW,
-          publishedById: null,
-          publishedByEmail: null,
           ...data,
         } as LegalVersionRow;
         versions.push(row);
