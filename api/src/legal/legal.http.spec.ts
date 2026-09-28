@@ -106,10 +106,14 @@ describe('Documentos legais (HTTP)', () => {
       expect(response.body).not.toHaveProperty('publishedByEmail');
     });
 
-    it('404 para os Termos sem publicacao', async () => {
+    it('404 para os Termos sem publicacao, com o codigo que diz que e isso', async () => {
       ({ app } = await buildApp(null));
 
-      await request(app.getHttpServer()).get('/legal/documents/terms').expect(404);
+      const response = await request(app.getHttpServer()).get('/legal/documents/terms').expect(404);
+
+      // O front so mostra "em preparacao" com este codigo: um 404 de rota
+      // inexistente (API antiga no ar) nao pode virar "documento nao publicado".
+      expect(response.body.code).toBe('LEGAL_DOCUMENT_UNPUBLISHED');
     });
 
     it('recusa kind invalido', async () => {

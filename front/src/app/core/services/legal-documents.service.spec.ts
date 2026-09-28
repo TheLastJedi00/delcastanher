@@ -50,9 +50,22 @@ describe('LegalDocumentsService', () => {
 
     backend
       .expectOne(`${environment.apiUrl}/legal/documents/terms`)
-      .flush({ message: 'Não publicado' }, { status: 404, statusText: 'Not Found' });
+      .flush({ message: 'Não publicado', code: 'LEGAL_DOCUMENT_UNPUBLISHED' }, { status: 404, statusText: 'Not Found' });
 
     expect(result).toBeNull();
+  });
+
+  // Rota inexistente — a API antiga ainda no ar — nao e "nao publicado": a
+  // Politica de Privacidade nao pode aparecer como em preparacao por isso.
+  it('trata 404 sem o código de não publicado como falha', () => {
+    let failed = false;
+    service.document('PRIVACY').subscribe({ error: () => (failed = true) });
+
+    backend
+      .expectOne(`${environment.apiUrl}/legal/documents/privacy`)
+      .flush({ message: 'Cannot GET /legal/documents/privacy' }, { status: 404, statusText: 'Not Found' });
+
+    expect(failed).toBeTrue();
   });
 
   it('propaga falha que não é 404', () => {

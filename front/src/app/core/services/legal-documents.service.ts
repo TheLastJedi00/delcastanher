@@ -41,6 +41,17 @@ export interface PolicyStatus {
 }
 
 /**
+ * 404 de documento sem versao publicada. So ele vira "em preparacao": um 404
+ * sem este codigo e rota inexistente — uma API antiga no ar, por exemplo — e
+ * nao pode fazer a Politica de Privacidade aparecer como nao publicada.
+ */
+function isUnpublished(error: HttpErrorResponse): boolean {
+  const body = error.error as { code?: string } | null;
+
+  return error.status === 404 && body?.code === 'LEGAL_DOCUMENT_UNPUBLISHED';
+}
+
+/**
  * Leitura publica dos documentos legais (Spec 022).
  *
  * As chamadas saem **sem** token (`PUBLIC_REQUEST`): as rotas tem cache na CDN
@@ -61,7 +72,7 @@ export class LegalDocumentsService {
       })
       .pipe(
         catchError((error: HttpErrorResponse) =>
-          error.status === 404 ? of(null) : throwError(() => error),
+          isUnpublished(error) ? of(null) : throwError(() => error),
         ),
       );
   }

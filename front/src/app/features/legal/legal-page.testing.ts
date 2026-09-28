@@ -20,7 +20,7 @@ export function flushLegalDocument(
       if (doc) {
         request.flush(doc);
       } else {
-        request.flush({ message: 'Não publicado' }, { status: 404, statusText: 'Not Found' });
+        request.flush({ message: 'Não publicado', code: 'LEGAL_DOCUMENT_UNPUBLISHED' }, { status: 404, statusText: 'Not Found' });
       }
     }
   }
