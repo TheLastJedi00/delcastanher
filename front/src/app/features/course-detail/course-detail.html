@@ -32,13 +32,13 @@
               </a>
             </div>
 
-            <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              @for (item of course.format; track item.label) {
+            <!-- Spec 022, decisao 13: o cartao cujo dado ainda nao existe some,
+                 em vez de mostrar selo de "a definir". -->
+            <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4" data-testid="formato">
+              @for (item of formatCards(); track item.label) {
                 <div class="glass-dark rounded-2xl px-4 py-3">
                   <dt class="mb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">{{ item.label }}</dt>
-                  <dd class="text-sm font-bold text-white">
-                    <ui-placeholder-text [value]="item.value" tone="light" />
-                  </dd>
+                  <dd class="text-sm font-bold text-white">{{ item.value }}</dd>
                 </div>
               }
             </dl>

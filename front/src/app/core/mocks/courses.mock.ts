@@ -21,9 +21,32 @@ export interface CourseGuarantee {
   description: string;
 }
 
+/**
+ * Dados reais do curso, lidos da API (Spec 022, decisoes 12 a 14). Nulo e
+ * "ainda nao chegou" ou "a definir": o texto que depende dele some.
+ */
+export interface CourseFacts {
+  workloadHours: number | null;
+  accessMonths: number | null;
+}
+
+/** Sem dado nenhum: o estado antes da API responder. */
+export const NO_COURSE_FACTS: CourseFacts = { workloadHours: null, accessMonths: null };
+
+/**
+ * Texto da vitrine, fixo ou montado com os dados reais do curso. `null` omite
+ * o item: na vitrine, dado ausente some, em vez de virar selo de "a definir"
+ * (decisao 13).
+ */
+export type CourseText = string | ((facts: CourseFacts) => string | null);
+
+export function resolveCourseText(text: CourseText, facts: CourseFacts): string | null {
+  return typeof text === 'function' ? text(facts) : text;
+}
+
 export interface CourseFaqItem {
   question: string;
-  answer: string;
+  answer: CourseText;
 }
 
 export interface CourseTestimonial {
@@ -60,7 +83,7 @@ export interface Course {
   overline: string;
   headline: string;
   subheadline: string;
-  format: { label: string; value: string }[];
+  format: { label: string; value: CourseText }[];
   problem: CourseProblem;
   /** Capacitacoes ao final do curso. */
   outcomes: string[];
@@ -83,8 +106,14 @@ const IMERSAO_RH: Course = {
     'Um método consultivo e aplicado para transformar o departamento de pessoas em uma área que sustenta a estratégia do negócio — com processos claros, cultura forte e indicadores que a diretoria entende.',
   format: [
     { label: 'Formato', value: 'Imersão online ao vivo' },
-    { label: 'Carga horária', value: PLACEHOLDER.workload },
-    { label: 'Início da turma', value: PLACEHOLDER.startDate },
+    // Decisao 12: digitada no painel, e nao somada dos videos.
+    { label: 'Carga horária', value: ({ workloadHours }) => (workloadHours ? `${workloadHours} horas` : null) },
+    // Decisao 14: nao ha turma nem data de inicio. O acesso abre na confirmacao
+    // do pagamento e vale o prazo que a API concede.
+    {
+      label: 'Acesso',
+      value: ({ accessMonths }) => (accessMonths ? `Imediato, por ${accessMonths} meses` : null),
+    },
     { label: 'Certificado', value: 'Sim, ao concluir a trilha' },
   ],
   problem: {
@@ -287,10 +316,11 @@ const IMERSAO_RH: Course = {
     },
     {
       question: 'Quanto tempo por semana eu preciso dedicar?',
-      answer:
-        'A carga horária total da turma é de ' +
-        PLACEHOLDER.workload +
-        ', distribuída entre encontros ao vivo e atividades práticas.',
+      // Sem carga horaria definida, a pergunta sai do FAQ (decisao 13).
+      answer: ({ workloadHours }) =>
+        workloadHours
+          ? `A carga horária total é de ${workloadHours} horas, entre aulas, material de apoio e atividades práticas, no ritmo que você escolher.`
+          : null,
     },
     {
       question: 'Vou receber certificado?',

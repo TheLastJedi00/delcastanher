@@ -1,12 +1,20 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, effect, inject } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { map } from 'rxjs';
+import { map, of, switchMap } from 'rxjs';
 
-import { findCourseBySlug } from '../../core/mocks/courses.mock';
+import {
+  CourseFacts,
+  NO_COURSE_FACTS,
+  findCourseBySlug,
+  resolveCourseText,
+} from '../../core/mocks/courses.mock';
 import { isPlaceholder } from '../../core/mocks/placeholders';
 import { AnalyticsService } from '../../core/services/analytics.service';
+import { buildThenBrowser } from '../../core/services/build-then-browser';
+import { CourseSummaryService } from '../../core/services/course-summary.service';
 import { JsonLdService } from '../../core/services/json-ld.service';
 import { SITE_ORIGIN } from '../../core/services/seo.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
@@ -43,6 +51,8 @@ export class CourseDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly analytics = inject(AnalyticsService);
   private readonly jsonLd = inject(JsonLdService);
+  private readonly summaries = inject(CourseSummaryService);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /** Ancoras da propria pagina do curso; "Planos" navega pelo router. */
   protected readonly navLinks: NavLink[] = [
@@ -58,6 +68,41 @@ export class CourseDetail {
 
   /** null quando o slug nao existe no mock — o template cai no fallback. */
   protected readonly course = computed(() => findCourseBySlug(this.slug()));
+
+  /**
+   * Carga horaria e meses de acesso, da API (Spec 022, decisoes 13 e 14): no
+   * build a pagina sai com o valor do momento, e o navegador atualiza. Sem
+   * resposta, o que depende deles some da pagina.
+   */
+  protected readonly facts = toSignal(
+    toObservable(this.slug).pipe(
+      switchMap(slug =>
+        slug && findCourseBySlug(slug)
+          ? buildThenBrowser(fresh => this.summaries.summary(slug, fresh), this.isBrowser)
+          : of({ ok: false as const }),
+      ),
+      map((result): CourseFacts =>
+        result.ok
+          ? { workloadHours: result.value.workloadHours, accessMonths: result.value.accessMonths }
+          : NO_COURSE_FACTS,
+      ),
+    ),
+    { initialValue: NO_COURSE_FACTS },
+  );
+
+  /** Cartoes da hero com o dado resolvido; os que dependem de dado ausente somem. */
+  protected readonly formatCards = computed(() =>
+    (this.course()?.format ?? [])
+      .map(item => ({ label: item.label, value: resolveCourseText(item.value, this.facts()) }))
+      .filter((item): item is { label: string; value: string } => item.value !== null),
+  );
+
+  /** Perguntas com a resposta resolvida; a que depende de dado ausente sai. */
+  private readonly faq = computed(() =>
+    (this.course()?.faq ?? [])
+      .map(item => ({ question: item.question, answer: resolveCourseText(item.answer, this.facts()) }))
+      .filter((item): item is { question: string; answer: string } => item.answer !== null),
+  );
 
   /** true enquanto o gateway de pagamento nao for definido. */
   protected readonly checkoutPending = computed(() =>
@@ -84,7 +129,7 @@ export class CourseDetail {
 
   /** Perguntas do produto no formato do ui-accordion. */
   protected readonly faqItems = computed<AccordionItem[]>(() =>
-    (this.course()?.faq ?? []).map(item => ({
+    this.faq().map(item => ({
       title: item.question,
       content: item.answer,
     }))
@@ -123,7 +168,7 @@ export class CourseDetail {
           '@type': 'FAQPage',
           // Mesma fonte que alimenta o ui-accordion na tela: o que o buscador
           // le e exatamente o que o visitante ve, que e o que o Google exige.
-          mainEntity: course.faq.map(item => ({
+          mainEntity: this.faq().map(item => ({
             '@type': 'Question',
             name: item.question,
             acceptedAnswer: { '@type': 'Answer', text: item.answer },

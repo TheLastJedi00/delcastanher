@@ -12,6 +12,8 @@ describe('CourseDetail', () => {
   let paramMap: BehaviorSubject<Map<string, string>>;
 
   const course = COURSES[DEFAULT_COURSE_SLUG];
+  /** Sem carga horaria definida, a pergunta sobre tempo sai do FAQ (Spec 022). */
+  const faqSemCargaHoraria = course.faq.length - 1;
 
   const el = () => fixture.nativeElement as HTMLElement;
   const text = () => el().textContent ?? '';
@@ -61,7 +63,7 @@ describe('CourseDetail', () => {
 
     it('monta o FAQ com uma pergunta por item do mock', () => {
       const faq = el().querySelector('#faq')!;
-      expect(faq.querySelectorAll('ui-accordion button').length).toBe(course.faq.length);
+      expect(faq.querySelectorAll('ui-accordion button').length).toBe(faqSemCargaHoraria);
       expect(faq.textContent).toContain(course.faq[0].question);
     });
 
@@ -95,7 +97,7 @@ describe('CourseDetail', () => {
       // Preco fora do schema enquanto for placeholder: rich result nao pode
       // anunciar um valor que nao existe.
       expect(courseSchema.offers).toBeUndefined();
-      expect(faqSchema.mainEntity.length).toBe(course.faq.length);
+      expect(faqSchema.mainEntity.length).toBe(faqSemCargaHoraria);
       expect(faqSchema.mainEntity[0].name).toBe(course.faq[0].question);
     });
 
