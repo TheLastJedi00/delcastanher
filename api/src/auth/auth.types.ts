@@ -1,3 +1,5 @@
+import type { UserRecord } from 'firebase-admin/auth';
+
 /** Perfis de acesso da plataforma. */
 export type Role = 'aluno' | 'admin';
 
@@ -29,4 +31,13 @@ export interface IssuedSession {
 /** Resposta dos fluxos que disparam e-mail (criar conta / recuperar senha). */
 export interface AccountRequestResult {
   message: string;
+}
+
+/**
+ * Resultado de `AuthService.ensureAccount`: a conta do Firebase para o e-mail e
+ * se ela acabou de nascer (Spec 021, decisao 2).
+ */
+export interface EnsuredAccount {
+  account: UserRecord;
+  created: boolean;
 }

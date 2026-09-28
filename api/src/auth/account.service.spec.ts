@@ -143,6 +143,76 @@ describe('AuthService - criacao de conta e definicao de senha', () => {
     });
   });
 
+  /**
+   * Metodos publicos que o painel reaproveita para criar administrador
+   * (Spec 021, decisao 2): o mesmo fluxo do "Criar nova conta", sem copia.
+   */
+  describe('ensureAccount', () => {
+    it('cria a conta com senha descartavel e informa a criacao quando o e-mail nao existe', async () => {
+      getUserByEmail.mockRejectedValue(userNotFound());
+      createUser.mockResolvedValue({ uid: 'uid-novo', email: 'novo@delcastanher.com' });
+
+      const result = await service.ensureAccount('  Novo@Delcastanher.com ');
+
+      expect(result).toEqual({
+        account: { uid: 'uid-novo', email: 'novo@delcastanher.com' },
+        created: true,
+      });
+      const [payload] = createUser.mock.calls[0] as [{ email: string; password: string }];
+      expect(payload.email).toBe('novo@delcastanher.com');
+      expect(payload.password.length).toBeGreaterThanOrEqual(24);
+    });
+
+    it('devolve a conta existente sem recriar', async () => {
+      getUserByEmail.mockResolvedValue({ uid: 'uid-existente', email: 'existente@delcastanher.com' });
+
+      const result = await service.ensureAccount('existente@delcastanher.com');
+
+      expect(result).toEqual({
+        account: { uid: 'uid-existente', email: 'existente@delcastanher.com' },
+        created: false,
+      });
+      expect(getUserByEmail).toHaveBeenCalledWith('existente@delcastanher.com');
+      expect(createUser).not.toHaveBeenCalled();
+    });
+
+    it('nao envia e-mail nenhum', async () => {
+      getUserByEmail.mockRejectedValue(userNotFound());
+      createUser.mockResolvedValue({ uid: 'uid-novo' });
+
+      await service.ensureAccount('novo@delcastanher.com');
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('propaga falha do Firebase que nao seja conta inexistente, sem tentar criar', async () => {
+      getUserByEmail.mockRejectedValue(Object.assign(new Error('boom'), { code: 'auth/internal-error' }));
+
+      await expect(service.ensureAccount('a@b.com')).rejects.toThrow('boom');
+      expect(createUser).not.toHaveBeenCalled();
+    });
+
+    it('rejeita e-mail vazio antes de tocar no Firebase', async () => {
+      await expect(service.ensureAccount('  ')).rejects.toThrow(BadRequestException);
+      expect(getUserByEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sendPasswordSetupEmail', () => {
+    it('dispara o PASSWORD_RESET com o continueUrl apontando para o login', async () => {
+      await service.sendPasswordSetupEmail('novo@delcastanher.com');
+
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('accounts:sendOobCode');
+      expect(JSON.parse(init.body as string)).toEqual({
+        requestType: 'PASSWORD_RESET',
+        email: 'novo@delcastanher.com',
+        continueUrl: 'https://www.delcastanher.srv.br/login',
+        canHandleCodeInApp: false,
+      });
+    });
+  });
+
   describe('requestPasswordReset', () => {
     it('envia o link sem criar conta para quem ja tem cadastro', async () => {
       getUserByEmail.mockResolvedValue({ uid: 'uid-1' });
