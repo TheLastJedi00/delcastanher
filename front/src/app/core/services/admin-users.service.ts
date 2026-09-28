@@ -137,6 +137,20 @@ export interface AdminUserDetail {
   certificates: AdminUserCertificateItem[];
 }
 
+/**
+ * O que `POST /admin/users/admins` fez com o e-mail (Spec 021): criou a conta,
+ * promoveu uma que existia, ou nada, porque ja era administradora.
+ */
+export type AddAdminOutcome = 'created' | 'promoted' | 'already-admin';
+
+export interface AddAdminResult {
+  userId: string;
+  email: string;
+  outcome: AddAdminOutcome;
+  /** So e `true` em conta criada; falso nela pede o "Esqueci minha senha". */
+  inviteEmailSent: boolean;
+}
+
 /** Filtro corrente da tela. E ele que vira query string. */
 export interface AdminUsersQuery {
   page: number;
@@ -249,6 +263,24 @@ export class AdminUsersService {
     return this.http
       .patch<void>(`${environment.apiUrl}/admin/users/${id}/role`, { role })
       .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /**
+   * Torna administradora a dona do e-mail, com ou sem conta (Spec 021). A
+   * tela recarrega a pagina em seguida, para a pessoa aparecer na tabela.
+   */
+  addAdmin(email: string): Observable<AddAdminResult> {
+    return this.http
+      .post<AddAdminResult>(`${environment.apiUrl}/admin/users/admins`, { email })
+      .pipe(
+        catchError((error: HttpErrorResponse) =>
+          throwError(() =>
+            error.status === 409
+              ? 'Esta conta está bloqueada. Desbloqueie-a na tabela antes de torná-la administradora.'
+              : this.toMessage(error),
+          ),
+        ),
+      );
   }
 
   // --- Acesso aos modulos (Spec 014, decisao 20) ---
