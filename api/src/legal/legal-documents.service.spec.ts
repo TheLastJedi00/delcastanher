@@ -175,6 +175,12 @@ describe('LegalDocumentsService', () => {
       await expect(service.policyVersion()).resolves.toBe('2026-09-28');
     });
 
+    it('lista os documentos publicados, na ordem do painel', async () => {
+      const { service } = build({ versions: INITIAL });
+
+      await expect(service.published()).resolves.toEqual(['PRIVACY', 'COOKIES']);
+    });
+
     it('sem publicacao nenhuma, a versao da politica e nula', async () => {
       const { service } = build();
 

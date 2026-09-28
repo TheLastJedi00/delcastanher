@@ -2,24 +2,16 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, finalize, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { LegalDocumentKind } from './legal-documents.service';
 
-/** Os tres documentos legais (Spec 022). */
-export type LegalDocumentKind = 'TERMS' | 'PRIVACY' | 'COOKIES';
+export type { LegalDocumentKind } from './legal-documents.service';
+export { LEGAL_DOCUMENT_KINDS, LEGAL_DOCUMENT_TITLES } from './legal-documents.service';
 
 /**
  * Tipo da publicacao (decisao 3). `INITIAL` e so a carga inicial; o painel
  * escolhe entre as outras duas.
  */
 export type LegalChangeKind = 'INITIAL' | 'NEW_VERSION' | 'CORRECTION';
-
-/** A ordem em que o painel lista os documentos. */
-export const LEGAL_DOCUMENT_KINDS: readonly LegalDocumentKind[] = ['TERMS', 'PRIVACY', 'COOKIES'];
-
-export const LEGAL_DOCUMENT_TITLES: Record<LegalDocumentKind, string> = {
-  TERMS: 'Termos de Uso',
-  PRIVACY: 'Política de Privacidade',
-  COOKIES: 'Política de Cookies',
-};
 
 /**
  * Uma versao publicada. Imutavel: nenhuma rota altera nem apaga (decisao 2).

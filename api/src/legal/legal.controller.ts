@@ -37,10 +37,16 @@ export class LegalController {
     };
   }
 
-  /** A versao da politica vigente, do conjunto dos tres documentos (decisao 8). */
+  /**
+   * A versao da politica vigente, do conjunto dos tres documentos (decisao 8),
+   * e quais estao publicados — o rotulo do aceite no onboarding lista so eles
+   * (decisao 6).
+   */
   @Get('policy-version')
   @PublicCache()
-  async policyVersion(): Promise<{ version: string | null }> {
-    return { version: await this.legal.policyVersion() };
+  async policyVersion(): Promise<{ version: string | null; published: LegalDocumentKind[] }> {
+    const [version, published] = await Promise.all([this.legal.policyVersion(), this.legal.published()]);
+
+    return { version, published };
   }
 }

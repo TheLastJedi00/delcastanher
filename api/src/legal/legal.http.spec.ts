@@ -25,6 +25,7 @@ function fakeService() {
   return {
     current: jest.fn(async (kind: string) => (kind === 'PRIVACY' ? PRIVACY : null)),
     policyVersion: jest.fn().mockResolvedValue('2026-09-13'),
+    published: jest.fn().mockResolvedValue(['PRIVACY', 'COOKIES']),
     adminList: jest.fn().mockResolvedValue({ policyVersion: '2026-09-13', documents: [] }),
     versions: jest.fn().mockResolvedValue([]),
     saveDraft: jest.fn(async (_user: AuthUser, _kind: string, content: string) => ({
@@ -118,12 +119,14 @@ describe('Documentos legais (HTTP)', () => {
       await request(app.getHttpServer()).get('/legal/documents/PRIVACY').expect(400);
     });
 
-    it('devolvem a versao da politica vigente sem sessao', async () => {
+    it('devolvem a versao da politica vigente e os documentos publicados, sem sessao', async () => {
       ({ app } = await buildApp(null));
 
       const response = await request(app.getHttpServer()).get('/legal/policy-version').expect(200);
 
-      expect(response.body).toEqual({ version: '2026-09-13' });
+      // `published` monta o rotulo do aceite no onboarding (decisao 6) sem
+      // baixar o texto dos tres documentos.
+      expect(response.body).toEqual({ version: '2026-09-13', published: ['PRIVACY', 'COOKIES'] });
     });
   });
 

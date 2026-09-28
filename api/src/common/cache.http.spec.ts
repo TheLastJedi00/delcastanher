@@ -36,6 +36,7 @@ async function buildApp() {
         useValue: {
           current: jest.fn(async (kind: string) => (kind === 'PRIVACY' ? PRIVACY : null)),
           policyVersion: jest.fn().mockResolvedValue('2026-09-13'),
+          published: jest.fn().mockResolvedValue(['PRIVACY', 'COOKIES']),
           adminList: jest.fn().mockResolvedValue({ policyVersion: '2026-09-13', documents: [] }),
           versions: jest.fn().mockResolvedValue([]),
         },
