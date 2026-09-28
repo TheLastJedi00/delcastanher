@@ -15,8 +15,9 @@ Ordem das fases:
 ## Fase 0: Preparação (manual)
 - [x] **Task 0.1:** Na aplicação `Delcastanher` (painel de desenvolvedor do Mercado Pago), cadastrar a URL de redirecionamento `https://<domínio da API>/mercadopago/oauth/callback` e **ligar o PKCE** no fluxo de código de autorização (decisão 5). Passo do usuário: exige login no painel.
   - URL cadastrada pelo usuário em 2026-09-25: `https://api.delcastanher.srv.br/mercadopago/oauth/callback`. PKCE ativado junto, na mesma tela. Com ele ligado, o Mercado Pago passa a **exigir** `code_challenge` e `code_challenge_method` em toda URL de autorização.
-- [ ] **Task 0.2:** Conferir se a aplicação devolve o escopo `offline_access`. Sem ele não há renovação (decisão 8).
+- [x] **Task 0.2:** Conferir se a aplicação devolve o escopo `offline_access`. Sem ele não há renovação (decisão 8).
   - Tentada pelo MCP em 2026-09-28, sem resultado: o MCP do Mercado Pago lista a aplicação, mas não mostra os escopos. O escopo só aparece na resposta do `POST /oauth/token`, então a confirmação fica para a primeira conexão (Task 6.1). Se faltar, o callback recusa com `sem_offline_access`. Antes disso, dá para conferir à mão em "Suas integrações > Delcastanher > Detalhes da aplicação" se `offline_access` está marcado.
+  - Confirmada em 2026-09-28 na primeira conexão em produção: o callback aceitou a autorização (sem `sem_offline_access`) e o painel mostra acesso válido até 27/03/2027, com renovação automática. Antes dela, a troca do `code` precisou de três correções, registradas no `fix.md`: `MP_CLIENT_SECRET`, `MP_TOKEN_ENCRYPTION_KEY` e o corpo do `POST /oauth/token` em formulário (PR #27).
 - [x] **Task 0.3:** Configurar as variáveis na Vercel do projeto da API. `MP_CLIENT_ID` e `MP_OAUTH_REDIRECT_URI` são config e sobem pelo Claude; `MP_CLIENT_SECRET`, `MP_TOKEN_ENCRYPTION_KEY` e `CRON_SECRET` são segredos e sobem pelo usuário. Acrescentar as cinco ao `api/.env.example` com comentário.
   - `MP_CLIENT_ID` e `MP_OAUTH_REDIRECT_URI` criadas em 2026-09-25 no projeto `delcastanher-api`, em produção e preview. Sem redeploy: nenhum código as lê ainda. Faltam os três segredos.
   - Os três segredos foram subidos pelo usuário em 2026-09-28, como `sensitive`, em produção e preview. Redeploy da produção (`dpl_4WG5qFuZHwKYZmE7ggUGBJtLKovG`, commit `fe27389` da `main`) em `READY`. A `main` ainda não tem o código da 020, então as variáveis só passam a ser lidas quando a release entrar.
@@ -93,6 +94,7 @@ Ordem das fases:
 
 ## Fase 6: Verificação em Sandbox
 - [ ] **Task 6.1:** No painel, gerar o link e conectar o `seller` de teste. O bloco mostra o apelido e o ambiente de teste.
+  - O fluxo de conexão foi validado em **produção** em 2026-09-28, com a conta do próprio desenvolvedor (`BOJE8328493`): link, autorização, troca do `code`, token cifrado e bloco "Conectada" com selo "Produção". Falta a versão em sandbox com o `seller` de teste, que depende da URL de retorno do preview.
 - [ ] **Task 6.2:** Com o `buyer` de teste, comprar um módulo por PIX e o pacote por cartão:
   - a order aparece na conta do `seller`, com o valor cheio menos a taxa;
   - nada entra na conta da plataforma;
@@ -102,10 +104,11 @@ Ordem das fases:
 - [ ] **Task 6.5:** Desconectar no painel: a loja fecha e `POST /orders` dá 503. Reconectar: a loja abre.
 - [ ] **Task 6.6:** Abrir um link já usado e um link vencido: a página de retorno mostra `usado` e `expirado`.
 - [ ] **Task 6.7:** Antes de produção: conectar a conta real do vendedor (KYC nível 6) e cadastrar no painel de finanças as taxas da conta dele.
+  - Em 2026-09-28 a produção ficou conectada à conta do desenvolvedor, que valida o fluxo mas não é a conta que deve receber. Falta trocar pela conta da vendedora ("Trocar conta" no painel; a atual fica `replaced`), cadastrar as taxas dela e fazer a compra real de valor baixo.
 
 ## Pendências desta spec para a próxima
 
 - [x] **Subir os segredos na Vercel (task 0.3).** `MP_CLIENT_SECRET`, `MP_TOKEN_ENCRYPTION_KEY` e `CRON_SECRET`, em produção e preview. [Card](https://trello.com/c/bgFBefqp)
 - [ ] **URL de retorno do OAuth para o preview da API.** Hoje só a URL de produção está cadastrada, e a conexão feita pelo preview voltaria para a API de produção. Precisa de um domínio fixo de preview, da URL cadastrada na aplicação e do `MP_OAUTH_REDIRECT_URI` do preview. [Card](https://trello.com/c/MMypS7OC)
-- [ ] **Verificação em sandbox (tasks 0.2 e 6.1 a 6.6).** Conexão, `offline_access`, compra por PIX e cartão, order sem `marketplace_fee`, webhook, estorno, desconexão e links usado e vencido. Tem o risco do token `TEST-` na Orders API. [Card](https://trello.com/c/OFOW0gkA)
+- [ ] **Verificação em sandbox (tasks 6.1 a 6.6; a 0.2 foi confirmada em produção).** Conexão, `offline_access`, compra por PIX e cartão, order sem `marketplace_fee`, webhook, estorno, desconexão e links usado e vencido. Tem o risco do token `TEST-` na Orders API. [Card](https://trello.com/c/OFOW0gkA)
 - [ ] **Conta real em produção (task 6.7).** Depois do deploy da 020, a loja de produção fica fechada até a conta do vendedor ser conectada. [Card](https://trello.com/c/pETrDOmX)
