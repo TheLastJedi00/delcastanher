@@ -13,11 +13,11 @@
 **Escopo técnico:** full-stack.
 - `api/` (NestJS + Prisma), escrito com TDD: a suíte vem antes da implementação (`.claude/RULES.md`).
 - `front/` (Angular standalone + signals + Tailwind).
-- Integração direta com a API da **Sefin Nacional** (Sistema Nacional da NFS-e), mais configuração no Resend, no DNS e na Vercel.
+- Configuração na Notaas (emissão de NF-e), no Resend, no DNS e na Vercel.
 
 ## Objetivo
 Esta spec tem três entregas:
-1. **Nota fiscal de serviço (NFS-e) emitida pela API gratuita da Sefin Nacional** a cada venda aprovada, cancelada no estorno e enviada ao comprador por e-mail.
+1. **NF-e (modelo 55) de livro digital emitida pela Notaas** a cada venda aprovada, cancelada no estorno e enviada ao comprador por e-mail.
 2. **A aba "Disparos de E-mail" do `/admin` funcionando.** Hoje ela é a maquete da Spec 001, com o aviso de "Área em construção" da Spec 013. Ela passa a mandar campanhas de verdade para segmentos de alunos, com descadastro.
 3. **O vídeo de apresentação na landing**, pelo YouTube. É uma fase pequena, só de front (seção própria no fim deste documento).
 
@@ -26,274 +26,244 @@ As duas primeiras dividem a mesma peça, que ainda não existe: **um provedor de
 ## Estado atual
 - **Nota fiscal:** não existe. A Spec 014 (decisão 25) verificou que o Mercado Pago não emite o documento e registrou que:
   - a obrigação é da Delcastanher;
-  - o documento é **NFS-e**, e não NF-e, porque o que se vende é acesso a conteúdo digital, que é serviço.
-- **CPF do comprador:** o checkout exige o CPF (`create-order.dto.ts`) e o repassa ao Mercado Pago em `payer.identification`, mas **não o grava**. O `Order` não tem o dado. Sem ele não há tomador na nota.
+  - o documento seria **NFS-e**. **O contador corrigiu em 2026-09-29: NF-e de livro digital** (Parte A).
+- **CPF do comprador:** o checkout exige o CPF (`create-order.dto.ts`) e o repassa ao Mercado Pago em `payer.identification`, mas **não o grava**. O `Order` não tem o dado, e o checkout não pede endereço. Sem os dois não há destinatário na NF-e.
 - **Transições do pedido:** `OrdersService.apply` já é o ponto único onde o pedido vira `PAID` (concede acesso) ou `REFUNDED` (revoga acesso). Webhook e polling passam por ele, e só a chamada que muda o estado age. É o gancho natural para emitir e cancelar a nota.
 - **Aba de disparos:** tem um `<select>` com três segmentos fixos, assunto, corpo e dois botões desabilitados. Nada é salvo nem enviado.
 
-## Parte A: Nota fiscal pela Sefin Nacional
+## Parte A: Nota fiscal (NF-e) pela Notaas
 
-### Por que a Sefin Nacional, e qual a alternativa
-O Sistema Nacional da NFS-e foi desenvolvido pela Receita Federal, pela Abrasf e pelo Serpro. Ele tem uma API para o contribuinte emitir direto, **sem cobrança pelo uso**. Consultado em 2026-09-29:
-- [notícia do Serpro](https://www.serpro.gov.br/menu/noticias/noticias-2022/RFB-lanca-NFSe);
-- [documentação técnica no gov.br](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual);
-- [manual do Emissor Público API, v1.2, out-2025](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual/manual-contribuintes-emissor-publico-api-sistema-nacional-nfs-e-v1-2-out2025.pdf).
+### A decisão fiscal: NF-e de livro digital
+**O contador definiu em 2026-09-29: NF-e (modelo 55), com o produto vendido como livro digital.** Isso substitui a leitura da Spec 014 (decisão 25), que registrou NFS-e. A decisão tributária é da contabilidade, e a spec a segue.
 
-As APIs comerciais da loja do Serpro são outra coisa, pagas, e não entram aqui.
+O que isso muda em relação às versões anteriores desta spec:
+- **NF-e é estadual.** Ela é autorizada pela Sefaz da UF do emitente, com ICMS, NCM, CFOP e inscrição estadual.
+- **A Sefin Nacional sai**, porque ela só emite NFS-e. O que foi apurado dela (commit `7482699`) fica no histórico, e a documentação baixada fica em `libs/sefin/`, fora do git, sem uso.
+- **Livro, inclusive eletrônico, tem imunidade de ICMS.** O STF estendeu a imunidade do livro ao livro eletrônico. A nota sai com a situação tributária de operação imune que o contador indicar (a Notaas aceita **CSOSN 300 — Imune** no Simples), sem ICMS destacado e sem o grupo de DIFAL, que a Notaas suprime para itens imunes.
+- **O cancelamento tem prazo de 24 horas.** Um estorno depois disso não cancela a nota: pede outro documento (decisão A7).
+- **A NF-e exige endereço do destinatário** (decisão A3). O checkout passa a pedir.
 
-**Para o Simples Nacional, o padrão nacional deixou de ser opção.** A [Resolução CGSN nº 189/2026](https://cnm.org.br/comunicacao/noticias/cgsn-publica-resolucao-que-torna-obrigatoria-a-nfs-e-nacional-para-empresas-do-simples-a-partir-de-setembro), em vigor desde **2026-09-01**, obriga ME e EPP optantes a emitir a NFS-e pelo Emissor Nacional, pelo portal ou por API. Se o CNPJ da Delcastanher for do Simples, a Sefin Nacional é o caminho obrigatório. A Task 1.1 confirma o regime.
+**Ponto de coerência, registrado para o contador e o usuário:** hoje a plataforma entrega aulas em vídeo, materiais e certificado, com acesso por 6 meses. Se a nota diz "livro digital", o checkout, os Termos de Uso e a classificação no Mercado Pago precisam descrever o mesmo produto. Um documento fiscal que descreve outra coisa pode dar problema numa fiscalização. Isso não é decisão de código (Task 1.1).
 
-**O preço de ir direto:** o trabalho que um intermediário faria passa a ser nosso:
-- montar o XML da DPS e assiná-lo (XMLDSig);
-- compactar (GZip + Base64);
-- conectar com o certificado A1 (mTLS);
-- **gerar o PDF da nota** (decisão A8);
-- acompanhar as mudanças de layout, como os grupos de IBS e CBS da reforma.
+### Por que a Notaas
+Emitir NF-e direto na Sefaz é gratuito, mas exige:
+- SOAP por UF;
+- contingência;
+- as notas técnicas anuais do leiaute 4.00;
+- um DANFE próprio.
 
-**Alternativa: Focus NFe (paga).** Ela entra se o CNPJ não for do Simples e o município mantiver sistema próprio, ou se a assinatura e a homologação travarem. A versão da spec do commit `253ab5f` tem esse desenho. Ele muda só o cliente e a forma de receber o desfecho: a Focus tem webhook e entrega o PDF. O modelo de dados, os status, o painel e o e-mail continuam iguais (decisão A1).
+Entre os intermediários, **o usuário escolheu a Notaas em 2026-09-29.** Na Focus NFe, a referência que evita nota duplicada é nossa (`ref`). Na Notaas, não (decisão A2).
 
-### O que já foi apurado da API (2026-09-29)
-**A documentação oficial também está atrás do mTLS.**
-- Os Swaggers da Sefin e do ADN, listados em [APIs - Prod. Restrita e Produção](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao), negam o acesso sem certificado de cliente.
-- A Sefin responde `403`, inclusive em `https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional/docs/index`, que é o link oficial de produção restrita.
-- O ADN fecha a conexão sem resposta.
+O que a Notaas oferece, pela [documentação](https://docs.notaas.com.br) consultada em 2026-09-29:
+- **Preço:** plano **Free** com 50 notas por mês e R$ 0,50 por nota extra, o que cobre o volume de hoje. O plano Dev custa R$ 99/mês com 500 notas.
+- **Documentos:** NF-e, NFC-e e NFS-e na mesma plataforma.
+- **Motor fiscal:** calcula ICMS e DIFAL pela UF de destino. Aqui quase tudo é imune, mas os campos de sobreposição ficam disponíveis.
+- **Contingência automática:** usa SVC-AN ou SVC-RS quando a Sefaz cai. **A chave de acesso muda na contingência**, e a única fonte da verdade é a chave devolvida no webhook ou na consulta.
+- **Arquivos:** DANFE A4 e XML sob demanda, por API.
+- **Webhooks:** assinados com HMAC-SHA256.
 
-Só com o certificado A1 em mãos é possível abrir o Swagger (Task 1.5).
+Contrato, com todas as rotas sob `https://platform.notaas.com.br/api/v1` e o cabeçalho `x-api-key`:
 
-Por isso, o contrato abaixo vem de três integrações abertas que já emitem pela Sefin, e as três concordam entre si:
-- [Unimake/DFe](https://github.com/Unimake/DFe), em `Servicos/Config/NFSe/NACIONAL.xml` (.NET);
-- [nfewizard-io](https://github.com/nfewizard-org/nfewizard-io), em `packages/shared/src/config/NFSeServicosUrl.json` (Node);
-- [nfse-sem-gateway](https://github.com/tarikbc/nfse-sem-gateway) (MIT, 2026-09). É um guia de uma integração Node que fez **emitir → consultar → cancelar** em produção restrita e em produção, com os códigos de rejeição encontrados.
-
-Tudo aqui é **confirmado no Swagger e na produção restrita** antes de virar código de produção.
-
-Hosts, com todos os paths sob `/SefinNacional`:
-
-| | Produção restrita (testes, `tpAmb` 2) | Produção (`tpAmb` 1) |
+| Uso | Chamada | Resposta |
 |---|---|---|
-| Sefin | `https://sefin.producaorestrita.nfse.gov.br/SefinNacional` | `https://sefin.nfse.gov.br/SefinNacional` |
-| ADN | `https://adn.producaorestrita.nfse.gov.br` | `https://adn.nfse.gov.br` |
+| Emitir | `POST /nfe/emitir` | `202` `{ invoiceId, status: "queued" }`. **Assíncrono.** `400` em erro de validação, antes de enfileirar |
+| Status | `GET /nfe/invoices/{id}/status` | `status` ∈ `queued`, `processing`, `issued`, `error`, `cancelled`, `inutilized` (detalhes abaixo) |
+| Cancelar | `POST /nfe/cancelar` `{ invoiceId, motivo }` | `202` assíncrono. O `motivo` tem de **15 a 255** caracteres. `422` se o status não é `issued` ou **o prazo de 24 h expirou** |
+| Carta de correção | `POST /nfe/invoices/{id}/correcao` | síncrona. Não altera impostos, emitente ou destinatário |
+| DANFE (PDF) | `GET /nfe/invoices/{id}/danfe` | PDF A4. Na nota cancelada, sai com a marca d'água "NOTA CANCELADA" |
+| XML | `GET /nfe/invoices/{id}/xml[?type=cancel]` | `nfeProc` autorizado, ou `procEventoNFe` do cancelamento |
+| Webhook | `POST /webhooks/endpoints` `{ url, events, secret }` | eventos `nfe.issued`, `nfe.error` e `nfe.cancelled` |
 
-Chamadas. Todas usam `Content-Type: application/json` e mTLS, e o XML sempre viaja em GZip + Base64 dentro de um campo JSON:
-
-| Uso | Chamada | Sucesso |
-|---|---|---|
-| Emitir | `POST /SefinNacional/nfse` `{ dpsXmlGZipB64 }` | `201` `{ chaveAcesso, nfseXmlGZipB64 }`, **síncrono** |
-| Recuperar pela DPS | `GET /SefinNacional/dps/{idDps}` | `200` com a `chaveAcesso` da nota gerada por aquela DPS |
-| Consultar a nota | `GET /SefinNacional/nfse/{chaveAcesso}` | `200` `{ nfseXmlGZipB64 }` |
-| Cancelar | `POST /SefinNacional/nfse/{chaveAcesso}/eventos` `{ pedidoRegistroEventoXmlGZipB64 }` | `201` `{ eventoXmlGZipB64 }` |
-| Convênio do município | `GET {ADN}/parametrizacao/{codigoMunicipio}/convenio` | se o município está no Sistema Nacional (Task 1.5) |
+Detalhes do status:
+- Com `issued` ou `cancelled`, a resposta traz `numero`, `serie`, `chaveAcesso` (44 dígitos), `protocolo`, `codigoStatus`, `motivo`, `tpAmb`, `pdfUrl` e `xmlUrl`.
+- Com `error`, traz `codigoStatus` (a rejeição da Sefaz), `motivo` e `errorMessage`.
 
 Mais três pontos do contrato:
-- **Rejeições** chegam como `4xx` com `{ "erros": [{ codigo, mensagem }] }`. O cliente HTTP não pode lançar exceção em não-2xx, porque o corpo é o diagnóstico.
-- **O número da nota** (`nNFSe`) só existe **dentro do XML devolvido**, que é descompactado e lido. A `chaveAcesso` (50 dígitos) vem no JSON.
-- **Não existe mais API de PDF.** A API do DANFSe no ADN foi **suspensa em 2026-08-03** pela [NT SE/CGNFS-e 008/2026, v1.02](https://www.gov.br/nfse/pt-br/noticias/se-cgnfs-e-publica-nota-tecnica-no-008-2026-com-regras-para-emissao-do-danfse). Desde então, quem emite gera o PDF a partir do XML autorizado (decisão A8).
+- **Ambiente:** o de homologação e o de produção são definidos **por projeto** na Notaas, cada um com a sua chave de API. O status devolve `tpAmb`, que é conferido (A6).
+- **Webhook:**
+  - traz os cabeçalhos `X-Notaas-Event`, `X-Notaas-Delivery` (id único da entrega) e `X-Notaas-Signature`;
+  - a assinatura é `sha256=` + HMAC-SHA256 do corpo **bruto** com o secret;
+  - são 5 tentativas (imediata, 1 min, 5 min, 30 min e 2 h), com timeout de 10 s.
+- **Arquivos:** não ficam em CDN público. O DANFE e o XML exigem a chave de API para baixar.
 
-### Pré-requisitos fiscais (do usuário e da contabilidade)
+### Pré-requisitos fiscais (do usuário e do contador)
 Nada disto é decisão de código, e a Fase 1 não emite em produção sem os dados:
-- CNPJ e município (código IBGE) do prestador.
-- **Regime tributário.** No Simples, o padrão nacional é obrigatório (CGSN 189/2026). Fora dele, confirma-se o convênio do município (tabela acima).
-- **`cTribNac`**, o código nacional de 6 dígitos do serviço, derivado do item da LC 116. A contabilidade confirma, porque é ele que define o ISS.
-- Os campos do perfil tributário (decisão A2) e se a DPS precisa do grupo de IBS e CBS para este CNPJ.
-- Texto padrão da descrição do serviço.
-- **Certificado digital ICP-Brasil A1** (e-CNPJ) em `.pfx`, com a senha. É pago à certificadora e renovado todo ano. O A3 (token ou cartão) não serve, porque a API roda sem ninguém por perto.
-- Se o CNPJ já emitiu nota pelo Emissor Nacional, com a numeração usada na série da API, se houver.
-- Correção da classificação da aplicação no Mercado Pago, de "Produto físico" para serviço. Está pendente desde a Spec 014 e é feita junto.
+- CNPJ, **inscrição estadual**, **UF** e endereço do emitente, no cadastro da empresa na Notaas.
+- **Regime (CRT):** 1 (Simples, usa CSOSN), 3 (normal, usa CST) ou 4 (MEI).
+- Para o item "livro digital":
+  - **NCM**;
+  - **CFOP** da venda dentro da UF e para outra UF a consumidor final não contribuinte;
+  - **CSOSN ou CST** da operação imune;
+  - **CST de PIS e COFINS**;
+  - se o item leva o grupo de **IBS e CBS** em 2026, e com qual `cClassTrib`;
+  - o **texto de informação complementar** (`infCpl`) citando a imunidade.
+- **Natureza da operação** (ex.: "Venda de livro digital").
+- **Presença do comprador** 2 (internet) e **indicador de intermediador** 0 (venda no próprio site; o Mercado Pago processa o pagamento e não é marketplace). **Confirmar.**
+- **Série** da NF-e e o último número usado, se a empresa já emite NF-e por outro sistema (a Notaas tem configuração de numeração).
+- **Estorno depois de 24 horas:** qual documento emitir, em geral uma NF-e de devolução (`finalidade` 4, com `nfesReferenciadas`) (decisão A7).
+- **Pedidos já pagos sem endereço:** como emitir a nota deles (decisão A3).
+- **Certificado digital ICP-Brasil A1** (e-CNPJ), **enviado à Notaas** no cadastro da empresa, e não à nossa API.
+- Dois projetos na Notaas (**homologação** e **produção**), com as chaves de API e o webhook de cada um.
+- A classificação da aplicação no Mercado Pago, hoje "Produto físico", revista junto com o contador para o produto que ele definiu. Está pendente desde a Spec 014.
 
 ### Decisões
 
-**A1. Módulos pequenos, isolados e testáveis sem rede.**
-Tudo do Sistema Nacional fica em `api/src/invoices/sefin/`, na divisão usada pelo guia nfse-sem-gateway:
-- **`A1Credential`:** abre o `.pfx` uma vez e guarda em cache (`node-forge`). Entrega:
-  - o `pfx` e a senha, para o `https.Agent` do mTLS;
-  - a chave e o certificado em PEM, para a assinatura;
-  - a data de vencimento (decisão A10).
-- **`DpsBuilder`** e **`CancelEventBuilder`:** montam o XML com `xmlbuilder2`, em ordem explícita de elementos, porque **a ordem é validada**.
-- **`XmlSigner`:** assinatura envelopada do `infDPS` e do `infPedReg`, com `xml-crypto`:
+**A1. Um cliente da Notaas atrás de uma interface própria.**
+- Tudo da Notaas fica em `api/src/invoices/notaas/`:
+  - `NotaasClient`, que faz as chamadas da tabela acima;
+  - `NfeBuilder`, que faz `order → corpo de /nfe/emitir`.
+- O resto do sistema fala com a interface `InvoiceGateway` (`emit`, `status`, `cancel`, `downloadPdf`, `downloadXml`). Outro emissor seria outra implementação dela.
+- O `NfeBuilder` monta:
+  - `modelo` 55, `naturezaOperacao`, `finalidade` 1 e `consumidorFinal` 1;
+  - `presencaComprador` e `indicadorIntermediador` da configuração fiscal;
+  - `transporte.modalidadeFrete` 9 (produto digital, sem frete);
+  - `dest`: `cpf`, `nome` e `endereco` (A3), com `indicadorIE` 9 (não contribuinte). **Sem** `dest.email`, porque o e-mail da nota é nosso (A8) e a Notaas mandaria um segundo;
+  - **um item por módulo do pedido**, com `descricao`, `codigo` (id do módulo), `ncm`, `cfop` (interno ou interestadual pela UF do destinatário), `csosn` ou `cst`, `cstPis`, `cstCofins` e `valorTotal`;
+  - `pagamentos`: `tipoPagamento` 17 (PIX) ou 03 (cartão de crédito), com o valor do pedido;
+  - `infCpl` com o texto da imunidade.
 
-  | Parâmetro | Valor |
-  |---|---|
-  | Algoritmo | RSA-SHA256 (`http://www.w3.org/2001/04/xmldsig-more#rsa-sha256`) |
-  | Digest | SHA-256 (`http://www.w3.org/2001/04/xmlenc#sha256`) |
-  | Canonicalização | C14N (`http://www.w3.org/TR/2001/REC-xml-c14n-20010315`) |
-  | Transforms | `enveloped-signature`, depois C14N |
-  | Referência | `#<Id>` do elemento assinado |
-  | `KeyInfo` | com o `<X509Certificate>` |
+  **Nenhum código fiscal fica fixo no código**: todos vêm da configuração (ver "Variáveis de ambiente").
 
-  A `<Signature>` entra como **irmã seguinte** do `infDPS`. Depois de assinar, **prefixa-se** `<?xml version="1.0" encoding="UTF-8"?>`: sem o prólogo, a Sefin rejeita com **E1229**, e o prólogo fica fora da parte assinada. O algoritmo fica numa configuração, porque exemplos antigos usam SHA-1.
-- **`SefinClient`:** as chamadas da tabela acima, com GZip + Base64 (`node:zlib`) e timeout de 10 s. Lê `erros[]` nas rejeições e o XML devolvido com `fast-xml-parser`.
-- **`DanfseRenderer`:** gera o PDF (decisão A8).
+**A2. Nota duplicada: sem referência nossa, o `invoiceId` é gravado antes de qualquer outra coisa, e o timeout não reenvia sozinho.**
+A Notaas **não aceita uma referência do cliente** na emissão de NF-e: não achamos `ref` nem chave de idempotência na documentação. Duas chamadas a `/nfe/emitir` para o mesmo pedido geram **duas NF-e válidas**. Por isso:
+- **Um pedido, uma `Invoice`** (`orderId @unique`). A linha é criada em `PENDING` **antes** do `POST`.
+- O `invoiceId` devolvido no `202` é gravado **na mesma hora** (`providerInvoiceId`). Toda operação seguinte usa ele.
+- **Timeout ou erro de rede sem resposta:** a nota pode ter sido enfileirada. A `Invoice` vai para **`UNKNOWN`**, e **nada a reenvia automaticamente**, nem o cron nem o retry. O painel mostra "Verificar no painel da Notaas" com duas saídas:
+  - **vincular** o `invoiceId` encontrado lá;
+  - **"Emitir de novo"**, com uma confirmação explícita de que não existe nota para o pedido.
 
-O resto do sistema fala com uma interface `InvoiceGateway` (`emit`, `findByDps`, `cancel`). Trocar pela Focus (a alternativa acima) é escrever outra implementação dela.
+  Como a emissão só enfileira e responde `202` na hora, o caso é raro.
+- **`400` (validação antes de enfileirar):** nada foi criado. Vai para `ERROR`, e o reenvio é seguro depois da correção.
+- **Duplicata que escape:** cancela-se a segunda nota pelo painel dentro de 24 horas (A7).
+- **Task 1.5:** perguntar ao suporte da Notaas se há chave de idempotência ou referência externa para NF-e. Se houver, ela entra aqui, e o `UNKNOWN` passa a reenviar com segurança.
 
-Os testes de todos os módulos rodam sem rede e sem o certificado real. Usam um certificado autoassinado gerado nos fixtures, o XSD oficial para validar o XML e um servidor HTTP falso para o cliente.
-
-**A2. A DPS tem número próprio, reservado antes do envio, e é ela que impede nota duplicada.**
-A identidade da nota é o **Id da DPS**, com 45 caracteres:
-
-```
-"DPS" + cLocEmi(7) + tpInsc(1, 2 = CNPJ) + CNPJ(14) + serie(5, com zeros) + nDPS(15, com zeros)
-```
-
-Exemplo: `DPS` + `4115200` + `2` + `11222333000181` + `00001` + `000000000000042`.
-
-Uma DPS com o mesmo Id não gera segunda nota.
-- **Série `1`** para a API. A série **70000** é do emissor web do portal, com numeração própria. Uma nota digitada à mão no portal nunca colide com as da API, mas também não entra na nossa contagem.
-- O `nDPS` vem de uma **sequência no Postgres** por ambiente. Ele é gravado na `Invoice` **antes** do envio (commit antes do `POST`) e nunca muda. Número queimado por rejeição é permitido (lacunas são aceitas). Número reusado numa DPS diferente, não.
-- Se o CNPJ já emitiu pela API na série 1 com outro sistema, a sequência começa **depois do último número usado** (Task 1.1).
-- **Toda nova tentativa** (cron, timeout) reenvia **a mesma DPS**. Antes de reenviar uma nota em estado incerto, consulta-se `GET /dps/{idDps}`: se a nota existe, só se grava a chave.
-- **Um pedido, uma `Invoice`** (`orderId @unique`).
-
-**Por que gravar a `Invoice` antes do envio, contra o conselho do guia.** O nfse-sem-gateway manda **não** pré-gravar linha pendente, porque lá uma linha pendente contava zero numa soma de "quanto já foi faturado" e gerava segunda nota. Aqui a nota é **por pedido** (`orderId @unique`), e não por soma de período. A linha pré-gravada é justamente o que guarda o `nDPS` para a consulta pela DPS. Não existe caminho que emita uma segunda DPS para o mesmo pedido, a não ser o "Emitir de novo" de uma DPS **rejeitada** (A9), que por definição não gerou nota.
-
-Perfil tributário, na **referência** do guia para Simples Nacional (ME/EPP), sem retenção de ISS. Cada valor tem um código de rejeição associado. **A contabilidade confirma antes da produção restrita:**
-
-| Campo | Valor | Se errar |
-|---|---|---|
-| `tpEmit` | `1` (prestador) | |
-| `opSimpNac` | `3` (ME/EPP) | |
-| `regApTribSN` | `1` | E0166 se ausente |
-| `regEspTrib` | `0` | |
-| `tribISSQN` | `1` | |
-| `tpRetISSQN` | `1` (ISS não retido, pago no DAS) | |
-| alíquota do ISS | **omitida** | E0625 se enviada |
-| `IM` do prestador | **omitida** | E0120 onde o município não tem cadastro complementar |
-| `vTotTribFed`, `vTotTribEst`, `vTotTribMun` | `0.00` | |
-| `dCompet` | data de `paidAt` (mês da prestação) | |
-| `dhEmi` | ISO 8601 com `-03:00` | |
-
-O perfil sai de variáveis de configuração, e não do código (ver "Variáveis de ambiente").
-
-**A3. Gravar os dados do tomador no pedido.**
-O `Order` ganha `payerDocument` (CPF, só dígitos) e `payerName`, gravados na criação a partir do que o checkout já recebe.
-- **Endereço do tomador:** o guia monta o tomador com município (IBGE), CEP e endereço, e registra a rejeição **E1235** por aninhamento errado desses campos. Para tomador pessoa física, **confere-se na produção restrita** se o endereço é obrigatório (Task 1.5).
-  - Se for, o checkout passa a pedir o CEP, e o município (IBGE) e o logradouro vêm do ViaCEP (`https://viacep.com.br/ws/{cep}/json/`, campo `ibge`).
-  - Se não for, a nota sai só com CPF e nome.
-- **Base legal (LGPD):** cumprimento de obrigação legal, porque a nota exige o tomador. O dado não sai em nenhuma resposta além da do próprio comprador e do painel financeiro, e nunca em log.
-- **Pedidos já pagos antes da migration** (a primeira venda real, Spec 022): o CPF é lido do pagamento no Mercado Pago (`payer.identification`), por um script único de backfill, com a conta da `mpConnectionId` de cada pedido.
-- A Política de Privacidade precisa citar a nota fiscal como finalidade do CPF. **Conferir** o texto publicado (Spec 015 ou 022).
+**A3. Dados do destinatário no pedido, com endereço, porque a NF-e exige.**
+A Notaas marca o destinatário da NF-e como **obrigatório, com CPF e endereço**. Os campos obrigatórios são `logradouro`, `bairro` e `uf`, mais `codigoMunicipio` e `cidade` no Brasil.
+- **Checkout:** passa a pedir **CEP, número e complemento**. O logradouro, o bairro, a cidade, a UF e o **código IBGE** vêm do ViaCEP (`https://viacep.com.br/ws/{cep}/json/`), e o comprador pode corrigir o logradouro e o bairro.
+- A UF também define o **CFOP** (interno ou interestadual, A1).
+- **`Order` ganha:** `payerDocument` (CPF, só dígitos), `payerName`, `payerZip`, `payerStreet`, `payerNumber`, `payerComplement`, `payerDistrict`, `payerCity`, `payerCityIbge` e `payerState`, gravados na criação.
+- **Base legal (LGPD):** cumprimento de obrigação legal, porque a nota exige o destinatário. Os dados não saem em nenhuma resposta além da do próprio comprador e do painel financeiro, e nunca em log.
+- **Pedidos já pagos antes da migration** (a primeira venda real, Spec 022):
+  - o CPF é lido do pagamento no Mercado Pago (`payer.identification`), por um script único de backfill;
+  - o **endereço não existe** em lugar nenhum. A nota desses pedidos espera a definição do contador (Task 1.1), que pode ser pedir o endereço ao comprador por e-mail.
+- A Política de Privacidade precisa citar a nota fiscal como finalidade do CPF e do endereço. **Conferir** o texto publicado (Spec 015 ou 022).
 
 **A4. Emissão disparada pela aprovação, sem travar o pagamento.**
 Quando `apply` tira o pedido de pendente para `PAID`, depois de conceder o acesso:
-1. cria-se a `Invoice` em `PENDING`, com o número da DPS reservado (A2);
-2. monta-se, assina-se e envia-se a DPS;
+1. cria-se a `Invoice` em `PENDING`;
+2. chama-se `POST /nfe/emitir`, com timeout de 10 s;
 3. conforme a resposta:
-   - **`201`:** `AUTHORIZED`, com a chave de acesso, o `nNFSe` lido do XML e o XML guardado;
-   - **`4xx` com `erros[]`:** `DENIED`, com a lista crua;
-   - **timeout ou erro de rede:** `UNKNOWN`. A DPS pode ter chegado, e só a consulta pela DPS responde.
+   - **`202`:** grava o `invoiceId` e passa a `PROCESSING`;
+   - **`400`:** `ERROR`, com a mensagem crua;
+   - **sem resposta:** `UNKNOWN` (A2).
 
-A regra central é que **uma falha da Sefin nunca desfaz nem atrasa o pagamento**:
+A regra central é que **uma falha da Notaas nunca desfaz nem atrasa o pagamento**:
 - a chamada é protegida por `try/catch`;
 - o webhook do Mercado Pago continua respondendo `200`;
 - a nota é assunto do painel, não do comprador.
 
-Para não segurar a resposta do webhook do Mercado Pago, a emissão tem **timeout curto** (10 s). O que não couber nele vira `UNKNOWN` e fica para o cron.
+**A5. O desfecho chega por webhook assinado, com reconsulta como rede.**
+- **Cadastro:** um endpoint em `POST /webhooks/endpoints`, com os eventos `nfe.issued`, `nfe.error` e `nfe.cancelled` e um `secret`, apontando para `api.delcastanher.srv.br/webhooks/notaas`. Um por projeto, ou seja, por ambiente.
+- **Verificação:** a rota confere `X-Notaas-Signature` contra `sha256=` + HMAC-SHA256 do **corpo bruto**, com comparação em tempo constante, e recusa com `401` sem assinatura válida. O NestJS passa a guardar o corpo bruto (`rawBody: true` em `main.ts`) para esta rota.
+- **Corpo não confiado:** como no Mercado Pago, a rota lê só o `invoiceId`, acha a `Invoice` por `providerInvoiceId` e **reconsulta** `GET /nfe/invoices/{id}/status`, gravando o que a consulta diz. Um `invoiceId` desconhecido é ignorado com `200`. A reconsulta também torna inofensivas as entregas repetidas (`X-Notaas-Delivery`).
+- **Tradução do status:**
+  - `queued` e `processing` → `PROCESSING`;
+  - `issued` → `AUTHORIZED`, com número, série, chave e protocolo;
+  - `error` → `DENIED`, com `codigoStatus`, `motivo` e `errorMessage`;
+  - `cancelled` → `CANCELLED`.
+- **Rede:** a Notaas desiste depois de 5 tentativas, a última 2 h depois. O cron diário que já existe na API (`vercel.json`, Spec 020) ganha uma segunda rota, `/internal/invoices/reconcile`. Ela trata o que está parado há mais de 1 hora:
+  - `PROCESSING`: reconsulta o status;
+  - `PENDING` sem `providerInvoiceId`: a chamada nunca saiu, e é reenviada;
+  - `AUTHORIZED` sem XML ou PDF guardado: baixa de novo (A8).
 
-Se a nota foi emitida e o Storage falhar depois, a `Invoice` **continua `AUTHORIZED`**, porque a nota existe no governo. Os arquivos são refeitos pelo cron a partir de `GET /nfse/{chaveAcesso}`.
-
-**A5. Sem webhook: o cron diário é a rede.**
-A emissão é síncrona, e o Sistema Nacional não avisa ninguém. O que fica pendente é resolvido pelo cron diário que já existe na API (`vercel.json`, Spec 020), com uma segunda rota, `/internal/invoices/reconcile`. Ela trata as notas paradas há mais de 1 hora:
-- `UNKNOWN`: consulta `GET /dps/{idDps}`. Se a nota existe, grava a chave e segue como `AUTHORIZED`. Se não existe, reenvia a mesma DPS.
-- `PENDING` e `ERROR` (falha antes do envio, como certificado ilegível): reenvia.
-- `AUTHORIZED` sem XML ou sem PDF guardado: consulta a nota, guarda o XML e gera o PDF (A8).
-
-`DENIED` **não** é reenviado sozinho: a mesma DPS seria rejeitada de novo. Ele espera a correção e o "Emitir de novo" do painel (A9).
+  **`UNKNOWN` e `ERROR` nunca são reenviados pelo cron** (A2).
 
 **A6. Ambiente fiscal amarrado ao ambiente da Vercel, porque o banco é um só.**
 Preview e produção usam o mesmo banco, como já tratado na Spec 020 com o `liveMode`.
-- `NFSE_ENV` é `producao` (`tpAmb` 1, host de produção) **só** no ambiente Production da Vercel. Em preview, em desenvolvimento e **na ausência da variável** é `producao_restrita` (`tpAmb` 2). Uma variável esquecida nunca emite nota real.
-- **Trava:** o cliente se recusa a enviar se `tpAmb` for 1 e o host não for o de produção, e vice-versa.
-- A `Invoice` grava o `environment` em que nasceu. O painel mostra as notas de produção restrita com um selo, e o cron só reconcilia as do seu próprio ambiente.
+- A chave de API de **produção** (`NOTAAS_API_KEY`) só existe no ambiente Production da Vercel. Em preview e em desenvolvimento, a variável tem a chave do projeto de **homologação**.
+- `NFE_ENV` (`producao` ou `homologacao`) diz o que se espera.
+- **Trava:** o `tpAmb` devolvido no status precisa bater com o `NFE_ENV`. Se não bater, a `Invoice` vai para `ERROR` com "chave de API do ambiente errado", e o painel alerta.
+- Sem `NFE_ENV`, o ambiente é homologação. Uma variável esquecida nunca emite nota real.
+- A `Invoice` grava o `environment` em que nasceu. O painel mostra as notas de homologação com um selo, e o cron só reconcilia as do seu próprio ambiente.
 - Uma venda de teste feita no preview **nunca** gera nota com valor fiscal.
 
-**A7. Estorno cancela a nota automaticamente, e o painel mostra quando não der.**
-Quando `apply` leva o pedido a `REFUNDED`, depois de revogar o acesso, e a nota está `AUTHORIZED`, envia-se o **Pedido de Registro de Evento** `e101101`:
-- raiz `<pedRegEvento versao="1.00">` (e não 1.01, como a DPS), filho `<infPedReg Id="PRE{chaveAcesso}101101">`;
-- campos `tpAmb`, `verAplic`, `dhEvento`, `CNPJAutor` e `chNFSe`, e `e101101` com `xDesc`, `cMotivo` 2 ("Serviço não prestado") e `xMotivo` "Pagamento estornado ao tomador";
-- o `xMotivo` precisa ter **de 15 a 255 caracteres**, e isso é validado antes do envio;
-- o `infPedReg` é assinado como a DPS.
+**A7. Estorno: cancelar dentro de 24 horas, e o documento do contador fora delas.**
+Quando `apply` leva o pedido a `REFUNDED`, depois de revogar o acesso, e a nota está `AUTHORIZED`:
+- **Dentro de 24 horas da autorização:** `POST /nfe/cancelar` com o `motivo` "Venda desfeita: pagamento estornado ao comprador", que tem entre 15 e 255 caracteres.
+  - O `202` leva a `Invoice` a `CANCELLING`.
+  - O webhook `nfe.cancelled` ou a reconsulta levam a `CANCELLED`.
+- **`422` por prazo expirado, ou mais de 24 horas passadas:** a `Invoice` vai para **`REFUND_PENDING`**, e o painel mostra "estorno fora do prazo de cancelamento". O documento é o que o contador definir, em geral uma **NF-e de devolução** (`finalidade` 4, com `nfesReferenciadas` = chave original), que a Notaas emite pelo mesmo `/nfe/emitir`.
+  - **Nesta spec a devolução não é automática.** Ela fica como pendência no painel. Automatizá-la vira a ação "Emitir devolução" assim que o contador fixar o formato, sem mudar o modelo.
+- **Outro `422`:** `CANCEL_ERROR`, com a mensagem.
 
-A resposta é síncrona:
-- `201` → `CANCELLED`;
-- `4xx` → `CANCEL_ERROR`, com os erros.
-
-O cancelamento por evento tem prazo definido pelo município. Fora dele, é preciso substituição ou processo administrativo. Essa correção é com a contabilidade, e **não é automatizada**: o painel mostra o status, e o pedido estornado continua estornado.
-
-**A8. O PDF (DANFSe) é gerado por nós, a partir do XML autorizado.**
-Desde a NT 008/2026 não há API de PDF, e quem emite gera o DANFSe.
-- O **`DanfseRenderer`** gera uma página A4 no leiaute do **Anexo I da NT 008/2026**, usando `pdfkit` e `qrcode`, com:
-  - todos os campos do XML;
-  - os tributos aproximados (Lei 12.741/2012) e os grupos de IBS e CBS quando houver;
-  - o **QR Code** de no mínimo 1,52 cm × 1,52 cm, apontando para `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave={chaveAcesso}`.
-
-  O guia nfse-sem-gateway tem um renderizador de referência em `references/danfse/`, e ele é o ponto de partida. A NT é a regra.
-- A API guarda os dois arquivos no Storage da Spec 010, em `invoices/{environment}/{chaveAcesso}.xml` e `.pdf`:
-  - o **XML** autorizado é o documento fiscal e precisa ser guardado;
-  - o **PDF** é derivado dele e pode ser refeito a qualquer momento.
-
-  O `StorageService` ganha um método de gravação pelo servidor, porque hoje ele só emite URL de upload para o navegador.
-- A API manda pelo Resend (Parte B, decisão B1) o e-mail transacional "Sua nota fiscal", com:
-  - o número;
-  - o **PDF em anexo**;
-  - o link da consulta pública com a chave, o mesmo do QR Code.
-- O e-mail só sai quando o PDF está guardado. Se a geração falhar, o cron tenta de novo (A5), e o e-mail sai depois.
+**A8. XML e PDF guardados por nós, e o e-mail é nosso.**
+- Assim que a nota é autorizada, a API baixa o XML (`/xml`) e o DANFE (`/danfe`) com a chave de API e os guarda no Storage da Spec 010, em `invoices/{environment}/{chaveAcesso}.xml` e `.pdf`.
+  - O **XML** autorizado é o documento fiscal e precisa ser guardado.
+  - No cancelamento, guarda-se também o XML do evento (`?type=cancel`).
+  - O `StorageService` ganha um método de gravação pelo servidor, porque hoje ele só emite URL de upload para o navegador.
+- A API manda pelo Resend (Parte B, decisão B1) o e-mail transacional "Sua nota fiscal", com o número, a chave de acesso e o **DANFE e o XML em anexo**.
+- O e-mail só sai quando os arquivos estão guardados. Se o download falhar, o cron tenta de novo (A5).
 - O e-mail transacional **ignora o descadastro de marketing** (decisão B5), porque é documento da compra.
 
 **A9. O painel financeiro mostra a nota de cada pedido.**
-A listagem de pedidos da Spec 016 (`GET /admin/finance/orders`) ganha a situação e o número da nota. Cada pedido tem três ações:
-- **Emitir de novo:** para `DENIED` ou `ERROR`, depois de corrigir a causa (dado fiscal, CPF, certificado).
-  - Num `ERROR`, a DPS nunca chegou, e o reenvio é da mesma DPS.
-  - Num `DENIED`, a DPS foi rejeitada e seu número é descartado. Reserva-se um número novo, e o antigo fica registrado em `lastError`.
-- **Reenviar e-mail:** para `AUTHORIZED`.
-- **Baixar PDF:** para `AUTHORIZED`, por URL assinada de leitura do Storage, como os materiais das aulas.
+A listagem de pedidos da Spec 016 (`GET /admin/finance/orders`) ganha a situação e o número da nota. As ações dependem do status:
+- **Emitir de novo:**
+  - para `ERROR` e `DENIED`, depois de corrigir a causa. Cria uma nota nova na Notaas, e o `invoiceId` anterior fica em `lastError`;
+  - para `UNKNOWN`, só com a confirmação da decisão A2.
+- **Vincular nota existente:** para `UNKNOWN`, informando o `invoiceId` visto no painel da Notaas.
+- **Cancelar:** para `AUTHORIZED` dentro de 24 horas. É a saída para uma duplicata (A2).
+- **Reenviar e-mail** e **Baixar PDF:** para `AUTHORIZED`. O PDF sai por URL assinada de leitura do Storage.
 
-O CSV de exportação da Spec 016 ganha as colunas de número, chave de acesso e situação da nota.
+Pedidos em `REFUND_PENDING` e `UNKNOWN` aparecem com destaque. O CSV de exportação da Spec 016 ganha as colunas de número, série, chave de acesso e situação da nota.
 
-**A10. O certificado A1 fica na Vercel, como segredo.**
-- O `.pfx` sobe em Base64 em `NFSE_CERT_PFX_BASE64`, com a senha em `NFSE_CERT_PASSWORD`. Os dois são segredos e sobem pelo usuário.
-- O arquivo tem poucos KB e cabe no limite de variáveis da Vercel.
-- Nem a senha nem o material da chave aparecem em log, inclusive dentro de mensagens de erro.
-- O certificado vence todo ano, e o vencimento derruba **ao mesmo tempo** a assinatura e o mTLS. A rota do cron registra em log, e o painel financeiro mostra, um aviso **30 dias antes**, com a data lida do próprio `.pfx` (`notAfter`).
+**A10. O certificado A1 fica na Notaas, e não na nossa API.**
+- O `.pfx` e a senha são enviados pelo usuário no painel da Notaas, no cadastro da empresa. A API só guarda a chave de API.
+- O vencimento anual do certificado derruba toda emissão. **Conferir** se a Notaas avisa o vencimento. Se não avisar, a data vai em `NFE_CERT_EXPIRES_AT`, e o cron registra em log e o painel mostra um aviso **30 dias antes**.
 
 ### Modelo de dados (Parte A)
 ```prisma
 model Invoice {
-  id          String        @id @default(cuid())
-  orderId     String        @unique
-  status      InvoiceStatus @default(PENDING)
-  environment String                     // 'producao' | 'producao_restrita' (A6)
-  amountCents Int                        // copia do pedido na emissao
+  id                String        @id @default(cuid())
+  orderId           String        @unique
+  status            InvoiceStatus @default(PENDING)
+  environment       String                     // 'homologacao' | 'producao' (A6)
+  amountCents       Int                        // copia do pedido na emissao
 
-  /// Numero da DPS, reservado antes do primeiro envio e fixo nas novas
-  /// tentativas (A2). Troca so no "Emitir de novo" de uma DPS rejeitada.
-  dpsSeries   String                     // '00001'
-  dpsNumber   BigInt
-  dpsId       String        @unique      // 45 caracteres (A2)
+  /// `invoiceId` da Notaas, gravado assim que o `202` chega (A2). Nulo em
+  /// PENDING (chamada nao saiu) e em UNKNOWN (saiu sem resposta).
+  providerInvoiceId String?       @unique
 
-  accessKey   String?       @unique      // chaveAcesso, 50 digitos
-  number      String?                    // nNFSe, lido do XML autorizado
-  xmlPath     String?                    // Storage (A8)
-  pdfPath     String?                    // Storage (A8)
-  /// Resposta crua da Sefin no ultimo erro (`erros[]`), sem traducao (mesma regra do `mpStatusDetail`).
-  lastError   String?
+  number            String?                    // `numero`
+  series            String?                    // `serie`
+  /// `chaveAcesso`, 44 digitos. Pode mudar se a Notaas cair em contingencia:
+  /// vale sempre a da ultima consulta.
+  accessKey         String?       @unique
+  protocol          String?                    // `protocolo`
+  xmlPath           String?                    // Storage (A8)
+  pdfPath           String?                    // Storage (A8)
+  cancelXmlPath     String?                    // Storage (A8)
+  /// Resposta crua no ultimo erro (`codigoStatus` + `motivo` + `errorMessage`),
+  /// sem traducao (mesma regra do `mpStatusDetail`).
+  lastError         String?
 
-  issuedAt    DateTime?
-  cancelledAt DateTime?
-  emailedAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  issuedAt          DateTime?
+  cancelledAt       DateTime?
+  emailedAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
 
-  @@unique([environment, dpsSeries, dpsNumber])
   @@index([status, environment, updatedAt])   // o cron de reconciliacao (A5)
   @@map("invoices")
 }
 
-enum InvoiceStatus { PENDING UNKNOWN AUTHORIZED DENIED ERROR CANCELLED CANCEL_ERROR }
+enum InvoiceStatus {
+  PENDING PROCESSING UNKNOWN AUTHORIZED DENIED ERROR
+  CANCELLING CANCELLED CANCEL_ERROR REFUND_PENDING
+}
 ```
-- O `Order` ganha `payerDocument String?` e `payerName String?` (A3), nulos até o backfill, e o endereço do tomador se a produção restrita o exigir.
-- As sequências do `nDPS` são criadas à mão na migration, uma por ambiente, porque o Prisma não declara sequência avulsa. Elas começam depois do último número já usado (A2).
+O `Order` ganha os campos do destinatário da decisão A3. O CPF e o nome ficam nulos até o backfill, e o endereço fica nulo nos pedidos anteriores à spec.
 
 ## Parte B: Disparos de e-mail
 
@@ -393,8 +363,11 @@ enum CampaignStatus { SENDING SENT PARTIAL }
 
 | Método | Rota | Quem | O que faz |
 |---|---|---|---|
-| `GET` | `/internal/invoices/reconcile` | cron da Vercel (`CRON_SECRET`) | consulta pela DPS, reenvia pendências, refaz XML e PDF que faltam e avisa o vencimento do certificado (A5 e A10) |
-| `POST` | `/admin/invoices/:orderId/issue` | admin | emite de novo: mesma DPS no `ERROR`, número novo no `DENIED` (A9) |
+| `POST` | `/webhooks/notaas` | Notaas, assinatura HMAC | lê o `invoiceId` e reconsulta o status (A5) |
+| `GET` | `/internal/invoices/reconcile` | cron da Vercel (`CRON_SECRET`) | reconsulta `PROCESSING`, reenvia `PENDING` que nunca saiu, baixa XML e PDF que faltam, e avisa o vencimento do certificado (A5 e A10) |
+| `POST` | `/admin/invoices/:orderId/issue` | admin | emite de novo; em `UNKNOWN`, exige confirmação (A2 e A9) |
+| `POST` | `/admin/invoices/:orderId/link` | admin | vincula um `invoiceId` existente a uma nota `UNKNOWN` (A9) |
+| `POST` | `/admin/invoices/:orderId/cancel` | admin | cancela dentro de 24 horas (A7 e A9) |
 | `POST` | `/admin/invoices/:orderId/email` | admin | reenvia o e-mail da nota (A9) |
 | `GET` | `/admin/invoices/:orderId/pdf` | admin | URL assinada de leitura do PDF (A9) |
 | `GET` | `/admin/email/segments` | admin | segmentos com a contagem de destinatários (B2) |
@@ -409,19 +382,22 @@ enum CampaignStatus { SENDING SENT PARTIAL }
 
 | Variável | Tipo | Quem sobe | Uso |
 |---|---|---|---|
-| `NFSE_ENV` | config | Claude | `producao` só em Production; `producao_restrita` no resto (A6) |
-| `NFSE_CERT_PFX_BASE64` | segredo | usuário | certificado A1 do CNPJ, em Base64 (A10) |
-| `NFSE_CERT_PASSWORD` | segredo | usuário | senha do certificado (A10) |
-| `NFSE_PRESTADOR_CNPJ`, `NFSE_MUNICIPIO_IBGE`, `NFSE_CTRIBNAC`, `NFSE_OP_SIMP_NAC`, `NFSE_REG_AP_TRIB_SN`, `NFSE_REG_ESP_TRIB`, `NFSE_DPS_SERIE`, `NFSE_DESCRICAO` | config | Claude | dados fiscais e perfil tributário da contabilidade (A2) |
-| `NFSE_SIGNATURE_ALGORITHM` | config | Claude | `rsa-sha256` por padrão (A1) |
+| `NOTAAS_API_KEY` | segredo | usuário | chave do projeto de **produção** em Production; do de **homologação** em Preview e Development (A6) |
+| `NOTAAS_WEBHOOK_SECRET` | segredo | usuário | secret do endpoint de webhook de cada projeto (A5) |
+| `NFE_ENV` | config | Claude | `producao` só em Production; `homologacao` no resto (A6) |
+| `NFE_NATUREZA_OPERACAO`, `NFE_NCM`, `NFE_CFOP_INTERNO`, `NFE_CFOP_INTERESTADUAL`, `NFE_CSOSN` ou `NFE_CST`, `NFE_CST_PIS`, `NFE_CST_COFINS`, `NFE_PRESENCA_COMPRADOR`, `NFE_INDICADOR_INTERMEDIADOR`, `NFE_INF_CPL`, `NFE_EMITENTE_UF` | config | Claude | dados fiscais do contador (A1) |
+| `NFE_CANCEL_WINDOW_HOURS` | config | Claude | prazo de cancelamento, `24` (A7) |
+| `NFE_CERT_EXPIRES_AT` | config | Claude | vencimento do A1, se a Notaas não avisar (A10) |
 | `RESEND_API_KEY` | segredo | usuário | envio de e-mail (B1) |
 | `EMAIL_FROM` | config | Claude | remetente, ex.: `Lidiane Delcastanher <contato@mail.delcastanher.srv.br>` |
 | `EMAIL_UNSUBSCRIBE_SECRET` | segredo | usuário | HMAC do link de descadastro (B5) |
 
 ## Integração com o existente
 - **`api/src/payments/orders.service.ts`:** em `apply`, emitir depois do acesso (A4) e cancelar depois da revogação (A7). A criação do pedido grava `payerDocument` e `payerName` (A3).
-- **`api/src/invoices/`** (módulo novo): a interface `InvoiceGateway`, a implementação em `sefin/` (`A1Credential`, `DpsBuilder`, `CancelEventBuilder`, `XmlSigner`, `SefinClient`, `DanfseRenderer`), o `InvoicesService` e a rota do cron. Dependências novas: `node-forge`, `xmlbuilder2`, `xml-crypto`, `fast-xml-parser`, `pdfkit` e `qrcode`.
+- **`api/src/invoices/`** (módulo novo): a interface `InvoiceGateway`, a implementação em `notaas/` (`NotaasClient`, `NfeBuilder`), o `InvoicesService`, o webhook e a rota do cron.
+- **`api/src/main.ts`:** `rawBody: true`, para a verificação do HMAC do webhook (A5).
 - **`api/src/storage/storage.service.ts`:** gravação de arquivo pelo servidor, para o XML e o PDF (A8).
+- **`api/src/payments/dto/create-order.dto.ts` e o checkout do front:** CEP, número e complemento do comprador, com o ViaCEP preenchendo o resto (A3).
 - **`api/src/mail/`** (módulo novo): `MailService` (Resend), layout, e-mail da nota e campanhas.
 - **`api/src/payments/admin-finance.*`:** situação e número da nota na listagem e no CSV (A9).
 - **`api/vercel.json`:** a segunda rota no cron diário.
@@ -434,23 +410,17 @@ enum CampaignStatus { SENDING SENT PARTIAL }
 
 ### Backend (TDD)
 **Nota fiscal**
-- O `DpsBuilder` monta a DPS com o CPF e o nome do tomador, o valor do pedido, a competência em `paidAt`, o `tpAmb` do ambiente e os dados fiscais. O XML valida contra o XSD oficial do Sistema Nacional, versionado nos fixtures de teste.
-- O Id da DPS tem 45 caracteres no formato de A2, e o do evento é `PRE` + chave + `101101`.
-- O `XmlSigner` gera assinatura RSA-SHA256 que o próprio `xml-crypto` valida com o certificado de teste, com a `<Signature>` depois do `infDPS` e o prólogo UTF-8 no início. Um XML alterado depois da assinatura não valida.
-- O `SefinClient` manda o XML em GZip + Base64, com o `pfx` no agente, e lê `erros[]` de um `4xx` sem lançar exceção. Os testes usam um servidor HTTP falso, e nunca a Sefin.
-- A trava de ambiente recusa `tpAmb` 1 com host de produção restrita e vice-versa. Sem `NFSE_ENV`, o ambiente é produção restrita.
-- O `xMotivo` fora de 15 a 255 caracteres é recusado antes do envio.
-- O `DanfseRenderer` gera PDF com o número, a chave e o QR Code da consulta pública.
-- `apply` → `PAID` cria a `Invoice` com o número da DPS reservado e emite uma vez. Um segundo `apply` do mesmo pedido não emite de novo.
-- Uma falha da Sefin ou um timeout **não** muda o pedido, o acesso nem a resposta do webhook do Mercado Pago. O timeout deixa a nota em `UNKNOWN`.
-- `UNKNOWN` com a nota já existente na consulta pela DPS grava a chave **sem reenviar**. Sem a nota, reenvia a **mesma** DPS.
-- Rejeição vira `DENIED` com os erros crus, e o cron não a reenvia.
-- "Emitir de novo" reusa o número no `ERROR` e reserva um novo no `DENIED`.
-- A nota autorizada lê o `nNFSe` do XML devolvido, guarda XML e PDF no Storage (e continua `AUTHORIZED` se o Storage falhar), e o e-mail sai uma vez só, com o PDF anexo e só depois de o PDF estar guardado.
-- `apply` → `REFUNDED` com nota `AUTHORIZED` envia o `e101101` com `cMotivo` 2. A rejeição vira `CANCEL_ERROR` sem desfazer o estorno.
+- O `NfeBuilder` monta o corpo com CPF, nome e endereço do destinatário, um item por módulo, o CFOP interno ou interestadual pela UF, o CSOSN ou CST imune, os pagamentos pelo método do pedido e o `infCpl`, **sem** `dest.email`. Todo código fiscal vem da configuração.
+- `apply` → `PAID` cria a `Invoice` e chama `/nfe/emitir` uma vez. Um segundo `apply` do mesmo pedido não emite de novo.
+- `202` grava o `providerInvoiceId` na hora. `400` vira `ERROR`. Timeout vira `UNKNOWN`, e **nem o cron nem o retry** o reenviam.
+- Uma falha da Notaas **não** muda o pedido, o acesso nem a resposta do webhook do Mercado Pago.
+- O webhook com assinatura HMAC inválida ou ausente dá `401`. Com assinatura válida, o status gravado é o da reconsulta, e não o do corpo. `invoiceId` desconhecido dá `200` sem efeito.
+- `issued` grava número, série, chave e protocolo, baixa XML e PDF para o Storage e manda o e-mail uma vez só, com os anexos. Uma chave diferente numa consulta posterior (contingência) substitui a gravada.
+- O `tpAmb` que não bate com o `NFE_ENV` vira `ERROR` com alerta.
+- `apply` → `REFUNDED` com nota `AUTHORIZED` há menos de 24 horas cancela. Com mais de 24 horas, ou com `422` de prazo, vira `REFUND_PENDING`. O estorno nunca é desfeito.
+- "Vincular" grava o `invoiceId` informado e reconsulta. "Emitir de novo" em `UNKNOWN` exige a confirmação.
 - O cron reconcilia só o próprio ambiente, e só o que está parado há mais de 1 hora.
-- O aviso de vencimento do certificado aparece a 30 dias.
-- O CPF, o `pfx` e a senha não aparecem em log nem em resposta.
+- CPF, endereço e chave de API não aparecem em log nem em resposta pública.
 
 **E-mail**
 - Cada segmento devolve só quem cumpre a regra, sem bloqueados, descadastrados e administradores.
@@ -467,8 +437,8 @@ enum CampaignStatus { SENDING SENT PARTIAL }
 - `/descadastro` só descadastra no clique do botão.
 
 ### Em produção
-- Uma venda real gera a nota autorizada, confere na consulta pública do `nfse.gov.br`, o e-mail chega com o PDF anexo, e o estorno de teste a cancela.
-- Uma venda no preview gera nota de **produção restrita**, com o selo no painel.
+- Uma venda real gera a NF-e autorizada, que confere na consulta pública da Sefaz, o e-mail chega com o DANFE e o XML anexos, e um estorno de teste dentro de 24 horas a cancela.
+- Uma venda no preview gera nota de **homologação**, com o selo no painel.
 - Um disparo de teste chega na caixa de entrada do Gmail e do Outlook, e não no spam, com SPF, DKIM e DMARC válidos.
 - O "Cancelar inscrição" nativo do Gmail descadastra.
 
@@ -511,7 +481,9 @@ O `id` fica numa constante em `landing.ts`, e a seção só aparece com ela pree
 - A Política de Cookies precisa citar o YouTube, como no card da Spec 018.
 
 ## Fora de escopo
-- Emissão de NF-e (mercadoria) e de notas de outros serviços que não a venda na plataforma.
+- NFS-e: o contador definiu NF-e de livro digital (Parte A).
+- Emissão automática da NF-e de devolução no estorno fora do prazo (A7). Fica como pendência no painel até o contador fixar o formato.
+- NFC-e e carta de correção pelo painel.
 - Nota fiscal de venda com valor parcial estornado. O estorno parcial já não é representável (Spec 016, decisão 9).
 - Correção fiscal de nota que não pôde ser cancelada no prazo (A7), que é trabalho da contabilidade.
 - Editor visual de e-mail, imagens no corpo, anexos e agendamento de campanha.
