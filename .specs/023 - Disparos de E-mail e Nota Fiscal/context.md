@@ -41,63 +41,134 @@ O Sistema Nacional da NFS-e foi desenvolvido pela Receita Federal, pela Abrasf e
 
 As APIs comerciais da loja do Serpro são outra coisa, pagas, e não entram aqui.
 
+**Para o Simples Nacional, o padrão nacional deixou de ser opção.** A [Resolução CGSN nº 189/2026](https://cnm.org.br/comunicacao/noticias/cgsn-publica-resolucao-que-torna-obrigatoria-a-nfs-e-nacional-para-empresas-do-simples-a-partir-de-setembro), em vigor desde **2026-09-01**, obriga ME e EPP optantes a emitir a NFS-e pelo Emissor Nacional, pelo portal ou por API. Se o CNPJ da Delcastanher for do Simples, a Sefin Nacional é o caminho obrigatório. A Task 1.1 confirma o regime.
+
 **O preço de ir direto:** o trabalho que um intermediário faria passa a ser nosso:
-- montar o XML da DPS e assiná-lo (XMLDSIG);
+- montar o XML da DPS e assiná-lo (XMLDSig);
 - compactar (GZip + Base64);
 - conectar com o certificado A1 (mTLS);
-- baixar o PDF;
+- **gerar o PDF da nota** (decisão A8);
 - acompanhar as mudanças de layout, como os grupos de IBS e CBS da reforma.
 
-**Condição:** o município do prestador precisa emitir pela Sefin Nacional. Onde a prefeitura mantém sistema próprio, a API nacional não emite, e o caminho é o sistema dela.
+**Alternativa: Focus NFe (paga).** Ela entra se o CNPJ não for do Simples e o município mantiver sistema próprio, ou se a assinatura e a homologação travarem. A versão da spec do commit `253ab5f` tem esse desenho. Ele muda só o cliente e a forma de receber o desfecho: a Focus tem webhook e entrega o PDF. O modelo de dados, os status, o painel e o e-mail continuam iguais (decisão A1).
 
-**Alternativa: Focus NFe (paga).** Se o município não estiver na Sefin Nacional, ou se a assinatura e a homologação travarem, a emissão passa para a Focus NFe. A versão anterior desta spec (commit `253ab5f`) tem esse desenho. Ele muda só o cliente e a forma de receber o desfecho: a Focus tem webhook, e o PDF vem por link. O modelo de dados, os status, o painel e o e-mail continuam iguais (decisão A1).
+### O que já foi apurado da API (2026-09-29)
+**A documentação oficial também está atrás do mTLS.**
+- Os Swaggers da Sefin e do ADN, listados em [APIs - Prod. Restrita e Produção](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/apis-prod-restrita-e-producao), negam o acesso sem certificado de cliente.
+- A Sefin responde `403`, inclusive em `https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional/docs/index`, que é o link oficial de produção restrita.
+- O ADN fecha a conexão sem resposta.
+
+Só com o certificado A1 em mãos é possível abrir o Swagger (Task 1.5).
+
+Por isso, o contrato abaixo vem de três integrações abertas que já emitem pela Sefin, e as três concordam entre si:
+- [Unimake/DFe](https://github.com/Unimake/DFe), em `Servicos/Config/NFSe/NACIONAL.xml` (.NET);
+- [nfewizard-io](https://github.com/nfewizard-org/nfewizard-io), em `packages/shared/src/config/NFSeServicosUrl.json` (Node);
+- [nfse-sem-gateway](https://github.com/tarikbc/nfse-sem-gateway) (MIT, 2026-09). É um guia de uma integração Node que fez **emitir → consultar → cancelar** em produção restrita e em produção, com os códigos de rejeição encontrados.
+
+Tudo aqui é **confirmado no Swagger e na produção restrita** antes de virar código de produção.
+
+Hosts, com todos os paths sob `/SefinNacional`:
+
+| | Produção restrita (testes, `tpAmb` 2) | Produção (`tpAmb` 1) |
+|---|---|---|
+| Sefin | `https://sefin.producaorestrita.nfse.gov.br/SefinNacional` | `https://sefin.nfse.gov.br/SefinNacional` |
+| ADN | `https://adn.producaorestrita.nfse.gov.br` | `https://adn.nfse.gov.br` |
+
+Chamadas. Todas usam `Content-Type: application/json` e mTLS, e o XML sempre viaja em GZip + Base64 dentro de um campo JSON:
+
+| Uso | Chamada | Sucesso |
+|---|---|---|
+| Emitir | `POST /SefinNacional/nfse` `{ dpsXmlGZipB64 }` | `201` `{ chaveAcesso, nfseXmlGZipB64 }`, **síncrono** |
+| Recuperar pela DPS | `GET /SefinNacional/dps/{idDps}` | `200` com a `chaveAcesso` da nota gerada por aquela DPS |
+| Consultar a nota | `GET /SefinNacional/nfse/{chaveAcesso}` | `200` `{ nfseXmlGZipB64 }` |
+| Cancelar | `POST /SefinNacional/nfse/{chaveAcesso}/eventos` `{ pedidoRegistroEventoXmlGZipB64 }` | `201` `{ eventoXmlGZipB64 }` |
+| Convênio do município | `GET {ADN}/parametrizacao/{codigoMunicipio}/convenio` | se o município está no Sistema Nacional (Task 1.5) |
+
+Mais três pontos do contrato:
+- **Rejeições** chegam como `4xx` com `{ "erros": [{ codigo, mensagem }] }`. O cliente HTTP não pode lançar exceção em não-2xx, porque o corpo é o diagnóstico.
+- **O número da nota** (`nNFSe`) só existe **dentro do XML devolvido**, que é descompactado e lido. A `chaveAcesso` (50 dígitos) vem no JSON.
+- **Não existe mais API de PDF.** A API do DANFSe no ADN foi **suspensa em 2026-08-03** pela [NT SE/CGNFS-e 008/2026, v1.02](https://www.gov.br/nfse/pt-br/noticias/se-cgnfs-e-publica-nota-tecnica-no-008-2026-com-regras-para-emissao-do-danfse). Desde então, quem emite gera o PDF a partir do XML autorizado (decisão A8).
 
 ### Pré-requisitos fiscais (do usuário e da contabilidade)
 Nada disto é decisão de código, e a Fase 1 não emite em produção sem os dados:
-- CNPJ, inscrição municipal e município (código IBGE) do prestador.
-- **Se o município emite pela Sefin Nacional** e aceita emissão por API. Confere-se com a contabilidade e na API de parametrização municipal do Sistema Nacional (decisão A1).
-- Regime tributário e opção pelo Simples Nacional.
-- **Código de tributação nacional do ISS** para o serviço, e a alíquota.
-- Se a DPS de 2026 já precisa do grupo de IBS e CBS para este CNPJ, e com que valores.
+- CNPJ e município (código IBGE) do prestador.
+- **Regime tributário.** No Simples, o padrão nacional é obrigatório (CGSN 189/2026). Fora dele, confirma-se o convênio do município (tabela acima).
+- **`cTribNac`**, o código nacional de 6 dígitos do serviço, derivado do item da LC 116. A contabilidade confirma, porque é ele que define o ISS.
+- Os campos do perfil tributário (decisão A2) e se a DPS precisa do grupo de IBS e CBS para este CNPJ.
 - Texto padrão da descrição do serviço.
-- **Certificado digital ICP-Brasil A1** do CNPJ, em arquivo `.pfx`, com a senha. É pago à certificadora e renovado todo ano. O A3 (token ou cartão) não serve, porque a API roda sem ninguém por perto.
-- A série da DPS que a emissão por API vai usar. **Conferir** no manual se há faixa reservada.
+- **Certificado digital ICP-Brasil A1** (e-CNPJ) em `.pfx`, com a senha. É pago à certificadora e renovado todo ano. O A3 (token ou cartão) não serve, porque a API roda sem ninguém por perto.
+- Se o CNPJ já emitiu nota pelo Emissor Nacional, com a numeração usada na série da API, se houver.
 - Correção da classificação da aplicação no Mercado Pago, de "Produto físico" para serviço. Está pendente desde a Spec 014 e é feita junto.
 
 ### Decisões
 
-**A1. Um cliente só para a Sefin Nacional, com o formato isolado.**
-Todo o conhecimento do Sistema Nacional fica em três peças, em `api/src/invoices/sefin/`:
-- **`DpsBuilder`:** `order → XML da DPS`, no layout do Sistema Nacional (`http://www.sped.fazenda.gov.br/nfse`).
-- **`XmlSigner`:** assinatura XMLDSIG envelopada do `infDPS` e do `infPedReg`, com o certificado A1. Usa a biblioteca `xml-crypto`. O algoritmo e a canonicalização seguem o manual, e ficam **conferidos na Task 3.1**: relatos de integradores dizem que SHA-1 é aceito, mas o que vale é o manual vigente.
-- **`SefinClient`:** as chamadas HTTP com mTLS. O `https.Agent` do Node recebe o `pfx` e a senha, e o XML segue em GZip + Base64 no corpo JSON.
+**A1. Módulos pequenos, isolados e testáveis sem rede.**
+Tudo do Sistema Nacional fica em `api/src/invoices/sefin/`, na divisão usada pelo guia nfse-sem-gateway:
+- **`A1Credential`:** abre o `.pfx` uma vez e guarda em cache (`node-forge`). Entrega:
+  - o `pfx` e a senha, para o `https.Agent` do mTLS;
+  - a chave e o certificado em PEM, para a assinatura;
+  - a data de vencimento (decisão A10).
+- **`DpsBuilder`** e **`CancelEventBuilder`:** montam o XML com `xmlbuilder2`, em ordem explícita de elementos, porque **a ordem é validada**.
+- **`XmlSigner`:** assinatura envelopada do `infDPS` e do `infPedReg`, com `xml-crypto`:
 
-O resto do sistema fala com uma interface `InvoiceGateway`: `emit`, `findByDps`, `cancel` e `downloadPdf`. Trocar pela Focus (a alternativa acima) é escrever outra implementação dela.
+  | Parâmetro | Valor |
+  |---|---|
+  | Algoritmo | RSA-SHA256 (`http://www.w3.org/2001/04/xmldsig-more#rsa-sha256`) |
+  | Digest | SHA-256 (`http://www.w3.org/2001/04/xmlenc#sha256`) |
+  | Canonicalização | C14N (`http://www.w3.org/TR/2001/REC-xml-c14n-20010315`) |
+  | Transforms | `enveloped-signature`, depois C14N |
+  | Referência | `#<Id>` do elemento assinado |
+  | `KeyInfo` | com o `<X509Certificate>` |
 
-Rotas usadas. O host de produção é `https://sefin.nfse.gov.br/SefinNacional`, e o de produção restrita é `https://sefin.producaorestrita.nfse.gov.br/SefinNacional`. Os paths e os hosts do ADN são **conferidos no Swagger** na Task 3.1.
+  A `<Signature>` entra como **irmã seguinte** do `infDPS`. Depois de assinar, **prefixa-se** `<?xml version="1.0" encoding="UTF-8"?>`: sem o prólogo, a Sefin rejeita com **E1229**, e o prólogo fica fora da parte assinada. O algoritmo fica numa configuração, porque exemplos antigos usam SHA-1.
+- **`SefinClient`:** as chamadas da tabela acima, com GZip + Base64 (`node:zlib`) e timeout de 10 s. Lê `erros[]` nas rejeições e o XML devolvido com `fast-xml-parser`.
+- **`DanfseRenderer`:** gera o PDF (decisão A8).
 
-| Uso | Chamada |
-|---|---|
-| Emitir | `POST /nfse`, corpo `{ dpsXmlGZipB64 }`. É **síncrona**: devolve a chave de acesso (50 posições) e o XML da NFS-e, ou a lista de erros |
-| Recuperar pela DPS | `GET /dps/{idDps}` devolve a chave de acesso da NFS-e gerada com aquela DPS |
-| Cancelar | `POST /nfse/{chaveAcesso}/eventos`, corpo `{ pedidoRegistroEventoXmlGZipB64 }`, com o evento `e101101` |
-| PDF (DANFSe) | API DANFSe do ADN, pela chave de acesso, também com mTLS |
+O resto do sistema fala com uma interface `InvoiceGateway` (`emit`, `findByDps`, `cancel`). Trocar pela Focus (a alternativa acima) é escrever outra implementação dela.
+
+Os testes de todos os módulos rodam sem rede e sem o certificado real. Usam um certificado autoassinado gerado nos fixtures, o XSD oficial para validar o XML e um servidor HTTP falso para o cliente.
 
 **A2. A DPS tem número próprio, reservado antes do envio, e é ela que impede nota duplicada.**
-O Sistema Nacional não tem um "`ref`" livre como o de um intermediário. A identidade da nota é o **Id da DPS**, montado com:
-- o município emissor;
-- o CNPJ do prestador;
-- a série;
-- o número da DPS.
+A identidade da nota é o **Id da DPS**, com 45 caracteres:
 
-O formato exato é **conferido no manual** (Task 3.1). A mesma DPS não gera duas notas.
-- O número vem de uma **sequência no Postgres** (`invoice_dps_number_seq`). Ele é gravado na `Invoice` **antes** do primeiro envio e nunca muda.
-- Toda nova tentativa (cron, "Emitir de novo", timeout) reenvia **a mesma DPS**. Antes de reenviar uma nota em estado incerto, consulta-se `GET /dps/{idDps}`: se a nota já existe, só se grava a chave.
-- **Um pedido, uma `Invoice`, um número de DPS** (`orderId @unique`).
-- A sequência é por ambiente (A6). Produção restrita e produção não disputam números.
+```
+"DPS" + cLocEmi(7) + tpInsc(1, 2 = CNPJ) + CNPJ(14) + serie(5, com zeros) + nDPS(15, com zeros)
+```
 
-**A3. Gravar o CPF e o nome do comprador no pedido.**
+Exemplo: `DPS` + `4115200` + `2` + `11222333000181` + `00001` + `000000000000042`.
+
+Uma DPS com o mesmo Id não gera segunda nota.
+- **Série `1`** para a API. A série **70000** é do emissor web do portal, com numeração própria. Uma nota digitada à mão no portal nunca colide com as da API, mas também não entra na nossa contagem.
+- O `nDPS` vem de uma **sequência no Postgres** por ambiente. Ele é gravado na `Invoice` **antes** do envio (commit antes do `POST`) e nunca muda. Número queimado por rejeição é permitido (lacunas são aceitas). Número reusado numa DPS diferente, não.
+- Se o CNPJ já emitiu pela API na série 1 com outro sistema, a sequência começa **depois do último número usado** (Task 1.1).
+- **Toda nova tentativa** (cron, timeout) reenvia **a mesma DPS**. Antes de reenviar uma nota em estado incerto, consulta-se `GET /dps/{idDps}`: se a nota existe, só se grava a chave.
+- **Um pedido, uma `Invoice`** (`orderId @unique`).
+
+**Por que gravar a `Invoice` antes do envio, contra o conselho do guia.** O nfse-sem-gateway manda **não** pré-gravar linha pendente, porque lá uma linha pendente contava zero numa soma de "quanto já foi faturado" e gerava segunda nota. Aqui a nota é **por pedido** (`orderId @unique`), e não por soma de período. A linha pré-gravada é justamente o que guarda o `nDPS` para a consulta pela DPS. Não existe caminho que emita uma segunda DPS para o mesmo pedido, a não ser o "Emitir de novo" de uma DPS **rejeitada** (A9), que por definição não gerou nota.
+
+Perfil tributário, na **referência** do guia para Simples Nacional (ME/EPP), sem retenção de ISS. Cada valor tem um código de rejeição associado. **A contabilidade confirma antes da produção restrita:**
+
+| Campo | Valor | Se errar |
+|---|---|---|
+| `tpEmit` | `1` (prestador) | |
+| `opSimpNac` | `3` (ME/EPP) | |
+| `regApTribSN` | `1` | E0166 se ausente |
+| `regEspTrib` | `0` | |
+| `tribISSQN` | `1` | |
+| `tpRetISSQN` | `1` (ISS não retido, pago no DAS) | |
+| alíquota do ISS | **omitida** | E0625 se enviada |
+| `IM` do prestador | **omitida** | E0120 onde o município não tem cadastro complementar |
+| `vTotTribFed`, `vTotTribEst`, `vTotTribMun` | `0.00` | |
+| `dCompet` | data de `paidAt` (mês da prestação) | |
+| `dhEmi` | ISO 8601 com `-03:00` | |
+
+O perfil sai de variáveis de configuração, e não do código (ver "Variáveis de ambiente").
+
+**A3. Gravar os dados do tomador no pedido.**
 O `Order` ganha `payerDocument` (CPF, só dígitos) e `payerName`, gravados na criação a partir do que o checkout já recebe.
+- **Endereço do tomador:** o guia monta o tomador com município (IBGE), CEP e endereço, e registra a rejeição **E1235** por aninhamento errado desses campos. Para tomador pessoa física, **confere-se na produção restrita** se o endereço é obrigatório (Task 1.5).
+  - Se for, o checkout passa a pedir o CEP, e o município (IBGE) e o logradouro vêm do ViaCEP (`https://viacep.com.br/ws/{cep}/json/`, campo `ibge`).
+  - Se não for, a nota sai só com CPF e nome.
 - **Base legal (LGPD):** cumprimento de obrigação legal, porque a nota exige o tomador. O dado não sai em nenhuma resposta além da do próprio comprador e do painel financeiro, e nunca em log.
 - **Pedidos já pagos antes da migration** (a primeira venda real, Spec 022): o CPF é lido do pagamento no Mercado Pago (`payer.identification`), por um script único de backfill, com a conta da `mpConnectionId` de cada pedido.
 - A Política de Privacidade precisa citar a nota fiscal como finalidade do CPF. **Conferir** o texto publicado (Spec 015 ou 022).
@@ -107,8 +178,8 @@ Quando `apply` tira o pedido de pendente para `PAID`, depois de conceder o acess
 1. cria-se a `Invoice` em `PENDING`, com o número da DPS reservado (A2);
 2. monta-se, assina-se e envia-se a DPS;
 3. conforme a resposta:
-   - **nota gerada:** `AUTHORIZED`, com a chave de acesso, o número e o XML;
-   - **rejeição:** `DENIED`, com a lista de erros crua;
+   - **`201`:** `AUTHORIZED`, com a chave de acesso, o `nNFSe` lido do XML e o XML guardado;
+   - **`4xx` com `erros[]`:** `DENIED`, com a lista crua;
    - **timeout ou erro de rede:** `UNKNOWN`. A DPS pode ter chegado, e só a consulta pela DPS responde.
 
 A regra central é que **uma falha da Sefin nunca desfaz nem atrasa o pagamento**:
@@ -118,41 +189,54 @@ A regra central é que **uma falha da Sefin nunca desfaz nem atrasa o pagamento*
 
 Para não segurar a resposta do webhook do Mercado Pago, a emissão tem **timeout curto** (10 s). O que não couber nele vira `UNKNOWN` e fica para o cron.
 
+Se a nota foi emitida e o Storage falhar depois, a `Invoice` **continua `AUTHORIZED`**, porque a nota existe no governo. Os arquivos são refeitos pelo cron a partir de `GET /nfse/{chaveAcesso}`.
+
 **A5. Sem webhook: o cron diário é a rede.**
-O Sistema Nacional não avisa ninguém, porque a emissão é síncrona. O que fica pendente é resolvido pelo cron diário que já existe na API (`vercel.json`, Spec 020), com uma segunda rota, `/internal/invoices/reconcile`. Ela trata as notas paradas há mais de 1 hora:
+A emissão é síncrona, e o Sistema Nacional não avisa ninguém. O que fica pendente é resolvido pelo cron diário que já existe na API (`vercel.json`, Spec 020), com uma segunda rota, `/internal/invoices/reconcile`. Ela trata as notas paradas há mais de 1 hora:
 - `UNKNOWN`: consulta `GET /dps/{idDps}`. Se a nota existe, grava a chave e segue como `AUTHORIZED`. Se não existe, reenvia a mesma DPS.
 - `PENDING` e `ERROR` (falha antes do envio, como certificado ilegível): reenvia.
-- `AUTHORIZED` sem PDF guardado: baixa o PDF de novo (A8).
+- `AUTHORIZED` sem XML ou sem PDF guardado: consulta a nota, guarda o XML e gera o PDF (A8).
 
 `DENIED` **não** é reenviado sozinho: a mesma DPS seria rejeitada de novo. Ele espera a correção e o "Emitir de novo" do painel (A9).
 
 **A6. Ambiente fiscal amarrado ao ambiente da Vercel, porque o banco é um só.**
 Preview e produção usam o mesmo banco, como já tratado na Spec 020 com o `liveMode`.
-- `NFSE_ENV` é `producao` (`tpAmb` 1) **só** no ambiente Production da Vercel. Em preview e em desenvolvimento é `producao_restrita` (`tpAmb` 2), no host de produção restrita, que é o ambiente de testes do Sistema Nacional.
+- `NFSE_ENV` é `producao` (`tpAmb` 1, host de produção) **só** no ambiente Production da Vercel. Em preview, em desenvolvimento e **na ausência da variável** é `producao_restrita` (`tpAmb` 2). Uma variável esquecida nunca emite nota real.
+- **Trava:** o cliente se recusa a enviar se `tpAmb` for 1 e o host não for o de produção, e vice-versa.
 - A `Invoice` grava o `environment` em que nasceu. O painel mostra as notas de produção restrita com um selo, e o cron só reconcilia as do seu próprio ambiente.
 - Uma venda de teste feita no preview **nunca** gera nota com valor fiscal.
 
 **A7. Estorno cancela a nota automaticamente, e o painel mostra quando não der.**
-Quando `apply` leva o pedido a `REFUNDED`, depois de revogar o acesso, e a nota está `AUTHORIZED`:
-- envia-se o evento de cancelamento `e101101`, com `cMotivo` 2 ("Serviço não prestado") e `xMotivo` "Pagamento estornado ao tomador";
-- o `infPedReg` é assinado como a DPS;
-- a resposta é síncrona:
-  - evento registrado → `CANCELLED`;
-  - rejeição → `CANCEL_ERROR`, com os erros.
+Quando `apply` leva o pedido a `REFUNDED`, depois de revogar o acesso, e a nota está `AUTHORIZED`, envia-se o **Pedido de Registro de Evento** `e101101`:
+- raiz `<pedRegEvento versao="1.00">` (e não 1.01, como a DPS), filho `<infPedReg Id="PRE{chaveAcesso}101101">`;
+- campos `tpAmb`, `verAplic`, `dhEvento`, `CNPJAutor` e `chNFSe`, e `e101101` com `xDesc`, `cMotivo` 2 ("Serviço não prestado") e `xMotivo` "Pagamento estornado ao tomador";
+- o `xMotivo` precisa ter **de 15 a 255 caracteres**, e isso é validado antes do envio;
+- o `infPedReg` é assinado como a DPS.
 
-O prazo e as condições do cancelamento são do município e do Sistema Nacional. Fora deles, o cancelamento pode exigir análise fiscal da prefeitura. Nesse caso a correção é com a contabilidade, e **não é automatizada**: o painel mostra o status, e o pedido estornado continua estornado.
+A resposta é síncrona:
+- `201` → `CANCELLED`;
+- `4xx` → `CANCEL_ERROR`, com os erros.
 
-**A8. PDF e XML guardados por nós, e a nota enviada por e-mail com o PDF anexo.**
-O DANFSe do ADN também exige mTLS, então **não há link público** que o comprador possa abrir. Por isso:
-- Assim que a nota é autorizada, a API guarda os dois arquivos no Storage da Spec 010, em `invoices/{environment}/{chaveAcesso}.xml` e `.pdf`:
-  - o **XML** da NFS-e, que é o documento fiscal e precisa ser guardado;
-  - o **PDF**, baixado da API DANFSe.
-- O `StorageService` ganha um método de gravação pelo servidor (hoje ele só emite URL de upload para o navegador).
+O cancelamento por evento tem prazo definido pelo município. Fora dele, é preciso substituição ou processo administrativo. Essa correção é com a contabilidade, e **não é automatizada**: o painel mostra o status, e o pedido estornado continua estornado.
+
+**A8. O PDF (DANFSe) é gerado por nós, a partir do XML autorizado.**
+Desde a NT 008/2026 não há API de PDF, e quem emite gera o DANFSe.
+- O **`DanfseRenderer`** gera uma página A4 no leiaute do **Anexo I da NT 008/2026**, usando `pdfkit` e `qrcode`, com:
+  - todos os campos do XML;
+  - os tributos aproximados (Lei 12.741/2012) e os grupos de IBS e CBS quando houver;
+  - o **QR Code** de no mínimo 1,52 cm × 1,52 cm, apontando para `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave={chaveAcesso}`.
+
+  O guia nfse-sem-gateway tem um renderizador de referência em `references/danfse/`, e ele é o ponto de partida. A NT é a regra.
+- A API guarda os dois arquivos no Storage da Spec 010, em `invoices/{environment}/{chaveAcesso}.xml` e `.pdf`:
+  - o **XML** autorizado é o documento fiscal e precisa ser guardado;
+  - o **PDF** é derivado dele e pode ser refeito a qualquer momento.
+
+  O `StorageService` ganha um método de gravação pelo servidor, porque hoje ele só emite URL de upload para o navegador.
 - A API manda pelo Resend (Parte B, decisão B1) o e-mail transacional "Sua nota fiscal", com:
   - o número;
   - o **PDF em anexo**;
-  - o link da consulta pública do portal nacional (`nfse.gov.br`), onde a chave de acesso confere a nota.
-- O e-mail só sai quando o PDF está guardado. Se o download falhar, o cron tenta de novo (A5), e o e-mail sai depois.
+  - o link da consulta pública com a chave, o mesmo do QR Code.
+- O e-mail só sai quando o PDF está guardado. Se a geração falhar, o cron tenta de novo (A5), e o e-mail sai depois.
 - O e-mail transacional **ignora o descadastro de marketing** (decisão B5), porque é documento da compra.
 
 **A9. O painel financeiro mostra a nota de cada pedido.**
@@ -168,7 +252,8 @@ O CSV de exportação da Spec 016 ganha as colunas de número, chave de acesso e
 **A10. O certificado A1 fica na Vercel, como segredo.**
 - O `.pfx` sobe em Base64 em `NFSE_CERT_PFX_BASE64`, com a senha em `NFSE_CERT_PASSWORD`. Os dois são segredos e sobem pelo usuário.
 - O arquivo tem poucos KB e cabe no limite de variáveis da Vercel.
-- O certificado vence todo ano. A rota do cron registra em log, e o painel financeiro mostra, um aviso **30 dias antes** do vencimento, lido do próprio `.pfx`. Certificado vencido faz toda emissão falhar.
+- Nem a senha nem o material da chave aparecem em log, inclusive dentro de mensagens de erro.
+- O certificado vence todo ano, e o vencimento derruba **ao mesmo tempo** a assinatura e o mTLS. A rota do cron registra em log, e o painel financeiro mostra, um aviso **30 dias antes**, com a data lida do próprio `.pfx` (`notAfter`).
 
 ### Modelo de dados (Parte A)
 ```prisma
@@ -181,15 +266,15 @@ model Invoice {
 
   /// Numero da DPS, reservado antes do primeiro envio e fixo nas novas
   /// tentativas (A2). Troca so no "Emitir de novo" de uma DPS rejeitada.
-  dpsSeries   String
-  dpsNumber   Int
-  dpsId       String        @unique      // Id da DPS, no formato do manual
+  dpsSeries   String                     // '00001'
+  dpsNumber   BigInt
+  dpsId       String        @unique      // 45 caracteres (A2)
 
-  accessKey   String?       @unique      // chave de acesso da NFS-e (50 posicoes)
-  number      String?                    // numero da NFS-e
+  accessKey   String?       @unique      // chaveAcesso, 50 digitos
+  number      String?                    // nNFSe, lido do XML autorizado
   xmlPath     String?                    // Storage (A8)
   pdfPath     String?                    // Storage (A8)
-  /// Resposta crua da Sefin no ultimo erro, sem traducao (mesma regra do `mpStatusDetail`).
+  /// Resposta crua da Sefin no ultimo erro (`erros[]`), sem traducao (mesma regra do `mpStatusDetail`).
   lastError   String?
 
   issuedAt    DateTime?
@@ -207,8 +292,8 @@ model Invoice {
 
 enum InvoiceStatus { PENDING UNKNOWN AUTHORIZED DENIED ERROR CANCELLED CANCEL_ERROR }
 ```
-- O `Order` ganha `payerDocument String?` e `payerName String?` (A3). Os dois são nulos até o backfill.
-- A sequência do número da DPS é criada à mão na migration, uma por ambiente, porque o Prisma não declara sequência avulsa.
+- O `Order` ganha `payerDocument String?` e `payerName String?` (A3), nulos até o backfill, e o endereço do tomador se a produção restrita o exigir.
+- As sequências do `nDPS` são criadas à mão na migration, uma por ambiente, porque o Prisma não declara sequência avulsa. Elas começam depois do último número já usado (A2).
 
 ## Parte B: Disparos de e-mail
 
@@ -308,7 +393,7 @@ enum CampaignStatus { SENDING SENT PARTIAL }
 
 | Método | Rota | Quem | O que faz |
 |---|---|---|---|
-| `GET` | `/internal/invoices/reconcile` | cron da Vercel (`CRON_SECRET`) | consulta pela DPS, reenvia pendências, baixa PDFs e avisa o vencimento do certificado (A5 e A10) |
+| `GET` | `/internal/invoices/reconcile` | cron da Vercel (`CRON_SECRET`) | consulta pela DPS, reenvia pendências, refaz XML e PDF que faltam e avisa o vencimento do certificado (A5 e A10) |
 | `POST` | `/admin/invoices/:orderId/issue` | admin | emite de novo: mesma DPS no `ERROR`, número novo no `DENIED` (A9) |
 | `POST` | `/admin/invoices/:orderId/email` | admin | reenvia o e-mail da nota (A9) |
 | `GET` | `/admin/invoices/:orderId/pdf` | admin | URL assinada de leitura do PDF (A9) |
@@ -327,14 +412,15 @@ enum CampaignStatus { SENDING SENT PARTIAL }
 | `NFSE_ENV` | config | Claude | `producao` só em Production; `producao_restrita` no resto (A6) |
 | `NFSE_CERT_PFX_BASE64` | segredo | usuário | certificado A1 do CNPJ, em Base64 (A10) |
 | `NFSE_CERT_PASSWORD` | segredo | usuário | senha do certificado (A10) |
-| `NFSE_PRESTADOR_CNPJ`, `NFSE_INSCRICAO_MUNICIPAL`, `NFSE_MUNICIPIO_IBGE`, `NFSE_CODIGO_TRIBUTACAO`, `NFSE_ALIQUOTA_ISS`, `NFSE_REGIME`, `NFSE_DPS_SERIE`, `NFSE_DESCRICAO` | config | Claude | dados fiscais da contabilidade |
+| `NFSE_PRESTADOR_CNPJ`, `NFSE_MUNICIPIO_IBGE`, `NFSE_CTRIBNAC`, `NFSE_OP_SIMP_NAC`, `NFSE_REG_AP_TRIB_SN`, `NFSE_REG_ESP_TRIB`, `NFSE_DPS_SERIE`, `NFSE_DESCRICAO` | config | Claude | dados fiscais e perfil tributário da contabilidade (A2) |
+| `NFSE_SIGNATURE_ALGORITHM` | config | Claude | `rsa-sha256` por padrão (A1) |
 | `RESEND_API_KEY` | segredo | usuário | envio de e-mail (B1) |
 | `EMAIL_FROM` | config | Claude | remetente, ex.: `Lidiane Delcastanher <contato@mail.delcastanher.srv.br>` |
 | `EMAIL_UNSUBSCRIBE_SECRET` | segredo | usuário | HMAC do link de descadastro (B5) |
 
 ## Integração com o existente
 - **`api/src/payments/orders.service.ts`:** em `apply`, emitir depois do acesso (A4) e cancelar depois da revogação (A7). A criação do pedido grava `payerDocument` e `payerName` (A3).
-- **`api/src/invoices/`** (módulo novo): a interface `InvoiceGateway`, a implementação em `sefin/` (`DpsBuilder`, `XmlSigner`, `SefinClient`), o `InvoicesService` e a rota do cron. Dependência nova: `xml-crypto`.
+- **`api/src/invoices/`** (módulo novo): a interface `InvoiceGateway`, a implementação em `sefin/` (`A1Credential`, `DpsBuilder`, `CancelEventBuilder`, `XmlSigner`, `SefinClient`, `DanfseRenderer`), o `InvoicesService` e a rota do cron. Dependências novas: `node-forge`, `xmlbuilder2`, `xml-crypto`, `fast-xml-parser`, `pdfkit` e `qrcode`.
 - **`api/src/storage/storage.service.ts`:** gravação de arquivo pelo servidor, para o XML e o PDF (A8).
 - **`api/src/mail/`** (módulo novo): `MailService` (Resend), layout, e-mail da nota e campanhas.
 - **`api/src/payments/admin-finance.*`:** situação e número da nota na listagem e no CSV (A9).
@@ -349,14 +435,18 @@ enum CampaignStatus { SENDING SENT PARTIAL }
 ### Backend (TDD)
 **Nota fiscal**
 - O `DpsBuilder` monta a DPS com o CPF e o nome do tomador, o valor do pedido, a competência em `paidAt`, o `tpAmb` do ambiente e os dados fiscais. O XML valida contra o XSD oficial do Sistema Nacional, versionado nos fixtures de teste.
-- O `XmlSigner` gera assinatura que o próprio `xml-crypto` valida com o certificado de teste. Um XML alterado depois da assinatura não valida.
-- O `SefinClient` manda o XML em GZip + Base64, com o `pfx` no agente. Os testes usam um servidor HTTP falso, e nunca a Sefin.
+- O Id da DPS tem 45 caracteres no formato de A2, e o do evento é `PRE` + chave + `101101`.
+- O `XmlSigner` gera assinatura RSA-SHA256 que o próprio `xml-crypto` valida com o certificado de teste, com a `<Signature>` depois do `infDPS` e o prólogo UTF-8 no início. Um XML alterado depois da assinatura não valida.
+- O `SefinClient` manda o XML em GZip + Base64, com o `pfx` no agente, e lê `erros[]` de um `4xx` sem lançar exceção. Os testes usam um servidor HTTP falso, e nunca a Sefin.
+- A trava de ambiente recusa `tpAmb` 1 com host de produção restrita e vice-versa. Sem `NFSE_ENV`, o ambiente é produção restrita.
+- O `xMotivo` fora de 15 a 255 caracteres é recusado antes do envio.
+- O `DanfseRenderer` gera PDF com o número, a chave e o QR Code da consulta pública.
 - `apply` → `PAID` cria a `Invoice` com o número da DPS reservado e emite uma vez. Um segundo `apply` do mesmo pedido não emite de novo.
 - Uma falha da Sefin ou um timeout **não** muda o pedido, o acesso nem a resposta do webhook do Mercado Pago. O timeout deixa a nota em `UNKNOWN`.
 - `UNKNOWN` com a nota já existente na consulta pela DPS grava a chave **sem reenviar**. Sem a nota, reenvia a **mesma** DPS.
 - Rejeição vira `DENIED` com os erros crus, e o cron não a reenvia.
 - "Emitir de novo" reusa o número no `ERROR` e reserva um novo no `DENIED`.
-- A nota autorizada guarda XML e PDF no Storage, e o e-mail sai uma vez só, com o PDF anexo e só depois de o PDF estar guardado.
+- A nota autorizada lê o `nNFSe` do XML devolvido, guarda XML e PDF no Storage (e continua `AUTHORIZED` se o Storage falhar), e o e-mail sai uma vez só, com o PDF anexo e só depois de o PDF estar guardado.
 - `apply` → `REFUNDED` com nota `AUTHORIZED` envia o `e101101` com `cMotivo` 2. A rejeição vira `CANCEL_ERROR` sem desfazer o estorno.
 - O cron reconcilia só o próprio ambiente, e só o que está parado há mais de 1 hora.
 - O aviso de vencimento do certificado aparece a 30 dias.
