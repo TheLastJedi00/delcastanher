@@ -94,8 +94,10 @@ Ordem das fases (definida pelo usuário: **painel pronto antes do CRUD**):
 - [ ] **Task 4.7:** **Lidiane:** definir a carga horária no bloco "Dados do curso". Conferir em seguida que a hero e o FAQ de `/cursos/imersao-rh` mostram o valor sem deploy, e que o certificado de um aluno e a verificação pública dele mostram o mesmo número. Registrar aqui o valor.
 - [x] **Task 4.8:** Criar no Vercel Firewall do projeto `delcastanher-api` a regra de rate limit da decisão 17: `/legal/*` e `/courses/*`, 120 requisições por minuto por IP, resposta `429`. Conferir antes, no plano da conta, quantas regras de rate limit ele permite. A regra muda a produção: criar só com autorização do usuário, e registrar aqui a data e o id.
   - Criada e publicada em 28/09/2026 pelo `vercel firewall`: regra `rule_spec_022_rate_limit_rotas_publicas_zEGx7m` (fixed window, 60 s, 120 por IP, ação `rate_limit`).
-- [ ] **Task 4.9:** Depois do deploy, conferir em produção:
+- [x] **Task 4.9:** Depois do deploy, conferir em produção:
   - `curl -I` duas vezes seguidas em `/legal/policy-version` mostra `x-vercel-cache: HIT` na segunda;
   - um laço acima de 120 requisições por minuto recebe `429`;
   - `/admin/legal/documents` responde `no-store`.
-- [ ] **Task 4.10:** Atualizar o card "[015] Redigir os Termos de Uso" no Trello (hoje em "Concluído" sem o texto publicado) e o card do `<h1>` do admin, para registrar a parte feita aqui.
+  - 29/09/2026, depois do merge do PR #32: `/legal/policy-version` com `x-vercel-cache: HIT` nas duas chamadas (a Vercel consome o `s-maxage` e repassa `max-age=60` ao navegador); o 404 dos Termos também sai com cache; 140 requisições seguidas deram 116 × 200 e 24 × 429. Sem sessão, `/admin/legal/documents` responde 401 antes do interceptor; o `no-store` com sessão está coberto pela `cache.http.spec`. O front foi redisparado depois da API, e o HTML de produção saiu com a Privacidade (15 seções) e a Cookies (6) do banco.
+- [x] **Task 4.10:** Atualizar o card "[015] Redigir os Termos de Uso" no Trello (hoje em "Concluído" sem o texto publicado) e o card do `<h1>` do admin, para registrar a parte feita aqui.
+  - 29/09/2026: o card dos Termos virou "[015/022] Publicar os Termos de Uso pelo painel", com o passo a passo para a Lidiane, e voltou para "Pendências (specs anteriores)". O card do `<h1>` ganhou comentário: a aba Políticas & Termos já tem; as outras quatro abas não.
