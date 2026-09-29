@@ -27,7 +27,7 @@ import { buildThenBrowser } from '../../core/services/build-then-browser';
 import { CourseSummaryService } from '../../core/services/course-summary.service';
 import { JsonLdService } from '../../core/services/json-ld.service';
 import { SITE_ORIGIN } from '../../core/services/seo.service';
-import { StoreService } from '../../core/services/store.service';
+import { StoreService, formatPrice } from '../../core/services/store.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Accordion, AccordionItem } from '../../shared/ui/accordion/accordion';
 import { BundlePrice } from '../../shared/ui/bundle-price/bundle-price';
@@ -163,6 +163,22 @@ export class CourseDetail {
 
   /** Faixa de escassez com as vagas reais do lote vigente, como no /planos. */
   protected readonly scarcity = computed(() => bundleScarcity(this.bundle()));
+
+  /**
+   * Menor preco entre os modulos avulsos a venda, lido da oferta: muda sozinho
+   * quando o preco muda no painel. Nulo sem oferta ou sem modulo com preco.
+   */
+  protected readonly moduleFromCents = computed(() => {
+    const prices = (this.store.offer()?.modules ?? [])
+      .map(module => module.priceCents)
+      .filter((cents): cents is number => cents !== null);
+
+    return prices.length ? Math.min(...prices) : null;
+  });
+
+  protected price(cents: number): string {
+    return formatPrice(cents);
+  }
 
   /**
    * Destino dos CTAs de compra: a loja, com o Pacote de Lancamento escolhido
