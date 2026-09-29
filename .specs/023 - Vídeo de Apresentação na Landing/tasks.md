@@ -1,57 +1,43 @@
 # Tasks: Spec 023 - Vídeo de Apresentação na Landing
 
-Spec de `api/` (NestJS + Jest) e `front/` (Angular standalone + signals + Tailwind), com configuração no Mux e na Vercel. No backend a suíte vem **antes** da implementação, conforme `.claude/RULES.md`. Valem o Design System da Spec 002 e os componentes de `front/src/app/shared/ui/`. As decisões referenciadas estão no `context.md`.
+Spec só de `front/` (Angular standalone + signals + Tailwind). Valem o Design System da Spec 002 e os componentes de `front/src/app/shared/ui/`. As decisões referenciadas estão no `context.md`.
 
 Ordem das fases:
-1. A rota e a assinatura vêm primeiro, porque é nelas que mora o único risco de segurança (decisão 3).
-2. Depois vem a seção da landing, contra a rota já testada.
-3. O asset, a restrição e as variáveis mexem no Mux e na Vercel de produção, e ficam para depois do código pronto.
-4. A verificação em produção fecha a spec.
+1. O upload no YouTube vem primeiro, porque é o usuário quem faz e dele sai o `id`. A Fase 2 não depende dele: o código sobe com a constante vazia, e a seção só aparece quando o `id` entra.
+2. Depois vem o código.
+3. A verificação em produção fecha a spec.
 
-## Fase 1: Backend - Rota do Vídeo da Landing (TDD)
-- [ ] **Task 1.1:** Estender a suíte do `MuxService`: `signPlayback` com `playback_restriction_id` quando recebe a restrição, e sem ela quando não recebe; o token das aulas continua igual ao de hoje (decisão 3).
-- [ ] **Task 1.2:** Implementar o parâmetro opcional em `signPlayback`, e `createPlaybackRestriction` (referrer com a lista de domínios, `allow_no_referrer: true` e user-agent vazio recusado, decisão 2).
-- [ ] **Task 1.3:** Escrever a suíte de `GET /landing/intro-video`:
-  - token com `sub = MUX_LANDING_PLAYBACK_ID`, `aud: 'v'`, `exp` 1 h à frente e a restrição;
-  - `?playbackId=<id de aula>`, corpo e cabeçalhos **não** mudam o `sub`;
-  - sem `MUX_LANDING_PLAYBACK_ID`, `404` sem assinar nada;
-  - sem `MUX_LANDING_RESTRICTION_ID`, token sem restrição;
-  - `Cache-Control` público com `s-maxage=300`, e a mesma resposta com e sem `Authorization`.
-- [ ] **Task 1.4:** Implementar o `LandingModule` (controller e serviço), com a leitura das duas variáveis no `media.config.ts`. Se a Spec 022 ainda não tiver criado o `@PublicCache()`, criá-lo aqui, com TTL por parâmetro.
-- [ ] **Task 1.5:** Escrever o script `npm run media:landing-video`: sobe o MP4 ao Storage, cria o asset (`signed`, `basic`, legenda gerada em português se o plano permitir, decisão 9) e a restrição, e imprime os dois ids. **Não rodar** nesta fase.
-- [ ] **Task 1.6:** Documentar no `api/.env.example` as duas variáveis e o procedimento de desligamento em três níveis (decisão 6).
-- [ ] **Task 1.7:** Rodar `npm test` no `api/` e corrigir regressões. `mux.service.ts` é compartilhado com as aulas (Specs 010 e 012).
+## Fase 1: YouTube (usuário)
+- [ ] **Task 1.1:** Com o usuário, decidir e registrar aqui (decisão 1):
+  - o canal: da Lidiane ou da Delcastanher;
+  - a visibilidade: não listado ou público.
+- [ ] **Task 1.2:** O usuário sobe a "Chamada módulo 1" no canal escolhido. Conferir a legenda automática em português no Studio e corrigir se precisar (decisão 7).
+- [ ] **Task 1.3:** Registrar aqui o `id` do vídeo (11 caracteres) e a data do upload.
 
 ## Fase 2: Front - Seção "Conheça a Imersão"
-- [ ] **Task 2.1:** Extrair um quadro do vídeo como pôster (JPEG ou WebP, 1024×576), salvar em `front/public/assets/` e registrar aqui de que segundo do vídeo ele saiu.
-- [ ] **Task 2.2:** Criar o `LandingVideoService`: busca a rota uma vez, no navegador; guarda o token com o vencimento; e renova antes de tocar se o token tiver vencido (decisão 5).
-- [ ] **Task 2.3:** Montar a seção entre a hero e "A Mentora" (decisão 8): título, frase, `ui-video-player` com o pôster por `NgOptimizedImage`, e o CTA "Quero me Inscrever Agora" para `/cursos/imersao-rh`. A seção fica em `@if`, e some quando a rota dá `404` ou falha.
-- [ ] **Task 2.4:** Conferir que o `ui-video-player` aceita o pôster por `NgOptimizedImage` sem quebrar a trilha do aluno. Se precisar mudar o componente, cobrir os dois usos.
-- [ ] **Task 2.5:** Cobrir nos specs:
-  - pôster e botão sem `<mux-player>` antes do clique;
-  - a rota chamada uma vez;
-  - o clique montando o player;
-  - o token vencido renovado;
-  - a seção ausente no `404` e no erro.
-- [ ] **Task 2.6:** Rodar `ng test` e `ng build`, e conferir no HTML pré-renderizado de `/` a seção com o pôster e sem `<mux-player>`.
+- [ ] **Task 2.1:** Extrair um quadro do vídeo como pôster (JPEG ou WebP, 1024×576), salvar em `front/public/assets/` e registrar aqui de que segundo do vídeo ele saiu (decisão 4).
+- [ ] **Task 2.2:** Tirar a regra do YouTube (padrão do `id` e URL do embed) de `media-card.ts` para um arquivo próprio em `shared/ui/`, e fazer o `ui-media-card` importá-la. A suíte do card tem que passar sem mudança (decisão 3).
+- [ ] **Task 2.3:** Criar o `ui-youtube-facade` (decisões 2, 3 e 7):
+  - entradas `id`, `title` e `poster`;
+  - 16:9, com o pôster por `NgOptimizedImage` e o botão com `aria-label`;
+  - no clique, o `<iframe>` do `youtube-nocookie.com` com `autoplay=1&rel=0` e `title`;
+  - com `id` inválido, só o pôster.
+- [ ] **Task 2.4:** Montar a seção entre a hero e "A Mentora" (decisão 6), com `ui-section-header`, frase, player e o CTA para `/cursos/imersao-rh`. O `id` fica numa constante em `landing.ts`, e a seção fica em `@if` enquanto ela estiver vazia.
+- [ ] **Task 2.5:** Acrescentar o `VideoObject` da chamada ao `subjectOf` do `personSchema()`, com `embedUrl`, e com `url` só se o vídeo for público (decisão 8).
+- [ ] **Task 2.6:** Cobrir nos specs:
+  - pôster e botão sem `<iframe>` antes do clique;
+  - o clique montando o `<iframe>` certo;
+  - `id` inválido sem botão;
+  - a seção ausente com a constante vazia;
+  - o `VideoObject` no JSON-LD.
+- [ ] **Task 2.7:** Rodar `ng test` e `ng build`. Conferir no HTML pré-renderizado de `/` a seção com o pôster e sem `<iframe>`.
 
-## Fase 3: Mux e Vercel (produção)
-- [ ] **Task 3.1:** Conferir no plano do Mux:
-  - a entrega grátis de 100.000 minutos por mês;
-  - se há alerta de uso;
-  - o preço da legenda gerada.
-
-  Registrar aqui (decisões 7 e 9).
-- [ ] **Task 3.2:** **Com autorização do usuário**, rodar `npm run media:landing-video` contra o Mux de produção e registrar aqui o asset, o `playbackId` e a restrição.
-- [ ] **Task 3.3:** Criar `MUX_LANDING_PLAYBACK_ID` e `MUX_LANDING_RESTRICTION_ID` na Vercel do projeto `delcastanher-api`, em produção. São config, então sobem pelo Claude.
-- [ ] **Task 3.4:** Acrescentar `/landing/*` à regra de rate limit do Vercel Firewall (decisão 4). Se a regra da Spec 022 ainda não existir, criá-la aqui, com autorização do usuário.
-- [ ] **Task 3.5:** Configurar o alerta de uso de entrega em 50.000 minutos, se o plano tiver. Se não tiver, anotar aqui a rotina de conferência semanal no primeiro mês (decisão 7).
-
-## Fase 4: Verificação em Produção
-- [ ] **Task 4.1:** Tocar o vídeo no Chrome do desktop, no Safari do iPhone e no Chrome do Android. O iPhone é o caso do referrer ausente (decisão 2).
-- [ ] **Task 4.2:** Embutir o mesmo `playbackId`, com um token válido, numa página de outro domínio: não toca.
-- [ ] **Task 4.3:** Usar o token copiado da rota com o `playbackId` de uma aula: não toca (decisão 3).
-- [ ] **Task 4.4:** `curl -I` duas vezes em `/landing/intro-video`: a segunda vem com `x-vercel-cache: HIT`. Um laço acima de 120 req/min recebe `429`.
-- [ ] **Task 4.5:** Testar o desligamento do nível 1 (decisão 6): tirar a variável, fazer redeploy e ver a seção sumir; depois devolver a variável.
-- [ ] **Task 4.6:** Conferir a navegação por teclado até o botão de reproduzir, e o `aria-label`.
-- [ ] **Task 4.7:** Uma semana depois, conferir o uso de entrega do asset no Mux e registrar aqui.
+## Fase 3: Verificação em Produção
+- [ ] **Task 3.1:** Tocar o vídeo no Chrome do desktop, no Safari do iPhone e no Chrome do Android.
+- [ ] **Task 3.2:** Na aba de rede, conferir que antes do clique nenhuma requisição vai a `youtube.com`, `youtube-nocookie.com`, `ytimg.com` ou `googlevideo.com` (decisão 2).
+- [ ] **Task 3.3:** Tocar algumas vezes, numa janela anônima, e registrar aqui:
+  - se aparece anúncio antes do vídeo;
+  - o que aparece no fim (`rel=0`).
+- [ ] **Task 3.4:** Conferir se a Política de Cookies publicada cita o YouTube. Se não citar, ajustar o texto pelo painel (decisão 9).
+- [ ] **Task 3.5:** Conferir a navegação por teclado até o botão de reproduzir, e o `aria-label`.
+- [ ] **Task 3.6:** Validar a landing no [Rich Results Test](https://search.google.com/test/rich-results) e registrar aqui se o `VideoObject` foi reconhecido.
