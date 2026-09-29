@@ -87,7 +87,8 @@ Ordem das fases (definida pelo usuário: **painel pronto antes do CRUD**):
   - 28/09/2026: API local contra o banco, front em 4200. Privacidade (15 seções) e Cookies (6) com o texto do banco; Termos "em preparação"; banner reabre com versão antiga; `/cursos/imersao-rh` sem placeholder na hero.
 - [x] **Task 4.2:** No painel, salvar um rascunho da Privacidade, conferir a pré-visualização e descartar: o site não muda.
   - 29/09/2026: com admin de teste (removido depois), rascunho salvo com pré-visualização ao vivo, diálogo de publicação conferido sem publicar, rascunho descartado; `GET /legal/documents/privacy` não mudou. Histórico, leitura, aviso da Cookies e validação do bloco "Dados do curso" também conferidos. O onboarding do admin de teste gravou `policyAcceptedVersion = 2026-09-13` com o rótulo só de Privacidade e Cookies.
-- [ ] **Task 4.3:** Publicar uma correção na Privacidade: o texto muda sem deploy e o banner **não** reabre. Publicar de volta o texto original, também como correção. As duas publicações ficam no histórico para sempre (decisão 2), então rodar só com autorização do usuário. A alternativa é fazer a primeira correção real, como a troca de contato, servir de verificação.
+- [x] **Task 4.3:** Publicar uma correção na Privacidade: o texto muda sem deploy e o banner **não** reabre. Publicar de volta o texto original, também como correção. As duas publicações ficam no histórico para sempre (decisão 2), então rodar só com autorização do usuário. A alternativa é fazer a primeira correção real, como a troca de contato, servir de verificação.
+  - 28/09/2026: dispensada pelo usuário — nenhuma correção de teste publicada. A publicação fica coberta pelos testes da Task 2.2 e pela primeira correção real.
 - [x] **Task 4.4:** **Não** publicar Termos de teste. O banco é um só, o de produção, e versão publicada não se apaga (decisão 2): um texto de teste ficaria para sempre no histórico e no registro de aceite. O fluxo da primeira publicação dos Termos fica coberto pelos testes das Tasks 2.2 e 3.6, e é verificado de verdade na Task 4.5.
 - [ ] **Task 4.5:** **Lidiane:** colar o texto do jurídico nos Termos de Uso pelo painel de produção, conferir a pré-visualização e publicar. Conferir em seguida: `/termos-de-uso` mostra o texto sem deploy, a versão da política sobe, o banner reabre e o onboarding passa a listar os Termos. Registrar aqui a data e a versão.
 - [ ] **Task 4.6:** Conferir a navegação por teclado e a hierarquia de cabeçalhos da aba e das três páginas.
@@ -101,3 +102,25 @@ Ordem das fases (definida pelo usuário: **painel pronto antes do CRUD**):
   - 29/09/2026, depois do merge do PR #32: `/legal/policy-version` com `x-vercel-cache: HIT` nas duas chamadas (a Vercel consome o `s-maxage` e repassa `max-age=60` ao navegador); o 404 dos Termos também sai com cache; 140 requisições seguidas deram 116 × 200 e 24 × 429. Sem sessão, `/admin/legal/documents` responde 401 antes do interceptor; o `no-store` com sessão está coberto pela `cache.http.spec`. O front foi redisparado depois da API, e o HTML de produção saiu com a Privacidade (15 seções) e a Cookies (6) do banco.
 - [x] **Task 4.10:** Atualizar o card "[015] Redigir os Termos de Uso" no Trello (hoje em "Concluído" sem o texto publicado) e o card do `<h1>` do admin, para registrar a parte feita aqui.
   - 29/09/2026: o card dos Termos virou "[015/022] Publicar os Termos de Uso pelo painel", com o passo a passo para a Lidiane, e voltou para "Pendências (specs anteriores)". O card do `<h1>` ganhou comentário: a aba Políticas & Termos já tem; as outras quatro abas não.
+
+## Correções depois do merge
+
+Pedidas pelo usuário em 29/09/2026, depois do merge do PR #32. Cada uma em branch `fix/` com PR contra a `main`, já com merge feito e conferida em produção.
+
+- [x] **Fix 1 — Seção "Investimento" de `/cursos/imersao-rh` com a oferta real (PR #34).** A seção "Quanto custa estruturar o RH do jeito certo" ainda tinha os placeholders da Spec 006: `[PREÇO CHEIO]`, `[PREÇO]`, `[Nx DE R$ ...]`, o checkout de demonstração e `[PRAZO DE GARANTIA]`.
+  - Passa a ler a mesma oferta do `/planos` (`GET /store/offer`, só no navegador; no build sai o esqueleto): lote vigente, âncora dos 12 módulos avulsos e parcelamento, pelo `ui-bundle-price`.
+  - A faixa de escassez usa as vagas reais do lote. `bundleScarcity` saiu do `/planos` para `plans.mock.ts`, para as duas páginas dizerem o mesmo.
+  - O CTA leva a `/loja?pacote=imersao-rh-lancamento`. Saiu o "Checkout em demonstração", e o `CourseOffer` do mock ficou só com o `ctaLabel`.
+  - A garantia com `[PRAZO DE GARANTIA]` e a pergunta "E se eu não gostar?" do FAQ somem enquanto o prazo for placeholder (decisão 13).
+  - Conferido em produção: "Restam 20 vagas no 🔥 Lote Fundador", R$ 590,00, âncora R$ 2.372,00, "em até 12x no cartão" e "6 meses de acesso" vindo da API.
+- [x] **Fix 2 — Módulos avulsos "a partir de R$ X" com o menor preço real (PR #35).** O link dos módulos avulsos na seção "Investimento" mostra o menor preço entre os módulos à venda, lido da oferta. Módulo sem preço é ignorado; sem nenhum preço, a frase fica sem valor. Hoje aparece R$ 5,00, preço temporário do módulo 01 (teste do gateway), e a página acompanha sozinha quando o preço for ajustado no painel.
+- [x] **Fix 3 — Landing sem "Sem aulas publicadas" na "Trilha de Aprendizado" (PR #36).** A landing reaproveita o `ui-module-card` da área do aluno, que mostrava a linha de aulas vazia. A grade da landing é a lista fixa do curso, sem consulta ao banco: o card ganhou `showLessons` (padrão `true`, a trilha do aluno não muda) e a landing passa `false`.
+
+Front depois das três: 585 testes passando.
+
+## Pendências
+
+- **Task 4.5 (Lidiane):** publicar os Termos de Uso pelo painel quando o texto do jurídico chegar. Card no Trello: "[015/022] Publicar os Termos de Uso pelo painel".
+- **Task 4.7 (Lidiane):** definir a carga horária no bloco "Dados do curso".
+- **Task 4.6:** conferir navegação por teclado e hierarquia de cabeçalhos da aba e das três páginas.
+- **Preço do módulo 01:** está em R$ 5,00, temporário, e aparece no "a partir de" da página do curso até ser ajustado no painel.
