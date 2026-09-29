@@ -317,6 +317,26 @@ describe('CourseDetail', () => {
       expect(hrefs).toContain('/planos#modulos');
     });
 
+    it('mostra o menor preço real dos módulos avulsos, ignorando o sem preço', () => {
+      responderOferta({
+        ...OFFER,
+        modules: [
+          { order: 1, title: 'Fundamentos', priceCents: 19700 },
+          { order: 2, title: 'Diagnóstico', priceCents: 14900 },
+          { order: 3, title: 'Em breve', priceCents: null },
+        ],
+      });
+
+      expect(ofertaTexto()).toContain('Veja os módulos avulsos, a partir de R$ 149,00.');
+    });
+
+    it('sem módulo com preço, não inventa o "a partir de"', () => {
+      responderOferta(OFFER);
+
+      expect(ofertaTexto()).not.toContain('a partir de');
+      expect(ofertaTexto()).toContain('Veja os módulos avulsos.');
+    });
+
     it('não promete garantia sem prazo nem mostra checkout de demonstração', () => {
       responderOferta(OFFER);
 

@@ -222,7 +222,7 @@
                 Precisa de um tema só?
                 <a routerLink="/planos" fragment="modulos" class="font-semibold text-brand-teal-deep underline underline-offset-2">
                   Veja os módulos avulsos</a
-                >.
+                >@if (moduleFromCents(); as cents) {, a partir de {{ price(cents) }}}.
               </p>
 
               <p class="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
