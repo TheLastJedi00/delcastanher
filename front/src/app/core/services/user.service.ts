@@ -36,6 +36,18 @@ export interface UpdateProfilePayload {
   policyVersion?: string;
 }
 
+/**
+ * Recusa do aceite porque a politica mudou enquanto a pessoa estava no
+ * onboarding (Spec 022, decisao 7): a API devolve 409 com a versao nova, e a
+ * tela recarrega os documentos e pede o aceite de novo.
+ */
+export class PolicyVersionConflict {
+  constructor(
+    readonly message: string,
+    readonly policyVersion: string | null,
+  ) {}
+}
+
 /** Iniciais para o avatar, a partir do nome ou do e-mail. */
 function initialsOf(profile: UserProfile): string {
   const parts = (profile.name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -90,10 +102,25 @@ export class UserService {
     return current ? of(current) : this.loadProfile().pipe(catchError(() => of(null)));
   }
 
+  /**
+   * Grava o perfil. Falha com a mensagem do servidor, ou com um
+   * `PolicyVersionConflict` quando o aceite era de uma versao que ja nao esta
+   * em vigor.
+   */
   updateProfile(payload: UpdateProfilePayload): Observable<UserProfile> {
     return this.http.patch<UserProfile>(`${environment.apiUrl}/users/me`, payload).pipe(
       tap(profile => this.state.set(profile)),
-      catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
+      catchError((error: HttpErrorResponse) => {
+        const body = error.error as { policyVersion?: string | null } | null;
+
+        if (error.status === 409 && body && 'policyVersion' in body) {
+          return throwError(
+            () => new PolicyVersionConflict(this.toMessage(error), body.policyVersion ?? null),
+          );
+        }
+
+        return throwError(() => this.toMessage(error));
+      }),
     );
   }
 

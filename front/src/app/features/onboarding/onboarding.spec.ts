@@ -3,11 +3,12 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
-import { CONSENT_POLICY_VERSION } from '../../core/services/consent.service';
+import { PolicyStatus } from '../../core/services/legal-documents.service';
 import { signInForTest } from '../../core/testing/session';
 import { Onboarding } from './onboarding';
 
 const ME = `${environment.apiUrl}/users/me`;
+const POLICY = `${environment.apiUrl}/legal/policy-version`;
 
 const VALID = {
   name: 'Aluno Teste',
@@ -38,9 +39,17 @@ describe('Onboarding', () => {
     component = fixture.componentInstance;
     backend = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    backend.expectOne(POLICY).flush({ version: '2026-09-13', published: ['PRIVACY', 'COOKIES'] });
+    fixture.detectChanges();
   });
 
   afterEach(() => backend.verify());
+
+  /** Troca a politica carregada, como se a pagina tivesse aberto com ela. */
+  function recarregarPolitica(status: PolicyStatus): void {
+    component.policy.set(status);
+    fixture.detectChanges();
+  }
 
   it('nao envia nada e aponta os campos obrigatorios vazios', () => {
     component.submit();
@@ -91,7 +100,7 @@ describe('Onboarding', () => {
       phone: '(11) 90000-0000',
       linkedin: undefined,
       policyAccepted: true,
-      policyVersion: CONSENT_POLICY_VERSION,
+      policyVersion: '2026-09-13',
     });
 
     request.flush({ id: 'uid-123', onboardingCompleted: true });
@@ -143,17 +152,75 @@ describe('Onboarding', () => {
       expect(botao()!.disabled).toBeFalse();
     });
 
-    it('linka os três documentos em aba nova, para não perder o formulário', () => {
-      const links: HTMLAnchorElement[] = Array.from(
-        fixture.nativeElement.querySelectorAll('ui-checkbox a'),
-      );
+    function rotulo(): string {
+      return (fixture.nativeElement.querySelector('ui-checkbox').textContent as string)
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
 
-      expect(links.map(a => a.getAttribute('href'))).toEqual([
+    function links(): HTMLAnchorElement[] {
+      return Array.from(fixture.nativeElement.querySelectorAll('ui-checkbox a'));
+    }
+
+    // Spec 022, decisao 6: aceitar um texto que nao existe nao e aceite.
+    it('sem os Termos publicados, lista só a Privacidade e a Cookies, em aba nova', () => {
+      expect(links().map(a => a.getAttribute('href'))).toEqual([
+        '/politica-de-privacidade',
+        '/politica-de-cookies',
+      ]);
+      expect(links().every(a => a.target === '_blank')).toBeTrue();
+      expect(rotulo()).toBe('Li e aceito a Política de Privacidade e a Política de Cookies.');
+    });
+
+    it('com os Termos publicados, pede ciência deles também', () => {
+      recarregarPolitica({ version: '2026-09-28', published: ['TERMS', 'PRIVACY', 'COOKIES'] });
+
+      expect(links().map(a => a.getAttribute('href'))).toEqual([
         '/politica-de-privacidade',
         '/politica-de-cookies',
         '/termos-de-uso',
       ]);
-      expect(links.every(a => a.target === '_blank')).toBeTrue();
+      expect(rotulo()).toBe(
+        'Li e aceito a Política de Privacidade e a Política de Cookies, e declaro estar ciente das condições descritas nos Termos de Uso.',
+      );
+    });
+
+    it('envia a versão vigente lida da API', () => {
+      recarregarPolitica({ version: '2026-09-28.2', published: ['PRIVACY', 'COOKIES'] });
+      component.form.setValue(VALID);
+      component.submit();
+
+      const request = backend.expectOne(ME);
+
+      expect(request.request.body.policyVersion).toBe('2026-09-28.2');
+      request.flush({ id: 'uid-123', onboardingCompleted: true });
+    });
+
+    it('com 409, recarrega os documentos e pede o aceite de novo sem perder o formulário', () => {
+      component.form.setValue(VALID);
+      component.submit();
+
+      backend.expectOne(ME).flush(
+        { message: 'Os documentos foram atualizados.', policyVersion: '2026-09-28' },
+        { status: 409, statusText: 'Conflict' },
+      );
+      fixture.detectChanges();
+
+      expect(component.form.controls.policyAccepted.value).toBeFalse();
+      expect(component.form.controls.name.value).toBe('Aluno Teste');
+      expect(component.errorMessage()).toContain('Os documentos foram atualizados');
+
+      backend
+        .expectOne(POLICY)
+        .flush({ version: '2026-09-28', published: ['TERMS', 'PRIVACY', 'COOKIES'] });
+      fixture.detectChanges();
+
+      expect(links().length).toBe(3);
+
+      component.form.controls.policyAccepted.setValue(true);
+      component.submit();
+
+      expect(backend.expectOne(ME).request.body.policyVersion).toBe('2026-09-28');
     });
   });
 

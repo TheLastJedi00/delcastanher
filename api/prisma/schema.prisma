@@ -704,3 +704,75 @@ enum AccessSource {
 
   @@map("access_source")
 }
+
+/// Os tres documentos legais da plataforma (Spec 022).
+enum LegalDocumentKind {
+  TERMS
+  PRIVACY
+  COOKIES
+
+  @@map("legal_document_kind")
+}
+
+/// Tipo da publicacao (Spec 022, decisao 3). `INITIAL` e so a carga que tirou
+/// do codigo o texto que ja estava no ar; `NEW_VERSION` sobe a versao da
+/// politica e reabre o aviso de cookies; `CORRECTION` troca o texto e mantem
+/// a versao, para erro de digitacao ou formatacao.
+enum LegalChangeKind {
+  INITIAL
+  NEW_VERSION
+  CORRECTION
+
+  @@map("legal_change_kind")
+}
+
+/// Versao **publicada** de um documento legal (Spec 022, decisao 2).
+///
+/// **Imutavel.** O aluno aceitou um texto, numa data (Spec 015, decisao 8): se
+/// a versao publicada pudesse mudar, o `User.policyAcceptedVersion` passaria a
+/// apontar para um texto diferente do que ele leu, e o registro de aceite
+/// deixaria de provar alguma coisa. Por isso nao ha `updatedAt`, e nenhuma
+/// rota faz `UPDATE` ou `DELETE` aqui. A vigente e a ultima de cada `kind`.
+///
+/// Nenhuma tabela aponta para esta: o aceite guarda a **versao da politica**,
+/// e a relacao com os textos e pela coluna `policyVersion`.
+model LegalDocumentVersion {
+  id   String            @id @default(cuid())
+  kind LegalDocumentKind
+
+  /// Texto no formato da decisao 1 (`## titulo`, paragrafo, `- item`). Nunca
+  /// HTML: quem renderiza interpola.
+  content String
+
+  /// Versao da politica em vigor com esta publicacao (`2026-09-13`, ou
+  /// `2026-09-28.2` na segunda nova versao do mesmo dia). E uma so para os tres
+  /// documentos, porque o aceite do onboarding cobre os tres (decisao 3).
+  policyVersion String
+  changeKind    LegalChangeKind
+
+  publishedAt      DateTime @default(now())
+  /// UID de quem publicou, tirado do token. Nulo so na carga inicial.
+  publishedById    String?
+  /// **Copia** do e-mail, como no `GatewayFeeRate`: a autoria continua
+  /// legivel depois de a conta sair da plataforma.
+  publishedByEmail String?
+
+  // A pergunta e sempre "qual a ultima deste documento".
+  @@index([kind, publishedAt(sort: Desc)])
+  @@map("legal_document_versions")
+}
+
+/// Rascunho de um documento legal, **um por documento** (Spec 022, decisao 2).
+/// Salvar sobrescreve; publicar copia para uma `LegalDocumentVersion` nova e
+/// apaga esta linha.
+model LegalDocumentDraft {
+  kind LegalDocumentKind @id
+
+  content String
+
+  updatedAt      DateTime @updatedAt
+  updatedById    String
+  updatedByEmail String
+
+  @@map("legal_document_drafts")
+}

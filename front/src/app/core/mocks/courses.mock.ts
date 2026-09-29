@@ -18,19 +18,42 @@ export interface CourseGuarantee {
   title: string;
   /** Dado destacado ao lado do titulo (ex.: prazo) — pode ser placeholder. */
   highlight: string;
-  description: string;
+  description: CourseText;
+}
+
+/**
+ * Dados reais do curso, lidos da API (Spec 022, decisoes 12 a 14). Nulo e
+ * "ainda nao chegou" ou "a definir": o texto que depende dele some.
+ */
+export interface CourseFacts {
+  workloadHours: number | null;
+  accessMonths: number | null;
+}
+
+/** Sem dado nenhum: o estado antes da API responder. */
+export const NO_COURSE_FACTS: CourseFacts = { workloadHours: null, accessMonths: null };
+
+/**
+ * Texto da vitrine, fixo ou montado com os dados reais do curso. `null` omite
+ * o item: na vitrine, dado ausente some, em vez de virar selo de "a definir"
+ * (decisao 13).
+ */
+export type CourseText = string | ((facts: CourseFacts) => string | null);
+
+export function resolveCourseText(text: CourseText, facts: CourseFacts): string | null {
+  return typeof text === 'function' ? text(facts) : text;
 }
 
 export interface CourseFaqItem {
   question: string;
-  answer: string;
+  answer: CourseText;
 }
 
 export interface CourseTestimonial {
   name: string;
   role: string;
   quote: string;
-  /** Vazio enquanto o video nao existe; o card cai no placeholder. */
+  /** Vazio enquanto o video nao existe. */
   videoUrl: string;
 }
 
@@ -60,7 +83,7 @@ export interface Course {
   overline: string;
   headline: string;
   subheadline: string;
-  format: { label: string; value: string }[];
+  format: { label: string; value: CourseText }[];
   problem: CourseProblem;
   /** Capacitacoes ao final do curso. */
   outcomes: string[];
@@ -82,9 +105,17 @@ const IMERSAO_RH: Course = {
   subheadline:
     'Um método consultivo e aplicado para transformar o departamento de pessoas em uma área que sustenta a estratégia do negócio — com processos claros, cultura forte e indicadores que a diretoria entende.',
   format: [
-    { label: 'Formato', value: 'Imersão online ao vivo' },
-    { label: 'Carga horária', value: PLACEHOLDER.workload },
-    { label: 'Início da turma', value: PLACEHOLDER.startDate },
+    // Decisao 18: nao ha encontro ao vivo nem turma. Sao aulas gravadas por
+    // modulo, com acesso por prazo.
+    { label: 'Formato', value: 'Aulas gravadas, no seu ritmo' },
+    // Decisao 12: digitada no painel, e nao somada dos videos.
+    { label: 'Carga horária', value: ({ workloadHours }) => (workloadHours ? `${workloadHours} horas` : null) },
+    // Decisao 14: nao ha turma nem data de inicio. O acesso abre na confirmacao
+    // do pagamento e vale o prazo que a API concede.
+    {
+      label: 'Acesso',
+      value: ({ accessMonths }) => (accessMonths ? `Imediato, por ${accessMonths} meses` : null),
+    },
     { label: 'Certificado', value: 'Sim, ao concluir a trilha' },
   ],
   problem: {
@@ -237,26 +268,17 @@ const IMERSAO_RH: Course = {
         'Planilhas e documentos base de descrição de cargo, roteiro de entrevista, plano de onboarding e painel de indicadores.',
       value: PLACEHOLDER.price,
     },
-    {
-      title: 'Encontro de mentoria em grupo',
-      description:
-        'Sessão ao vivo para levar o seu caso real e receber direcionamento da mentora e do grupo.',
-      value: PLACEHOLDER.price,
-    },
-    {
-      title: 'Comunidade de alunos',
-      description:
-        'Acesso ao grupo de profissionais de RH para trocar prática, indicação e oportunidade.',
-      value: PLACEHOLDER.price,
-    },
+    // Mentoria em grupo e comunidade de alunos sairam (decisao 18): o produto
+    // nao tem nenhum dos dois, e prometer o que nao existe vira reembolso.
   ],
   offer: {
     priceFrom: PLACEHOLDER.priceFrom,
     price: PLACEHOLDER.price,
     installments: PLACEHOLDER.installments,
-    priceNote: 'Condição válida para a turma atual.',
+    priceNote: '',
     checkoutUrl: PLACEHOLDER.checkout,
-    ctaLabel: 'Garantir minha vaga',
+    // "Garantir minha vaga" sugeria vaga limitada, que nao existe.
+    ctaLabel: 'Quero começar agora',
     scarcityDeadline: PLACEHOLDER.deadline,
     scarcitySeats: PLACEHOLDER.seats,
   },
@@ -268,10 +290,12 @@ const IMERSAO_RH: Course = {
         'Se dentro do prazo você entender que a imersão não é para o seu momento, devolvemos o valor integral. O risco é nosso.',
     },
     {
-      title: 'Acesso ao material da turma',
+      title: 'Acesso ao material',
       highlight: '',
-      description:
-        'O material de apoio e as gravações ficam disponíveis na área do aluno durante o período da turma.',
+      description: ({ accessMonths }) =>
+        `O material de apoio e as aulas ficam disponíveis na área do aluno durante ${
+          accessMonths ? `os ${accessMonths} meses` : 'o período'
+        } de acesso de cada módulo.`,
     },
   ],
   faq: [
@@ -281,16 +305,20 @@ const IMERSAO_RH: Course = {
         'Não. A imersão atende tanto quem está estruturando a área do zero quanto empreendedores e gestores que hoje acumulam a função de pessoas.',
     },
     {
-      question: 'As aulas são ao vivo ou gravadas?',
-      answer:
-        'Os encontros são ao vivo e ficam gravados na área do aluno para você rever no seu ritmo, dentro do período da turma.',
+      // A pergunta citava "ao vivo"; a resposta diz o que o produto e (decisao 18).
+      question: 'Como funcionam as aulas?',
+      answer: ({ accessMonths }) =>
+        `As aulas são gravadas e ficam na área do aluno para você assistir no seu ritmo, durante ${
+          accessMonths ? `os ${accessMonths} meses` : 'o período'
+        } de acesso de cada módulo.`,
     },
     {
       question: 'Quanto tempo por semana eu preciso dedicar?',
-      answer:
-        'A carga horária total da turma é de ' +
-        PLACEHOLDER.workload +
-        ', distribuída entre encontros ao vivo e atividades práticas.',
+      // Sem carga horaria definida, a pergunta sai do FAQ (decisao 13).
+      answer: ({ workloadHours }) =>
+        workloadHours
+          ? `A carga horária total é de ${workloadHours} horas, entre aulas, material de apoio e atividades práticas, no ritmo que você escolher.`
+          : null,
     },
     {
       question: 'Vou receber certificado?',
@@ -314,14 +342,12 @@ const IMERSAO_RH: Course = {
         ' de garantia incondicional. Basta pedir o reembolso dentro do prazo.',
     },
   ],
-  testimonials: [
-    { name: PLACEHOLDER.videoTestimonial, role: 'Aluna da Imersão', quote: PLACEHOLDER.videoTestimonial, videoUrl: '' },
-    { name: PLACEHOLDER.videoTestimonial, role: 'Gestor de Pessoas', quote: PLACEHOLDER.videoTestimonial, videoUrl: '' },
-    { name: PLACEHOLDER.videoTestimonial, role: 'Empresária', quote: PLACEHOLDER.videoTestimonial, videoUrl: '' },
-  ],
+  // Spec 022, decisao 15: sem depoimento real, a secao nao existe. Quando
+  // houver, ele entra aqui e a secao volta sozinha.
+  testimonials: [],
   metaTitle: 'Imersão RH Estratégico | Estruture o RH da sua empresa do zero',
   metaDescription:
-    'Imersão online e ao vivo com Lidiane Delcastanher: processos, cultura e indicadores para transformar o RH em parceiro de resultado. Vagas limitadas por turma.',
+    'Imersão online com Lidiane Delcastanher: processos, cultura e indicadores para transformar o RH em parceiro de resultado. Aulas gravadas, no seu ritmo.',
 };
 
 /** Mock indexado por slug. Novos cursos entram aqui sem criar componente novo. */
