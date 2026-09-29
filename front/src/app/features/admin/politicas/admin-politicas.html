@@ -219,6 +219,11 @@
     </p>
   }
 
+  <!-- Antes da resposta, os cartoes diriam "Nao publicado" para documentos
+       que estao no ar: melhor dizer que ainda esta carregando. -->
+  @if (!legal.result() && !legal.error()) {
+    <p class="text-sm text-slate-500" role="status">Carregando os documentos…</p>
+  } @else {
   <ul class="grid gap-4 lg:grid-cols-3" aria-label="Documentos legais">
     @for (doc of documents(); track doc.kind) {
       <li>
@@ -248,4 +253,5 @@
       </li>
     }
   </ul>
+  }
 }

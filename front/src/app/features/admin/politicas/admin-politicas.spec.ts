@@ -129,6 +129,14 @@ describe('AdminPoliticas', () => {
     expect(text()).not.toContain('Maquete');
   });
 
+  it('diz que está carregando antes da resposta, em vez de "Não publicado"', () => {
+    service.result.set(null);
+    fixture.detectChanges();
+
+    expect(text()).toContain('Carregando os documentos');
+    expect(text()).not.toContain('Não publicado');
+  });
+
   describe('lista', () => {
     it('mostra os três documentos na ordem', () => {
       const titles = Array.from(el().querySelectorAll('li h2')).map(h => h.textContent!.trim());
