@@ -57,7 +57,9 @@ export interface ModuleCardLesson {
             "concluído" quer dizer todas as aulas concluídas. O número vem
             pronto do servidor para nenhuma tela refazer a conta (decisão 6).
           -->
-          @if (locked()) {
+          @if (!showLessons()) {
+            <!-- Vitrine: a grade e fixa, e nao ha contagem a mostrar. -->
+          } @else if (locked()) {
             <span class="mt-1 block text-[11px] text-slate-500">
               {{ priceLabel() }} · {{ lessonsLabel(totalLessons()) }}
             </span>
@@ -172,6 +174,12 @@ export class ModuleCard {
 
   readonly completedLessons = input(0);
   readonly totalLessons = input(0);
+  /**
+   * Mostra a linha de aulas (progresso, preco ou "sem aulas publicadas"). Na
+   * landing a grade e a lista fixa do curso, sem consulta ao banco: la a linha
+   * so diria "Sem aulas publicadas" para todo modulo, o que nao e verdade.
+   */
+  readonly showLessons = input(true);
 
   /** Aulas do modulo; a lista so e exibida quando o modulo esta em foco. */
   readonly lessons = input<readonly ModuleCardLesson[]>([]);
