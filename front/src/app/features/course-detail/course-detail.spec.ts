@@ -1,3 +1,4 @@
+import { ApplicationRef } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -8,6 +9,7 @@ import { environment } from '../../../environments/environment';
 import { COURSES, CourseTestimonial, DEFAULT_COURSE_SLUG } from '../../core/mocks/courses.mock';
 import { PLACEHOLDER } from '../../core/mocks/placeholders';
 import { CourseSummary } from '../../core/services/course-summary.service';
+import { StoreOffer } from '../../core/services/store.service';
 import { CourseDetail } from './course-detail';
 
 describe('CourseDetail', () => {
@@ -15,8 +17,11 @@ describe('CourseDetail', () => {
   let paramMap: BehaviorSubject<Map<string, string>>;
 
   const course = COURSES[DEFAULT_COURSE_SLUG];
-  /** Sem carga horaria definida, a pergunta sobre tempo sai do FAQ (Spec 022). */
-  const faqSemCargaHoraria = course.faq.length - 1;
+  /**
+   * Sem carga horaria definida, a pergunta sobre tempo sai do FAQ; e a da
+   * garantia sai enquanto o prazo for placeholder (Spec 022, decisao 13).
+   */
+  const faqSemCargaHoraria = course.faq.length - 2;
 
   const el = () => fixture.nativeElement as HTMLElement;
   const text = () => el().textContent ?? '';
@@ -70,17 +75,9 @@ describe('CourseDetail', () => {
       expect(faq.textContent).toContain(course.faq[0].question);
     });
 
-    // Spec 022, decisao 18: com prazo e vagas ainda placeholder, a faixa de
-    // escassez anunciaria uma escassez que nao existe.
-    it('exibe o preço na seção de investimento, sem a faixa de escassez placeholder', () => {
-      const oferta = el().querySelector('#investimento')!;
-      expect(oferta.querySelector('ui-scarcity-banner')).toBeNull();
-      expect(oferta.textContent).toContain(course.offer.price);
-      expect(oferta.textContent).toContain(course.guarantees[0].title);
-    });
-
-    it('dá tratamento de pendente aos placeholders comerciais', () => {
-      expect(el().querySelectorAll('ui-placeholder-text .border-dashed').length).toBeGreaterThan(0);
+    it('não tem placeholder comercial pendente na página', () => {
+      expect(el().querySelector('ui-placeholder-text')).toBeNull();
+      expect(text()).not.toMatch(/\[[A-ZÀ-Ú][^\]]*\]/);
     });
 
     it('fecha a página com o rodapé', () => {
@@ -227,6 +224,7 @@ describe('CourseDetail', () => {
 
     it('esconde a linha do prazo do fechamento e o valor do bônus enquanto são placeholder', () => {
       expect(text()).not.toContain(PLACEHOLDER.deadline);
+      expect(text()).not.toContain(PLACEHOLDER.guaranteePeriod);
       expect(text()).not.toContain('Inscrições até');
       expect(el().querySelector('#bonus')!.textContent).not.toContain('Valor:');
     });
@@ -240,6 +238,91 @@ describe('CourseDetail', () => {
       expect(course.metaDescription).toContain('Aulas gravadas, no seu ritmo');
       expect(course.metaDescription.toLowerCase()).not.toContain('ao vivo');
       expect(course.metaDescription.toLowerCase()).not.toContain('turma');
+    });
+  });
+
+  /** A secao "Investimento" com a oferta real da loja, como no /planos. */
+  describe('investimento', () => {
+    const OFFER: StoreOffer = {
+      modules: [],
+      bundle: {
+        slug: 'imersao-rh-lancamento',
+        title: 'Pacote de Lançamento — Imersão RH Estratégico',
+        modules: [],
+        modulesTotalCents: 237200,
+        tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
+        nextTier: { name: '2º Lote', priceCents: 79700 },
+      },
+    };
+
+    const oferta = () => el().querySelector('#investimento') as HTMLElement;
+    const ofertaTexto = () => oferta().textContent!.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ');
+
+    function responderOferta(offer: StoreOffer | null): void {
+      const backend = TestBed.inject(HttpTestingController);
+      const request = backend.expectOne(`${environment.apiUrl}/store/offer`);
+
+      if (offer) {
+        request.flush(offer);
+      } else {
+        request.flush(null, { status: 503, statusText: 'Unavailable' });
+      }
+
+      fixture.detectChanges();
+    }
+
+    beforeEach(async () => {
+      await setup(DEFAULT_COURSE_SLUG);
+      TestBed.inject(ApplicationRef).tick();
+    });
+
+    it('mostra o esqueleto até a oferta chegar, e nunca um preço do build', () => {
+      expect(oferta().querySelector('[aria-busy="true"]')).not.toBeNull();
+      responderOferta(OFFER);
+    });
+
+    it('mostra o preço do lote vigente, a âncora dos avulsos e o parcelamento', () => {
+      responderOferta(OFFER);
+
+      expect(ofertaTexto()).toContain('Lote Fundador');
+      expect(ofertaTexto()).toContain('R$ 590,00');
+      expect(ofertaTexto()).toContain('R$ 2.372,00');
+      expect(ofertaTexto()).toContain('em até 12x no cartão');
+    });
+
+    it('anuncia a escassez com as vagas reais do lote', () => {
+      responderOferta(OFFER);
+
+      expect(oferta().querySelector('ui-scarcity-banner')?.textContent).toContain('Restam 7 vagas');
+    });
+
+    it('sem vagas limitadas, não há faixa de escassez', () => {
+      responderOferta({ ...OFFER, bundle: { ...OFFER.bundle!, tier: { ...OFFER.bundle!.tier!, remaining: null } } });
+
+      expect(oferta().querySelector('ui-scarcity-banner')).toBeNull();
+    });
+
+    it('com a oferta fora do ar, manda consultar na loja, sem inventar número', () => {
+      responderOferta(null);
+
+      expect(ofertaTexto()).toContain('Consulte o valor na loja');
+    });
+
+    it('leva à loja com o pacote escolhido e aos módulos avulsos do /planos', () => {
+      responderOferta(OFFER);
+
+      const hrefs = Array.from(oferta().querySelectorAll('a')).map(a => a.getAttribute('href'));
+
+      expect(hrefs).toContain('/loja?pacote=imersao-rh-lancamento');
+      expect(hrefs).toContain('/planos#modulos');
+    });
+
+    it('não promete garantia sem prazo nem mostra checkout de demonstração', () => {
+      responderOferta(OFFER);
+
+      expect(ofertaTexto()).not.toContain('Garantia incondicional');
+      expect(ofertaTexto()).not.toContain('Checkout em demonstração');
+      expect(ofertaTexto()).toContain('Acesso ao material');
     });
   });
 

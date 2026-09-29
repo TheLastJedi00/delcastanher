@@ -57,17 +57,14 @@ export interface CourseTestimonial {
   videoUrl: string;
 }
 
+/**
+ * O que a oferta tem de texto fixo. **Preco, lote, vagas e parcelamento nao
+ * moram aqui:** chegam de `GET /store/offer`, no navegador, como no `/planos`
+ * (Spec 019, decisao 10). Os placeholders de preco, prazo, vagas e checkout da
+ * Spec 006 sairam quando a loja real passou a existir.
+ */
 export interface CourseOffer {
-  /** Preco cheio riscado (ancoragem). */
-  priceFrom: string;
-  price: string;
-  installments: string;
-  /** Observacao curta abaixo do preco. */
-  priceNote: string;
-  checkoutUrl: string;
   ctaLabel: string;
-  scarcityDeadline: string;
-  scarcitySeats: string;
 }
 
 export interface CourseProblem {
@@ -272,15 +269,7 @@ const IMERSAO_RH: Course = {
     // nao tem nenhum dos dois, e prometer o que nao existe vira reembolso.
   ],
   offer: {
-    priceFrom: PLACEHOLDER.priceFrom,
-    price: PLACEHOLDER.price,
-    installments: PLACEHOLDER.installments,
-    priceNote: '',
-    checkoutUrl: PLACEHOLDER.checkout,
-    // "Garantir minha vaga" sugeria vaga limitada, que nao existe.
     ctaLabel: 'Quero começar agora',
-    scarcityDeadline: PLACEHOLDER.deadline,
-    scarcitySeats: PLACEHOLDER.seats,
   },
   guarantees: [
     {

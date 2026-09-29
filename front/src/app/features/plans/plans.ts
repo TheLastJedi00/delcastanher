@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { ENTERPRISE_PLAN, LAUNCH_BUNDLE_COPY, tierLabel } from '../../core/mocks/plans.mock';
+import { ENTERPRISE_PLAN, LAUNCH_BUNDLE_COPY, bundleScarcity } from '../../core/mocks/plans.mock';
 import { AuthService } from '../../core/services/auth.service';
 import { StoreService, formatPrice } from '../../core/services/store.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
@@ -65,24 +65,8 @@ export class Plans {
   protected readonly modules = computed(() => this.store.offer()?.modules ?? []);
   protected readonly tier = computed(() => this.bundle()?.tier ?? null);
 
-  /**
-   * Escassez com numero verdadeiro (decisao 11): so em lote com vagas. No
-   * Preco oficial, sem limite, nao ha o que anunciar e a faixa some.
-   */
-  protected readonly scarcity = computed(() => {
-    const tier = this.tier();
-
-    if (!tier || tier.remaining === null) {
-      return null;
-    }
-
-    const next = this.bundle()?.nextTier;
-
-    return {
-      headline: `Restam ${tier.remaining} ${tier.remaining === 1 ? 'vaga' : 'vagas'} no ${tierLabel(tier)}`,
-      next: next ? `${formatPrice(next.priceCents)} no ${next.name}` : '',
-    };
-  });
+  /** Escassez com numero verdadeiro (decisao 11). */
+  protected readonly scarcity = computed(() => bundleScarcity(this.bundle()));
 
   constructor() {
     // So no navegador: no prerender nao ha chamada, e o HTML sai com o
