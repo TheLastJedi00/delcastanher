@@ -113,4 +113,16 @@ describe('Landing', () => {
       expect(hrefs.indexOf('#midia')).toBe(hrefs.indexOf('#mentora') + 1);
     });
   });
+
+  describe('trilha de aprendizado', () => {
+    // A grade da landing e a lista fixa do curso, sem consulta ao banco: nao
+    // ha contagem de aulas a mostrar, e "Sem aulas publicadas" seria falso.
+    it('lista os módulos sem a linha de aulas', () => {
+      const trilha = el.querySelector('#trilha')!;
+
+      expect(trilha.querySelectorAll('ui-module-card').length).toBeGreaterThan(0);
+      expect(trilha.textContent).not.toContain('Sem aulas publicadas');
+      expect(trilha.textContent).not.toContain('aula');
+    });
+  });
 });
