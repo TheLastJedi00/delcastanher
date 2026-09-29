@@ -191,56 +191,51 @@
             </h2>
           </div>
 
+          <!-- Spec 022: o preco e o da loja real, pela mesma oferta do /planos
+               (Spec 019, decisao 10). Carregado so no navegador: no build a
+               secao sai com o esqueleto, e nunca com um preco velho. -->
           <div class="overflow-hidden rounded-3xl shadow-glass-lg" animateOnScroll="animate-fade-in-up">
-            @if (scarcityVisible()) {
+            @if (scarcity(); as faixa) {
               <ui-scarcity-banner
-                headline="Últimas vagas"
-                [deadline]="course.offer.scarcityDeadline"
-                [seats]="course.offer.scarcitySeats" />
+                [headline]="faixa.headline"
+                deadline=""
+                seatsLabel="Depois:"
+                [seats]="faixa.next" />
             }
 
-            <div class="bg-white px-6 py-10 text-center md:px-12">
-              <p class="mb-2 text-sm text-slate-500">
-                De <span class="line-through decoration-slate-400"><ui-placeholder-text [value]="course.offer.priceFrom" /></span> por
+            <div class="bg-white px-6 py-10 text-center md:px-12" data-testid="oferta">
+              <p class="mb-4 text-sm font-semibold text-brand-navy">
+                Pacote de Lançamento: os {{ course.modules.length }} módulos@if (facts().accessMonths; as meses) {, com {{ meses }} meses de acesso a cada um}
               </p>
 
-              <p class="mb-2 text-4xl font-extrabold tracking-tight text-brand-navy md:text-5xl">
-                <ui-placeholder-text [value]="course.offer.price" />
-              </p>
-              <p class="mb-1 text-base font-bold text-brand-teal-deep">
-                <ui-placeholder-text [value]="course.offer.installments" />
-              </p>
-              @if (course.offer.priceNote) {
-                <p class="mb-8 text-sm text-slate-500">{{ course.offer.priceNote }}</p>
-              } @else {
-                <div class="mb-8"></div>
-              }
+              <ui-bundle-price
+                class="mx-auto mb-8 max-w-xs"
+                [loading]="offerState() === 'loading'"
+                [tier]="tier()"
+                [anchorCents]="bundle()?.modulesTotalCents ?? null" />
 
-              <a [routerLink]="checkoutLink()" class="block">
+              <a [routerLink]="checkoutLink" [queryParams]="checkoutQuery" class="block">
                 <ui-button variant="primary" size="lg" [fullWidth]="true">{{ course.offer.ctaLabel }}</ui-button>
               </a>
+
+              <p class="mt-4 text-sm text-slate-600">
+                Precisa de um tema só?
+                <a routerLink="/planos" fragment="modulos" class="font-semibold text-brand-teal-deep underline underline-offset-2">
+                  Veja os módulos avulsos</a
+                >.
+              </p>
 
               <p class="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
                 <svg class="h-4 w-4 shrink-0 text-state-success" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
-                Pagamento em ambiente seguro
+                Pagamento em ambiente seguro, por PIX ou cartão, pelo Mercado Pago
               </p>
-
-              <!-- O botao leva ao mockup de checkout (Spec 007). O gateway real
-                   segue indefinido e o marcador continua visivel, para ninguem
-                   confundir a demonstracao com uma compra de verdade. -->
-              @if (checkoutPending()) {
-                <p class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
-                  <span>Checkout em demonstração. Gateway:</span>
-                  <ui-placeholder-text [value]="course.offer.checkoutUrl" />
-                </p>
-              }
             </div>
           </div>
 
           <!-- Garantias -->
-          <div class="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="mt-10 grid grid-cols-1 gap-4" [class.md:grid-cols-2]="guarantees().length > 1">
             @for (guarantee of guarantees(); track guarantee.title; let i = $index) {
               <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
                 <div class="glass-dark h-full rounded-2xl p-6">
@@ -252,7 +247,7 @@
                   <h3 class="mb-2 flex flex-wrap items-center gap-2 text-base font-bold text-white">
                     <span>{{ guarantee.title }}</span>
                     @if (guarantee.highlight) {
-                      <ui-placeholder-text [value]="guarantee.highlight" tone="light" />
+                      <span>{{ guarantee.highlight }}</span>
                     }
                   </h3>
                   <p class="text-sm leading-relaxed text-white/75">{{ guarantee.description }}</p>
@@ -326,17 +321,9 @@
           <h2 class="mb-4 text-3xl font-extrabold tracking-tight text-white md:text-4xl">
             A {{ course.name }} está com as inscrições abertas
           </h2>
-          <!-- O prazo so aparece quando existir (decisao 18). -->
-          @if (!isPlaceholder(course.offer.scarcityDeadline)) {
-            <p class="mb-8 flex flex-wrap items-center justify-center gap-2 text-base text-white/85">
-              <span>Inscrições até</span>
-              <span>{{ course.offer.scarcityDeadline }}</span>
-            </p>
-          } @else {
-            <div class="mb-8"></div>
-          }
+          <div class="mb-8"></div>
           <div class="flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a [routerLink]="checkoutLink()">
+            <a [routerLink]="checkoutLink" [queryParams]="checkoutQuery">
               <ui-button variant="primary" size="lg">{{ course.offer.ctaLabel }}</ui-button>
             </a>
             <a routerLink="/planos">

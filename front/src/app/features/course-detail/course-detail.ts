@@ -1,5 +1,14 @@
 import { isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, effect, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -12,20 +21,25 @@ import {
   resolveCourseText,
 } from '../../core/mocks/courses.mock';
 import { isPlaceholder } from '../../core/mocks/placeholders';
+import { LAUNCH_BUNDLE_COPY, bundleScarcity } from '../../core/mocks/plans.mock';
 import { AnalyticsService } from '../../core/services/analytics.service';
 import { buildThenBrowser } from '../../core/services/build-then-browser';
 import { CourseSummaryService } from '../../core/services/course-summary.service';
 import { JsonLdService } from '../../core/services/json-ld.service';
 import { SITE_ORIGIN } from '../../core/services/seo.service';
+import { StoreService } from '../../core/services/store.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Accordion, AccordionItem } from '../../shared/ui/accordion/accordion';
+import { BundlePrice } from '../../shared/ui/bundle-price/bundle-price';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
 import { GlassCard } from '../../shared/ui/glass-card/glass-card';
 import { ScarcityBanner } from '../../shared/ui/scarcity-banner/scarcity-banner';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
-import { PlaceholderText } from '../../shared/ui/placeholder-text/placeholder-text';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
+
+/** Marcador de texto ainda nao definido, em qualquer ponto da frase: `[PRAZO]`. */
+const PLACEHOLDER_MARKER = /\[[^\]]+\]/;
 
 @Component({
   selector: 'app-course-detail',
@@ -34,12 +48,12 @@ import { SectionHeader } from '../../shared/ui/section-header/section-header';
     RouterLink,
     NavHeader,
     Accordion,
+    BundlePrice,
     Footer,
     Button,
     GlassCard,
     ScarcityBanner,
     SectionHeader,
-    PlaceholderText,
     AnimateOnScroll,
   ],
   templateUrl: './course-detail.html',
@@ -97,11 +111,18 @@ export class CourseDetail {
       .filter((item): item is { label: string; value: string } => item.value !== null),
   );
 
-  /** Perguntas com a resposta resolvida; a que depende de dado ausente sai. */
+  /**
+   * Perguntas com a resposta resolvida. Sai a que depende de dado ausente e a
+   * que ainda carrega um placeholder, como o prazo de garantia: dado ausente
+   * some da vitrine (Spec 022, decisao 13).
+   */
   private readonly faq = computed(() =>
     (this.course()?.faq ?? [])
       .map(item => ({ question: item.question, answer: resolveCourseText(item.answer, this.facts()) }))
-      .filter((item): item is { question: string; answer: string } => item.answer !== null),
+      .filter(
+        (item): item is { question: string; answer: string } =>
+          item.answer !== null && !PLACEHOLDER_MARKER.test(item.answer),
+      ),
   );
 
   /**
@@ -115,37 +136,41 @@ export class CourseDetail {
     ),
   );
 
-  /** Garantias com a descricao resolvida pelos dados reais (decisao 18). */
-  protected readonly guarantees = computed(() =>
-    (this.course()?.guarantees ?? []).map(item => ({
-      ...item,
-      description: resolveCourseText(item.description, this.facts()) ?? '',
-    })),
-  );
-
   /**
-   * A faixa de escassez so aparece com prazo ou vagas de verdade: com os dois
-   * ainda placeholder, ela anunciaria uma escassez que nao existe (decisao 18).
+   * Garantias com a descricao resolvida pelos dados reais (decisao 18). A que
+   * ainda depende de um prazo placeholder sai: garantia sem prazo nao e
+   * garantia que se possa prometer.
    */
-  protected readonly scarcityVisible = computed(() => {
-    const offer = this.course()?.offer;
-
-    return !!offer && (!isPlaceholder(offer.scarcityDeadline) || !isPlaceholder(offer.scarcitySeats));
-  });
+  protected readonly guarantees = computed(() =>
+    (this.course()?.guarantees ?? [])
+      .filter(item => !isPlaceholder(item.highlight))
+      .map(item => ({
+        ...item,
+        description: resolveCourseText(item.description, this.facts()) ?? '',
+      })),
+  );
 
   protected readonly isPlaceholder = isPlaceholder;
 
-  /** true enquanto o gateway de pagamento nao for definido. */
-  protected readonly checkoutPending = computed(() =>
-    isPlaceholder(this.course()?.offer.checkoutUrl)
-  );
+  // --- Investimento: a mesma oferta do /planos (Spec 019, decisao 10) ---
+
+  private readonly store = inject(StoreService);
+
+  /** O preco so existe no navegador: no build a secao sai com o esqueleto. */
+  protected readonly offerState = signal<'loading' | 'ready' | 'error'>('loading');
+  protected readonly bundle = computed(() => this.store.offer()?.bundle ?? null);
+  protected readonly tier = computed(() => this.bundle()?.tier ?? null);
+
+  /** Faixa de escassez com as vagas reais do lote vigente, como no /planos. */
+  protected readonly scarcity = computed(() => bundleScarcity(this.bundle()));
 
   /**
-   * Destino dos CTAs de compra: a loja de modulos (Spec 014, decisao 21).
-   * Ela exige conta, entao o visitante passa por cadastro e onboarding antes
-   * de pagar — nao existe mais checkout publico.
+   * Destino dos CTAs de compra: a loja, com o Pacote de Lancamento escolhido
+   * (Spec 019). Ela exige conta, entao o visitante passa por cadastro e
+   * onboarding antes de pagar.
    */
-  protected readonly checkoutLink = computed(() => ['/loja']);
+  protected readonly checkoutLink = ['/loja'];
+  protected readonly checkoutQuery = { pacote: LAUNCH_BUNDLE_COPY.slug };
 
   /** Modulos do curso no formato do ui-accordion. */
   protected readonly curriculumItems = computed<AccordionItem[]>(() =>
@@ -167,6 +192,15 @@ export class CourseDetail {
   );
 
   constructor() {
+    // So no navegador, como no /planos: o preco muda com a venda, e um preco
+    // do build ficaria velho. `afterNextRender` nao roda no servidor.
+    afterNextRender(() => {
+      this.store.loadOffer().subscribe({
+        next: () => this.offerState.set('ready'),
+        error: () => this.offerState.set('error'),
+      });
+    });
+
     // Title, description, Open Graph e canonical vem do `courseSeoResolver`
     // e sao aplicados pelo `App` num ponto so (Spec 009, decisao 8). O que
     // sobra para o componente e o que depende do conteudo da propria pagina:

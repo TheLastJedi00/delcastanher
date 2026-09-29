@@ -11,6 +11,8 @@
  * muda de um dia para outro.
  */
 
+import { formatPrice } from '../services/store.service';
+
 /** Pacote de Lancamento: o que a oferta promete, em texto. */
 export const LAUNCH_BUNDLE_COPY = {
   slug: 'imersao-rh-lancamento',
@@ -43,6 +45,28 @@ export function tierLabel(tier: { order: number; name: string }): string {
   const emoji = TIER_EMOJI[tier.order];
 
   return emoji ? `${emoji} ${tier.name}` : tier.name;
+}
+
+/**
+ * Faixa de escassez com numero verdadeiro (Spec 019, decisao 11): so em lote
+ * com vagas. No Preco oficial, sem limite, nao ha o que anunciar e a faixa
+ * some. Usada no `/planos` e na pagina do curso, para as duas dizerem o mesmo.
+ */
+export function bundleScarcity(
+  bundle: { tier: { order: number; name: string; remaining: number | null } | null; nextTier: { name: string; priceCents: number } | null } | null,
+): { headline: string; next: string } | null {
+  const tier = bundle?.tier;
+
+  if (!tier || tier.remaining === null) {
+    return null;
+  }
+
+  const next = bundle.nextTier;
+
+  return {
+    headline: `Restam ${tier.remaining} ${tier.remaining === 1 ? 'vaga' : 'vagas'} no ${tierLabel(tier)}`,
+    next: next ? `${formatPrice(next.priceCents)} no ${next.name}` : '',
+  };
 }
 
 /** O unico plano do prototipo que continua: a venda para empresas, sob consulta. */
