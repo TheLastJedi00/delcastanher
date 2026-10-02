@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { INVOICE_GATEWAY } from './invoice-gateway';
 import { InvoicesService } from './invoices.service';
 import { NotaasClient } from './notaas/notaas.client';
+import { NotaasWebhookController } from './notaas-webhook.controller';
 
 /**
  * Nota fiscal (Spec 023, Parte A).
@@ -12,6 +13,7 @@ import { NotaasClient } from './notaas/notaas.client';
  * chama na aprovacao e no estorno.
  */
 @Module({
+  controllers: [NotaasWebhookController],
   providers: [
     InvoicesService,
     NotaasClient,
