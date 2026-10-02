@@ -2,6 +2,7 @@ import { NgOptimizedImage } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Badge } from '../badge/badge';
+import { YOUTUBE_ID, youtubeEmbedUrl } from '../youtube-facade/youtube';
 
 export type MediaKind = 'revista' | 'podcast' | 'livro';
 
@@ -45,9 +46,11 @@ const KIND_LABEL: Record<MediaKind, string> = {
  * fora vira `ResourceUrl`: so o id, e so se casar com o formato.
  */
 const EMBEDS: Record<MediaEmbed['provider'], { pattern: RegExp; src: (id: string) => string }> = {
+  // A regra do YouTube mora em `youtube.ts`, dividida com a fachada da landing
+  // (Spec 023, decisao C3).
   youtube: {
-    pattern: /^[\w-]{11}$/,
-    src: id => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`,
+    pattern: YOUTUBE_ID,
+    src: id => youtubeEmbedUrl(id),
   },
   instagram: {
     pattern: /^[\w-]{5,40}$/,
