@@ -1,8 +1,7 @@
-import { Controller, Get, Headers, Query, Res, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Headers, Query, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
-import { timingSafeEqual } from 'node:crypto';
-import { cronSecret } from '../config/payments.config';
+import { assertCronSecret } from '../common/cron-auth';
 import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { MercadoPagoLinkService } from './mercado-pago-link.service';
 
@@ -49,20 +48,11 @@ export class InternalMercadoPagoController {
   async refresh(
     @Headers('authorization') authorization: string | undefined,
   ): Promise<{ checked: number; purgedStates: number }> {
-    this.authorize(authorization);
+    assertCronSecret(this.config, authorization);
 
     const { checked } = await this.connections.refreshDue();
     const purgedStates = await this.links.purgeStates();
 
     return { checked, purgedStates };
-  }
-
-  private authorize(authorization: string | undefined): void {
-    const expected = Buffer.from(`Bearer ${cronSecret(this.config)}`, 'utf8');
-    const received = Buffer.from(authorization ?? '', 'utf8');
-
-    if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
-      throw new UnauthorizedException();
-    }
   }
 }
