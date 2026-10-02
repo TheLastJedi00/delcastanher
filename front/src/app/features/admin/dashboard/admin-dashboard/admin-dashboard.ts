@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { ADMIN_TABS, AdminLayout, AdminTab } from '../../../../shared/layouts/admin-layout/admin-layout';
 import { AdminAulas } from '../../aulas/admin-aulas';
+import { AdminComunicacao } from '../../comunicacao/admin-comunicacao';
 import { AdminFinanceiro } from '../../financeiro/admin-financeiro';
 import { AdminPoliticas } from '../../politicas/admin-politicas';
 import { AddAdminDialog } from '../add-admin-dialog/add-admin-dialog';
@@ -60,6 +61,7 @@ type PendingAction =
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AdminAulas,
+    AdminComunicacao,
     AdminFinanceiro,
     AdminPoliticas,
     AddAdminDialog,
@@ -92,9 +94,6 @@ export class AdminDashboard {
   readonly activeTab = signal<AdminTab>(
     toTab(this.route.snapshot.queryParamMap.get('tab')),
   );
-
-  readonly emailSubject = signal('');
-  readonly emailBody = signal('');
 
   /** Texto do campo de busca. A consulta so sai depois do debounce. */
   readonly search = signal('');
