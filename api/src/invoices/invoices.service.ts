@@ -48,6 +48,8 @@ export interface InvoiceSettings {
   /** Dias ate o vencimento; nulo sem data configurada. */
   certificateDaysLeft: number | null;
   certificateWarning: boolean;
+  /** Prazo de cancelamento, para o painel saber quando oferecer "Cancelar". */
+  cancelWindowHours: number;
 }
 
 /** O que o cron fez em uma passada. */
@@ -379,6 +381,7 @@ export class InvoicesService {
       certificateExpiresAt: expires?.toISOString() ?? null,
       certificateDaysLeft: daysLeft,
       certificateWarning: daysLeft !== null && daysLeft <= CERT_WARNING_DAYS,
+      cancelWindowHours: nfeCancelWindowHours(this.config),
     };
   }
 

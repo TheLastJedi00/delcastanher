@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { AdminInvoicesController } from './admin-invoices.controller';
 import { InternalInvoicesController } from './internal-invoices.controller';
 import { INVOICE_GATEWAY } from './invoice-gateway';
 import { InvoicesService } from './invoices.service';
@@ -14,7 +16,8 @@ import { NotaasWebhookController } from './notaas-webhook.controller';
  * chama na aprovacao e no estorno.
  */
 @Module({
-  controllers: [NotaasWebhookController, InternalInvoicesController],
+  imports: [AuthModule],
+  controllers: [NotaasWebhookController, InternalInvoicesController, AdminInvoicesController],
   providers: [
     InvoicesService,
     NotaasClient,
