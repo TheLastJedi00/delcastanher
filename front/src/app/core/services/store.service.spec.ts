@@ -1,7 +1,18 @@
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { StoreModuleItem, StoreOffer, StoreService, formatPrice } from './store.service';
+import { OrderAddress, StoreModuleItem, StoreOffer, StoreService, formatPrice } from './store.service';
+
+/** Endereco do comprador para a NF-e (Spec 023, decisao A3). */
+const ADDRESS: OrderAddress = {
+  zip: '01310100',
+  street: 'Avenida Paulista',
+  number: '1000',
+  district: 'Bela Vista',
+  city: 'São Paulo',
+  cityIbge: '3550308',
+  state: 'SP',
+};
 
 const CATALOG: StoreModuleItem[] = [
   {
@@ -131,6 +142,7 @@ describe('StoreService', () => {
           lastName: 'Souza',
           email: 'ana@delcastanher.com',
           document: '19119119100',
+          address: ADDRESS,
         },
       }).subscribe({ error: () => undefined });
 
@@ -157,6 +169,7 @@ describe('StoreService', () => {
           lastName: 'Souza',
           email: 'ana@delcastanher.com',
           document: '19119119100',
+          address: ADDRESS,
         },
         card: { token: 'tok-123', paymentMethodId: 'master', installments: 3 },
       }).subscribe({ error: () => undefined });
@@ -214,7 +227,7 @@ describe('StoreService', () => {
         .createOrder({
           ...service.orderTarget(),
           method: 'PIX',
-          payer: { firstName: 'Ana', lastName: 'Souza', email: 'a@b.com', document: '19119119100' },
+          payer: { firstName: 'Ana', lastName: 'Souza', email: 'a@b.com', document: '19119119100', address: ADDRESS },
         })
         .subscribe();
 
@@ -260,6 +273,7 @@ describe('StoreService', () => {
           lastName: 'Souza',
           email: 'ana@delcastanher.com',
           document: '19119119100',
+          address: ADDRESS,
         },
       }).subscribe({ error: (error: string) => (message = error) });
 
