@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { InvoicesModule } from '../invoices/invoices.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AccessService } from './access.service';
 import { AdminAccessController } from './admin-access.controller';
@@ -32,7 +33,7 @@ import { TokenCipher } from './token-cipher';
  * mesma separacao que o `MuxModule` faz para o video (Spec 010, decisao 16).
  */
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, InvoicesModule],
   controllers: [
     StoreController,
     OrdersController,

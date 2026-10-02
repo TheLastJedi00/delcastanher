@@ -4,6 +4,10 @@
     {
       "path": "/internal/mercadopago/refresh",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/internal/invoices/reconcile",
+      "schedule": "15 9 * * *"
     }
   ]
 }

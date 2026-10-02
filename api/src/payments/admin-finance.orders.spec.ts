@@ -314,3 +314,70 @@ describe('AdminFinanceService — pedido de pacote', () => {
     expect(avulso.split(';')[pacoteCol]).toBe('');
   });
 });
+
+/** Spec 023, decisao A9: a listagem e o CSV mostram a nota de cada pedido. */
+describe('AdminFinanceService — nota fiscal', () => {
+  const NOTA = {
+    status: 'AUTHORIZED',
+    environment: 'producao',
+    number: '42',
+    series: '1',
+    accessKey: '35261012345678000195550010000000421234567890',
+    lastError: null,
+    issuedAt: new Date('2026-09-10T12:06:00Z'),
+    pdfPath: 'invoices/producao/chave.pdf',
+  };
+
+  it('pede a nota na consulta da listagem e do CSV', async () => {
+    const { service, prisma } = await build();
+
+    await service.listOrders(query());
+    await service.exportOrdersCsv(query());
+
+    for (const [call] of prisma.order.findMany.mock.calls) {
+      expect(call.include.invoice).toBeTruthy();
+    }
+  });
+
+  it('a linha traz a situacao, o numero e a chave da nota, sem o caminho do arquivo', async () => {
+    const { service } = await build([{ ...PEDIDO, invoice: NOTA }]);
+
+    const [item] = (await service.listOrders(query())).items;
+
+    expect(item.invoice).toEqual({
+      status: 'AUTHORIZED',
+      environment: 'producao',
+      number: '42',
+      series: '1',
+      accessKey: NOTA.accessKey,
+      lastError: null,
+      issuedAt: NOTA.issuedAt,
+      hasPdf: true,
+    });
+  });
+
+  it('pedido sem nota traz nulo', async () => {
+    const { service } = await build();
+
+    const [item] = (await service.listOrders(query())).items;
+
+    expect(item.invoice).toBeNull();
+  });
+
+  it('o CSV ganha numero, serie, chave e situacao da nota', async () => {
+    const { service } = await build([{ ...PEDIDO, invoice: NOTA }, PEDIDO], 2);
+
+    const [cabecalho, comNota, semNota] = (await service.exportOrdersCsv(query()))
+      .replace('﻿', '')
+      .split('\n');
+    const colunas = cabecalho.split(';');
+    const col = (name: string) => colunas.indexOf(name);
+
+    expect(col('NF-e')).toBeGreaterThan(-1);
+    expect(comNota.split(';')[col('NF-e')]).toBe('42');
+    expect(comNota.split(';')[col('Serie NF-e')]).toBe('1');
+    expect(comNota.split(';')[col('Chave de acesso')]).toBe(NOTA.accessKey);
+    expect(comNota.split(';')[col('Situacao da nota')]).toBe('AUTHORIZED');
+    expect(semNota.split(';')[col('Situacao da nota')]).toBe('');
+  });
+});
