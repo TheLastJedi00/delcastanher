@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
+import { InvoicesService } from '../invoices/invoices.service';
 import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
 import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
@@ -175,6 +176,12 @@ function build(options: BuildOptions = {}) {
     getOrder: jest.fn().mockResolvedValue(options.gatewayOrder ?? PIX_ORDER),
   };
 
+  // Spec 023, decisao A4: a nota nunca lanca; o double so registra a chamada.
+  const invoices = {
+    onOrderPaid: jest.fn().mockResolvedValue(undefined),
+    onOrderRefunded: jest.fn().mockResolvedValue(undefined),
+  };
+
   const bundles = {
     placeOrder: jest.fn().mockResolvedValue(options.placed ?? PLACED),
   };
@@ -198,6 +205,7 @@ function build(options: BuildOptions = {}) {
       { provide: MercadoPagoService, useValue: gateway },
       { provide: BundlesService, useValue: bundles },
       { provide: MercadoPagoConnectionService, useValue: connections },
+      { provide: InvoicesService, useValue: invoices },
     ],
   })
     .compile()
@@ -208,6 +216,7 @@ function build(options: BuildOptions = {}) {
       gateway,
       bundles,
       connections,
+      invoices,
     }));
 }
 
@@ -824,5 +833,92 @@ describe('OrdersService — conta do vendedor', () => {
 
     expect(connections.accessTokenFor).not.toHaveBeenCalled();
     expect(gateway.getOrder).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Spec 023, decisoes A4 e A7: a nota fiscal nasce na aprovacao e e cancelada
+ * no estorno — sempre **depois** do acesso, e sem nunca mudar o pedido.
+ */
+describe('OrdersService — nota fiscal', () => {
+  const REFUNDED_ORDER = { ...APPROVED_ORDER, status: 'refunded', statusDetail: 'refunded' };
+
+  function cardOrder() {
+    return {
+      moduleIds: ['mod-1'],
+      method: 'CREDIT_CARD' as const,
+      payer: PAYER,
+      installments: 1,
+      card: { token: 'tok', paymentMethodId: 'master', installments: 1 },
+    };
+  }
+
+  it('aprovado, emite a nota depois de conceder o acesso', async () => {
+    const { service, access, invoices } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(invoices.onOrderPaid).toHaveBeenCalledTimes(1);
+    expect(invoices.onOrderPaid).toHaveBeenCalledWith('ord-1');
+    expect(invoices.onOrderPaid.mock.invocationCallOrder[0]).toBeGreaterThan(
+      access.grant.mock.invocationCallOrder.at(-1) as number,
+    );
+  });
+
+  it('um segundo apply do mesmo pedido nao emite de novo', async () => {
+    const { service, invoices } = await build({ gatewayOrder: APPROVED_ORDER, transitionCount: 0 });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(invoices.onOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('PIX pendente e recusa nao emitem', async () => {
+    const pending = await build();
+    const rejected = await build({ gatewayOrder: REJECTED_ORDER });
+
+    await pending.service.create(ALUNO, pixOrder());
+    await rejected.service.create(ALUNO, cardOrder());
+
+    expect(pending.invoices.onOrderPaid).not.toHaveBeenCalled();
+    expect(rejected.invoices.onOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('estornado, cancela a nota depois de revogar o acesso', async () => {
+    const { service, access, invoices } = await build({
+      storedOrder: { ...PLACED.order, status: 'PAID' },
+      gatewayOrder: REFUNDED_ORDER,
+    });
+
+    await service.applyFromGateway('ORD-2');
+
+    expect(invoices.onOrderRefunded).toHaveBeenCalledWith('ord-b');
+    expect(invoices.onOrderRefunded.mock.invocationCallOrder[0]).toBeGreaterThan(
+      access.revokeByOrder.mock.invocationCallOrder[0],
+    );
+  });
+
+  // A nota e assunto do painel: o comprador pagou e recebe o acesso.
+  it('uma falha da nota nao muda o pedido nem a resposta', async () => {
+    const { service, invoices, access } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    invoices.onOrderPaid.mockRejectedValue(new Error('Notaas fora'));
+
+    const view = await service.create(ALUNO, cardOrder());
+
+    expect(view.status).toBe('PAID');
+    expect(access.grant).toHaveBeenCalled();
+  });
+
+  it('uma falha no cancelamento da nota nao desfaz o estorno', async () => {
+    const { service, invoices, access } = await build({
+      storedOrder: { ...PLACED.order, status: 'PAID' },
+      gatewayOrder: REFUNDED_ORDER,
+    });
+
+    invoices.onOrderRefunded.mockRejectedValue(new Error('Notaas fora'));
+
+    await expect(service.applyFromGateway('ORD-2')).resolves.toBeUndefined();
+    expect(access.revokeByOrder).toHaveBeenCalledWith('ord-b');
   });
 });
