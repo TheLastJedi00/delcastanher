@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { LegalModule } from '../legal/legal.module';
 import { AdminUsersController } from './users.admin.controller';
 import { AdminUsersService } from './users.admin.service';
 import { UsersController } from './users.controller';
@@ -10,7 +11,7 @@ import { UsersService } from './users.service';
  * e a mesma, o que muda e o leitor (Spec 013).
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, LegalModule],
   controllers: [UsersController, AdminUsersController],
   providers: [UsersService, AdminUsersService],
   exports: [UsersService],

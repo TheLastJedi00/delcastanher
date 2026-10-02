@@ -3,7 +3,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { LEGAL_PLACEHOLDER, LegalPage, LegalSection, p, ul } from './legal-page';
+import { COMPANY } from './company-info';
+import { LegalPage, LegalPageState } from './legal-page';
+import { parseLegalText } from './parse-legal-text';
 
 @Component({
   selector: 'app-host',
@@ -13,35 +15,39 @@ import { LEGAL_PLACEHOLDER, LegalPage, LegalSection, p, ul } from './legal-page'
     <app-legal-page
       title="Documento de teste"
       summary="Resumo de teste"
-      [sections]="sections()"
-      policyVersion="2026-09-13"
-      [pending]="pending()" />
+      [state]="state()"
+      unpublishedNotice="O documento de teste está em preparação e será publicado nesta página." />
   `,
 })
 class Host {
-  readonly sections = signal<LegalSection[]>([]);
-  readonly pending = signal(true);
+  readonly state = signal<LegalPageState>({ status: 'loading' });
 }
 
+const READY: LegalPageState = {
+  status: 'ready',
+  sections: parseLegalText(
+    '## 1. Primeira\n\nPrimeiro parágrafo do documento.\n\n- Item de lista A\n- Item de lista B\n\nParágrafo de fechamento.\n\n## 2. Segunda\n\nb',
+  ),
+  policyVersion: '2026-09-13',
+  publishedAt: '2026-09-13T15:00:00.000Z',
+};
+
 /**
- * A casca legal serve dois estados desde a Spec 015: documento pendente de
- * revisao juridica, que mostra o roteiro do que a clausula deve cobrir, e
- * documento em vigor, que mostra o texto redigido.
- *
- * O que estes testes protegem e a fronteira entre os dois. Uma pagina redigida
- * que ainda exibisse o marcador `[TEXTO A SER REDIGIDO PELO JURIDICO]`, ou uma
- * pendente que perdesse o aviso de que nada ali vale, sao os dois jeitos de
- * essa casca enganar quem le — e o segundo e o que a Spec 009 (decisao 11)
- * existiu para impedir.
+ * A casca legal desde a Spec 022: o texto vem do banco, e a pagina mostra o
+ * que esta publicado ou diz, com todas as letras, que o documento esta em
+ * preparacao. Nao existe mais o modo "pendente", com roteiro e marcador de
+ * texto a redigir (decisao 5).
  */
-describe('LegalPage — pendente e redigida', () => {
+describe('LegalPage', () => {
   let fixture: ComponentFixture<Host>;
   let host: Host;
 
   beforeEach(() => {
     localStorage.clear();
 
-    TestBed.configureTestingModule({ providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
 
     fixture = TestBed.createComponent(Host);
     host = fixture.componentInstance;
@@ -52,55 +58,15 @@ describe('LegalPage — pendente e redigida', () => {
     return (fixture.nativeElement as HTMLElement).textContent!.replace(/\s+/g, ' ');
   }
 
-  describe('documento pendente', () => {
-    beforeEach(() => {
-      host.pending.set(true);
-      host.sections.set([
-        { title: '1. Cláusula pendente', topics: ['Primeiro ponto', 'Segundo ponto'] },
-      ]);
-      fixture.detectChanges();
-    });
+  function show(state: LegalPageState): void {
+    host.state.set(state);
+    fixture.detectChanges();
+  }
 
-    it('avisa que o documento não passou por advogado', () => {
-      expect(text()).toContain('Documento pendente de revisão jurídica');
-    });
+  describe('documento publicado', () => {
+    beforeEach(() => show(READY));
 
-    it('marca o corpo como texto a ser redigido e lista o roteiro', () => {
-      expect(text()).toContain(LEGAL_PLACEHOLDER);
-      expect(text()).toContain('A cláusula deve cobrir');
-      expect(text()).toContain('Primeiro ponto');
-      expect(text()).toContain('Segundo ponto');
-    });
-
-    it('não promete reabrir o consentimento, porque o documento não está em vigor', () => {
-      expect(text()).toContain('Versão vigente: 2026-09-13');
-      expect(text()).not.toContain('reabrem o pedido de consentimento');
-    });
-  });
-
-  describe('documento redigido', () => {
-    beforeEach(() => {
-      host.pending.set(false);
-      host.sections.set([
-        {
-          title: '1. Cláusula redigida',
-          body: [
-            p('Primeiro parágrafo do documento.'),
-            ul('Item de lista A', 'Item de lista B'),
-            p('Parágrafo de fechamento.'),
-          ],
-        },
-      ]);
-      fixture.detectChanges();
-    });
-
-    it('não exibe o aviso de pendência nem o marcador de texto faltante', () => {
-      expect(text()).not.toContain('Documento pendente de revisão jurídica');
-      expect(text()).not.toContain(LEGAL_PLACEHOLDER);
-      expect(text()).not.toContain('A cláusula deve cobrir');
-    });
-
-    it('renderiza parágrafos e listas na ordem recebida', () => {
+    it('renderiza parágrafos e listas na ordem do texto', () => {
       const corpo = text();
       const posParagrafo = corpo.indexOf('Primeiro parágrafo do documento.');
       const posItem = corpo.indexOf('Item de lista A');
@@ -111,7 +77,7 @@ describe('LegalPage — pendente e redigida', () => {
       expect(posFecho).toBeGreaterThan(posItem);
     });
 
-    it('usa <li> para os itens da lista, e não parágrafos soltos', () => {
+    it('usa <li> para os itens da lista', () => {
       const itens = (fixture.nativeElement as HTMLElement).querySelectorAll('li');
 
       expect(Array.from(itens).map(li => li.textContent!.trim())).toEqual([
@@ -120,25 +86,58 @@ describe('LegalPage — pendente e redigida', () => {
       ]);
     });
 
-    it('promete reabrir o consentimento quando o documento está em vigor', () => {
+    it('mostra a versão e a data, e promete reabrir o consentimento', () => {
+      expect(text()).toContain('Versão vigente: 2026-09-13, publicada em 13/09/2026');
       expect(text()).toContain('reabrem o pedido de consentimento de cookies');
+    });
+
+    it('mantém a hierarquia de cabeçalhos: um h1 de título e um h2 por cláusula', () => {
+      const elemento = fixture.nativeElement as HTMLElement;
+
+      expect(elemento.querySelectorAll('h1').length).toBe(1);
+      expect(Array.from(elemento.querySelectorAll('h2')).map(h => h.textContent!.trim())).toEqual([
+        '1. Primeira',
+        '2. Segunda',
+      ]);
+    });
+
+    it('não tem marcador de texto a redigir nem roteiro', () => {
+      expect(text()).not.toContain('[TEXTO A SER REDIGIDO');
+      expect(text()).not.toContain('A cláusula deve cobrir');
+      expect(text()).not.toContain('pendente de revisão jurídica');
     });
   });
 
-  it('mantém a hierarquia de cabeçalhos: um h1 de título e um h2 por cláusula', () => {
-    host.pending.set(false);
-    host.sections.set([
-      { title: '1. Primeira', body: [p('a')] },
-      { title: '2. Segunda', body: [p('b')] },
-    ]);
-    fixture.detectChanges();
+  describe('documento não publicado', () => {
+    beforeEach(() => show({ status: 'unpublished' }));
 
-    const elemento = fixture.nativeElement as HTMLElement;
+    it('diz que está em preparação, com o contato da controladora', () => {
+      expect(text()).toContain('O documento de teste está em preparação e será publicado nesta página.');
+      expect(text()).toContain(COMPANY.legalName);
+      expect(text()).toContain(COMPANY.email);
+      expect(text()).toContain(COMPANY.phone);
+    });
 
-    expect(elemento.querySelectorAll('h1').length).toBe(1);
-    expect(Array.from(elemento.querySelectorAll('h2')).map(h => h.textContent!.trim())).toEqual([
-      '1. Primeira',
-      '2. Segunda',
-    ]);
+    it('não mostra cláusula, versão, marcador nem roteiro', () => {
+      expect((fixture.nativeElement as HTMLElement).querySelectorAll('h2').length).toBe(0);
+      expect(text()).not.toContain('Versão vigente');
+      expect(text()).not.toContain('[TEXTO A SER REDIGIDO');
+      expect(text()).not.toContain('A cláusula deve cobrir');
+    });
+  });
+
+  it('carregando, avisa sem inventar texto', () => {
+    show({ status: 'loading' });
+
+    expect(text()).toContain('Carregando o documento');
+    expect(text()).not.toContain('Versão vigente');
+  });
+
+  it('com falha no navegador, diz que não conseguiu carregar', () => {
+    show({ status: 'error' });
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')?.textContent).toContain(
+      'Não foi possível carregar o documento',
+    );
   });
 });

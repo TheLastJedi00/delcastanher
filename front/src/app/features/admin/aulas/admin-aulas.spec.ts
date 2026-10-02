@@ -127,6 +127,9 @@ describe('AdminAulas', () => {
     // O bloco do pacote (Spec 019) carrega os lotes por conta propria; a
     // suite dele e a admin-pacote.spec.
     backend.expectOne(req => req.url.endsWith('/admin/bundles/imersao-rh-lancamento')).flush(null);
+    backend
+      .expectOne(req => req.url.endsWith('/admin/courses/imersao-rh'))
+      .flush(null, { status: 404, statusText: 'Not Found' });
   });
 
   afterEach(() => backend.verify());

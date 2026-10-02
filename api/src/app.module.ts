@@ -5,7 +5,9 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { ContentModule } from './content/content.module';
+import { CoursesModule } from './courses/courses.module';
 import { FirebaseModule } from './firebase/firebase.module';
+import { LegalModule } from './legal/legal.module';
 import { MuxModule } from './mux/mux.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -26,6 +28,8 @@ import { UsersModule } from './users/users.module';
     CertificatesModule,
     ContentModule,
     PaymentsModule,
+    LegalModule,
+    CoursesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

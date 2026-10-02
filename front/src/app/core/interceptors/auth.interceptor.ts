@@ -1,4 +1,9 @@
-import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
+import {
+  HttpContextToken,
+  HttpErrorResponse,
+  HttpInterceptorFn,
+  HttpRequest,
+} from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -6,6 +11,14 @@ import { AuthService, isSessionEnded } from '../services/auth.service';
 
 /** Rotas de sessao: nunca levam token nem disparam refresh, senao entram em laco. */
 const AUTH_ROUTES = `${environment.apiUrl}/auth/`;
+
+/**
+ * Chamada publica, que sai **sem** token mesmo com sessao aberta (Spec 022,
+ * decisao 16). As rotas com cache na CDN respondem igual para todos: mandar o
+ * token nao muda a resposta, forca um preflight de CORS e deixa uma credencial
+ * passar por onde nao precisa.
+ */
+export const PUBLIC_REQUEST = new HttpContextToken<boolean>(() => false);
 
 /**
  * Anexa o idToken da sessao as chamadas da nossa API. O destino e conferido
@@ -26,6 +39,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
     !idToken ||
     !request.url.startsWith(environment.apiUrl) ||
     request.url.startsWith(AUTH_ROUTES) ||
+    request.context.get(PUBLIC_REQUEST) ||
     request.headers.has('Authorization')
   ) {
     return next(request);

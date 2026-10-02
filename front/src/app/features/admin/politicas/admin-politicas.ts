@@ -1,0 +1,306 @@
+import { switchMap } from 'rxjs';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  AdminLegalDocument,
+  AdminLegalService,
+  LEGAL_DOCUMENT_KINDS,
+  LEGAL_DOCUMENT_TITLES,
+  LegalChangeKind,
+  LegalDocumentKind,
+  LegalDocumentVersion,
+  PublishChangeKind,
+} from '../../../core/services/admin-legal.service';
+import { parseLegalText } from '../../legal/parse-legal-text';
+import { LegalSections } from '../../legal/legal-sections';
+import { Badge } from '../../../shared/ui/badge/badge';
+import { Button } from '../../../shared/ui/button/button';
+import { Card } from '../../../shared/ui/card/card';
+import { Input } from '../../../shared/ui/input/input';
+import { Modal } from '../../../shared/ui/modal/modal';
+import { SectionHeader } from '../../../shared/ui/section-header/section-header';
+
+/** Data no formato da tela: 13/09/2026. */
+export function formatLegalDate(value: string): string {
+  return new Date(value).toLocaleDateString('pt-BR');
+}
+
+/** "versão 2026-09-13, em 13/09/2026 por fulano@x" — a linha de autoria de uma versão. */
+export function describeVersion(version: LegalDocumentVersion): string {
+  const author = version.publishedByEmail ? ` por ${version.publishedByEmail}` : ' (carga inicial)';
+
+  return `versão ${version.policyVersion}, em ${formatLegalDate(version.publishedAt)}${author}`;
+}
+
+/** Rotulo do tipo de publicacao no historico. */
+export const CHANGE_KIND_LABELS: Record<LegalChangeKind, string> = {
+  INITIAL: 'Carga inicial',
+  NEW_VERSION: 'Nova versão',
+  CORRECTION: 'Correção',
+};
+
+/**
+ * Aba "Politicas & Termos" do painel (Spec 022).
+ *
+ * Mora num componente proprio, como o `AdminFinanceiro`: a aba deixa de ser
+ * maquete e ganha lista, editor, publicacao e historico, que nao cabem no
+ * template do `AdminDashboard`.
+ */
+@Component({
+  selector: 'app-admin-politicas',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [Badge, Button, Card, Input, LegalSections, Modal, SectionHeader],
+  host: { '(window:beforeunload)': 'onBeforeUnload($event)' },
+  templateUrl: './admin-politicas.html',
+})
+export class AdminPoliticas implements OnInit {
+  protected readonly legal = inject(AdminLegalService);
+
+  protected readonly titles = LEGAL_DOCUMENT_TITLES;
+
+  /**
+   * Os tres documentos, sempre na mesma ordem e sempre os tres: um documento
+   * que a API nao devolver aparece como nao publicado, e nao some da lista.
+   */
+  protected readonly documents = computed<AdminLegalDocument[]>(() => {
+    const loaded = this.legal.result()?.documents ?? [];
+
+    return LEGAL_DOCUMENT_KINDS.map(
+      kind => loaded.find(doc => doc.kind === kind) ?? { kind, current: null, draft: null },
+    );
+  });
+
+  /** Documento aberto no editor; nulo na lista. */
+  protected readonly editing = signal<LegalDocumentKind | null>(null);
+  /** Texto no editor. */
+  protected readonly content = signal('');
+  /** Texto ao abrir ou ao salvar por ultimo: e contra ele que se mede "nao salvo". */
+  private readonly saved = signal('');
+
+  protected readonly dirty = computed(() => this.content() !== this.saved());
+  protected readonly saving = signal(false);
+  protected readonly editorError = signal<string | null>(null);
+
+  /** O documento aberto, como veio da API. */
+  protected readonly editingDoc = computed(() => {
+    const kind = this.editing();
+
+    return kind ? (this.documents().find(doc => doc.kind === kind) ?? null) : null;
+  });
+
+  /**
+   * Pre-visualizacao pelo mesmo parser e pelo mesmo componente da pagina
+   * publica (decisao 1): o que se ve aqui e o que o aluno vai ler.
+   */
+  protected readonly preview = computed(() => parseLegalText(this.content()));
+
+  /** Dialogo de publicacao aberto (decisao 3). */
+  protected readonly publishOpen = signal(false);
+  protected readonly changeKind = signal<PublishChangeKind>('NEW_VERSION');
+  protected readonly publishError = signal<string | null>(null);
+  /** Aviso de sucesso na lista, depois de publicar. */
+  protected readonly notice = signal<string | null>(null);
+
+  /**
+   * Sem versao publicada so existe "Nova versao": quem aceitou antes aceitou
+   * sem este texto, e uma correcao manteria a versao que nao o incluia. E o
+   * caso da primeira publicacao dos Termos de Uso (decisao 3).
+   */
+  protected readonly firstPublication = computed(() => !this.editingDoc()?.current);
+
+  /** A versao da politica que uma correcao mantem. */
+  protected readonly policyVersion = computed(() => this.legal.result()?.policyVersion ?? null);
+
+  /** Ha o que publicar: texto nao vazio, salvo como rascunho ou por salvar. */
+  protected readonly canPublish = computed(
+    () => this.content().trim() !== '' && (this.dirty() || !!this.editingDoc()?.draft),
+  );
+
+  /** Documento cujo historico esta aberto; nulo fora do historico. */
+  protected readonly historyKind = signal<LegalDocumentKind | null>(null);
+  protected readonly versions = signal<LegalDocumentVersion[]>([]);
+  protected readonly historyLoading = signal(false);
+  protected readonly historyError = signal<string | null>(null);
+  /** Versao aberta para leitura. */
+  protected readonly reading = signal<LegalDocumentVersion | null>(null);
+  protected readonly readingSections = computed(() => {
+    const version = this.reading();
+
+    return version ? parseLegalText(version.content) : [];
+  });
+
+  protected readonly changeLabels = CHANGE_KIND_LABELS;
+
+  ngOnInit(): void {
+    this.reload();
+  }
+
+  protected reload(): void {
+    this.legal.load().subscribe({ error: () => undefined });
+  }
+
+  /** Abre o rascunho ou, sem rascunho, o texto publicado. */
+  protected open(doc: AdminLegalDocument): void {
+    const text = doc.draft?.content ?? doc.current?.content ?? '';
+
+    this.editorError.set(null);
+    this.notice.set(null);
+    this.content.set(text);
+    this.saved.set(text);
+    this.editing.set(doc.kind);
+  }
+
+  /** Volta para a lista; com alteracao nao salva, pergunta antes. */
+  protected close(): void {
+    if (this.dirty() && !confirm('Sair do editor? As alterações não salvas serão perdidas.')) {
+      return;
+    }
+
+    this.editing.set(null);
+    this.editorError.set(null);
+  }
+
+  protected saveDraft(): void {
+    const kind = this.editing();
+
+    if (!kind) {
+      return;
+    }
+
+    const text = this.content();
+
+    this.saving.set(true);
+    this.editorError.set(null);
+    this.legal.saveDraft(kind, text).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.saved.set(text);
+      },
+      error: (message: string) => {
+        this.saving.set(false);
+        this.editorError.set(message);
+      },
+    });
+  }
+
+  /** Descarta o rascunho e volta ao texto publicado. O site nao muda. */
+  protected discardDraft(): void {
+    const kind = this.editing();
+
+    if (!kind || !confirm('Descartar o rascunho? O texto publicado continua no ar, sem mudança.')) {
+      return;
+    }
+
+    this.saving.set(true);
+    this.editorError.set(null);
+    this.legal.discardDraft(kind).subscribe({
+      next: () => {
+        this.saving.set(false);
+        const text = this.editingDoc()?.current?.content ?? '';
+        this.content.set(text);
+        this.saved.set(text);
+      },
+      error: (message: string) => {
+        this.saving.set(false);
+        this.editorError.set(message);
+      },
+    });
+  }
+
+  protected askPublish(): void {
+    this.publishError.set(null);
+    this.changeKind.set('NEW_VERSION');
+    this.publishOpen.set(true);
+  }
+
+  protected cancelPublish(): void {
+    if (!this.saving()) {
+      this.publishOpen.set(false);
+    }
+  }
+
+  /**
+   * Publica o rascunho. Texto ainda nao salvo e salvo antes: a API publica o
+   * rascunho, e publicar outra coisa que nao o que esta na tela seria pior
+   * que pedir um clique a mais.
+   */
+  protected confirmPublish(): void {
+    const kind = this.editing();
+
+    if (!kind) {
+      return;
+    }
+
+    const text = this.content();
+    const changeKind = this.firstPublication() ? 'NEW_VERSION' : this.changeKind();
+    const publish = () => this.legal.publish(kind, changeKind);
+    const request = this.dirty()
+      ? this.legal.saveDraft(kind, text).pipe(switchMap(publish))
+      : publish();
+
+    this.saving.set(true);
+    this.publishError.set(null);
+    request.subscribe({
+      next: result => {
+        this.saving.set(false);
+        this.saved.set(text);
+        this.publishOpen.set(false);
+        this.editing.set(null);
+        this.notice.set(
+          `${this.title(kind)} publicado. Versão da política vigente: ${result.policyVersion ?? '—'}.`,
+        );
+      },
+      error: (message: string) => {
+        this.saving.set(false);
+        this.publishError.set(message);
+      },
+    });
+  }
+
+  /** Abre o historico: versoes publicadas, da mais recente para a mais antiga. */
+  protected openHistory(kind: LegalDocumentKind): void {
+    this.notice.set(null);
+    this.historyKind.set(kind);
+    this.versions.set([]);
+    this.historyError.set(null);
+    this.historyLoading.set(true);
+
+    this.legal.versions(kind).subscribe({
+      next: list => {
+        this.historyLoading.set(false);
+        this.versions.set(list);
+      },
+      error: (message: string) => {
+        this.historyLoading.set(false);
+        this.historyError.set(message);
+      },
+    });
+  }
+
+  protected closeHistory(): void {
+    this.historyKind.set(null);
+    this.reading.set(null);
+  }
+
+  protected author(version: LegalDocumentVersion): string {
+    return version.publishedByEmail ?? 'carga inicial';
+  }
+
+  /** Fechar a aba do navegador com texto nao salvo tambem pergunta. */
+  protected onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.editing() && this.dirty()) {
+      event.preventDefault();
+    }
+  }
+
+  protected status(doc: AdminLegalDocument): string {
+    return doc.current ? `Publicado — ${describeVersion(doc.current)}` : 'Não publicado';
+  }
+
+  protected date(value: string): string {
+    return formatLegalDate(value);
+  }
+
+  protected title(kind: LegalDocumentKind): string {
+    return this.titles[kind];
+  }
+}

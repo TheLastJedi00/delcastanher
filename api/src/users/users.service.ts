@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
+import { LegalDocumentsService } from '../legal/legal-documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserProfile } from './users.types';
@@ -37,7 +38,10 @@ function isComplete(profile: ProfileData): boolean {
  */
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly legal: LegalDocumentsService,
+  ) {}
 
   /**
    * Registro do usuario logado, criado na hora se ainda nao existir. O upsert
@@ -97,10 +101,15 @@ export class UsersService {
 
     // Gravado uma vez so: a data prova quando o titular aceitou, e reescreve-la
     // a cada PATCH apagaria justamente o que ela prova.
-    const acceptance =
-      !alreadyAccepted && dto.policyAccepted === true
-        ? { policyAcceptedAt: new Date(), policyAcceptedVersion: dto.policyVersion }
-        : {};
+    const accepting = !alreadyAccepted && dto.policyAccepted === true;
+
+    if (accepting) {
+      await this.assertCurrentPolicy(dto.policyVersion);
+    }
+
+    const acceptance = accepting
+      ? { policyAcceptedAt: new Date(), policyAcceptedVersion: dto.policyVersion }
+      : {};
 
     const data = { ...profile, onboardingCompleted: completing, ...acceptance };
 
@@ -109,5 +118,25 @@ export class UsersService {
       update: data,
       create: { id: user.uid, email: user.email, ...data },
     });
+  }
+
+  /**
+   * A versao aceita precisa ser a **vigente** (Spec 022, decisao 7). Se o
+   * painel publicou uma nova versao enquanto a pessoa estava no onboarding, a
+   * conclusao recebe 409 com a versao nova, e o front recarrega os documentos e
+   * pede o aceite de novo: gravar a antiga registraria o aceite de um texto que
+   * ja nao esta em vigor.
+   */
+  private async assertCurrentPolicy(accepted: string | undefined): Promise<void> {
+    const current = await this.legal.policyVersion();
+
+    if (current === null || accepted !== current) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'Os documentos foram atualizados. Leia e aceite a versao vigente para continuar.',
+        policyVersion: current,
+      });
+    }
   }
 }

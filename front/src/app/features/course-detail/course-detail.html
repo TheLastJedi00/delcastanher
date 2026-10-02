@@ -32,13 +32,13 @@
               </a>
             </div>
 
-            <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              @for (item of course.format; track item.label) {
+            <!-- Spec 022, decisao 13: o cartao cujo dado ainda nao existe some,
+                 em vez de mostrar selo de "a definir". -->
+            <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4" data-testid="formato">
+              @for (item of formatCards(); track item.label) {
                 <div class="glass-dark rounded-2xl px-4 py-3">
                   <dt class="mb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">{{ item.label }}</dt>
-                  <dd class="text-sm font-bold text-white">
-                    <ui-placeholder-text [value]="item.value" tone="light" />
-                  </dd>
+                  <dd class="text-sm font-bold text-white">{{ item.value }}</dd>
                 </div>
               }
             </dl>
@@ -141,12 +141,17 @@
           <div class="mb-12" animateOnScroll="animate-fade-in-up">
             <ui-section-header
               align="center"
-              overline="Bônus da turma"
+              overline="Bônus"
               title="O que vem junto e não é cobrado à parte"
-              subtitle="Disponível para quem entra nesta turma." />
+              subtitle="Incluído na compra." />
           </div>
 
-          <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <!-- Com um bonus so, a grade de tres colunas o deixaria encostado a esquerda. -->
+          <div
+            class="grid grid-cols-1 gap-6"
+            [class.md:grid-cols-3]="course.bonuses.length > 1"
+            [class.mx-auto]="course.bonuses.length === 1"
+            [class.max-w-md]="course.bonuses.length === 1">
             @for (bonus of course.bonuses; track bonus.title; let i = $index) {
               <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
                 <ui-glass-card padding="lg">
@@ -160,10 +165,13 @@
                   </p>
                   <h3 class="mb-2 text-lg font-bold text-brand-navy">{{ bonus.title }}</h3>
                   <p class="mb-4 text-sm leading-relaxed text-slate-600">{{ bonus.description }}</p>
-                  <p class="flex items-center gap-2 text-sm font-bold text-slate-500">
-                    <span>Valor:</span>
-                    <ui-placeholder-text [value]="bonus.value" />
-                  </p>
+                  <!-- O valor some enquanto for placeholder (decisao 18). -->
+                  @if (!isPlaceholder(bonus.value)) {
+                    <p class="flex items-center gap-2 text-sm font-bold text-slate-500">
+                      <span>Valor:</span>
+                      <span>{{ bonus.value }}</span>
+                    </p>
+                  }
                 </ui-glass-card>
               </div>
             }
@@ -183,50 +191,52 @@
             </h2>
           </div>
 
+          <!-- Spec 022: o preco e o da loja real, pela mesma oferta do /planos
+               (Spec 019, decisao 10). Carregado so no navegador: no build a
+               secao sai com o esqueleto, e nunca com um preco velho. -->
           <div class="overflow-hidden rounded-3xl shadow-glass-lg" animateOnScroll="animate-fade-in-up">
-            <ui-scarcity-banner
-              [deadline]="course.offer.scarcityDeadline"
-              [seats]="course.offer.scarcitySeats" />
+            @if (scarcity(); as faixa) {
+              <ui-scarcity-banner
+                [headline]="faixa.headline"
+                deadline=""
+                seatsLabel="Depois:"
+                [seats]="faixa.next" />
+            }
 
-            <div class="bg-white px-6 py-10 text-center md:px-12">
-              <p class="mb-2 text-sm text-slate-500">
-                De <span class="line-through decoration-slate-400"><ui-placeholder-text [value]="course.offer.priceFrom" /></span> por
+            <div class="bg-white px-6 py-10 text-center md:px-12" data-testid="oferta">
+              <p class="mb-4 text-sm font-semibold text-brand-navy">
+                Pacote de Lançamento: os {{ course.modules.length }} módulos@if (facts().accessMonths; as meses) {, com {{ meses }} meses de acesso a cada um}
               </p>
 
-              <p class="mb-2 text-4xl font-extrabold tracking-tight text-brand-navy md:text-5xl">
-                <ui-placeholder-text [value]="course.offer.price" />
-              </p>
-              <p class="mb-1 text-base font-bold text-brand-teal-deep">
-                <ui-placeholder-text [value]="course.offer.installments" />
-              </p>
-              <p class="mb-8 text-sm text-slate-500">{{ course.offer.priceNote }}</p>
+              <ui-bundle-price
+                class="mx-auto mb-8 max-w-xs"
+                [loading]="offerState() === 'loading'"
+                [tier]="tier()"
+                [anchorCents]="bundle()?.modulesTotalCents ?? null" />
 
-              <a [routerLink]="checkoutLink()" class="block">
+              <a [routerLink]="checkoutLink" [queryParams]="checkoutQuery" class="block">
                 <ui-button variant="primary" size="lg" [fullWidth]="true">{{ course.offer.ctaLabel }}</ui-button>
               </a>
+
+              <p class="mt-4 text-sm text-slate-600">
+                Precisa de um tema só?
+                <a routerLink="/planos" fragment="modulos" class="font-semibold text-brand-teal-deep underline underline-offset-2">
+                  Veja os módulos avulsos</a
+                >@if (moduleFromCents(); as cents) {, a partir de {{ price(cents) }}}.
+              </p>
 
               <p class="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
                 <svg class="h-4 w-4 shrink-0 text-state-success" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
-                Pagamento em ambiente seguro
+                Pagamento em ambiente seguro, por PIX ou cartão, pelo Mercado Pago
               </p>
-
-              <!-- O botao leva ao mockup de checkout (Spec 007). O gateway real
-                   segue indefinido e o marcador continua visivel, para ninguem
-                   confundir a demonstracao com uma compra de verdade. -->
-              @if (checkoutPending()) {
-                <p class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
-                  <span>Checkout em demonstração. Gateway:</span>
-                  <ui-placeholder-text [value]="course.offer.checkoutUrl" />
-                </p>
-              }
             </div>
           </div>
 
           <!-- Garantias -->
-          <div class="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
-            @for (guarantee of course.guarantees; track guarantee.title; let i = $index) {
+          <div class="mt-10 grid grid-cols-1 gap-4" [class.md:grid-cols-2]="guarantees().length > 1">
+            @for (guarantee of guarantees(); track guarantee.title; let i = $index) {
               <div animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
                 <div class="glass-dark h-full rounded-2xl p-6">
                   <span class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-brand-teal-light">
@@ -237,7 +247,7 @@
                   <h3 class="mb-2 flex flex-wrap items-center gap-2 text-base font-bold text-white">
                     <span>{{ guarantee.title }}</span>
                     @if (guarantee.highlight) {
-                      <ui-placeholder-text [value]="guarantee.highlight" tone="light" />
+                      <span>{{ guarantee.highlight }}</span>
                     }
                   </h3>
                   <p class="text-sm leading-relaxed text-white/75">{{ guarantee.description }}</p>
@@ -248,38 +258,35 @@
         </div>
       </section>
 
-      <!-- Depoimentos: espaço reservado até os vídeos existirem -->
-      <section id="depoimentos" class="bg-white px-4 py-20 md:py-28">
-        <div class="mx-auto max-w-5xl">
-          <div class="mb-12" animateOnScroll="animate-fade-in-up">
-            <ui-section-header
-              align="center"
-              overline="Depoimentos"
-              title="Quem já passou pela imersão" />
-          </div>
+      <!-- Depoimentos (Spec 022, decisao 15): so com depoimento real. Sem
+           nenhum, a secao inteira some, com cabecalho e fundo. -->
+      @if (testimonials().length > 0) {
+        <section id="depoimentos" class="bg-white px-4 py-20 md:py-28">
+          <div class="mx-auto max-w-5xl">
+            <div class="mb-12" animateOnScroll="animate-fade-in-up">
+              <ui-section-header
+                align="center"
+                overline="Depoimentos"
+                title="Quem já passou pela imersão" />
+            </div>
 
-          <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-            @for (testimonial of course.testimonials; track $index; let i = $index) {
-              <figure animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
-                <div class="flex h-full flex-col rounded-2xl border border-brand-navy/8 bg-brand-surface p-6">
-                  <div class="mb-4 flex aspect-video items-center justify-center rounded-xl border border-dashed border-brand-navy/20 bg-white">
-                    <svg class="h-10 w-10 text-brand-navy/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+              @for (testimonial of testimonials(); track $index; let i = $index) {
+                <figure animateOnScroll="animate-fade-in-up" [animateDelay]="i * 100">
+                  <div class="flex h-full flex-col rounded-2xl border border-brand-navy/8 bg-brand-surface p-6">
+                    <blockquote class="mb-4 flex-1 text-sm leading-relaxed text-slate-600">
+                      {{ testimonial.quote }}
+                    </blockquote>
+                    <figcaption class="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                      {{ testimonial.name }} · {{ testimonial.role }}
+                    </figcaption>
                   </div>
-                  <blockquote class="mb-4 flex-1 text-sm leading-relaxed text-slate-600">
-                    <ui-placeholder-text [value]="testimonial.quote" />
-                  </blockquote>
-                  <figcaption class="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-                    {{ testimonial.role }}
-                  </figcaption>
-                </div>
-              </figure>
-            }
+                </figure>
+              }
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      }
 
       <!-- FAQ -->
       <section id="faq" class="relative overflow-hidden bg-brand-surface px-4 py-20 md:py-28">
@@ -312,14 +319,11 @@
 
         <div class="relative mx-auto max-w-3xl">
           <h2 class="mb-4 text-3xl font-extrabold tracking-tight text-white md:text-4xl">
-            A próxima turma da {{ course.name }} está aberta
+            A {{ course.name }} está com as inscrições abertas
           </h2>
-          <p class="mb-8 flex flex-wrap items-center justify-center gap-2 text-base text-white/85">
-            <span>Inscrições até</span>
-            <ui-placeholder-text [value]="course.offer.scarcityDeadline" tone="light" />
-          </p>
+          <div class="mb-8"></div>
           <div class="flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a [routerLink]="checkoutLink()">
+            <a [routerLink]="checkoutLink" [queryParams]="checkoutQuery">
               <ui-button variant="primary" size="lg">{{ course.offer.ctaLabel }}</ui-button>
             </a>
             <a routerLink="/planos">

@@ -6,6 +6,7 @@ import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { ADMIN_TABS, AdminLayout, AdminTab } from '../../../../shared/layouts/admin-layout/admin-layout';
 import { AdminAulas } from '../../aulas/admin-aulas';
 import { AdminFinanceiro } from '../../financeiro/admin-financeiro';
+import { AdminPoliticas } from '../../politicas/admin-politicas';
 import { AddAdminDialog } from '../add-admin-dialog/add-admin-dialog';
 import { AuthService } from '../../../../core/services/auth.service';
 import {
@@ -60,6 +61,7 @@ type PendingAction =
   imports: [
     AdminAulas,
     AdminFinanceiro,
+    AdminPoliticas,
     AddAdminDialog,
     AdminLayout,
     PageContainer,
@@ -90,11 +92,9 @@ export class AdminDashboard {
   readonly activeTab = signal<AdminTab>(
     toTab(this.route.snapshot.queryParamMap.get('tab')),
   );
-  readonly legalTab = signal<'termos' | 'privacidade'>('termos');
 
   readonly emailSubject = signal('');
   readonly emailBody = signal('');
-  readonly legalContent = signal('');
 
   /** Texto do campo de busca. A consulta so sai depois do debounce. */
   readonly search = signal('');
@@ -162,10 +162,6 @@ export class AdminDashboard {
 
     return { first, last: Math.min(page * pageSize, total), total };
   });
-
-  setLegalTab(tab: 'termos' | 'privacidade') {
-    this.legalTab.set(tab);
-  }
 
   onSearch(term: string) {
     this.search.set(term);

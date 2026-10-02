@@ -1,10 +1,16 @@
-import { HttpClient, HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpContext,
+  HttpErrorResponse,
+  provideHttpClient,
+  withInterceptors,
+} from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../services/auth.service';
-import { authInterceptor } from './auth.interceptor';
+import { PUBLIC_REQUEST, authInterceptor } from './auth.interceptor';
 
 const ME = `${environment.apiUrl}/users/me`;
 const ORDERS = `${environment.apiUrl}/orders`;
@@ -68,6 +74,21 @@ describe('authInterceptor', () => {
 
     expect(backend.expectOne('https://fonts.googleapis.com/css').request.headers.has('Authorization'))
       .toBeFalse();
+  });
+
+  // Spec 022, decisao 16: rota publica com cache na CDN sai sem token.
+  it('nao envia Authorization na chamada marcada como publica', () => {
+    signIn();
+
+    http
+      .get(`${environment.apiUrl}/legal/policy-version`, {
+        context: new HttpContext().set(PUBLIC_REQUEST, true),
+      })
+      .subscribe();
+
+    expect(
+      backend.expectOne(`${environment.apiUrl}/legal/policy-version`).request.headers.has('Authorization'),
+    ).toBeFalse();
   });
 
   it('preserva um Authorization definido pela propria chamada', () => {

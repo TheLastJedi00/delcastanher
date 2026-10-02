@@ -195,7 +195,7 @@
       <div class="grid grid-cols-1 gap-x-8 md:grid-cols-2">
         @for (item of curriculum; track item; let i = $index) {
           <div animateOnScroll="animate-fade-in-up" [animateDelay]="(i % 6) * 80">
-            <ui-module-card [moduleNumber]="i + 1" [title]="item" />
+            <ui-module-card [moduleNumber]="i + 1" [title]="item" [showLessons]="false" />
           </div>
         }
       </div>
