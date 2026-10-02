@@ -97,6 +97,13 @@ export const routes: Routes = [
       ),
   },
   {
+    // Descadastro das campanhas de e-mail (Spec 023, decisao B5). Publica:
+    // quem chega e o aluno pelo link do e-mail, sem sessao. Nao indexavel.
+    path: 'descadastro',
+    data: { [SEO_DATA_KEY]: privateSeo('Cancelar inscrição') },
+    loadComponent: () => import('./features/descadastro/descadastro').then(m => m.Descadastro),
+  },
+  {
     path: 'login',
     // Quem ja tem sessao vai para a propria area em vez de ver o formulario de
     // novo (Spec 019, decisao 16).
