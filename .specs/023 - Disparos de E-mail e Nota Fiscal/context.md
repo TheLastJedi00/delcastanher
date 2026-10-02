@@ -82,7 +82,7 @@ Mais três pontos do contrato:
 - **Ambiente:** o de homologação e o de produção são definidos **por projeto** na Notaas, cada um com a sua chave de API. O status devolve `tpAmb`, que é conferido (A6).
 - **Webhook:**
   - traz os cabeçalhos `X-Notaas-Event`, `X-Notaas-Delivery` (id único da entrega) e `X-Notaas-Signature`;
-  - a assinatura é `sha256=` + HMAC-SHA256 do corpo **bruto** com o secret;
+  - a assinatura é o HMAC-SHA256 do corpo **bruto** com o secret, em hex. A documentação de NF-e mostra o hex puro e a spec registrava `sha256=` + hex: a rota aceita os dois (execução, 2026-10-02);
   - são 5 tentativas (imediata, 1 min, 5 min, 30 min e 2 h), com timeout de 10 s.
 - **Arquivos:** não ficam em CDN público. O DANFE e o XML exigem a chave de API para baixar.
 
@@ -118,7 +118,7 @@ Nada disto é decisão de código, e a Fase 1 não emite em produção sem os da
   - `presencaComprador` e `indicadorIntermediador` da configuração fiscal;
   - `transporte.modalidadeFrete` 9 (produto digital, sem frete);
   - `dest`: `cpf`, `nome` e `endereco` (A3), com `indicadorIE` 9 (não contribuinte). **Sem** `dest.email`, porque o e-mail da nota é nosso (A8) e a Notaas mandaria um segundo;
-  - **um item por módulo do pedido**, com `descricao`, `codigo` (id do módulo), `ncm`, `cfop` (interno ou interestadual pela UF do destinatário), `csosn` ou `cst`, `cstPis`, `cstCofins` e `valorTotal`;
+  - **um item por módulo do pedido**, no array `items` (e não "itens", conferido na documentação em 2026-10-02), com `descricao`, `codigo` (id do módulo), `ncm`, `cfop` (interno ou interestadual pela UF do destinatário), `csosn` ou `cst`, `cstPis`, `cstCofins` e `valorTotal`;
   - `pagamentos`: `tipoPagamento` 17 (PIX) ou 03 (cartão de crédito), com o valor do pedido;
   - `infCpl` com o texto da imunidade.
 
@@ -164,7 +164,8 @@ A regra central é que **uma falha da Notaas nunca desfaz nem atrasa o pagamento
 
 **A5. O desfecho chega por webhook assinado, com reconsulta como rede.**
 - **Cadastro:** um endpoint em `POST /webhooks/endpoints`, com os eventos `nfe.issued`, `nfe.error` e `nfe.cancelled` e um `secret`, apontando para `api.delcastanher.srv.br/webhooks/notaas`. Um por projeto, ou seja, por ambiente.
-- **Verificação:** a rota confere `X-Notaas-Signature` contra `sha256=` + HMAC-SHA256 do **corpo bruto**, com comparação em tempo constante, e recusa com `401` sem assinatura válida. O NestJS passa a guardar o corpo bruto (`rawBody: true` em `main.ts`) para esta rota.
+- **Verificação:** a rota confere `X-Notaas-Signature` contra o HMAC-SHA256 do **corpo bruto** (com ou sem o prefixo `sha256=`), com comparação em tempo constante, e recusa com `401` sem assinatura válida. O corpo bruto já era guardado (`rawBody: true` em `main.ts`, desde a Spec 010).
+- **Homologação:** o webhook do projeto de homologação não alcança a API publicada (o secret é outro) e o cron só roda em produção. Por isso o painel tem "Atualizar situação" (`POST /admin/invoices/:orderId/sync`), que reconsulta na hora.
 - **Corpo não confiado:** como no Mercado Pago, a rota lê só o `invoiceId`, acha a `Invoice` por `providerInvoiceId` e **reconsulta** `GET /nfe/invoices/{id}/status`, gravando o que a consulta diz. Um `invoiceId` desconhecido é ignorado com `200`. A reconsulta também torna inofensivas as entregas repetidas (`X-Notaas-Delivery`).
 - **Tradução do status:**
   - `queued` e `processing` → `PROCESSING`;
@@ -370,6 +371,8 @@ enum CampaignStatus { SENDING SENT PARTIAL }
 | `POST` | `/admin/invoices/:orderId/cancel` | admin | cancela dentro de 24 horas (A7 e A9) |
 | `POST` | `/admin/invoices/:orderId/email` | admin | reenvia o e-mail da nota (A9) |
 | `GET` | `/admin/invoices/:orderId/pdf` | admin | URL assinada de leitura do PDF (A9) |
+| `POST` | `/admin/invoices/:orderId/sync` | admin | reconsulta a Notaas na hora, para a homologação (A5) |
+| `GET` | `/admin/invoices/config` | admin | ambiente, prazo de cancelamento e vencimento do certificado (A6, A7 e A10) |
 | `GET` | `/admin/email/segments` | admin | segmentos com a contagem de destinatários (B2) |
 | `POST` | `/admin/email/test` | admin | envia o teste ao próprio admin (B4) |
 | `POST` | `/admin/email/campaigns` | admin | cria e dispara a campanha (B4) |
@@ -386,11 +389,13 @@ enum CampaignStatus { SENDING SENT PARTIAL }
 | `NOTAAS_WEBHOOK_SECRET` | segredo | usuário | secret do endpoint de webhook de cada projeto (A5) |
 | `NFE_ENV` | config | Claude | `producao` só em Production; `homologacao` no resto (A6) |
 | `NFE_NATUREZA_OPERACAO`, `NFE_NCM`, `NFE_CFOP_INTERNO`, `NFE_CFOP_INTERESTADUAL`, `NFE_CSOSN` ou `NFE_CST`, `NFE_CST_PIS`, `NFE_CST_COFINS`, `NFE_PRESENCA_COMPRADOR`, `NFE_INDICADOR_INTERMEDIADOR`, `NFE_INF_CPL`, `NFE_EMITENTE_UF` | config | Claude | dados fiscais do contador (A1) |
+| `NFE_IBSCBS_CST` e `NFE_IBSCBS_CCLASSTRIB` | config | Claude | grupo IBS/CBS, só com os dois preenchidos (A1) |
 | `NFE_CANCEL_WINDOW_HOURS` | config | Claude | prazo de cancelamento, `24` (A7) |
 | `NFE_CERT_EXPIRES_AT` | config | Claude | vencimento do A1, se a Notaas não avisar (A10) |
 | `RESEND_API_KEY` | segredo | usuário | envio de e-mail (B1) |
 | `EMAIL_FROM` | config | Claude | remetente, ex.: `Lidiane Delcastanher <contato@mail.delcastanher.srv.br>` |
 | `EMAIL_UNSUBSCRIBE_SECRET` | segredo | usuário | HMAC do link de descadastro (B5) |
+| `API_PUBLIC_URL` | config | Claude | endereço da API para o `List-Unsubscribe` de um clique, ex.: `https://api.delcastanher.srv.br` (B5) |
 
 ## Integração com o existente
 - **`api/src/payments/orders.service.ts`:** em `apply`, emitir depois do acesso (A4) e cancelar depois da revogação (A7). A criação do pedido grava `payerDocument` e `payerName` (A3).
