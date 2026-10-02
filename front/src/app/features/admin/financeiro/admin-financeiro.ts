@@ -17,7 +17,9 @@ import { Input } from '../../../shared/ui/input/input';
 import { SectionHeader } from '../../../shared/ui/section-header/section-header';
 import { StatCard } from '../../../shared/ui/stat-card/stat-card';
 import { TimeSeriesChart, TimeSeriesPoint } from '../../../shared/ui/time-series-chart/time-series-chart';
+import { AdminInvoicesService, InvoiceSettings } from '../../../core/services/admin-invoices.service';
 import { AdminContaRecebedora } from './admin-conta-recebedora';
+import { NotaFiscal } from './nota-fiscal';
 
 /** Um dia em milissegundos. */
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -94,6 +96,7 @@ function fromDateInput(value: string, edge: 'start' | 'end'): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AdminContaRecebedora,
+    NotaFiscal,
     Badge,
     Button,
     Card,
@@ -146,7 +149,17 @@ export class AdminFinanceiro {
 
   readonly statuses = Object.entries(STATUS_LABEL) as [FinanceOrderStatus, string][];
 
+  private readonly invoices = inject(AdminInvoicesService);
+
+  /** Ambiente, prazo de cancelamento e certificado da NF-e (Spec 023). */
+  readonly invoiceSettings = signal<InvoiceSettings | null>(null);
+
   constructor() {
+    this.invoices.config().subscribe({
+      next: settings => this.invoiceSettings.set(settings),
+      error: () => undefined,
+    });
+
     const params = this.route.snapshot.queryParamMap;
     const fallback = this.finance.query();
 
@@ -256,6 +269,11 @@ export class AdminFinanceiro {
       })
       .subscribe({ error: () => undefined });
 
+    this.finance.loadOrders().subscribe({ error: () => undefined });
+  }
+
+  /** A nota de um pedido mudou: a pagina recarrega com a situacao nova. */
+  reloadOrders(): void {
     this.finance.loadOrders().subscribe({ error: () => undefined });
   }
 

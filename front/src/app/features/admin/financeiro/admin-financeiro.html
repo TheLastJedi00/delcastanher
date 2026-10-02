@@ -17,6 +17,21 @@
   <!-- Spec 020, decisao 12: quem recebe as vendas, e se a loja esta aberta. -->
   <app-admin-conta-recebedora class="mb-6 block" />
 
+  <!-- Spec 023, decisao A10: o vencimento do certificado A1 derruba toda
+       emissao de NF-e. O aviso aparece 30 dias antes. -->
+  @if (invoiceSettings()?.certificateWarning) {
+    <div
+      class="mb-6 rounded-2xl border border-state-warning/30 bg-state-warning/5 p-4"
+      role="alert"
+      data-testid="aviso-certificado">
+      <p class="text-sm font-bold text-state-warning">Certificado digital perto do vencimento</p>
+      <p class="mt-1 text-sm text-slate-600">
+        O certificado A1 vence em {{ invoiceSettings()?.certificateDaysLeft }} dia(s). Renove e
+        envie o novo à Notaas: sem ele, nenhuma nota fiscal é emitida.
+      </p>
+    </div>
+  }
+
   <!-- Filtro de periodo. O recorte vive na URL por query param: a tela
        filtrada vira link compartilhavel e sobrevive ao F5 (Task 6.2). -->
   <ui-card variant="default" padding="md" [hover]="false" class="mb-6">
@@ -397,7 +412,7 @@
       }
 
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[56rem] text-sm">
+        <table class="w-full min-w-[68rem] text-sm">
           <caption class="sr-only">Pedidos do período selecionado</caption>
           <thead>
             <tr class="border-b border-brand-navy/8 text-left text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -408,6 +423,7 @@
               <th scope="col" class="px-6 py-3 text-right">Valor</th>
               <th scope="col" class="px-6 py-3">Data</th>
               <th scope="col" class="px-6 py-3">Mercado Pago</th>
+              <th scope="col" class="px-6 py-3">Nota fiscal</th>
             </tr>
           </thead>
           <tbody>
@@ -462,10 +478,18 @@
                     }
                   </div>
                 </td>
+                <td class="px-6 py-3 align-top">
+                  <app-nota-fiscal
+                    [orderId]="pedido.id"
+                    [orderStatus]="pedido.status"
+                    [invoice]="pedido.invoice ?? null"
+                    [settings]="invoiceSettings()"
+                    (changed)="reloadOrders()" />
+                </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="7" class="px-6 py-8 text-center text-sm text-slate-500">
+                <td colspan="8" class="px-6 py-8 text-center text-sm text-slate-500">
                   Nenhum pedido encontrado com esse filtro.
                 </td>
               </tr>
