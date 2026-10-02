@@ -6,6 +6,7 @@ import { Avatar } from '../../shared/ui/avatar/avatar';
 import { BackLink } from '../../shared/ui/back-link/back-link';
 import { Button } from '../../shared/ui/button/button';
 import { Card } from '../../shared/ui/card/card';
+import { Checkbox } from '../../shared/ui/checkbox/checkbox';
 import { Input } from '../../shared/ui/input/input';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
@@ -35,7 +36,7 @@ function messageFor(control: AbstractControl, required: string): string {
 @Component({
   selector: 'app-perfil',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, PageContainer, BackLink, SectionHeader, Card, Avatar, Input, Button],
+  imports: [ReactiveFormsModule, PageContainer, BackLink, SectionHeader, Card, Avatar, Input, Button, Checkbox],
   template: `
     <ui-page-container maxWidth="sm">
       <div class="mb-6">
@@ -74,6 +75,18 @@ function messageFor(control: AbstractControl, required: string): string {
             formControlName="linkedin"
             [error]="errors().linkedin" />
 
+          <!-- Spec 023, decisao B5: o aluno se descadastra ou volta a
+               receber as novidades por aqui. O e-mail da nota fiscal e
+               documento da compra e sai de qualquer jeito. -->
+          @if (showMarketing()) {
+            <ui-checkbox formControlName="marketingOptIn" data-testid="novidades">
+              <span class="font-medium text-slate-700">Receber novidades por e-mail</span>
+              <span class="block text-xs text-slate-500">
+                Aulas novas e comunicados da Imersão. Você pode sair a qualquer momento.
+              </span>
+            </ui-checkbox>
+          }
+
           @if (saved()) {
             <p class="rounded-xl bg-state-success/10 px-4 py-3 text-sm font-medium text-state-success">
               Alterações salvas.
@@ -100,6 +113,8 @@ export class Perfil {
   /** Destino do "voltar": cada shell devolve o usuario para a sua home. */
   readonly backLink = input('/ava');
   readonly backLabel = input('Voltar ao Hub');
+  /** Administradores nao recebem campanhas (decisao B2): o painel esconde. */
+  readonly showMarketing = input(true);
 
   private readonly fb = inject(NonNullableFormBuilder);
 
@@ -110,6 +125,7 @@ export class Perfil {
     bio: ['', [Validators.required, Validators.maxLength(600)]],
     phone: ['', [Validators.required, Validators.maxLength(30)]],
     linkedin: ['', [Validators.maxLength(200), Validators.pattern(LINKEDIN)]],
+    marketingOptIn: [true],
   });
 
   readonly isSaving = signal(false);
@@ -154,6 +170,7 @@ export class Perfil {
           bio: profile.bio ?? '',
           phone: profile.phone ?? '',
           linkedin: profile.linkedin ?? '',
+          marketingOptIn: !profile.marketingOptOutAt,
         });
       }
     });
@@ -170,7 +187,7 @@ export class Perfil {
       return;
     }
 
-    const { name, bio, phone, linkedin } = this.form.getRawValue();
+    const { name, bio, phone, linkedin, marketingOptIn } = this.form.getRawValue();
 
     this.isSaving.set(true);
 
@@ -180,6 +197,7 @@ export class Perfil {
         bio: bio.trim(),
         phone: phone.trim(),
         linkedin: linkedin.trim() || undefined,
+        ...(this.showMarketing() ? { marketingOptIn } : {}),
       })
       .subscribe({
         next: () => {

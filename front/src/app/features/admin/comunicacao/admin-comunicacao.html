@@ -1,0 +1,152 @@
+<div class="mb-6">
+  <ui-section-header overline="Comunicação" title="Disparo de E-mails" />
+</div>
+
+@if (loadError()) {
+  <p class="mb-4 text-sm text-state-danger" role="alert" data-testid="erro-carga">{{ loadError() }}</p>
+}
+
+<ui-card variant="default" padding="lg" [hover]="false">
+  <form [formGroup]="form" (ngSubmit)="askDispatch()" novalidate>
+    <div class="mb-4 md:w-1/2">
+      <label
+        for="admin-segmento"
+        class="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">
+        Segmentação de Alunos
+      </label>
+      <select
+        id="admin-segmento"
+        formControlName="segment"
+        class="w-full rounded-xl border border-brand-navy/10 bg-white/80 px-4 py-2.5 text-sm text-slate-800 outline-none transition-all duration-200 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
+        @for (segment of segments(); track segment.id) {
+          <option [value]="segment.id">{{ segment.label }} ({{ segment.count }})</option>
+        } @empty {
+          <option value="ALL_ACTIVE">Todos os alunos ativos</option>
+        }
+      </select>
+      @if (selected(); as segment) {
+        <p class="mt-2 text-xs text-slate-500" data-testid="contagem">
+          {{ segment.count }} pessoa(s) recebem hoje. Ficam de fora contas bloqueadas, quem se
+          descadastrou e administradores.
+        </p>
+      }
+    </div>
+
+    <div class="mb-4">
+      <ui-input
+        label="Assunto do E-mail"
+        placeholder="Novidade na plataforma!"
+        formControlName="subject"
+        [error]="fieldError('subject')" />
+    </div>
+
+    <div class="mb-2">
+      <ui-input
+        label="Corpo da Mensagem"
+        placeholder="Olá! Uma aula nova acabou de entrar na trilha..."
+        [multiline]="true"
+        [rows]="8"
+        formControlName="body"
+        [error]="fieldError('body')" />
+    </div>
+    <p class="mb-6 text-xs text-slate-500">
+      Texto simples: linha em branco separa parágrafos e links viram clicáveis. O e-mail sai com o
+      cabeçalho da marca e o link de descadastro no rodapé.
+    </p>
+
+    @if (feedback()) {
+      <p class="mb-4 text-sm font-medium text-state-success" role="status" data-testid="feedback">
+        {{ feedback() }}
+      </p>
+    }
+    @if (error()) {
+      <p class="mb-4 text-sm text-state-danger" role="alert" data-testid="erro">{{ error() }}</p>
+    }
+
+    <div class="flex flex-wrap justify-end gap-3">
+      <ui-button variant="outline" [loading]="sendingTest()" [disabled]="busy()" (click)="sendTest()">
+        Enviar Teste
+      </ui-button>
+      <ui-button variant="primary" type="submit" [disabled]="busy() || loading()">
+        Disparar Campanha
+      </ui-button>
+    </div>
+  </form>
+</ui-card>
+
+<div class="mt-8">
+  <h3 class="mb-4 text-lg font-bold text-brand-navy">Histórico de campanhas</h3>
+
+  @if (campaigns().length === 0) {
+    <p class="text-sm text-slate-500" data-testid="historico-vazio">Nenhuma campanha disparada ainda.</p>
+  } @else {
+    <ui-card variant="default" padding="none" [hover]="false">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm" data-testid="historico">
+          <thead class="border-b border-brand-navy/10 text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+              <th scope="col" class="px-4 py-3">Data</th>
+              <th scope="col" class="px-4 py-3">Assunto</th>
+              <th scope="col" class="px-4 py-3">Segmento</th>
+              <th scope="col" class="px-4 py-3">Disparada por</th>
+              <th scope="col" class="px-4 py-3 text-right">Destinatários</th>
+              <th scope="col" class="px-4 py-3 text-right">Enviados</th>
+              <th scope="col" class="px-4 py-3 text-right">Falhas</th>
+              <th scope="col" class="px-4 py-3">Situação</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (campaign of campaigns(); track campaign.id) {
+              <tr class="border-b border-brand-navy/5 last:border-0">
+                <td class="whitespace-nowrap px-4 py-3 text-slate-600">
+                  {{ campaign.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+                </td>
+                <td class="px-4 py-3 font-medium text-slate-800">{{ campaign.subject }}</td>
+                <td class="px-4 py-3 text-slate-600">{{ labelOf(campaign.segment) }}</td>
+                <td class="px-4 py-3 text-slate-600">{{ campaign.createdByEmail }}</td>
+                <td class="px-4 py-3 text-right tabular-nums">{{ campaign.recipientCount }}</td>
+                <td class="px-4 py-3 text-right tabular-nums">{{ campaign.sentCount }}</td>
+                <td class="px-4 py-3 text-right tabular-nums">{{ campaign.failedCount }}</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <ui-badge
+                      [variant]="statusOf(campaign.status).variant"
+                      [label]="statusOf(campaign.status).label" />
+                    @if (campaign.status !== 'SENT') {
+                      <ui-button
+                        variant="ghost"
+                        size="sm"
+                        [loading]="resumingId() === campaign.id"
+                        [disabled]="resumingId() !== null"
+                        (click)="resume(campaign)">
+                        Retomar envio
+                      </ui-button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </ui-card>
+  }
+</div>
+
+@if (confirming()) {
+  <ui-modal title="Disparar campanha?" (closed)="confirming.set(false)">
+    <p class="text-sm text-slate-600" data-testid="confirmacao">
+      O e-mail <strong class="text-slate-800">"{{ form.controls.subject.value }}"</strong> vai para
+      <strong class="text-slate-800">{{ selected()?.count ?? 0 }} pessoa(s)</strong> do segmento
+      "{{ selected()?.label }}". Depois de disparado, não há como desfazer.
+    </p>
+    <div class="mt-6 flex justify-end gap-3">
+      <ui-button variant="ghost" [disabled]="dispatching()" (click)="confirming.set(false)">
+        Cancelar
+      </ui-button>
+      <ui-button variant="primary" [loading]="dispatching()" (click)="dispatch()">
+        Disparar agora
+      </ui-button>
+    </div>
+  </ui-modal>
+}

@@ -269,53 +269,7 @@
       }
 
       @case ('comunicacao') {
-        <div class="mb-6">
-          <ui-section-header overline="Comunicação" title="Disparo de E-mails" />
-        </div>
-
-        <!-- Spec 013: a Visão Geral passou a ler o banco, e esta aba nao. Sem
-             o aviso, ela pareceria funcional ao lado de uma tela que virou
-             real, e alguem clicaria em "Disparar" esperando envio. -->
-        <div class="mb-6 rounded-2xl border border-state-warning/30 bg-state-warning/5 p-4">
-          <p class="text-sm font-bold text-state-warning">Área em construção</p>
-          <p class="mt-1 text-sm text-slate-600">
-            Esta tela é uma maquete: nenhum e-mail é enviado e nada é salvo. O envio real depende de
-            um provedor de e-mail e de tratamento de descadastro, que são de outra entrega.
-          </p>
-        </div>
-
-        <ui-card variant="default" padding="lg" [hover]="false">
-          <div class="mb-4 md:w-1/2">
-            <label for="admin-segmento" class="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">
-              Segmentação de Alunos
-            </label>
-            <select
-              id="admin-segmento"
-              class="w-full rounded-xl border border-brand-navy/10 bg-white/80 px-4 py-2.5 text-sm text-slate-800 outline-none transition-all duration-200 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20">
-              <option>Todos os Alunos Ativos</option>
-              <option>Alunos que não acessam há 7 dias</option>
-              <option>Alunos que concluíram o curso</option>
-            </select>
-          </div>
-
-          <div class="mb-4">
-            <ui-input label="Assunto do E-mail" placeholder="Novidade na plataforma!" [(value)]="emailSubject" />
-          </div>
-
-          <div class="mb-6">
-            <ui-input
-              label="Corpo da Mensagem"
-              placeholder="Olá aluno..."
-              [multiline]="true"
-              [rows]="8"
-              [(value)]="emailBody" />
-          </div>
-
-          <div class="flex flex-wrap justify-end gap-3">
-            <ui-button variant="outline" [disabled]="true">Enviar Teste</ui-button>
-            <ui-button variant="primary" [disabled]="true">Disparar Campanha</ui-button>
-          </div>
-        </ui-card>
+        <app-admin-comunicacao />
       }
 
       @case ('termos') {

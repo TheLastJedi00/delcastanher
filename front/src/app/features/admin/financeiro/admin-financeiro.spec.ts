@@ -310,4 +310,38 @@ describe('AdminFinanceiro', () => {
     expect(text).toContain('Pacote de Lançamento — Imersão RH Estratégico · Lote Fundador');
     expect(text).not.toContain('Módulo 12');
   });
+
+  /** Spec 023, decisao A10: o certificado vencido derruba toda emissao. */
+  describe('aviso do certificado A1', () => {
+    function renderWithInvoiceConfig(config: Record<string, unknown>) {
+      render();
+      http
+        .match(req => req.url === `${environment.apiUrl}/admin/invoices/config`)
+        .forEach(req => req.flush(config));
+      fixture.detectChanges();
+
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    const BASE = {
+      enabled: true,
+      environment: 'producao',
+      certificateExpiresAt: '2026-10-20T00:00:00.000Z',
+      cancelWindowHours: 24,
+    };
+
+    it('avisa quando faltam 30 dias ou menos', () => {
+      const el = renderWithInvoiceConfig({ ...BASE, certificateDaysLeft: 18, certificateWarning: true });
+
+      expect(el.querySelector('[data-testid="aviso-certificado"]')?.textContent).toContain(
+        'vence em 18 dia(s)',
+      );
+    });
+
+    it('não avisa com o certificado longe do vencimento', () => {
+      const el = renderWithInvoiceConfig({ ...BASE, certificateDaysLeft: 200, certificateWarning: false });
+
+      expect(el.querySelector('[data-testid="aviso-certificado"]')).toBeNull();
+    });
+  });
 });
