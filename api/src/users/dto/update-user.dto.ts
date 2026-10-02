@@ -57,6 +57,15 @@ export class UpdateUserDto {
   policyAccepted?: boolean;
 
   /**
+   * "Receber novidades por e-mail" (Spec 023, decisao B5). Ausente nao mexe na
+   * preferencia: o onboarding nao manda o campo, e quem nunca se descadastrou
+   * continua recebendo.
+   */
+  @IsOptional()
+  @IsBoolean({ message: 'A preferencia de novidades precisa ser verdadeira ou falsa.' })
+  marketingOptIn?: boolean;
+
+  /**
    * Versao aceita. Exigida apenas quando ha aceite: registrar "aceitou" sem
    * dizer o que foi aceito nao registra nada.
    *

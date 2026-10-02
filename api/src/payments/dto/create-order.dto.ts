@@ -1,7 +1,8 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayUnique,
+  IsDefined,
   IsEmail,
   IsIn,
   IsInt,
@@ -75,10 +76,71 @@ export class OrderCardDto {
   installments!: number;
 }
 
+/** As 27 UFs, para a NF-e nao sair com uma sigla que a Sefaz recusa. */
+export const BRAZILIAN_STATES = [
+  'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA',
+  'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO',
+] as const;
+
+/** Remove espacos das pontas; string vazia vira `undefined`. */
+const trim = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() || undefined : value;
+
+/**
+ * Endereco do destinatario da NF-e (Spec 023, decisao A3). O comprador digita
+ * CEP, numero e complemento; logradouro, bairro, cidade, UF e codigo IBGE vem
+ * do ViaCEP no navegador, e logradouro e bairro podem ser corrigidos. O
+ * endereco e declaracao do comprador, como o nome: a API valida o formato, e
+ * nao consulta o ViaCEP de novo.
+ */
+export class OrderAddressDto {
+  /** So digitos: a mascara e da tela. */
+  @Matches(/^\d{8}$/, { message: 'Informe um CEP válido.' })
+  zip!: string;
+
+  @Transform(trim)
+  @IsString({ message: 'Informe o logradouro.' })
+  @IsNotEmpty({ message: 'Informe o logradouro.' })
+  @MaxLength(120)
+  street!: string;
+
+  @Transform(trim)
+  @IsString({ message: 'Informe o número.' })
+  @IsNotEmpty({ message: 'Informe o número.' })
+  @MaxLength(20)
+  number!: string;
+
+  @Transform(trim)
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  complement?: string;
+
+  @Transform(trim)
+  @IsString({ message: 'Informe o bairro.' })
+  @IsNotEmpty({ message: 'Informe o bairro.' })
+  @MaxLength(80)
+  district!: string;
+
+  @Transform(trim)
+  @IsString({ message: 'Informe a cidade.' })
+  @IsNotEmpty({ message: 'Informe a cidade.' })
+  @MaxLength(80)
+  city!: string;
+
+  /** A NF-e identifica o municipio pelo codigo IBGE, e nao pelo nome. */
+  @Matches(/^\d{7}$/, { message: 'Cidade sem código IBGE. Confira o CEP.' })
+  cityIbge!: string;
+
+  @IsIn(BRAZILIAN_STATES, { message: 'UF inválida.' })
+  state!: string;
+}
+
 /**
  * Pagador. O CPF e obrigatorio para PIX e melhora a aprovacao no cartao
  * (decisao 15) — e por ser dado novo na plataforma, entrou na Politica de
- * Privacidade.
+ * Privacidade. Desde a Spec 023 ele e gravado no pedido, com o endereco: a
+ * NF-e nao sai sem os dois (decisao A3).
  */
 export class OrderPayerDto {
   @IsString({ message: 'Informe o nome.' })
@@ -97,6 +159,11 @@ export class OrderPayerDto {
   /** So digitos: a mascara e da tela, o dado e limpo. */
   @Matches(/^\d{11}$/, { message: 'Informe um CPF valido.' })
   document!: string;
+
+  @IsDefined({ message: 'Informe o endereço.' })
+  @ValidateNested()
+  @Type(() => OrderAddressDto)
+  address!: OrderAddressDto;
 }
 
 /**

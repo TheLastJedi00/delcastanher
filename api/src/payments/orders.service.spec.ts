@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,11 +15,38 @@ const ALUNO: AuthUser = {
   role: 'aluno',
 };
 
+/** Endereco do destinatario da NF-e (Spec 023, decisao A3). */
+const ADDRESS = {
+  zip: '01310100',
+  street: 'Avenida Paulista',
+  number: '1000',
+  complement: 'Conj. 12',
+  district: 'Bela Vista',
+  city: 'São Paulo',
+  cityIbge: '3550308',
+  state: 'SP',
+};
+
 const PAYER = {
   firstName: 'Ana',
   lastName: 'Souza',
   email: 'aluno@delcastanher.com',
   document: '19119119100',
+  address: ADDRESS,
+};
+
+/** O que o pedido grava do destinatario (Spec 023, decisao A3). */
+const RECIPIENT = {
+  payerDocument: '19119119100',
+  payerName: 'Ana Souza',
+  payerZip: '01310100',
+  payerStreet: 'Avenida Paulista',
+  payerNumber: '1000',
+  payerComplement: 'Conj. 12',
+  payerDistrict: 'Bela Vista',
+  payerCity: 'São Paulo',
+  payerCityIbge: '3550308',
+  payerState: 'SP',
 };
 
 const MODULES = [
@@ -280,6 +308,60 @@ describe('OrdersService', () => {
       await expect(
         service.create(ALUNO, { moduleIds: ['mod-1'], method: 'CREDIT_CARD', payer: PAYER }),
       ).rejects.toMatchObject({ status: 400 });
+    });
+  });
+
+  /**
+   * Spec 023, decisao A3: a NF-e exige CPF e endereco do destinatario, e ate
+   * aqui o CPF so trafegava para o gateway. Agora ele e gravado no pedido — e
+   * por ser dado pessoal com base legal propria, nao sai em resposta nem em
+   * log.
+   */
+  describe('create — destinatario da nota fiscal', () => {
+    it('grava CPF, nome e endereco do comprador no pedido', async () => {
+      const { service, prisma } = await build();
+
+      await service.create(ALUNO, pixOrder());
+
+      expect(prisma.order.create.mock.calls[0][0].data).toMatchObject(RECIPIENT);
+    });
+
+    it('grava complemento ausente como nulo, e nao como texto vazio', async () => {
+      const { service, prisma } = await build();
+
+      await service.create(ALUNO, {
+        ...pixOrder(),
+        payer: { ...PAYER, address: { ...ADDRESS, complement: undefined } },
+      });
+
+      expect(prisma.order.create.mock.calls[0][0].data.payerComplement).toBeNull();
+    });
+
+    it('nao devolve CPF nem endereco na resposta do pedido', async () => {
+      const { service } = await build();
+
+      const view = await service.create(ALUNO, pixOrder());
+      const body = JSON.stringify(view);
+
+      expect(body).not.toContain(PAYER.document);
+      expect(body).not.toContain(ADDRESS.street);
+      expect(body).not.toContain(ADDRESS.zip);
+    });
+
+    it('nao escreve o CPF em log, nem quando o gateway falha', async () => {
+      const spies = (['log', 'warn', 'error', 'debug'] as const).map((level) =>
+        jest.spyOn(Logger.prototype, level).mockImplementation(() => undefined),
+      );
+      const { service, gateway } = await build();
+
+      gateway.createOrder.mockRejectedValueOnce(new Error('rede'));
+
+      await service.create(ALUNO, pixOrder()).catch(() => undefined);
+
+      const logged = spies.flatMap((spy) => spy.mock.calls.flat()).map(String).join(' ');
+
+      expect(logged).not.toContain(PAYER.document);
+      spies.forEach((spy) => spy.mockRestore());
     });
   });
 
@@ -546,6 +628,7 @@ describe('OrdersService — pedido de pacote', () => {
       method: 'PIX',
       installments: 1,
       mpConnectionId: 'conn-1',
+      recipient: RECIPIENT,
     });
     // O caminho de modulos avulsos nao participa: nem cria pedido nem cancela.
     expect(prisma.order.create).not.toHaveBeenCalled();

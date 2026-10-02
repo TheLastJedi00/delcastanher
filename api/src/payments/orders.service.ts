@@ -14,6 +14,7 @@ import { BundlesService } from './bundles.service';
 import { CreateOrderDto, MAX_INSTALLMENTS } from './dto/create-order.dto';
 import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { MercadoPagoService } from './mercado-pago.service';
+import { toOrderRecipient } from './order-recipient';
 import { MercadoPagoOrder, PixDetails, rejectionMessage, toOrderStatus } from './payments.types';
 
 /** Item do pedido como a tela o exibe. */
@@ -124,6 +125,7 @@ export class OrdersService {
         method: dto.method,
         installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
         mpConnectionId: credential.connectionId,
+        ...toOrderRecipient(dto.payer),
         items: {
           create: items.map((item) => ({
             moduleId: item.moduleId,
@@ -172,6 +174,7 @@ export class OrdersService {
       method: dto.method,
       installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
       mpConnectionId: credential.connectionId,
+      recipient: toOrderRecipient(dto.payer),
     });
     const order = placed as unknown as OrderRow;
 

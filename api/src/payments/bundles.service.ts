@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStatus, PaymentMethodKind, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { OrderRecipient } from './order-recipient';
 
 /** Lote como as regras desta spec o leem. */
 export interface TierRow {
@@ -156,6 +157,8 @@ export interface PlaceBundleOrderInput {
   installments: number;
   /** Conta recebedora em que a order vai nascer (Spec 020, decisao 6). */
   mpConnectionId?: string | null;
+  /** Destinatario da NF-e (Spec 023, decisao A3). */
+  recipient?: OrderRecipient;
 }
 
 /** Linha gravada do pedido de pacote, com os itens rateados. */
@@ -262,6 +265,7 @@ export class BundlesService {
           bundleTitleSnapshot: bundle.title,
           tierNameSnapshot: tier.name,
           mpConnectionId: input.mpConnectionId ?? null,
+          ...(input.recipient ?? {}),
           items: {
             create: modules.map((module, index) => ({
               moduleId: module.id,
