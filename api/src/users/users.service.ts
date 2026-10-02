@@ -111,13 +111,37 @@ export class UsersService {
       ? { policyAcceptedAt: new Date(), policyAcceptedVersion: dto.policyVersion }
       : {};
 
-    const data = { ...profile, onboardingCompleted: completing, ...acceptance };
+    const data = {
+      ...profile,
+      onboardingCompleted: completing,
+      ...acceptance,
+      ...this.marketingPreference(dto.marketingOptIn, current?.marketingOptOutAt ?? null),
+    };
 
     return this.prisma.user.upsert({
       where: { id: user.uid },
       update: data,
       create: { id: user.uid, email: user.email, ...data },
     });
+  }
+
+  /**
+   * Interruptor de novidades por e-mail (Spec 023, decisao B5). Desligar grava
+   * a data da oposicao uma vez so; ligar limpa; ausente nao mexe.
+   */
+  private marketingPreference(
+    optIn: boolean | undefined,
+    optedOutAt: Date | null,
+  ): { marketingOptOutAt?: Date | null } {
+    if (optIn === true) {
+      return { marketingOptOutAt: null };
+    }
+
+    if (optIn === false && !optedOutAt) {
+      return { marketingOptOutAt: new Date() };
+    }
+
+    return {};
   }
 
   /**

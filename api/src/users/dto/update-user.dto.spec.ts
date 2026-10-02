@@ -52,4 +52,10 @@ describe('UpdateUserDto', () => {
       );
     }
   });
+
+  // Spec 023, decisao B5: o interruptor de novidades do perfil.
+  it('aceita marketingOptIn booleano e recusa texto', async () => {
+    await expect(errorsOf({ ...VALID, marketingOptIn: false })).resolves.toEqual([]);
+    await expect(errorsOf({ ...VALID, marketingOptIn: 'sim' })).resolves.toContain('marketingOptIn');
+  });
 });
