@@ -1,5 +1,5 @@
 import { NgOptimizedImage } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, InjectionToken, inject } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { RouterLink } from '@angular/router';
 import { JsonLdService } from '../../core/services/json-ld.service';
@@ -13,6 +13,35 @@ import { MediaAppearance, MediaCard } from '../../shared/ui/media-card/media-car
 import { ModuleCard } from '../../shared/ui/module-card/module-card';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
+import { isYoutubeId } from '../../shared/ui/youtube-facade/youtube';
+import { YoutubeFacade } from '../../shared/ui/youtube-facade/youtube-facade';
+
+/** Video de apresentacao da landing (Spec 023, Parte C). */
+export interface PresentationVideo {
+  /** Id de 11 caracteres no YouTube. Vazio, a secao nao aparece. */
+  id: string;
+  /** Data do upload (AAAA-MM-DD), exigida pelo `VideoObject`. */
+  uploadDate: string;
+  /** So o video publico ganha `url` no schema; o nao listado, so `embedUrl`. */
+  listed: boolean;
+}
+
+/**
+ * "Chamada modulo 1" no YouTube (decisoes C1 e C5). **Preencher na Task 7.1**,
+ * com o id e a data do upload: ate la a secao "Conheca a Imersao" nao aparece
+ * e nada vai ao schema.
+ */
+const PRESENTATION: PresentationVideo = { id: '', uploadDate: '', listed: false };
+
+/** Token so para a suite trocar o video; em producao vale a constante. */
+export const PRESENTATION_VIDEO = new InjectionToken<PresentationVideo>('PRESENTATION_VIDEO', {
+  factory: () => PRESENTATION,
+});
+
+/** Poster local, um quadro do proprio video (decisao C4). */
+export const PRESENTATION_POSTER = 'assets/apresentacao-imersao.webp';
+
+const PRESENTATION_TITLE = 'Apresentação da Imersão RH Estratégico';
 
 interface Pillar {
   title: string;
@@ -35,6 +64,7 @@ interface Pillar {
     ModuleCard,
     SectionHeader,
     AnimateOnScroll,
+    YoutubeFacade,
   ],
   templateUrl: './landing.html',
 })
@@ -171,6 +201,12 @@ export class Landing {
     },
   ];
 
+  /** Video da secao "Conheca a Imersao" (decisao C5). */
+  readonly presentation = inject(PRESENTATION_VIDEO);
+  readonly hasPresentation = isYoutubeId(this.presentation.id);
+  readonly presentationPoster = PRESENTATION_POSTER;
+  readonly presentationTitle = PRESENTATION_TITLE;
+
   private readonly jsonLd = inject(JsonLdService);
 
   constructor() {
@@ -188,7 +224,7 @@ export class Landing {
    * `sameAs` enquanto os perfis do footer forem `href="#"`.
    */
   private personSchema(): Record<string, unknown> {
-    const subjectOf = this.media
+    const subjectOf: Record<string, unknown>[] = this.media
       .filter(item => item.kind !== 'livro' && item.url)
       .map(item =>
         item.kind === 'revista'
@@ -208,6 +244,20 @@ export class Landing {
               thumbnailUrl: item.cover ? `${SITE_ORIGIN}/${item.cover.src}` : undefined,
             }
       );
+
+    // Spec 023, decisao C6: a chamada da Imersao entra como VideoObject, com
+    // `embedUrl`. O `url` do YouTube so entra se o video for publico.
+    if (this.hasPresentation) {
+      subjectOf.push({
+        '@type': 'VideoObject',
+        name: PRESENTATION_TITLE,
+        description: 'Lidiane Delcastanher apresenta a Imersão RH Estratégico: do zero ao RH estratégico.',
+        embedUrl: `https://www.youtube.com/embed/${this.presentation.id}`,
+        url: this.presentation.listed ? `https://www.youtube.com/watch?v=${this.presentation.id}` : undefined,
+        uploadDate: this.presentation.uploadDate,
+        thumbnailUrl: `${SITE_ORIGIN}/${PRESENTATION_POSTER}`,
+      });
+    }
 
     return {
       '@context': 'https://schema.org',

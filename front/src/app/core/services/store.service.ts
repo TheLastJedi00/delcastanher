@@ -112,6 +112,21 @@ export interface OrderPayer {
   email: string;
   /** CPF so com digitos. */
   document: string;
+  /** Destinatario da NF-e (Spec 023, decisao A3). */
+  address: OrderAddress;
+}
+
+/** Endereco do comprador, com o que o ViaCEP preencheu. */
+export interface OrderAddress {
+  /** So digitos. */
+  zip: string;
+  street: string;
+  number: string;
+  complement?: string;
+  district: string;
+  city: string;
+  cityIbge: string;
+  state: string;
 }
 
 export interface CreateOrderPayload {

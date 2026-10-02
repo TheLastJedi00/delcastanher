@@ -19,6 +19,11 @@ export interface UserProfile {
    */
   policyAcceptedAt: string | null;
   policyAcceptedVersion: string | null;
+  /**
+   * Descadastro das campanhas de e-mail (Spec 023, decisao B5). Nulo e
+   * "recebe novidades"; o e-mail da nota fiscal sai de qualquer jeito.
+   */
+  marketingOptOutAt?: string | null;
 }
 
 /** Payload de `PATCH /users/me`. */
@@ -34,6 +39,8 @@ export interface UpdateProfilePayload {
    */
   policyAccepted?: boolean;
   policyVersion?: string;
+  /** "Receber novidades por e-mail" (Spec 023, decisao B5). Ausente nao mexe. */
+  marketingOptIn?: boolean;
 }
 
 /**

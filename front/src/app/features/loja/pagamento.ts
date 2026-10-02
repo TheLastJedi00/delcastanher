@@ -1,11 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { EMPTY, distinctUntilChanged, map, switchMap, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { Button } from '../../shared/ui/button/button';
 import { Card } from '../../shared/ui/card/card';
 import { PaymentTrust } from '../../shared/ui/payment-trust/payment-trust';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
 import { tierLabel } from '../../core/mocks/plans.mock';
+import { CepService } from '../../core/services/cep.service';
 import { InstallmentOption, MercadoPagoLoader } from '../../core/services/mercado-pago.service';
 import { PaymentMethodKind, StoreService, formatPrice } from '../../core/services/store.service';
 import { UserService } from '../../core/services/user.service';
@@ -92,6 +95,76 @@ import { UserService } from '../../core/services/user.service';
                     <p class="mt-1 text-xs text-state-danger">Informe um CPF válido (11 dígitos).</p>
                   }
                 </div>
+
+                <!-- Spec 023, decisao A3: a NF-e exige o endereco do
+                     destinatario. Dizer por que ele e pedido e parte do que a
+                     Spec 009 exige, como no CPF. -->
+                <fieldset formGroupName="address" class="sm:col-span-2 grid gap-4 sm:grid-cols-2">
+                  <legend class="sm:col-span-2 text-sm font-semibold text-brand-navy">
+                    Endereço
+                  </legend>
+                  <p class="sm:col-span-2 -mt-2 text-xs text-slate-500">
+                    Obrigatório para emitir a nota fiscal da compra, enviada por e-mail.
+                  </p>
+
+                  <div>
+                    <label for="zip" class="block text-sm text-slate-700">CEP</label>
+                    <input
+                      id="zip"
+                      formControlName="zip"
+                      inputmode="numeric"
+                      maxlength="9"
+                      autocomplete="postal-code"
+                      class="input" />
+                    @if (cepState() === 'loading') {
+                      <p class="mt-1 text-xs text-slate-500">Buscando o endereço...</p>
+                    } @else if (cepState() === 'notfound') {
+                      <p class="mt-1 text-xs text-state-danger" data-testid="cep-erro">
+                        CEP não encontrado. Confira os números.
+                      </p>
+                    } @else if (invalid('address.zip')) {
+                      <p class="mt-1 text-xs text-state-danger">Informe um CEP válido (8 dígitos).</p>
+                    }
+                  </div>
+
+                  <div>
+                    <span class="block text-sm text-slate-700">Cidade / UF</span>
+                    <p class="mt-1 py-2.5 text-slate-900" data-testid="cidade-uf">
+                      {{ cityLabel() || '—' }}
+                    </p>
+                  </div>
+
+                  <div class="sm:col-span-2">
+                    <label for="street" class="block text-sm text-slate-700">Logradouro</label>
+                    <input id="street" formControlName="street" autocomplete="address-line1" class="input" />
+                    @if (invalid('address.street')) {
+                      <p class="mt-1 text-xs text-state-danger">Informe o logradouro.</p>
+                    }
+                  </div>
+
+                  <div>
+                    <label for="number" class="block text-sm text-slate-700">Número</label>
+                    <input id="number" formControlName="number" class="input" />
+                    @if (invalid('address.number')) {
+                      <p class="mt-1 text-xs text-state-danger">Informe o número (ou SN).</p>
+                    }
+                  </div>
+
+                  <div>
+                    <label for="complement" class="block text-sm text-slate-700">
+                      Complemento <span class="text-slate-400">(opcional)</span>
+                    </label>
+                    <input id="complement" formControlName="complement" autocomplete="address-line2" class="input" />
+                  </div>
+
+                  <div class="sm:col-span-2">
+                    <label for="district" class="block text-sm text-slate-700">Bairro</label>
+                    <input id="district" formControlName="district" class="input" />
+                    @if (invalid('address.district')) {
+                      <p class="mt-1 text-xs text-state-danger">Informe o bairro.</p>
+                    }
+                  </div>
+                </fieldset>
               </form>
             </ui-card>
 
@@ -268,6 +341,8 @@ export class Pagamento implements OnInit {
   private readonly users = inject(UserService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly cep = inject(CepService);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly methodState = signal<PaymentMethodKind>('PIX');
   private readonly installmentsState = signal<InstallmentOption[]>([]);
@@ -297,7 +372,23 @@ export class Pagamento implements OnInit {
     lastName: ['', [Validators.required, Validators.maxLength(80)]],
     email: ['', [Validators.required, Validators.email]],
     document: ['', [Validators.required, Validators.pattern(/^\d{11}$/)]],
+    // Cidade, UF e codigo IBGE nao sao digitados: vem do ViaCEP, e vazios
+    // significam CEP nao encontrado (Spec 023, decisao A3).
+    address: this.fb.nonNullable.group({
+      zip: ['', [Validators.required, Validators.pattern(/^\d{5}-?\d{3}$/)]],
+      street: ['', [Validators.required, Validators.maxLength(120)]],
+      number: ['', [Validators.required, Validators.maxLength(20)]],
+      complement: ['', [Validators.maxLength(60)]],
+      district: ['', [Validators.required, Validators.maxLength(80)]],
+      city: ['', [Validators.required]],
+      cityIbge: ['', [Validators.required, Validators.pattern(/^\d{7}$/)]],
+      state: ['', [Validators.required]],
+    }),
   });
+
+  /** Estado da consulta ao ViaCEP. */
+  readonly cepState = signal<'idle' | 'loading' | 'found' | 'notfound'>('idle');
+  readonly cityLabel = signal('');
 
   readonly cardholderName = this.fb.nonNullable.control('');
   readonly installmentsControl = this.fb.nonNullable.control(1);
@@ -319,10 +410,80 @@ export class Pagamento implements OnInit {
     });
 
     this.store.loadPaymentConfig().subscribe({ error: () => undefined });
+    this.watchZip();
 
     if (!this.hasSelection()) {
       this.store.loadCatalog().subscribe({ error: () => undefined });
     }
+  }
+
+  /**
+   * CEP completo dispara o ViaCEP, que preenche logradouro, bairro, cidade, UF
+   * e codigo IBGE. Logradouro e bairro continuam editaveis: o CEP geral de uma
+   * cidade pequena vem sem eles, e o comprador corrige (decisao A3).
+   */
+  private watchZip(): void {
+    const address = this.form.controls.address.controls;
+
+    address.zip.valueChanges
+      .pipe(
+        map(value => value.replace(/\D/g, '')),
+        distinctUntilChanged(),
+        tap(() => {
+          address.city.setValue('');
+          address.cityIbge.setValue('');
+          address.state.setValue('');
+          this.cityLabel.set('');
+          this.cepState.set('idle');
+        }),
+        switchMap(digits => {
+          if (digits.length !== 8) {
+            return EMPTY;
+          }
+
+          this.cepState.set('loading');
+
+          return this.cep.lookup(digits);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(found => {
+        if (!found) {
+          this.cepState.set('notfound');
+
+          return;
+        }
+
+        this.form.controls.address.patchValue({
+          street: found.street || address.street.value,
+          district: found.district || address.district.value,
+          city: found.city,
+          cityIbge: found.cityIbge,
+          state: found.state,
+        });
+        this.cityLabel.set(found.city + ' / ' + found.state);
+        this.cepState.set('found');
+      });
+  }
+
+  /** O pagador como a API espera: CEP so com digitos, complemento so se houver. */
+  private payer() {
+    const { address, ...payer } = this.form.getRawValue();
+    const complement = address.complement.trim();
+
+    return {
+      ...payer,
+      address: {
+        zip: address.zip.replace(/\D/g, ''),
+        street: address.street.trim(),
+        number: address.number.trim(),
+        ...(complement ? { complement } : {}),
+        district: address.district.trim(),
+        city: address.city,
+        cityIbge: address.cityIbge,
+        state: address.state,
+      },
+    };
   }
 
   tierName(tier: { order: number; name: string }): string {
@@ -380,7 +541,7 @@ export class Pagamento implements OnInit {
       const payload = {
         ...this.store.orderTarget(),
         method: this.methodState(),
-        payer: this.form.getRawValue(),
+        payer: this.payer(),
         deviceId: this.mp.deviceId(),
         ...(this.methodState() === 'CREDIT_CARD' ? { card: await this.tokenize() } : {}),
       };

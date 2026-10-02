@@ -1,4 +1,5 @@
 import { OrderStatus, PaymentMethodKind } from '../generated/prisma/client';
+import type { InvoiceSummary } from '../invoices/invoice-view';
 
 /**
  * Tipos do painel financeiro (Spec 016).
@@ -155,7 +156,11 @@ export interface FinanceSummary {
   empty: boolean;
 }
 
-/** Linha da lista de pedidos. Sem dado de cartao e sem CPF (decisao 17). */
+/**
+ * Linha da lista de pedidos. Sem dado de cartao e sem CPF (decisao 17): desde a
+ * Spec 023 o CPF e gravado no pedido para a nota, mas a listagem continua sem
+ * ele — o destinatario esta na propria nota.
+ */
 export interface FinanceOrderItem {
   id: string;
   status: OrderStatus;
@@ -177,6 +182,8 @@ export interface FinanceOrderItem {
   createdAt: Date;
   paidAt: Date | null;
   refundedAt: Date | null;
+  /** Nota fiscal do pedido (Spec 023, decisao A9); nulo sem nota. */
+  invoice: InvoiceSummary | null;
 }
 
 export interface FinanceOrderListResult {
