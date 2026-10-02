@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { ContentModule } from './content/content.module';
 import { CoursesModule } from './courses/courses.module';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     CertificatesModule,
     ContentModule,
     PaymentsModule,
+    CampaignsModule,
     LegalModule,
     CoursesModule,
   ],

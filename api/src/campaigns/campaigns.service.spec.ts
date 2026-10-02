@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { AuthUser } from '../auth/auth.types';
-import { MailService } from '../mail/mail.service';
+import { BatchResult, MailService } from '../mail/mail.service';
 import { UnsubscribeService } from '../mail/unsubscribe.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CampaignsService } from './campaigns.service';
@@ -102,7 +102,10 @@ async function build(recipients = students(3)) {
 
   const mail = {
     send: jest.fn().mockResolvedValue({ id: 're-teste' }),
-    sendBatch: jest.fn(async (messages: unknown[]) => messages.map((_, i) => ({ id: `re-${i}` }))),
+    sendBatch: jest.fn(
+      async (messages: unknown[], _keyOf?: (index: number) => string): Promise<BatchResult[]> =>
+        messages.map((_, i) => ({ id: `re-${i}` })),
+    ),
   };
 
   const unsubscribe = {
