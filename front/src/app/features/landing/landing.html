@@ -54,6 +54,31 @@
     </div>
   </header>
 
+  <!-- Conheca a Imersao (Spec 023, Parte C). So aparece com o id do video
+       preenchido em landing.ts. Ate o clique, so o poster local: nada vai ao
+       YouTube (decisao C2). -->
+  @if (hasPresentation) {
+    <section id="apresentacao" class="bg-brand-surface px-4 py-20 md:py-28" data-testid="conheca-a-imersao">
+      <div class="mx-auto max-w-4xl text-center">
+        <ui-section-header
+          overline="Conheça a Imersão"
+          title="Do zero ao RH estratégico"
+          subtitle="Em um minuto, a Lidiane mostra o que você vai construir na Imersão RH Estratégico."
+          align="center" />
+
+        <ui-youtube-facade
+          class="mt-10"
+          [id]="presentation.id"
+          [title]="presentationTitle"
+          [poster]="presentationPoster" />
+
+        <a routerLink="/cursos/imersao-rh" class="mt-10 inline-block">
+          <ui-button variant="primary" size="lg">Quero me Inscrever Agora</ui-button>
+        </a>
+      </div>
+    </section>
+  }
+
   <!-- A Mentora -->
   <section id="mentora" class="bg-white px-4 py-20 md:py-28">
     <div class="mx-auto flex max-w-6xl flex-col items-center gap-16 md:flex-row">
