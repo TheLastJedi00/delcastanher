@@ -2,6 +2,7 @@ import { INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { InvoicesService } from '../invoices/invoices.service';
+import { PurchaseEmailService } from './purchase-email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
@@ -65,6 +66,10 @@ describe('POST /webhooks/mercadopago — com a nota fiscal falhando', () => {
         { provide: BundlesService, useValue: {} },
         { provide: MercadoPagoConnectionService, useValue: { accessTokenFor: async () => 'token' } },
         { provide: InvoicesService, useValue: invoices },
+        {
+          provide: PurchaseEmailService,
+          useValue: { onOrderPaid: jest.fn().mockRejectedValue(new Error('Resend fora do ar')) },
+        },
       ],
     }).compile();
 
