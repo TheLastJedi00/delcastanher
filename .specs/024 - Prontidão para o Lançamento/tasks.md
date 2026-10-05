@@ -58,6 +58,10 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
 
 ## Fase 5: Auditorias e verificação
 - [ ] **Task 5.1:** Auditoria no celular (D11), em cerca de 390 px e 768 px, nas telas do `context.md`. Corrigir o que quebrar, com o antes e o depois registrados aqui.
+  - **Parcial (2026-10-05):** produção auditada no Chrome, com cada página num iframe de mesma origem em 390 px e em 768 px. Para cada uma: largura do documento e lista de elementos que passam da largura sem um ancestral que os corte.
+    - **Sem rolagem horizontal e sem elemento vazando** em 9 páginas: landing, `/planos`, `/cursos/imersao-rh`, `/login`, `/cadastro`, `/certificado/verificar`, `/descadastro`, `/termos-de-uso` e `/politica-de-privacidade`.
+    - O `/planos` em 390 px também foi conferido no visual. Nada a corrigir.
+    - **Falta:** loja, checkout e área do aluno (Hub, trilha, materiais, certificado). O Chrome da verificação está logado como **admin**, e o admin é levado ao `/admin`. É preciso uma conta de aluno, que o usuário cria.
 - [ ] **Task 5.2:** Varredura de links do site publicado (D10): nenhum 404, nenhum `#`, e WhatsApp e redes abrindo o destino certo.
 - [ ] **Task 5.3:** Lighthouse no celular na landing, no `/planos` e na página do curso (D12):
   - corrigir o que for crítico;
