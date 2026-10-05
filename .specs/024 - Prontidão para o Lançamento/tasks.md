@@ -52,7 +52,7 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
   - **Rascunho pronto (2026-10-05):** `politica-privacidade-acrescimos.md`, nesta pasta. São três parágrafos para o fim da seção 15. Falta a cliente publicar.
 
 ## Fase 4: Código - Certificado (D8)
-- [ ] **Task 4.1:** Decidir com o usuário onde o PDF é gerado (navegador ou API).
+- [x] **Task 4.1:** Decidir com o usuário onde o PDF é gerado (navegador ou API). **No navegador** (D8).
 - [ ] **Task 4.2:** Botão "Baixar PDF" em `/ava/certificado` e `/ava/certificado/modulo/:moduleId`, separado de "Imprimir":
   - arquivo `certificado-<codigo>.pdf` em A4 paisagem, uma página;
   - specs de que o botão gera o arquivo e não chama `window.print()`.
