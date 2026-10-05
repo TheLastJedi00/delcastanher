@@ -358,6 +358,12 @@ model Order {
   /// (decisao 9).
   refundedAt DateTime?
 
+  /// Quando saiu o e-mail "Compra confirmada" (Spec 024, decisao D6). Nulo =
+  /// ainda nao enviado: a linha e reivindicada por esta coluna antes do envio,
+  /// para webhook e polling simultaneos nao mandarem dois, e volta a nulo se o
+  /// Resend recusar. O painel mostra e reenvia por ela.
+  confirmationEmailedAt DateTime?
+
   /// Pacote comprado, quando o pedido e de pacote (Spec 019, decisao 6). Nulo
   /// no pedido de modulos avulsos. Os itens continuam sendo um por modulo, com
   /// o preco do lote rateado: e por eles que acesso, estorno e financeiro ja
