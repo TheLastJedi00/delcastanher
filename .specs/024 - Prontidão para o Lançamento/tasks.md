@@ -60,10 +60,27 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
 
 ## Fase 5: Auditorias e verificação
 - [ ] **Task 5.1:** Auditoria no celular (D11), em cerca de 390 px e 768 px, nas telas do `context.md`. Corrigir o que quebrar, com o antes e o depois registrados aqui.
+  - **Parcial (2026-10-05):** produção auditada no Chrome, com cada página num iframe de mesma origem em 390 px e em 768 px. Para cada uma: largura do documento e lista de elementos que passam da largura sem um ancestral que os corte.
+    - **Sem rolagem horizontal e sem elemento vazando** em 9 páginas: landing, `/planos`, `/cursos/imersao-rh`, `/login`, `/cadastro`, `/certificado/verificar`, `/descadastro`, `/termos-de-uso` e `/politica-de-privacidade`.
+    - O `/planos` em 390 px também foi conferido no visual. Nada a corrigir.
+    - **Falta:** loja, checkout e área do aluno (Hub, trilha, materiais, certificado). O Chrome da verificação está logado como **admin**, e o admin é levado ao `/admin`. É preciso uma conta de aluno, que o usuário cria.
 - [ ] **Task 5.2:** Varredura de links do site publicado (D10): nenhum 404, nenhum `#`, e WhatsApp e redes abrindo o destino certo.
-- [ ] **Task 5.3:** Lighthouse no celular na landing, no `/planos` e na página do curso (D12):
+  - **Parcial (2026-10-05):** 11 páginas lidas do HTML publicado e **104 links únicos conferidos, todos com 200**. Sem 404, e os links externos abrem: WhatsApp (`wa.me`), Instagram, YouTube e a Prospere.
+    - Sobram **14 `href="#"`**: são os dois do rodapé (LinkedIn e Instagram) em cada uma das 7 páginas pré-renderizadas. Saem com a Task 1.2.
+    - Para o Instagram, a landing já usa o perfil `instagram.com/lidianedelcastanher`. A cliente confirma se é esse o do rodapé.
+- [x] **Task 5.3:** Lighthouse no celular na landing, no `/planos` e na página do curso (D12):
   - corrigir o que for crítico;
   - registrar os números e o que ficou para a Spec 025.
+
+  Lighthouse 12 em produção, perfil celular, em 2026-10-05:
+
+  | Página | Performance | Acessibilidade | Boas práticas | SEO | LCP | CLS | TBT |
+  |---|---|---|---|---|---|---|---|
+  | Landing | 97 | 100 | 100 | 100 | 2,2 s | 0 | 20 ms |
+  | `/planos` | 97 | 100 | 100 | 100 | 2,3 s | 0,006 | 70 ms |
+  | `/cursos/imersao-rh` | 94 | 100 | 100 | 100 | 2,7 s | 0,027 | 110 ms |
+
+  **Nada crítico:** o LCP fica abaixo de 4 s, nenhuma imagem está sem dimensão e o CLS está perto de zero. O que sobrou foi para a Spec 025 (E11).
 - [ ] **Task 5.4:** Teste de ponta a ponta da compra em sandbox (D5), com o roteiro único do `context.md`. Depende das Tasks 1.9, 1.10 e da Fase 3.
 - [ ] **Task 5.5:** Nota de homologação no preview (Spec 023, task 6.5).
 - [ ] **Task 5.6:** Certificado: conferir na tela e no "Baixar PDF" o do curso e o de um módulo (Spec 023, task 8.8).
