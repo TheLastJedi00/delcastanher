@@ -64,6 +64,7 @@ const CERTIFICATE: StudentCertificate = {
   scope: 'course',
   moduleTitle: null,
   moduleId: null,
+  summary: null,
   studentName: 'Lidiane Delcastanher',
   courseTitle: 'Imersão RH Estratégico',
   workloadHours: null,
@@ -185,7 +186,7 @@ describe('Certificado', () => {
 
       expect(rendered).toContain('Lidiane Delcastanher');
       expect(rendered).toContain('Imersão RH Estratégico');
-      expect(rendered).toContain('10/09/2026');
+      expect(rendered).toContain('10 de setembro de 2026');
       expect(rendered).toContain('DELC-ABCD-2345');
       expect(rendered).toContain(CERTIFICATE.hash);
       // Carga horaria e assinatura ainda pendentes: tratamento de placeholder,

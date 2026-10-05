@@ -41,10 +41,17 @@ const COURSE = {
   id: 'course-1',
   slug: 'imersao-rh',
   title: 'Imersão RH Estratégico',
-  workloadHours: null,
+  workloadHours: 40,
 };
 
-const MODULE = { id: 'mod-1', order: 1, title: 'Fundamentos do RH', courseId: 'course-1' };
+const MODULE = {
+  id: 'mod-1',
+  order: 1,
+  title: 'Fundamentos do RH',
+  summary: 'O que separa o RH operacional do RH que participa da estratégia.',
+  workloadHours: 6,
+  courseId: 'course-1',
+};
 
 const PROFILE = {
   id: 'uid-123',
@@ -71,7 +78,12 @@ function moduleRow(overrides: Record<string, unknown> = {}) {
     revokedAt: null,
     user: PROFILE,
     course: COURSE,
-    module: { title: MODULE.title, order: MODULE.order },
+    module: {
+      title: MODULE.title,
+      order: MODULE.order,
+      summary: MODULE.summary,
+      workloadHours: MODULE.workloadHours,
+    },
     ...overrides,
   };
 }
@@ -274,6 +286,58 @@ describe('CertificatesService (escopo modulo)', () => {
       // Um diploma por modulo convive com o diploma do curso (decisao 11).
       expect(data.moduleId).not.toBeNull();
       expect(data.courseId).toBe('course-1');
+    });
+  });
+
+  describe('dados do diploma (Spec 023, Parte D)', () => {
+    it('o diploma de modulo traz a carga horaria e o resumo do proprio modulo', async () => {
+      const { service } = await build();
+
+      const certificate = await service.issueForModule(USER, 'mod-1');
+
+      // A carga do curso (40 h) nao vale para um modulo so: o diploma de
+      // modulo imprimiria horas que o aluno nao cursou.
+      expect(certificate).toMatchObject({
+        workloadHours: 6,
+        summary: 'O que separa o RH operacional do RH que participa da estratégia.',
+      });
+    });
+
+    it('carga horaria nula no modulo continua nula, e nao cai na do curso', async () => {
+      const semCarga = moduleRow({
+        module: { title: MODULE.title, order: 1, summary: MODULE.summary, workloadHours: null },
+      });
+      const { service } = await build({
+        createCertificate: jest.fn().mockImplementation(({ data }) => ({ ...semCarga, ...data })),
+      });
+
+      const certificate = await service.issueForModule(USER, 'mod-1');
+
+      expect(certificate.workloadHours).toBeNull();
+    });
+
+    it('o diploma do curso traz a carga do curso e nenhum resumo', async () => {
+      const { service } = await build({
+        findFirstCertificate: jest.fn().mockResolvedValue(courseRow()),
+      });
+
+      const certificate = await service.findForUser(USER);
+
+      expect(certificate).toMatchObject({ scope: 'course', workloadHours: 40, summary: null });
+    });
+
+    it('a verificacao publica mostra a mesma carga horaria do diploma de modulo', async () => {
+      const { service, mocks } = await build();
+      await service.issueForModule(USER, 'mod-1');
+      const { data } = mocks.createCertificate.mock.calls[0][0];
+      const issued = moduleRow({ code: data.code, hash: data.hash, issuedAt: data.issuedAt });
+
+      const { service: verifier } = await build({
+        findUniqueCertificate: jest.fn().mockResolvedValue(issued),
+      });
+      const result = await verifier.verify(issued.code);
+
+      expect(result.status === 'valid' && result.certificate.workloadHours).toBe(6);
     });
   });
 

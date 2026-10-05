@@ -1,6 +1,8 @@
+import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
+import { InvoicesService } from '../invoices/invoices.service';
 import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
 import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
@@ -14,11 +16,38 @@ const ALUNO: AuthUser = {
   role: 'aluno',
 };
 
+/** Endereco do destinatario da NF-e (Spec 023, decisao A3). */
+const ADDRESS = {
+  zip: '01310100',
+  street: 'Avenida Paulista',
+  number: '1000',
+  complement: 'Conj. 12',
+  district: 'Bela Vista',
+  city: 'São Paulo',
+  cityIbge: '3550308',
+  state: 'SP',
+};
+
 const PAYER = {
   firstName: 'Ana',
   lastName: 'Souza',
   email: 'aluno@delcastanher.com',
   document: '19119119100',
+  address: ADDRESS,
+};
+
+/** O que o pedido grava do destinatario (Spec 023, decisao A3). */
+const RECIPIENT = {
+  payerDocument: '19119119100',
+  payerName: 'Ana Souza',
+  payerZip: '01310100',
+  payerStreet: 'Avenida Paulista',
+  payerNumber: '1000',
+  payerComplement: 'Conj. 12',
+  payerDistrict: 'Bela Vista',
+  payerCity: 'São Paulo',
+  payerCityIbge: '3550308',
+  payerState: 'SP',
 };
 
 const MODULES = [
@@ -147,6 +176,12 @@ function build(options: BuildOptions = {}) {
     getOrder: jest.fn().mockResolvedValue(options.gatewayOrder ?? PIX_ORDER),
   };
 
+  // Spec 023, decisao A4: a nota nunca lanca; o double so registra a chamada.
+  const invoices = {
+    onOrderPaid: jest.fn().mockResolvedValue(undefined),
+    onOrderRefunded: jest.fn().mockResolvedValue(undefined),
+  };
+
   const bundles = {
     placeOrder: jest.fn().mockResolvedValue(options.placed ?? PLACED),
   };
@@ -170,6 +205,7 @@ function build(options: BuildOptions = {}) {
       { provide: MercadoPagoService, useValue: gateway },
       { provide: BundlesService, useValue: bundles },
       { provide: MercadoPagoConnectionService, useValue: connections },
+      { provide: InvoicesService, useValue: invoices },
     ],
   })
     .compile()
@@ -180,6 +216,7 @@ function build(options: BuildOptions = {}) {
       gateway,
       bundles,
       connections,
+      invoices,
     }));
 }
 
@@ -280,6 +317,60 @@ describe('OrdersService', () => {
       await expect(
         service.create(ALUNO, { moduleIds: ['mod-1'], method: 'CREDIT_CARD', payer: PAYER }),
       ).rejects.toMatchObject({ status: 400 });
+    });
+  });
+
+  /**
+   * Spec 023, decisao A3: a NF-e exige CPF e endereco do destinatario, e ate
+   * aqui o CPF so trafegava para o gateway. Agora ele e gravado no pedido — e
+   * por ser dado pessoal com base legal propria, nao sai em resposta nem em
+   * log.
+   */
+  describe('create — destinatario da nota fiscal', () => {
+    it('grava CPF, nome e endereco do comprador no pedido', async () => {
+      const { service, prisma } = await build();
+
+      await service.create(ALUNO, pixOrder());
+
+      expect(prisma.order.create.mock.calls[0][0].data).toMatchObject(RECIPIENT);
+    });
+
+    it('grava complemento ausente como nulo, e nao como texto vazio', async () => {
+      const { service, prisma } = await build();
+
+      await service.create(ALUNO, {
+        ...pixOrder(),
+        payer: { ...PAYER, address: { ...ADDRESS, complement: undefined } },
+      });
+
+      expect(prisma.order.create.mock.calls[0][0].data.payerComplement).toBeNull();
+    });
+
+    it('nao devolve CPF nem endereco na resposta do pedido', async () => {
+      const { service } = await build();
+
+      const view = await service.create(ALUNO, pixOrder());
+      const body = JSON.stringify(view);
+
+      expect(body).not.toContain(PAYER.document);
+      expect(body).not.toContain(ADDRESS.street);
+      expect(body).not.toContain(ADDRESS.zip);
+    });
+
+    it('nao escreve o CPF em log, nem quando o gateway falha', async () => {
+      const spies = (['log', 'warn', 'error', 'debug'] as const).map((level) =>
+        jest.spyOn(Logger.prototype, level).mockImplementation(() => undefined),
+      );
+      const { service, gateway } = await build();
+
+      gateway.createOrder.mockRejectedValueOnce(new Error('rede'));
+
+      await service.create(ALUNO, pixOrder()).catch(() => undefined);
+
+      const logged = spies.flatMap((spy) => spy.mock.calls.flat()).map(String).join(' ');
+
+      expect(logged).not.toContain(PAYER.document);
+      spies.forEach((spy) => spy.mockRestore());
     });
   });
 
@@ -546,6 +637,7 @@ describe('OrdersService — pedido de pacote', () => {
       method: 'PIX',
       installments: 1,
       mpConnectionId: 'conn-1',
+      recipient: RECIPIENT,
     });
     // O caminho de modulos avulsos nao participa: nem cria pedido nem cancela.
     expect(prisma.order.create).not.toHaveBeenCalled();
@@ -741,5 +833,92 @@ describe('OrdersService — conta do vendedor', () => {
 
     expect(connections.accessTokenFor).not.toHaveBeenCalled();
     expect(gateway.getOrder).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Spec 023, decisoes A4 e A7: a nota fiscal nasce na aprovacao e e cancelada
+ * no estorno — sempre **depois** do acesso, e sem nunca mudar o pedido.
+ */
+describe('OrdersService — nota fiscal', () => {
+  const REFUNDED_ORDER = { ...APPROVED_ORDER, status: 'refunded', statusDetail: 'refunded' };
+
+  function cardOrder() {
+    return {
+      moduleIds: ['mod-1'],
+      method: 'CREDIT_CARD' as const,
+      payer: PAYER,
+      installments: 1,
+      card: { token: 'tok', paymentMethodId: 'master', installments: 1 },
+    };
+  }
+
+  it('aprovado, emite a nota depois de conceder o acesso', async () => {
+    const { service, access, invoices } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(invoices.onOrderPaid).toHaveBeenCalledTimes(1);
+    expect(invoices.onOrderPaid).toHaveBeenCalledWith('ord-1');
+    expect(invoices.onOrderPaid.mock.invocationCallOrder[0]).toBeGreaterThan(
+      access.grant.mock.invocationCallOrder.at(-1) as number,
+    );
+  });
+
+  it('um segundo apply do mesmo pedido nao emite de novo', async () => {
+    const { service, invoices } = await build({ gatewayOrder: APPROVED_ORDER, transitionCount: 0 });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(invoices.onOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('PIX pendente e recusa nao emitem', async () => {
+    const pending = await build();
+    const rejected = await build({ gatewayOrder: REJECTED_ORDER });
+
+    await pending.service.create(ALUNO, pixOrder());
+    await rejected.service.create(ALUNO, cardOrder());
+
+    expect(pending.invoices.onOrderPaid).not.toHaveBeenCalled();
+    expect(rejected.invoices.onOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('estornado, cancela a nota depois de revogar o acesso', async () => {
+    const { service, access, invoices } = await build({
+      storedOrder: { ...PLACED.order, status: 'PAID' },
+      gatewayOrder: REFUNDED_ORDER,
+    });
+
+    await service.applyFromGateway('ORD-2');
+
+    expect(invoices.onOrderRefunded).toHaveBeenCalledWith('ord-b');
+    expect(invoices.onOrderRefunded.mock.invocationCallOrder[0]).toBeGreaterThan(
+      access.revokeByOrder.mock.invocationCallOrder[0],
+    );
+  });
+
+  // A nota e assunto do painel: o comprador pagou e recebe o acesso.
+  it('uma falha da nota nao muda o pedido nem a resposta', async () => {
+    const { service, invoices, access } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    invoices.onOrderPaid.mockRejectedValue(new Error('Notaas fora'));
+
+    const view = await service.create(ALUNO, cardOrder());
+
+    expect(view.status).toBe('PAID');
+    expect(access.grant).toHaveBeenCalled();
+  });
+
+  it('uma falha no cancelamento da nota nao desfaz o estorno', async () => {
+    const { service, invoices, access } = await build({
+      storedOrder: { ...PLACED.order, status: 'PAID' },
+      gatewayOrder: REFUNDED_ORDER,
+    });
+
+    invoices.onOrderRefunded.mockRejectedValue(new Error('Notaas fora'));
+
+    await expect(service.applyFromGateway('ORD-2')).resolves.toBeUndefined();
+    expect(access.revokeByOrder).toHaveBeenCalledWith('ord-b');
   });
 });

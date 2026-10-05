@@ -10,6 +10,8 @@ interface FileMock {
   delete: jest.Mock;
   exists: jest.Mock;
   getMetadata: jest.Mock;
+  save: jest.Mock;
+  download: jest.Mock;
 }
 
 function build() {
@@ -18,6 +20,8 @@ function build() {
     delete: jest.fn().mockResolvedValue(undefined),
     exists: jest.fn().mockResolvedValue([true]),
     getMetadata: jest.fn().mockResolvedValue([{ size: '1024', contentType: 'video/mp4' }]),
+    save: jest.fn().mockResolvedValue(undefined),
+    download: jest.fn().mockResolvedValue([Buffer.from('conteudo')]),
   };
 
   const bucket = jest.fn().mockReturnValue({ file: jest.fn().mockReturnValue(file) });
@@ -244,6 +248,31 @@ describe('StorageService', () => {
       await expect(service.requireUploaded('lessons/les-1/video/aula.mp4')).rejects.toBeInstanceOf(
         BadRequestException,
       );
+    });
+  });
+
+  /**
+   * Spec 023, decisao A8: o XML e o DANFE da nota sao gravados pela propria
+   * API, e nao pelo navegador — e o XML autorizado e o documento fiscal.
+   */
+  describe('gravacao pelo servidor', () => {
+    it('grava o arquivo com o tipo informado, privado', async () => {
+      const { service, file, bucket } = build();
+
+      await service.saveFile('invoices/producao/chave.xml', Buffer.from('<nfeProc/>'), 'application/xml');
+
+      expect(bucket).toHaveBeenCalledWith(BUCKET);
+      expect(file.save).toHaveBeenCalledWith(Buffer.from('<nfeProc/>'), {
+        contentType: 'application/xml',
+        resumable: false,
+      });
+    });
+
+    it('le o arquivo de volta, para reenviar o e-mail da nota', async () => {
+      const { service, file } = build();
+
+      expect((await service.readFile('invoices/producao/chave.pdf')).toString()).toBe('conteudo');
+      expect(file.download).toHaveBeenCalled();
     });
   });
 });

@@ -70,6 +70,11 @@ model User {
   /// qual o `ConsentRecord` do front ja carrega `policyVersion`.
   policyAcceptedVersion String?
 
+  /// Descadastro das campanhas de e-mail (Spec 023, decisao B5). Nulo e
+  /// "recebe novidades". O e-mail da nota fiscal ignora esta coluna: e
+  /// documento da compra, e nao comunicacao de marketing.
+  marketingOptOutAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -141,6 +146,11 @@ model Module {
   /// painel —, mas o default continua nulo para que modulo novo tenha o preco
   /// decidido, e nao herdado por descuido.
   priceCents Int?
+
+  /// Carga horaria do modulo, impressa no diploma de modulo (Spec 023, Parte
+  /// D). **Nulo e "a definir"**, como em `Course.workloadHours`: o diploma
+  /// mostra o placeholder da carga horaria, e nao "0 horas".
+  workloadHours Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -369,6 +379,25 @@ model Order {
   /// e consultado com `MP_ACCESS_TOKEN`.
   mpConnectionId String?
 
+  /// Destinatario da NF-e (Spec 023, decisao A3), gravado na criacao do
+  /// pedido. A nota exige CPF e endereco, e ate a Spec 022 o checkout so
+  /// repassava o CPF ao Mercado Pago, sem guarda-lo. Nulos nos pedidos
+  /// anteriores: o CPF vem do backfill, e o endereco nao existe em lugar
+  /// nenhum. Nenhum destes campos sai em log, nem em resposta alem da do
+  /// proprio comprador e do painel financeiro.
+  payerDocument   String?
+  payerName       String?
+  payerZip        String?
+  payerStreet     String?
+  payerNumber     String?
+  payerComplement String?
+  payerDistrict   String?
+  payerCity       String?
+  /// Codigo IBGE do municipio (7 digitos), vindo do ViaCEP: a NF-e identifica
+  /// a cidade por ele, e nao pelo nome.
+  payerCityIbge   String?
+  payerState      String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -382,6 +411,8 @@ model Order {
   /// `Restrict`: conexao que ja vendeu nao e apagavel, porque e ela que diz
   /// com que token consultar o pedido. Desconectar e marcar, nao apagar.
   mpConnection MercadoPagoConnection? @relation(fields: [mpConnectionId], references: [id], onDelete: Restrict)
+  /// Nota fiscal do pedido (Spec 023): uma por pedido, criada na aprovacao.
+  invoice      Invoice?
 
   @@index([userId, createdAt])
   // O indice acima e o historico de **um** aluno. O relatorio financeiro faz a
@@ -775,4 +806,135 @@ model LegalDocumentDraft {
   updatedByEmail String
 
   @@map("legal_document_drafts")
+}
+
+/// NF-e (modelo 55) de livro digital emitida pela Notaas (Spec 023, Parte A).
+///
+/// **Uma por pedido** (`orderId @unique`, decisao A2). A Notaas nao aceita
+/// referencia do cliente na emissao: duas chamadas a `/nfe/emitir` geram duas
+/// notas validas. Por isso a linha nasce em `PENDING` **antes** do POST, e o
+/// `invoiceId` devolvido no `202` e gravado na mesma hora.
+model Invoice {
+  id          String        @id @default(cuid())
+  orderId     String        @unique
+  status      InvoiceStatus @default(PENDING)
+  /// `homologacao` ou `producao` (decisao A6). Preview e producao dividem o
+  /// banco, e o cron so reconcilia as notas do proprio ambiente.
+  environment String
+  /// Copia do pedido na emissao.
+  amountCents Int
+
+  /// `invoiceId` da Notaas, gravado assim que o `202` chega (decisao A2). Nulo
+  /// em `PENDING` (a chamada nao saiu) e em `UNKNOWN` (saiu sem resposta).
+  providerInvoiceId String? @unique
+
+  number        String?
+  series        String?
+  /// `chaveAcesso`, 44 digitos. Pode mudar se a Notaas cair em contingencia:
+  /// vale sempre a da ultima consulta.
+  accessKey     String? @unique
+  protocol      String?
+  /// Caminhos no Storage (decisao A8). O XML autorizado e o documento fiscal.
+  xmlPath       String?
+  pdfPath       String?
+  cancelXmlPath String?
+  /// Resposta crua do ultimo erro (`codigoStatus`, `motivo`, `errorMessage`),
+  /// sem traducao — mesma regra do `mpStatusDetail`.
+  lastError     String?
+
+  issuedAt    DateTime?
+  cancelledAt DateTime?
+  emailedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  /// `Restrict`: pedido com nota nao e apagavel.
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  // O cron de reconciliacao (decisao A5).
+  @@index([status, environment, updatedAt])
+  @@map("invoices")
+}
+
+/// Estados da nota (decisoes A2, A5 e A7). `UNKNOWN` e a chamada que saiu sem
+/// resposta: a nota pode existir na Notaas, e nada a reenvia sozinho.
+/// `REFUND_PENDING` e o estorno fora do prazo de cancelamento.
+enum InvoiceStatus {
+  PENDING
+  PROCESSING
+  UNKNOWN
+  AUTHORIZED
+  DENIED
+  ERROR
+  CANCELLING
+  CANCELLED
+  CANCEL_ERROR
+  REFUND_PENDING
+
+  @@map("invoice_status")
+}
+
+/// Campanha de e-mail disparada pelo painel (Spec 023, Parte B).
+model EmailCampaign {
+  id      String       @id @default(cuid())
+  subject String
+  /// Texto simples (decisao B3), nunca HTML.
+  body    String
+  segment EmailSegment
+
+  /// UID do admin que disparou, tirado do token, e a **copia** do e-mail, como
+  /// no `GatewayFeeRate`: a autoria segue legivel depois de a conta sair.
+  createdById    String
+  createdByEmail String
+
+  status         CampaignStatus @default(SENDING)
+  /// Destinatarios congelados no disparo (decisao B4).
+  recipientCount Int
+
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  deliveries EmailDelivery[]
+
+  @@index([createdAt])
+  @@map("email_campaigns")
+}
+
+/// Um destinatario da campanha (decisao B4). `resendId` nulo e "ainda nao
+/// enviado": e por ele que retomar envia so o que faltou, e ninguem recebe
+/// duas vezes.
+model EmailDelivery {
+  id         String    @id @default(cuid())
+  campaignId String
+  /// Sem relacao com `User` de proposito: o historico da campanha nao depende
+  /// de a conta continuar existindo.
+  userId     String
+  /// Copia no instante do disparo.
+  email      String
+  resendId   String?
+  error      String?
+  sentAt     DateTime?
+
+  campaign EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId])
+  @@map("email_deliveries")
+}
+
+/// Segmentos fixos da aba de disparos (decisao B2).
+enum EmailSegment {
+  ALL_ACTIVE
+  INACTIVE_7D
+  COMPLETED
+
+  @@map("email_segment")
+}
+
+/// `PARTIAL` e a campanha em que alguma entrega falhou ou ficou sem envio.
+enum CampaignStatus {
+  SENDING
+  SENT
+  PARTIAL
+
+  @@map("campaign_status")
 }

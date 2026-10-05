@@ -14,7 +14,7 @@ import { Perfil } from '../../perfil/perfil';
   imports: [AdminLayout, Perfil],
   template: `
     <app-admin-layout activeTab="" (activeTabChange)="openDashboardTab($event)">
-      <app-perfil backLink="/admin" backLabel="Voltar ao Painel" />
+      <app-perfil backLink="/admin" backLabel="Voltar ao Painel" [showMarketing]="false" />
     </app-admin-layout>
   `,
 })

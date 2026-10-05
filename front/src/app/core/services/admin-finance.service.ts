@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, finalize, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import type { InvoiceSummary } from './admin-invoices.service';
 
 /**
  * Painel financeiro (Spec 016).
@@ -128,6 +129,8 @@ export interface FinanceOrderItem {
   createdAt: string;
   paidAt: string | null;
   refundedAt: string | null;
+  /** Nota fiscal do pedido (Spec 023, decisao A9); nulo sem nota. */
+  invoice?: InvoiceSummary | null;
 }
 
 export interface FinanceOrderListResult {

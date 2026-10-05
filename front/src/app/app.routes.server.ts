@@ -30,6 +30,8 @@ export const serverRoutes: ServerRoute[] = [
   // O resultado vem na query e so existe no navegador; prerenderizar geraria
   // um HTML de erro generico e poria a rota no sitemap (Spec 020, decisao 5).
   { path: 'conexao-mercado-pago', renderMode: RenderMode.Client },
+  // O token vem na query e so existe no navegador (Spec 023, decisao B5).
+  { path: 'descadastro', renderMode: RenderMode.Client },
 
   // --- Vitrine: HTML pronto em build ---
   {

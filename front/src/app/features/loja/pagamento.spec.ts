@@ -49,3 +49,132 @@ describe('Pagamento — loja fechada', () => {
     expect(payButton(el)).toBeDefined();
   });
 });
+
+/** Spec 023, decisao A3: a NF-e exige o endereco do comprador. */
+describe('Pagamento — endereço para a nota fiscal', () => {
+  let fixture: ComponentFixture<Pagamento>;
+  let backend: HttpTestingController;
+
+  const VIACEP = {
+    cep: '01310-100',
+    logradouro: 'Avenida Paulista',
+    bairro: 'Bela Vista',
+    localidade: 'São Paulo',
+    uf: 'SP',
+    ibge: '3550308',
+  };
+
+  const el = () => fixture.nativeElement as HTMLElement;
+  const field = (id: string) => el().querySelector(`#${id}`) as HTMLInputElement;
+  const payButton = () =>
+    Array.from(el().querySelectorAll('button')).find(button =>
+      /Gerar PIX|Pagar/.test(button.textContent ?? ''),
+    ) as HTMLButtonElement;
+
+  function type(id: string, value: string): void {
+    field(id).value = value;
+    field(id).dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [Pagamento],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+
+    TestBed.inject(StoreService).toggle('mod-1');
+    fixture = TestBed.createComponent(Pagamento);
+    backend = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    backend.match(req => req.url.endsWith('/users/me')).forEach(req => req.flush(null));
+    backend
+      .match(req => req.url.endsWith('/store/payment-config'))
+      .forEach(req => req.flush({ ...CONFIG, enabled: true, reason: null }));
+    backend.match(req => req.url.includes('/store/')).forEach(req => req.flush([]));
+    fixture.detectChanges();
+
+    type('firstName', 'Ana');
+    type('lastName', 'Souza');
+    type('email', 'ana@exemplo.com');
+    type('document', '19119119100');
+  });
+
+  it('pede CEP, número e complemento, e explica por que', () => {
+    expect(field('zip')).not.toBeNull();
+    expect(field('number')).not.toBeNull();
+    expect(field('complement')).not.toBeNull();
+    expect(el().textContent).toContain('nota fiscal');
+  });
+
+  it('o ViaCEP preenche logradouro, bairro, cidade e UF', () => {
+    type('zip', '01310-100');
+    backend.expectOne('https://viacep.com.br/ws/01310100/json/').flush(VIACEP);
+    fixture.detectChanges();
+
+    expect(field('street').value).toBe('Avenida Paulista');
+    expect(field('district').value).toBe('Bela Vista');
+    expect(el().querySelector('[data-testid="cidade-uf"]')?.textContent).toContain('São Paulo / SP');
+  });
+
+  it('o comprador pode corrigir o logradouro e o bairro', () => {
+    type('zip', '01310100');
+    backend.expectOne('https://viacep.com.br/ws/01310100/json/').flush(VIACEP);
+    fixture.detectChanges();
+
+    expect(field('street').readOnly).toBeFalse();
+    expect(field('district').readOnly).toBeFalse();
+  });
+
+  it('um CEP inexistente bloqueia o envio com mensagem clara', () => {
+    type('zip', '99999999');
+    backend.expectOne('https://viacep.com.br/ws/99999999/json/').flush({ erro: true });
+    fixture.detectChanges();
+    type('number', '10');
+
+    expect(el().querySelector('[data-testid="cep-erro"]')?.textContent).toContain('CEP não encontrado');
+    expect(payButton().disabled).toBeTrue();
+  });
+
+  it('sem número, não envia', () => {
+    type('zip', '01310100');
+    backend.expectOne('https://viacep.com.br/ws/01310100/json/').flush(VIACEP);
+    fixture.detectChanges();
+
+    expect(payButton().disabled).toBeTrue();
+  });
+
+  it('os dados do endereço seguem no pedido, com o código IBGE e o CEP só com dígitos', async () => {
+    type('zip', '01310-100');
+    backend.expectOne('https://viacep.com.br/ws/01310100/json/').flush(VIACEP);
+    fixture.detectChanges();
+    type('number', '1000');
+    type('complement', 'Conj. 12');
+    type('street', 'Av. Paulista');
+
+    expect(payButton().disabled).toBeFalse();
+
+    payButton().click();
+    await fixture.whenStable();
+
+    const order = backend.expectOne(req => req.method === 'POST' && req.url.endsWith('/orders'));
+
+    expect(order.request.body.payer).toEqual({
+      firstName: 'Ana',
+      lastName: 'Souza',
+      email: 'ana@exemplo.com',
+      document: '19119119100',
+      address: {
+        zip: '01310100',
+        street: 'Av. Paulista',
+        number: '1000',
+        complement: 'Conj. 12',
+        district: 'Bela Vista',
+        city: 'São Paulo',
+        cityIbge: '3550308',
+        state: 'SP',
+      },
+    });
+  });
+});

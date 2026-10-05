@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentMethodKind } from '../generated/prisma/client';
+import { INVOICE_SUMMARY_SELECT, InvoiceSummaryRow, toInvoiceSummary } from '../invoices/invoice-view';
 import { PrismaService } from '../prisma/prisma.service';
 import { percentageOf } from '../progress/completion';
 import {
@@ -57,6 +58,11 @@ const CSV_HEADER = [
   'Pagamento Mercado Pago',
   'Pago em',
   'Estornado em',
+  // Spec 023, decisao A9: vazias no pedido sem nota.
+  'Situacao da nota',
+  'NF-e',
+  'Serie NF-e',
+  'Chave de acesso',
 ];
 
 /**
@@ -91,6 +97,13 @@ function csvMoney(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',');
 }
 
+/** O que a listagem e o CSV pedem de cada pedido. */
+const ORDER_ROW_INCLUDE = {
+  user: { select: { name: true, email: true } },
+  items: { select: { titleSnapshot: true } },
+  invoice: { select: INVOICE_SUMMARY_SELECT },
+} as const;
+
 /** Linha da listagem, como a consulta a devolve. */
 interface OrderRow {
   id: string;
@@ -108,6 +121,7 @@ interface OrderRow {
   items: { titleSnapshot: string }[];
   bundleTitleSnapshot?: string | null;
   tierNameSnapshot?: string | null;
+  invoice?: InvoiceSummaryRow | null;
 }
 
 /** Linha da serie, como o Postgres a devolve. */
@@ -231,10 +245,7 @@ export class AdminFinanceService {
         orderBy: this.ordersOrderBy(query),
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
-        include: {
-          user: { select: { name: true, email: true } },
-          items: { select: { titleSnapshot: true } },
-        },
+        include: ORDER_ROW_INCLUDE,
       }) as unknown as Promise<OrderRow[]>,
     ]);
 
@@ -255,10 +266,7 @@ export class AdminFinanceService {
     const rows = (await this.prisma.order.findMany({
       where: this.ordersWhere(query),
       orderBy: this.ordersOrderBy(query),
-      include: {
-        user: { select: { name: true, email: true } },
-        items: { select: { titleSnapshot: true } },
-      },
+      include: ORDER_ROW_INCLUDE,
     })) as unknown as OrderRow[];
 
     const lines = rows.map((row) => {
@@ -283,6 +291,10 @@ export class AdminFinanceService {
         item.mpPaymentId ?? '',
         csvDate(item.paidAt),
         csvDate(item.refundedAt),
+        item.invoice?.status ?? '',
+        item.invoice?.number ?? '',
+        item.invoice?.series ?? '',
+        item.invoice?.accessKey ?? '',
       ]
         .map(csvField)
         .join(CSV_SEPARATOR);
@@ -365,6 +377,7 @@ export class AdminFinanceService {
       createdAt: row.createdAt,
       paidAt: row.paidAt,
       refundedAt: row.refundedAt,
+      invoice: row.invoice ? toInvoiceSummary(row.invoice) : null,
     };
   }
 

@@ -190,6 +190,22 @@ export class StorageService {
     return { url, expiresAt: new Date(expires).toISOString() };
   }
 
+  /**
+   * Grava um arquivo gerado pelo servidor (Spec 023, decisao A8): o XML e o
+   * DANFE da nota. Diferente do upload do admin, nao passa por URL assinada —
+   * quem tem o arquivo e a propria API. O objeto fica privado, como todos.
+   */
+  async saveFile(storagePath: string, content: Buffer, contentType: string): Promise<void> {
+    await this.file(storagePath).save(content, { contentType, resumable: false });
+  }
+
+  /** Le um arquivo do bucket, para anexar de novo ao e-mail da nota. */
+  async readFile(storagePath: string): Promise<Buffer> {
+    const [content] = await this.file(storagePath).download();
+
+    return content;
+  }
+
   /** Apaga o objeto. Objeto ja ausente e sucesso: o estado desejado e o mesmo. */
   async remove(storagePath: string): Promise<void> {
     try {

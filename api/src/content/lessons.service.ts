@@ -74,6 +74,7 @@ export class LessonsService {
         title: module.title,
         summary: module.summary,
         priceCents: module.priceCents,
+        workloadHours: module.workloadHours,
         lessonCount: (module as { _count?: { lessons: number } })._count?.lessons ?? 0,
         // A UI usa este numero para explicar por que a remocao de modulo nao
         // existe: o diploma emitido continua valendo (decisao 15).
@@ -101,6 +102,7 @@ export class LessonsService {
       title: created.title,
       summary: created.summary,
       priceCents: created.priceCents,
+      workloadHours: created.workloadHours,
       lessonCount: 0,
       certificateCount: 0,
     };
@@ -122,6 +124,7 @@ export class LessonsService {
       title: updated.title,
       summary: updated.summary,
       priceCents: updated.priceCents,
+      workloadHours: updated.workloadHours,
       lessonCount: (updated as { _count?: { lessons: number } })._count?.lessons ?? 0,
       certificateCount: await this.prisma.certificate.count({ where: { moduleId } }),
     };
@@ -150,6 +153,39 @@ export class LessonsService {
       title: updated.title,
       summary: updated.summary,
       priceCents: updated.priceCents,
+      workloadHours: updated.workloadHours,
+      lessonCount: (updated as { _count?: { lessons: number } })._count?.lessons ?? 0,
+      certificateCount: await this.prisma.certificate.count({ where: { moduleId } }),
+    };
+  }
+
+  /**
+   * Carga horaria do modulo, em horas inteiras (Spec 023, Parte D). E o
+   * numero que o diploma de modulo imprime. `null` volta para "a definir".
+   *
+   * Diploma ja emitido le a carga no momento da leitura (nao ha copia
+   * guardada), entao ajustar aqui corrige tambem os diplomas emitidos — o
+   * hash nao inclui a carga, e nada deixa de validar.
+   */
+  async updateModuleWorkload(
+    moduleId: string,
+    workloadHours: number | null,
+  ): Promise<AdminModuleItem> {
+    await this.requireModule(moduleId);
+
+    const updated = await this.prisma.module.update({
+      where: { id: moduleId },
+      data: { workloadHours },
+      include: { _count: { select: { lessons: true } } },
+    });
+
+    return {
+      id: updated.id,
+      order: updated.order,
+      title: updated.title,
+      summary: updated.summary,
+      priceCents: updated.priceCents,
+      workloadHours: updated.workloadHours,
       lessonCount: (updated as { _count?: { lessons: number } })._count?.lessons ?? 0,
       certificateCount: await this.prisma.certificate.count({ where: { moduleId } }),
     };

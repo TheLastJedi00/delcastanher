@@ -97,6 +97,13 @@ export const routes: Routes = [
       ),
   },
   {
+    // Descadastro das campanhas de e-mail (Spec 023, decisao B5). Publica:
+    // quem chega e o aluno pelo link do e-mail, sem sessao. Nao indexavel.
+    path: 'descadastro',
+    data: { [SEO_DATA_KEY]: privateSeo('Cancelar inscrição') },
+    loadComponent: () => import('./features/descadastro/descadastro').then(m => m.Descadastro),
+  },
+  {
     path: 'login',
     // Quem ja tem sessao vai para a propria area em vez de ver o formulario de
     // novo (Spec 019, decisao 16).
@@ -173,6 +180,8 @@ export const routes: Routes = [
         loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
       },
       { path: 'certificado', canActivate: [accessGuard], loadComponent: () => import('./features/student/certificado/certificado').then(m => m.Certificado) },
+      // Diploma de modulo com a folha impressa (Spec 023, Parte D).
+      { path: 'certificado/modulo/:moduleId', canActivate: [accessGuard], loadComponent: () => import('./features/student/certificado/certificado-modulo').then(m => m.CertificadoModulo) },
       { path: 'perfil', loadComponent: () => import('./features/perfil/perfil').then(m => m.Perfil) },
       { path: 'materiais', canActivate: [accessGuard], loadComponent: () => import('./features/student/materiais/materiais').then(m => m.Materiais) },
       { path: 'artigos', canActivate: [accessGuard], loadComponent: () => import('./features/student/artigos/artigos').then(m => m.Artigos) }

@@ -11,6 +11,7 @@ const MODULES = [
     title: 'Fundamentos',
     summary: 'Resumo 1',
     priceCents: 19900,
+    workloadHours: 6,
     lessonCount: 2,
     certificateCount: 3,
   },
@@ -20,6 +21,7 @@ const MODULES = [
     title: 'Diagnóstico',
     summary: 'Resumo 2',
     priceCents: null,
+    workloadHours: null,
     lessonCount: 0,
     certificateCount: 0,
   },
@@ -307,6 +309,75 @@ describe('AdminAulas', () => {
       backend.match(() => true).forEach(pendente => pendente.flush([]));
     });
   });
+
+  /** Carga horaria do diploma de modulo (Spec 023, Parte D). */
+  describe('carga horaria do modulo', () => {
+    function abrirCarga(): HTMLInputElement {
+      bootstrap(backend, fixture);
+      buttonWith(/^\s*Carga horária\s*$/)?.click();
+      fixture.detectChanges();
+
+      return (fixture.nativeElement as HTMLElement).querySelector(
+        'input[id^="carga-"]',
+      ) as HTMLInputElement;
+    }
+
+    function digitar(input: HTMLInputElement, value: string): void {
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      buttonWith(/Salvar carga horária/)?.click();
+      fixture.detectChanges();
+    }
+
+    it('exibe a carga de cada modulo, e "a definir" para o que nao tem', () => {
+      bootstrap(backend, fixture);
+
+      expect(text()).toContain('6 h no certificado');
+      expect(text()).toContain('Carga horária a definir');
+    });
+
+    it('grava horas inteiras e atualiza a linha', () => {
+      const input = abrirCarga();
+      expect(input.value).toBe('6');
+
+      digitar(input, '8');
+
+      const request = backend.expectOne(`${environment.apiUrl}/admin/modules/mod-1/workload`);
+
+      expect(request.request.method).toBe('PATCH');
+      expect(request.request.body).toEqual({ workloadHours: 8 });
+
+      request.flush({ ...MODULES[0], workloadHours: 8 });
+      fixture.detectChanges();
+
+      expect(text()).toContain('8 h no certificado');
+      backend.match(() => true).forEach(pendente => pendente.flush([]));
+    });
+
+    it('envia nulo quando o campo fica vazio', () => {
+      digitar(abrirCarga(), '');
+
+      const request = backend.expectOne(`${environment.apiUrl}/admin/modules/mod-1/workload`);
+
+      expect(request.request.body).toEqual({ workloadHours: null });
+      request.flush({ ...MODULES[0], workloadHours: null });
+      backend.match(() => true).forEach(pendente => pendente.flush([]));
+    });
+
+    it('recusa fracao e zero sem ir ao servidor', () => {
+      const input = abrirCarga();
+
+      for (const value of ['2,5', '0', 'seis']) {
+        digitar(input, value);
+      }
+
+      backend.expectNone(`${environment.apiUrl}/admin/modules/mod-1/workload`);
+      expect(text()).toContain('Informe horas inteiras, de 1 a 999.');
+      backend.match(() => true).forEach(pendente => pendente.flush([]));
+    });
+  });
+
   describe('aulas', () => {
     it('lista as aulas com os numeros que a remocao precisa', () => {
       bootstrap(backend, fixture);
@@ -569,6 +640,70 @@ describe('AdminAulas', () => {
 
       // O arquivo sai do bucket e nao volta: recusar a confirmacao nao apaga nada.
       backend.expectNone(`${environment.apiUrl}/admin/materials/mat-1`);
+    });
+  });
+
+  /** Bugs do painel de aulas que precisavam sair antes da publicacao do conteudo. */
+  describe('Spec 024, Task 2.1', () => {
+    const rowOf = (title: string) =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li')).find(li =>
+        li.textContent?.includes(title),
+      ) as HTMLLIElement;
+
+    it('mostra "Carregando aulas" enquanto as aulas do modulo nao chegam, e nao o estado vazio', () => {
+      backend.expectOne(MODULES_URL).flush(MODULES);
+      fixture.detectChanges();
+
+      expect(text()).toContain('Carregando aulas');
+      expect(text()).not.toContain('ainda não tem aulas');
+
+      backend.expectOne(LESSONS_URL).flush(LESSONS);
+      backend.expectOne(VIDEO_URL).flush(SEM_VIDEO);
+      backend.expectOne(MATERIALS_URL).flush([]);
+      fixture.detectChanges();
+
+      expect(text()).not.toContain('Carregando aulas');
+      expect(text()).toContain('O papel do RH');
+    });
+
+    it('descarta a resposta atrasada do modulo anterior', () => {
+      backend.expectOne(MODULES_URL).flush(MODULES);
+      fixture.detectChanges();
+
+      // Troca para o modulo 2 antes de as aulas do 1 chegarem.
+      buttonWith(/Diagnóstico/)!.click();
+      fixture.detectChanges();
+
+      backend.expectOne(LESSONS_URL).flush(LESSONS);
+      fixture.detectChanges();
+
+      // As aulas do modulo 1 nao aparecem sob o modulo 2, nem abrem a aula dele.
+      expect(text()).not.toContain('O papel do RH');
+      backend.expectNone(VIDEO_URL);
+
+      backend.expectOne(`${environment.apiUrl}/admin/modules/mod-2/lessons`).flush([]);
+      fixture.detectChanges();
+
+      expect(text()).toContain('Aulas do módulo 2');
+      expect(text()).toContain('ainda não tem aulas');
+    });
+
+    it('a contagem de materiais da aula acompanha a lista lida e a remocao', () => {
+      bootstrap(backend, fixture, [MATERIAL]);
+
+      // A lista chegou com 0 na aula 1, mas a central dela tem 1 material.
+      expect(rowOf('O papel do RH').textContent).toContain('1 material(is)');
+
+      spyOn(window, 'confirm').and.returnValue(true);
+      const removeButtons = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+      ).filter(button => /^\s*Remover\s*$/.test(button.textContent ?? ''));
+      removeButtons[removeButtons.length - 1].click();
+
+      backend.expectOne(`${environment.apiUrl}/admin/materials/mat-1`).flush(null);
+      fixture.detectChanges();
+
+      expect(rowOf('O papel do RH').textContent).toContain('0 material(is)');
     });
   });
 

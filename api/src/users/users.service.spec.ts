@@ -188,4 +188,50 @@ describe('UsersService', () => {
       });
     });
   });
+  /**
+   * Spec 023, decisao B5: o aluno se recadastra ou se descadastra das
+   * novidades pelo interruptor do perfil. A data do descadastro e a da
+   * oposicao, e nao muda a cada salvar.
+   */
+  describe('update — novidades por e-mail', () => {
+    const ONBOARDED = { onboardingCompleted: true, policyAcceptedAt: new Date('2026-09-20') };
+
+    it('desligar grava marketingOptOutAt', async () => {
+      const { service, upsert } = await build(jest.fn().mockResolvedValue({}), ONBOARDED);
+
+      await service.update(FIREBASE_USER, { ...ONBOARDING, marketingOptIn: false });
+
+      expect(upsert.mock.calls[0][0].update.marketingOptOutAt).toEqual(expect.any(Date));
+    });
+
+    it('desligar de novo nao reescreve a data do descadastro', async () => {
+      const { service, upsert } = await build(jest.fn().mockResolvedValue({}), {
+        ...ONBOARDED,
+        marketingOptOutAt: new Date('2026-09-25'),
+      });
+
+      await service.update(FIREBASE_USER, { ...ONBOARDING, marketingOptIn: false });
+
+      expect(upsert.mock.calls[0][0].update).not.toHaveProperty('marketingOptOutAt');
+    });
+
+    it('ligar limpa o descadastro', async () => {
+      const { service, upsert } = await build(jest.fn().mockResolvedValue({}), {
+        ...ONBOARDED,
+        marketingOptOutAt: new Date('2026-09-25'),
+      });
+
+      await service.update(FIREBASE_USER, { ...ONBOARDING, marketingOptIn: true });
+
+      expect(upsert.mock.calls[0][0].update.marketingOptOutAt).toBeNull();
+    });
+
+    it('sem o campo, nao mexe na preferencia', async () => {
+      const { service, upsert } = await build(jest.fn().mockResolvedValue({}), ONBOARDED);
+
+      await service.update(FIREBASE_USER, ONBOARDING);
+
+      expect(upsert.mock.calls[0][0].update).not.toHaveProperty('marketingOptOutAt');
+    });
+  });
 });

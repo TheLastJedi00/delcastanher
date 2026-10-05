@@ -8,12 +8,14 @@ import {
 } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { OrderStatus, PaymentMethodKind } from '../generated/prisma/client';
+import { InvoicesService } from '../invoices/invoices.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
 import { CreateOrderDto, MAX_INSTALLMENTS } from './dto/create-order.dto';
 import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { MercadoPagoService } from './mercado-pago.service';
+import { toOrderRecipient } from './order-recipient';
 import { MercadoPagoOrder, PixDetails, rejectionMessage, toOrderStatus } from './payments.types';
 
 /** Item do pedido como a tela o exibe. */
@@ -94,6 +96,7 @@ export class OrdersService {
     private readonly gateway: MercadoPagoService,
     private readonly bundles: BundlesService,
     private readonly connections: MercadoPagoConnectionService,
+    private readonly invoices: InvoicesService,
   ) {}
 
   /** Cria o pedido, cobra e devolve o desfecho — ou o QR, no caso do PIX. */
@@ -124,6 +127,7 @@ export class OrdersService {
         method: dto.method,
         installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
         mpConnectionId: credential.connectionId,
+        ...toOrderRecipient(dto.payer),
         items: {
           create: items.map((item) => ({
             moduleId: item.moduleId,
@@ -172,6 +176,7 @@ export class OrdersService {
       method: dto.method,
       installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
       mpConnectionId: credential.connectionId,
+      recipient: toOrderRecipient(dto.payer),
     });
     const order = placed as unknown as OrderRow;
 
@@ -290,11 +295,18 @@ export class OrdersService {
           orderId: order.id,
         });
       }
+
+      // Spec 023, decisao A4: a nota vem depois do acesso, e uma falha dela
+      // nunca desfaz nem atrasa o pagamento.
+      await this.invoiceSafely(() => this.invoices.onOrderPaid(order.id));
     }
 
     // Decisao 22: dinheiro devolvido nao pode deixar o conteudo liberado.
     if (changed && status === 'REFUNDED') {
       await this.access.revokeByOrder(order.id);
+
+      // Spec 023, decisao A7: depois da revogacao, cancela a nota no prazo.
+      await this.invoiceSafely(() => this.invoices.onOrderRefunded(order.id));
     }
 
     const expiresAt = this.pixExpiration(order, status, mpOrder);
@@ -310,6 +322,18 @@ export class OrdersService {
       expiresAt,
       pix: mpOrder.pix,
     } as OrderRow & { pix: PixDetails | null });
+  }
+
+  /**
+   * O `InvoicesService` ja nao lanca; esta guarda e a segunda trava, para que
+   * nem um bug nele mude a resposta do webhook do Mercado Pago.
+   */
+  private async invoiceSafely(work: () => Promise<void>): Promise<void> {
+    try {
+      await work();
+    } catch (error) {
+      this.logger.error('Falha na nota fiscal; o pedido segue.', error as Error);
+    }
   }
 
   /** Gravacao condicionada ao estado anterior. Devolve se **esta** chamada mudou. */

@@ -8,15 +8,28 @@ const PAYER = {
   lastName: 'Souza',
   email: 'aluno@delcastanher.com',
   document: '19119119100',
+  address: {
+    zip: '01310100',
+    street: 'Avenida Paulista',
+    number: '1000',
+    district: 'Bela Vista',
+    city: 'São Paulo',
+    cityIbge: '3550308',
+    state: 'SP',
+  },
 };
 
 async function errorsOf(payload: Record<string, unknown>): Promise<string[]> {
   const errors = await validate(plainToInstance(CreateOrderDto, { method: 'PIX', payer: PAYER, ...payload }));
 
-  return errors.flatMap((error) => [
-    ...Object.values(error.constraints ?? {}),
-    ...(error.children ?? []).flatMap((child) => Object.values(child.constraints ?? {})),
-  ]);
+  // Recursivo: o endereco fica um nivel abaixo do pagador.
+  const flatten = (list: typeof errors): string[] =>
+    list.flatMap((error) => [
+      ...Object.values(error.constraints ?? {}),
+      ...flatten(error.children ?? []),
+    ]);
+
+  return flatten(errors);
 }
 
 /** Spec 019, decisoes 5 e 9. */
@@ -55,5 +68,43 @@ describe('CreateOrderDto', () => {
     expect(
       await errorsOf({ moduleIds: ['mod-1'], method: 'CREDIT_CARD', card: { ...card, installments: 13 } }),
     ).toContain('Parcelamento maximo de 12x.');
+  });
+
+  /** Spec 023, decisao A3: a NF-e exige o endereco do destinatario. */
+  describe('endereco do comprador', () => {
+    const withAddress = (address: Record<string, unknown> | undefined) =>
+      errorsOf({ moduleIds: ['mod-1'], payer: { ...PAYER, address } });
+
+    it('aceita o endereco completo, com ou sem complemento', async () => {
+      expect(await withAddress(PAYER.address)).toEqual([]);
+      expect(await withAddress({ ...PAYER.address, complement: 'Apto 3' })).toEqual([]);
+    });
+
+    it('recusa o pedido sem endereco', async () => {
+      expect(await withAddress(undefined)).toContain('Informe o endereço.');
+    });
+
+    it('recusa CEP fora de 8 digitos', async () => {
+      expect(await withAddress({ ...PAYER.address, zip: '01310-100' })).toContain(
+        'Informe um CEP válido.',
+      );
+    });
+
+    it('recusa codigo IBGE fora de 7 digitos', async () => {
+      expect(await withAddress({ ...PAYER.address, cityIbge: '355030' })).toContain(
+        'Cidade sem código IBGE. Confira o CEP.',
+      );
+    });
+
+    it('recusa UF que nao existe', async () => {
+      expect(await withAddress({ ...PAYER.address, state: 'XX' })).toContain('UF inválida.');
+    });
+
+    it('recusa numero e logradouro vazios', async () => {
+      expect(await withAddress({ ...PAYER.address, number: '' })).toContain('Informe o número.');
+      expect(await withAddress({ ...PAYER.address, street: '  ' })).toContain(
+        'Informe o logradouro.',
+      );
+    });
   });
 });
