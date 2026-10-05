@@ -135,6 +135,13 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
                   [class.text-state-warning]="module.priceCents === null">
                   {{ priceLabel(module.priceCents) }}
                 </span>
+                <!-- Carga horária do diploma de módulo (Spec 023, Parte D). -->
+                <span
+                  class="block text-xs font-bold"
+                  [class.text-brand-teal-deep]="module.workloadHours !== null"
+                  [class.text-state-warning]="module.workloadHours === null">
+                  {{ workloadLabel(module.workloadHours) }}
+                </span>
               </button>
 
               <span class="ml-auto flex items-center gap-2">
@@ -154,7 +161,41 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
                 <ui-button variant="outline" size="sm" (click)="startPrice(module)">
                   Preço
                 </ui-button>
+                <ui-button variant="outline" size="sm" (click)="startWorkload(module)">
+                  Carga horária
+                </ui-button>
               </span>
+
+              @if (workloadModuleId() === module.id) {
+                <form
+                  [formGroup]="workloadForm"
+                  (ngSubmit)="saveWorkload(module)"
+                  class="w-full grid gap-3 rounded-xl bg-brand-teal/5 p-3">
+                  <label [for]="'carga-' + module.id" class="text-xs text-slate-600">
+                    Carga horária em horas (deixe vazio para voltar a "a definir")
+                  </label>
+                  <input
+                    [id]="'carga-' + module.id"
+                    type="text"
+                    inputmode="numeric"
+                    formControlName="hours"
+                    [class]="fieldClass"
+                    placeholder="6" />
+                  <p class="text-xs text-slate-500">
+                    É o número impresso no certificado deste módulo, inclusive nos já emitidos. A
+                    carga do curso inteiro fica em "Dados do curso".
+                  </p>
+                  @if (workloadError(); as message) {
+                    <p class="text-xs text-state-danger" role="alert">{{ message }}</p>
+                  }
+                  <div class="flex gap-2">
+                    <ui-button type="submit" variant="primary" size="sm" [loading]="savingWorkload()">
+                      Salvar carga horária
+                    </ui-button>
+                    <ui-button variant="ghost" size="sm" (click)="cancelWorkload()">Cancelar</ui-button>
+                  </div>
+                </form>
+              }
 
               @if (pricingModuleId() === module.id) {
                 <form
@@ -580,6 +621,59 @@ export class AdminAulas implements OnDestroy {
       error: (message: string) => {
         this.savingPrice.set(false);
         this.priceError.set(message);
+      },
+    });
+  }
+
+  // --- Carga horaria do modulo (Spec 023, Parte D) ---
+
+  /** Modulo com o campo de carga aberto; nulo quando nenhum esta em edicao. */
+  protected readonly workloadModuleId = signal<string | null>(null);
+  protected readonly savingWorkload = signal(false);
+  protected readonly workloadError = signal<string | null>(null);
+  protected readonly workloadForm = this.fb.nonNullable.group({ hours: [''] });
+
+  /** Rotulo da carga na lista, no mesmo vocabulario do preco. */
+  protected workloadLabel(hours: number | null): string {
+    return hours === null ? 'Carga horária a definir' : `${hours} h no certificado`;
+  }
+
+  protected startWorkload(module: AdminModule): void {
+    this.workloadError.set(null);
+    this.workloadModuleId.set(module.id);
+    this.workloadForm.controls.hours.setValue(
+      module.workloadHours === null ? '' : String(module.workloadHours),
+    );
+  }
+
+  protected cancelWorkload(): void {
+    this.workloadModuleId.set(null);
+    this.workloadError.set(null);
+  }
+
+  /** Horas inteiras de 1 a 999, a mesma regra do DTO da API. Vazio e "a definir". */
+  protected saveWorkload(module: AdminModule): void {
+    const raw = this.workloadForm.controls.hours.value.trim();
+    const hours = raw === '' ? null : Number(raw);
+
+    if (hours !== null && (!Number.isInteger(hours) || hours < 1 || hours > 999)) {
+      this.workloadError.set('Informe horas inteiras, de 1 a 999.');
+
+      return;
+    }
+
+    this.savingWorkload.set(true);
+    this.workloadError.set(null);
+
+    this.content.updateModuleWorkload(module.id, hours).subscribe({
+      next: updated => {
+        this.savingWorkload.set(false);
+        this.workloadModuleId.set(null);
+        this.modules.update(list => list.map(item => (item.id === updated.id ? updated : item)));
+      },
+      error: (message: string) => {
+        this.savingWorkload.set(false);
+        this.workloadError.set(message);
       },
     });
   }

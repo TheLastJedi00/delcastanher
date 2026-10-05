@@ -24,7 +24,12 @@ export interface StudentCertificate {
   moduleTitle: string | null;
   /** Id do modulo certificado, para a trilha ligar o diploma ao modulo. */
   moduleId: string | null;
-  /** Nulo enquanto a carga horaria for placeholder no comercial. */
+  /** Resumo do modulo no diploma de modulo; nulo no do curso (Spec 023, Parte D). */
+  summary: string | null;
+  /**
+   * Carga horaria do que o diploma atesta: a do modulo no diploma de modulo, a
+   * do curso no do curso. Nula enquanto for "a definir".
+   */
   workloadHours: number | null;
   issuedAt: string;
   status: 'ACTIVE' | 'REVOKED';

@@ -48,6 +48,8 @@ export interface AdminModule {
   summary: string;
   /** Preco de venda em centavos; nulo = "a definir" (Spec 014, decisao 1). */
   priceCents: number | null;
+  /** Carga horaria impressa no diploma de modulo; nulo = "a definir" (Spec 023, Parte D). */
+  workloadHours: number | null;
   lessonCount: number;
   certificateCount: number;
 }
@@ -161,6 +163,18 @@ export class AdminContentService {
     return this.http
       .patch<AdminModule>(`${environment.apiUrl}/admin/modules/${moduleId}/price`, {
         priceCents,
+      })
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /**
+   * Carga horaria do modulo, em horas inteiras (Spec 023, Parte D). E o
+   * numero do diploma de modulo; `null` volta para "a definir".
+   */
+  updateModuleWorkload(moduleId: string, workloadHours: number | null): Observable<AdminModule> {
+    return this.http
+      .patch<AdminModule>(`${environment.apiUrl}/admin/modules/${moduleId}/workload`, {
+        workloadHours,
       })
       .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
   }

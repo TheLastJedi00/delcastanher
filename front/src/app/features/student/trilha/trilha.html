@@ -222,10 +222,8 @@
                   </p>
                 </div>
                 @if (moduleCertificate(); as diploma) {
-                  <a
-                    [routerLink]="'/certificado/verificar'"
-                    [queryParams]="{ codigo: diploma.code }"
-                    class="shrink-0">
+                  <!-- Spec 023, Parte D: a folha do diploma, e não mais só a verificação. -->
+                  <a [routerLink]="['/ava/certificado/modulo', module.id]" class="shrink-0">
                     <ui-button variant="outline">Ver diploma do módulo</ui-button>
                   </a>
                 } @else {
