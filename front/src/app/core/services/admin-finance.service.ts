@@ -131,6 +131,8 @@ export interface FinanceOrderItem {
   refundedAt: string | null;
   /** Nota fiscal do pedido (Spec 023, decisao A9); nulo sem nota. */
   invoice?: InvoiceSummary | null;
+  /** Quando saiu o e-mail "Compra confirmada" (Spec 024, D6); nulo = nao saiu. */
+  confirmationEmailedAt?: string | null;
 }
 
 export interface FinanceOrderListResult {
