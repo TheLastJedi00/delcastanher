@@ -48,6 +48,7 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
   - `confirmationEmailedAt` gravado.
 - [ ] **Task 3.4:** Financeiro: situação do e-mail na listagem e a ação "Reenviar confirmação".
 - [ ] **Task 3.5:** Atualizar o texto da Política de Privacidade (D2): nota fiscal e e-mail transacional. A cliente publica pelo painel.
+  - **Rascunho pronto (2026-10-05):** `politica-privacidade-acrescimos.md`, nesta pasta. São três parágrafos para o fim da seção 15. Falta a cliente publicar.
 
 ## Fase 4: Código - Certificado (D8)
 - [ ] **Task 4.1:** Decidir com o usuário onde o PDF é gerado (navegador ou API).
