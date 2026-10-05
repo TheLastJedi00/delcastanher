@@ -90,7 +90,11 @@ Fecha com o **fluxo completo da cliente**: uma pessoa nova, do site ao acesso, n
 - botão **"Baixar PDF"** (Spec 023, task 8.9);
 - teste de impressão (task 8.8).
 
-**Decisão pendente:** o PDF é gerado no navegador (html2canvas + jsPDF, o texto vira imagem) ou na API (texto selecionável, função mais pesada)?
+**Decisão do usuário (2026-10-05): o PDF é gerado no navegador.**
+- html2canvas + jsPDF, a partir da mesma folha `ui-certificado` que o aluno vê. Assim não há uma segunda versão do layout no servidor, nem rota ou custo novo na API.
+- O preço: o texto do PDF vira imagem e não dá para selecionar nem buscar. O código e o hash continuam legíveis e conferíveis no portal público.
+- As duas bibliotecas só carregam no clique (`import()` dinâmico), para não pesar na área do aluno.
+- A folha é renderizada sempre com a largura do A4 (1123 px), independente da tela, para o PDF do celular sair igual ao do computador.
 
 **D9. Nenhum placeholder visível ao visitante.** Cada um é substituído pelo conteúdo real ou **retirado da tela**. Lançar com "[CURSO A SER CADASTRADO]" parece site inacabado. Os placeholders:
 - cursos futuros em `plans.mock.ts` e `courses.mock.ts`;

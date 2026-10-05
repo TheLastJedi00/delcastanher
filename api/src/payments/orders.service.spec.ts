@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvoicesService } from '../invoices/invoices.service';
+import { PurchaseEmailService } from './purchase-email.service';
 import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
 import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
@@ -182,6 +183,9 @@ function build(options: BuildOptions = {}) {
     onOrderRefunded: jest.fn().mockResolvedValue(undefined),
   };
 
+  // Spec 024, decisao D6: o e-mail tambem nunca lanca; o double so registra.
+  const purchaseEmail = { onOrderPaid: jest.fn().mockResolvedValue(undefined) };
+
   const bundles = {
     placeOrder: jest.fn().mockResolvedValue(options.placed ?? PLACED),
   };
@@ -206,6 +210,7 @@ function build(options: BuildOptions = {}) {
       { provide: BundlesService, useValue: bundles },
       { provide: MercadoPagoConnectionService, useValue: connections },
       { provide: InvoicesService, useValue: invoices },
+      { provide: PurchaseEmailService, useValue: purchaseEmail },
     ],
   })
     .compile()
@@ -217,6 +222,7 @@ function build(options: BuildOptions = {}) {
       bundles,
       connections,
       invoices,
+      purchaseEmail,
     }));
 }
 
@@ -920,5 +926,71 @@ describe('OrdersService — nota fiscal', () => {
 
     await expect(service.applyFromGateway('ORD-2')).resolves.toBeUndefined();
     expect(access.revokeByOrder).toHaveBeenCalledWith('ord-b');
+  });
+});
+
+describe('OrdersService — e-mail de confirmacao da compra (Spec 024, D6)', () => {
+  const REFUNDED_ORDER = { ...APPROVED_ORDER, status: 'refunded', statusDetail: 'refunded' };
+
+  function cardOrder() {
+    return {
+      moduleIds: ['mod-1'],
+      method: 'CREDIT_CARD' as const,
+      payer: PAYER,
+      installments: 1,
+      card: { token: 'tok', paymentMethodId: 'master', installments: 1 },
+    };
+  }
+
+  it('aprovado, envia a confirmacao depois do acesso e da nota', async () => {
+    const { service, access, invoices, purchaseEmail } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(purchaseEmail.onOrderPaid).toHaveBeenCalledTimes(1);
+    expect(purchaseEmail.onOrderPaid).toHaveBeenCalledWith('ord-1');
+    // O e-mail cita a validade do acesso: ele precisa existir antes.
+    expect(purchaseEmail.onOrderPaid.mock.invocationCallOrder[0]).toBeGreaterThan(
+      access.grant.mock.invocationCallOrder.at(-1) as number,
+    );
+    expect(purchaseEmail.onOrderPaid.mock.invocationCallOrder[0]).toBeGreaterThan(
+      invoices.onOrderPaid.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('um segundo apply do mesmo pedido nao envia de novo', async () => {
+    const { service, purchaseEmail } = await build({ gatewayOrder: APPROVED_ORDER, transitionCount: 0 });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(purchaseEmail.onOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('PIX pendente, recusa e estorno nao enviam confirmacao', async () => {
+    const pending = await build();
+    const rejected = await build({ gatewayOrder: REJECTED_ORDER });
+    const refunded = await build({
+      storedOrder: { ...PLACED.order, status: 'PAID' },
+      gatewayOrder: REFUNDED_ORDER,
+    });
+
+    await pending.service.create(ALUNO, pixOrder());
+    await rejected.service.create(ALUNO, cardOrder());
+    await refunded.service.applyFromGateway('ORD-2');
+
+    expect(pending.purchaseEmail.onOrderPaid).not.toHaveBeenCalled();
+    expect(rejected.purchaseEmail.onOrderPaid).not.toHaveBeenCalled();
+    expect(refunded.purchaseEmail.onOrderPaid).not.toHaveBeenCalled();
+  });
+
+  it('uma falha do e-mail nao muda o pedido, o acesso nem a resposta', async () => {
+    const { service, purchaseEmail, access } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    purchaseEmail.onOrderPaid.mockRejectedValue(new Error('Resend fora'));
+
+    const view = await service.create(ALUNO, cardOrder());
+
+    expect(view.status).toBe('PAID');
+    expect(access.grant).toHaveBeenCalled();
   });
 });

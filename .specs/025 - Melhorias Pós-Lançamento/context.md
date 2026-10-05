@@ -22,7 +22,7 @@ Um item tem **prazo**: a tela de acesso expirado precisa estar no ar antes de ve
 | E8 | Logo do Mercado Pago e selos de segurança no pagamento, mais os itens **recomendados** da avaliação de qualidade | Spec 014, tasks 9.7 e 7.8 | Boa prática. Os itens **obrigatórios** do checklist sobem para a Spec 024 se a avaliação os apontar |
 | E9 | Vídeo de apresentação na landing (YouTube) | Spec 023, tasks 7.1 e 7.6 | A seção fica escondida enquanto o id está vazio |
 | E10 | Confirmações ao vivo já cobertas por testes automáticos: 403 do financeiro com papel aluno, virada de lote pelo painel, fluxo de acesso parcial e teste de ponta a ponta do painel admin | Spec 016, task 7.8; Spec 019, tasks 7.2, 7.4 e 7.7; Spec 013, task 6.5 | Cobertas por `*.http.spec` e `bundles.service.spec`; aqui é só confirmação em ambiente real |
-| E11 | Melhorias de velocidade não críticas registradas na auditoria | Spec 024, task 5.3 | O que é crítico já sai na 024 |
+| E11 | Melhorias de velocidade não críticas da auditoria de 2026-10-05: imagens da landing em tamanhos responsivos e formato moderno (cerca de 214 KiB a menos); imagens fora da tela da página do curso carregando sob demanda (cerca de 78 KiB); cerca de 30 KiB de JavaScript não usado por página | Spec 024, task 5.3 | Performance entre 94 e 97 e LCP de 2,2 a 2,7 s no celular: nada crítico |
 
 ## Decisões a tomar quando a spec começar
 - **E2:** filtrar `moduleId: null` no segmento (só diploma do curso) ou renomear para "Alunos com algum certificado".

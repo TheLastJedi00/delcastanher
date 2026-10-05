@@ -31,6 +31,8 @@
     "@angular/router": "^20.3.30",
     "@angular/ssr": "^20.3.35",
     "@mux/mux-player": "^3.13.3",
+    "html-to-image": "^1.11.13",
+    "jspdf": "^4.2.1",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"

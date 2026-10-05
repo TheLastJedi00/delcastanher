@@ -424,6 +424,7 @@
               <th scope="col" class="px-6 py-3">Data</th>
               <th scope="col" class="px-6 py-3">Mercado Pago</th>
               <th scope="col" class="px-6 py-3">Nota fiscal</th>
+              <th scope="col" class="px-6 py-3">E-mail da compra</th>
             </tr>
           </thead>
           <tbody>
@@ -486,10 +487,17 @@
                     [settings]="invoiceSettings()"
                     (changed)="reloadOrders()" />
                 </td>
+                <!-- Spec 024, Task 3.4: a confirmação que o comprador recebe. -->
+                <td class="px-6 py-3 align-top">
+                  <app-confirmacao-compra
+                    [orderId]="pedido.id"
+                    [orderStatus]="pedido.status"
+                    [emailedAt]="pedido.confirmationEmailedAt ?? null" />
+                </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="8" class="px-6 py-8 text-center text-sm text-slate-500">
+                <td colspan="9" class="px-6 py-8 text-center text-sm text-slate-500">
                   Nenhum pedido encontrado com esse filtro.
                 </td>
               </tr>

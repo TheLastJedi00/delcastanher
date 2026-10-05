@@ -117,6 +117,7 @@ interface OrderRow {
   createdAt: Date;
   paidAt: Date | null;
   refundedAt: Date | null;
+  confirmationEmailedAt?: Date | null;
   user: { name: string | null; email: string };
   items: { titleSnapshot: string }[];
   bundleTitleSnapshot?: string | null;
@@ -378,6 +379,7 @@ export class AdminFinanceService {
       paidAt: row.paidAt,
       refundedAt: row.refundedAt,
       invoice: row.invoice ? toInvoiceSummary(row.invoice) : null,
+      confirmationEmailedAt: row.confirmationEmailedAt ?? null,
     };
   }
 

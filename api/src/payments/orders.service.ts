@@ -16,6 +16,7 @@ import { CreateOrderDto, MAX_INSTALLMENTS } from './dto/create-order.dto';
 import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { MercadoPagoService } from './mercado-pago.service';
 import { toOrderRecipient } from './order-recipient';
+import { PurchaseEmailService } from './purchase-email.service';
 import { MercadoPagoOrder, PixDetails, rejectionMessage, toOrderStatus } from './payments.types';
 
 /** Item do pedido como a tela o exibe. */
@@ -97,6 +98,7 @@ export class OrdersService {
     private readonly bundles: BundlesService,
     private readonly connections: MercadoPagoConnectionService,
     private readonly invoices: InvoicesService,
+    private readonly purchaseEmail: PurchaseEmailService,
   ) {}
 
   /** Cria o pedido, cobra e devolve o desfecho — ou o QR, no caso do PIX. */
@@ -299,6 +301,10 @@ export class OrdersService {
       // Spec 023, decisao A4: a nota vem depois do acesso, e uma falha dela
       // nunca desfaz nem atrasa o pagamento.
       await this.invoiceSafely(() => this.invoices.onOrderPaid(order.id));
+
+      // Spec 024, decisao D6: a confirmacao cita a validade do acesso, entao
+      // vem depois dele, e com a mesma trava — o e-mail nunca muda o pedido.
+      await this.emailSafely(() => this.purchaseEmail.onOrderPaid(order.id));
     }
 
     // Decisao 22: dinheiro devolvido nao pode deixar o conteudo liberado.
@@ -333,6 +339,15 @@ export class OrdersService {
       await work();
     } catch (error) {
       this.logger.error('Falha na nota fiscal; o pedido segue.', error as Error);
+    }
+  }
+
+  /** Mesma segunda trava da nota, para o e-mail de confirmacao (Spec 024, D6). */
+  private async emailSafely(work: () => Promise<void>): Promise<void> {
+    try {
+      await work();
+    } catch (error) {
+      this.logger.error('Falha no e-mail de confirmacao; o pedido segue.', error as Error);
     }
   }
 

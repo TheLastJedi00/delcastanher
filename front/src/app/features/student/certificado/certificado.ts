@@ -5,18 +5,12 @@ import { ProgressService } from '../../../core/services/progress.service';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { Button } from '../../../shared/ui/button/button';
 import { Card } from '../../../shared/ui/card/card';
+import { CertificadoAcoes } from './certificado-acoes';
 import { CertificadoDiploma } from '../../../shared/ui/certificado/certificado';
 import { PageContainer } from '../../../shared/ui/page-container/page-container';
 import { ProgressBar } from '../../../shared/ui/progress-bar/progress-bar';
 import { SectionHeader } from '../../../shared/ui/section-header/section-header';
-
-/** Endereco que o terceiro digita para conferir o diploma. */
-export const VERIFICATION_PATH = '/certificado/verificar';
-
-/** Endereco da verificacao com o host, como sai impresso no diploma. */
-export function verificationUrl(): string {
-  return typeof location === 'undefined' ? VERIFICATION_PATH : `${location.host}${VERIFICATION_PATH}`;
-}
+import { verificationUrl } from './verification';
 
 /**
  * Diploma digital do aluno (`/ava/certificado`).
@@ -32,6 +26,7 @@ export function verificationUrl(): string {
     BackLink,
     Button,
     Card,
+    CertificadoAcoes,
     CertificadoDiploma,
     PageContainer,
     ProgressBar,
@@ -66,15 +61,10 @@ export function verificationUrl(): string {
       } @else if (certificate(); as diploma) {
         <!-- Bloco impresso: tudo fora de .print-area some no papel. -->
         <article class="print-area overflow-hidden rounded-2xl shadow-card">
-          <ui-certificado [data]="diploma" [verificationUrl]="verificationUrl" />
+          <ui-certificado #sheet [data]="diploma" [verificationUrl]="verificationUrl" />
         </article>
 
-        <div class="mt-8 flex flex-col gap-3 sm:flex-row print-hidden">
-          <ui-button variant="primary" (click)="print()">Baixar / imprimir</ui-button>
-          <a [routerLink]="verificationPath" [queryParams]="{ codigo: diploma.code }">
-            <ui-button variant="outline">Ver como um recrutador vê</ui-button>
-          </a>
-        </div>
+        <app-certificado-acoes class="mt-8" [sheet]="sheet.element" [code]="diploma.code" />
       } @else if (courseCompleted()) {
         <ui-card variant="default" padding="lg" [hover]="false">
           <h2 class="text-xl font-bold text-brand-navy">Trilha concluída</h2>
@@ -116,7 +106,6 @@ export class Certificado {
   private readonly certificates = inject(CertificateService);
   private readonly progressService = inject(ProgressService);
 
-  protected readonly verificationPath = VERIFICATION_PATH;
   protected readonly verificationUrl = verificationUrl();
 
   protected readonly loading = signal(true);
@@ -180,10 +169,6 @@ export class Certificado {
     });
   }
 
-  /** Impressao nativa: o "salvar como PDF" e do proprio navegador. */
-  protected print(): void {
-    window.print();
-  }
 
   private loadCertificate(): void {
     this.certificates.load().subscribe({
