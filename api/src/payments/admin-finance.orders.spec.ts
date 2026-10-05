@@ -142,6 +142,20 @@ describe('AdminFinanceService — lista de pedidos', () => {
       });
     });
 
+    // Spec 024, Task 3.4: o painel mostra se a confirmacao da compra saiu.
+    it('traz quando o e-mail de confirmacao saiu, e nulo quando nao saiu', async () => {
+      const enviadoEm = new Date('2026-09-10T12:06:00Z');
+      const { service } = await build([
+        { ...PEDIDO, confirmationEmailedAt: enviadoEm },
+        { ...PEDIDO, id: 'ord-2', confirmationEmailedAt: null },
+      ]);
+
+      const [enviado, pendente] = (await service.listOrders(query())).items;
+
+      expect(enviado.confirmationEmailedAt).toEqual(enviadoEm);
+      expect(pendente.confirmationEmailedAt).toBeNull();
+    });
+
     it('traz os ids do Mercado Pago, que e o que o suporte procura la', async () => {
       const { service } = await build();
 
