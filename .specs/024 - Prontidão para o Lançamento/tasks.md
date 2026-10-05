@@ -11,7 +11,7 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
 
 ## Fase 1: Pedidos à cliente e a terceiros (começar hoje)
 - [ ] **Task 1.1 · Cliente:** preço definitivo de cada um dos 12 módulos, no painel (D3).
-- [ ] **Task 1.2 · Cliente:** endereços do LinkedIn e do Instagram (D10).
+- [x] **Task 1.2 · Cliente:** endereços do LinkedIn e do Instagram (D10). Recebidos em 2026-10-05 e usados sem os parâmetros de rastreamento (`stkn`, `utm_*`).
 - [ ] **Task 1.3 · Cliente:** autorizar a conta recebedora do Mercado Pago pelo link do painel, com a conta em KYC nível 6 (D4, Spec 020, task 6.7).
 - [ ] **Task 1.4 · Cliente:** publicar os vídeos e materiais dos 12 módulos pela Gestão de Aulas, **depois da Task 2.1** (D7).
 - [ ] **Task 1.5 · Cliente:**
@@ -33,8 +33,10 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
   - `lessonsLoading`, com "Carregando aulas…" no lugar do estado vazio;
   - `materialCount` da aula atualizado depois de enviar ou remover material;
   - resposta descartada quando o módulo ou a aula selecionada já mudou.
-- [ ] **Task 2.2:** Rodapé (D10): LinkedIn e Instagram reais e o link `wa.me` ao lado do telefone. Spec sem nenhum `href="#"` no rodapé.
-  - **Parcial (2026-10-05, PR #42):** WhatsApp no ar. LinkedIn e Instagram seguem em `#` até a Task 1.2; a spec de "nenhum `#`" entra junto com eles.
+- [x] **Task 2.2:** Rodapé (D10): LinkedIn e Instagram reais e o link `wa.me` ao lado do telefone. Spec sem nenhum `href="#"` no rodapé.
+  - WhatsApp no PR #42.
+  - LinkedIn (`linkedin.com/in/lidiane-delcastanher-5b2861153/`) e Instagram (`instagram.com/lidianedelcastanher/`) em `feat/024-rodape-redes`, abrindo em nova aba, com a spec de que o rodapé não tem nenhum `#`.
+  - O HTML pré-renderizado da landing e do `/planos` saiu sem nenhum `href="#"`.
 - [ ] **Task 2.3:** Placeholders (D9): trocar pelo conteúdo da Task 1.6 ou retirar da tela, com specs de que nenhum texto `[...]` aparece na landing, no `/planos` e na página do curso.
 
 ## Fase 3: Código - E-mail de confirmação da compra (TDD)
@@ -134,9 +136,8 @@ Juntas na release com a `docs/024-registro-execucao` (PR #43).
 
 ### Pendências
 - Fase 1 inteira (cliente, usuário e terceiros).
-- Task 2.2: LinkedIn e Instagram, assim que a cliente passar os endereços.
 - Task 2.3 (placeholders) e Task 4.3 (rubrica): dependem do material da cliente.
 - Task 3.5: a cliente publica os acréscimos da Política de Privacidade.
 - Task 5.1: loja, checkout e área do aluno, com uma conta de aluno.
-- Task 5.2: o `#` do rodapé (Task 1.2).
+- Task 5.2: repetir a varredura depois do deploy do rodapé, para fechar com zero `#`.
 - Tasks 5.4 a 5.6 e 6.2 a 6.5.
