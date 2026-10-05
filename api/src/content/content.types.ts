@@ -128,6 +128,8 @@ export interface AdminModuleItem {
   summary: string;
   /** Preco de venda em centavos; nulo = "a definir" (Spec 014, decisao 1). */
   priceCents: number | null;
+  /** Carga horaria impressa no diploma de modulo; nulo = "a definir" (Spec 023, Parte D). */
+  workloadHours: number | null;
   lessonCount: number;
   certificateCount: number;
 }

@@ -29,13 +29,13 @@ interface CertificateRow {
   issuedAt: Date;
   user: { name: string | null; email: string };
   course: { title: string; workloadHours: number | null };
-  module?: { title: string; order: number } | null;
+  module?: { title: string; order: number; summary: string; workloadHours: number | null } | null;
 }
 
 const WITH_RELATIONS = {
   user: { select: { name: true, email: true } },
   course: { select: { title: true, workloadHours: true } },
-  module: { select: { title: true, order: true } },
+  module: { select: { title: true, order: true, summary: true, workloadHours: true } },
 };
 
 /**
@@ -52,6 +52,16 @@ function moduleTitle(row: CertificateRow): string | null {
   return row.module ? `Módulo ${row.module.order}: ${row.module.title}` : null;
 }
 
+/**
+ * Carga horaria do que o diploma atesta (Spec 023, Parte D): a do modulo no
+ * diploma de modulo, a do curso no do curso. Modulo sem carga definida fica
+ * nulo ("a definir"), e **nao** herda a do curso — seriam horas que o aluno
+ * nao cursou.
+ */
+function workloadHours(row: CertificateRow): number | null {
+  return row.module ? row.module.workloadHours : row.course.workloadHours;
+}
+
 function toStudentCertificate(row: CertificateRow): StudentCertificate {
   return {
     code: row.code,
@@ -61,7 +71,8 @@ function toStudentCertificate(row: CertificateRow): StudentCertificate {
     courseTitle: row.course.title,
     moduleTitle: moduleTitle(row),
     moduleId: row.moduleId,
-    workloadHours: row.course.workloadHours,
+    summary: row.module?.summary ?? null,
+    workloadHours: workloadHours(row),
     issuedAt: row.issuedAt,
     status: row.status as StudentCertificate['status'],
   };
@@ -74,7 +85,7 @@ function toPublicCertificate(row: CertificateRow): PublicCertificate {
     studentName: displayName(row.user),
     courseTitle: row.course.title,
     moduleTitle: moduleTitle(row),
-    workloadHours: row.course.workloadHours,
+    workloadHours: workloadHours(row),
     issuedAt: row.issuedAt,
   };
 }
