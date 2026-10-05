@@ -38,22 +38,22 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
 - [ ] **Task 2.3:** Placeholders (D9): trocar pelo conteúdo da Task 1.6 ou retirar da tela, com specs de que nenhum texto `[...]` aparece na landing, no `/planos` e na página do curso.
 
 ## Fase 3: Código - E-mail de confirmação da compra (TDD)
-- [ ] **Task 3.1:** Migration `Order.confirmationEmailedAt DateTime?` (só adição).
-- [ ] **Task 3.2:** Suíte e implementação do e-mail "Compra confirmada" no `MailService` (D6):
+- [x] **Task 3.1:** Migration `Order.confirmationEmailedAt DateTime?` (só adição).
+- [x] **Task 3.2:** Suíte e implementação do e-mail "Compra confirmada" no `MailService` (D6):
   - módulos ou pacote, valor, método, validade e botão para `/ava`;
   - transacional: sem `List-Unsubscribe`, chega a quem se descadastrou;
   - HTML e texto puro no layout da marca.
-- [ ] **Task 3.3:** Ligar ao `OrdersService.apply`:
+- [x] **Task 3.3:** Ligar ao `OrdersService.apply`:
   - envio na transição para `PAID`, uma vez só;
   - falha do Resend não muda o pedido, o acesso nem a resposta do webhook do Mercado Pago;
   - `confirmationEmailedAt` gravado.
-- [ ] **Task 3.4:** Financeiro: situação do e-mail na listagem e a ação "Reenviar confirmação".
+- [x] **Task 3.4:** Financeiro: situação do e-mail na listagem e a ação "Reenviar confirmação".
 - [ ] **Task 3.5:** Atualizar o texto da Política de Privacidade (D2): nota fiscal e e-mail transacional. A cliente publica pelo painel.
   - **Rascunho pronto (2026-10-05):** `politica-privacidade-acrescimos.md`, nesta pasta. São três parágrafos para o fim da seção 15. Falta a cliente publicar.
 
 ## Fase 4: Código - Certificado (D8)
 - [x] **Task 4.1:** Decidir com o usuário onde o PDF é gerado (navegador ou API). **No navegador** (D8).
-- [ ] **Task 4.2:** Botão "Baixar PDF" em `/ava/certificado` e `/ava/certificado/modulo/:moduleId`, separado de "Imprimir":
+- [x] **Task 4.2:** Botão "Baixar PDF" em `/ava/certificado` e `/ava/certificado/modulo/:moduleId`, separado de "Imprimir":
   - arquivo `certificado-<codigo>.pdf` em A4 paisagem, uma página;
   - specs de que o botão gera o arquivo e não chama `window.print()`.
 - [ ] **Task 4.3:** Rubrica da Task 1.5 no `ui-certificado`, no lugar do placeholder, e retirada de `PLACEHOLDER.signature`.
@@ -110,8 +110,33 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
   - se a conta recebedora está conectada em produção (exige login de admin; Task 1.3).
 - **Termos de Uso:** a API de produção responde "Este documento ainda não foi publicado" (`LEGAL_DOCUMENT_UNPUBLISHED`), apesar de o cartão do Trello estar marcado como concluído. A Task 1.7 continua aberta.
 
+### Fases 3 a 5 (comando Executar, `release/024-prontidao-lancamento`)
+Uma branch por fase, com um commit por task:
+- `feat/024-email-confirmacao` (Tasks 3.1 a 3.5);
+- `feat/024-certificado-pdf` (Tasks 4.1 e 4.2);
+- `feat/024-auditorias` (Tasks 5.1 a 5.3).
+
+Juntas na release com a `docs/024-registro-execucao` (PR #43).
+
+- **Testes:** API com 1159 (TDD na Fase 3), front com 675 e `ng build` ok. O pacote inicial ficou igual: o `jspdf` e o `html-to-image` carregam só no clique.
+- **Migration `20261005150000_email_confirmacao_compra` aplicada no Neon em 2026-10-05, com autorização do usuário.** Só adiciona uma coluna.
+- **Verificação no Chrome, local** (API na 3000 contra o Neon; front na 4300, porque o `ng serve` da 4200 estava com a compilação anterior às dependências novas):
+  - financeiro com a coluna "E-mail da compra": o pedido pago mostra "Não enviado" e os outros, "—";
+  - "Enviar confirmação" sem `RESEND_API_KEY` mostra "Não foi possível enviar o e-mail: RESEND_API_KEY nao configurada." e o pedido segue "Não enviado". **Nenhum e-mail foi enviado;**
+  - "Baixar PDF": PDF de uma página A4 paisagem, com cerca de 365 kB, gerado em 0,3 s. Para não baixar arquivo, conferido pelo `render()` e no visualizador de PDF do Chrome.
+- **Decisões tomadas na execução:**
+  1. **"Reenviar confirmação" em controller próprio** (`POST /admin/orders/:orderId/confirmation-email`): o `AdminFinanceController` só lê (Spec 016, decisão 20).
+  2. **Confirmação com a validade do primeiro acesso a vencer entre os do pedido,** e enviada depois do acesso e da nota.
+  3. **Sem reenvio automático por cron.** Pedido pago sem confirmação (Resend fora, chave ausente, pedido anterior à spec) aparece "Não enviado" no painel, que envia na hora.
+  4. **PDF pelo `html-to-image`, e não pelo html2canvas.** A verificação visual mostrou o html2canvas deslocando o texto das linhas do título e da assinatura, e deixando uma faixa preta. Do `html-to-image` só se usa o `toSvg`: o `toCanvas` dele espera um `requestAnimationFrame`, que não roda com a aba em segundo plano. Só a fonte latina da marca é embutida (com todas, a captura passava de um minuto).
+  5. **jspdf 4.2.1:** a 3.x tem alertas de segurança corrigidos depois da 4.2.0. Os dois alertas que sobram no `npm audit` são do `@angular/platform-server` e do `@angular/router`, e já existiam.
+- **Pedido real pago hoje** (R$ 5,00, PIX, 05/10/2026) aparece sem confirmação. Ele é anterior à Fase 3; dá para enviar pelo painel depois do deploy e do Resend.
+
 ### Pendências
 - Fase 1 inteira (cliente, usuário e terceiros).
 - Task 2.2: LinkedIn e Instagram, assim que a cliente passar os endereços.
-- Task 2.3 e Fases 3 a 5.
-- Tasks 6.2 a 6.5.
+- Task 2.3 (placeholders) e Task 4.3 (rubrica): dependem do material da cliente.
+- Task 3.5: a cliente publica os acréscimos da Política de Privacidade.
+- Task 5.1: loja, checkout e área do aluno, com uma conta de aluno.
+- Task 5.2: o `#` do rodapé (Task 1.2).
+- Tasks 5.4 a 5.6 e 6.2 a 6.5.
