@@ -191,7 +191,7 @@ Ordem das fases:
 - [ ] **Task 8.8:** Em produção:
   - conferir o diploma do curso e o de um módulo na tela;
   - imprimir em "Salvar como PDF" e conferir uma página só, com o gradiente.
-- [ ] **Task 8.9:** Botão **"Baixar PDF"**, separado de "Imprimir", em `/ava/certificado` e `/ava/certificado/modulo/:moduleId`, que baixa direto o arquivo `certificado-<codigo>.pdf` (pedido do usuário, 2026-10-05).
+- [ ] **Task 8.9** (movida para a **Spec 024, Task 4.2**, em 2026-10-05): Botão **"Baixar PDF"**, separado de "Imprimir", em `/ava/certificado` e `/ava/certificado/modulo/:moduleId`, que baixa direto o arquivo `certificado-<codigo>.pdf` (pedido do usuário, 2026-10-05).
   - Hoje "Baixar / imprimir" só abre o diálogo de impressão (`window.print()`), e o aluno precisa saber escolher "Salvar como PDF".
   - O PDF sai em A4 paisagem, numa página só, com o gradiente, o código e o hash legíveis.
   - O botão "Imprimir" continua existindo.
