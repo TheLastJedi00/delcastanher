@@ -643,6 +643,70 @@ describe('AdminAulas', () => {
     });
   });
 
+  /** Bugs do painel de aulas que precisavam sair antes da publicacao do conteudo. */
+  describe('Spec 024, Task 2.1', () => {
+    const rowOf = (title: string) =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li')).find(li =>
+        li.textContent?.includes(title),
+      ) as HTMLLIElement;
+
+    it('mostra "Carregando aulas" enquanto as aulas do modulo nao chegam, e nao o estado vazio', () => {
+      backend.expectOne(MODULES_URL).flush(MODULES);
+      fixture.detectChanges();
+
+      expect(text()).toContain('Carregando aulas');
+      expect(text()).not.toContain('ainda não tem aulas');
+
+      backend.expectOne(LESSONS_URL).flush(LESSONS);
+      backend.expectOne(VIDEO_URL).flush(SEM_VIDEO);
+      backend.expectOne(MATERIALS_URL).flush([]);
+      fixture.detectChanges();
+
+      expect(text()).not.toContain('Carregando aulas');
+      expect(text()).toContain('O papel do RH');
+    });
+
+    it('descarta a resposta atrasada do modulo anterior', () => {
+      backend.expectOne(MODULES_URL).flush(MODULES);
+      fixture.detectChanges();
+
+      // Troca para o modulo 2 antes de as aulas do 1 chegarem.
+      buttonWith(/Diagnóstico/)!.click();
+      fixture.detectChanges();
+
+      backend.expectOne(LESSONS_URL).flush(LESSONS);
+      fixture.detectChanges();
+
+      // As aulas do modulo 1 nao aparecem sob o modulo 2, nem abrem a aula dele.
+      expect(text()).not.toContain('O papel do RH');
+      backend.expectNone(VIDEO_URL);
+
+      backend.expectOne(`${environment.apiUrl}/admin/modules/mod-2/lessons`).flush([]);
+      fixture.detectChanges();
+
+      expect(text()).toContain('Aulas do módulo 2');
+      expect(text()).toContain('ainda não tem aulas');
+    });
+
+    it('a contagem de materiais da aula acompanha a lista lida e a remocao', () => {
+      bootstrap(backend, fixture, [MATERIAL]);
+
+      // A lista chegou com 0 na aula 1, mas a central dela tem 1 material.
+      expect(rowOf('O papel do RH').textContent).toContain('1 material(is)');
+
+      spyOn(window, 'confirm').and.returnValue(true);
+      const removeButtons = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+      ).filter(button => /^\s*Remover\s*$/.test(button.textContent ?? ''));
+      removeButtons[removeButtons.length - 1].click();
+
+      backend.expectOne(`${environment.apiUrl}/admin/materials/mat-1`).flush(null);
+      fixture.detectChanges();
+
+      expect(rowOf('O papel do RH').textContent).toContain('0 material(is)');
+    });
+  });
+
   it('bloqueia o papel aluno com a mensagem do backend', () => {
     backend.expectOne(MODULES_URL).flush(
       { message: 'Esta area e restrita a administradores.' },

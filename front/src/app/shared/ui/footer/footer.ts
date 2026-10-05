@@ -37,6 +37,14 @@ import { Logo } from '../logo/logo';
           <div class="flex flex-wrap justify-center gap-6">
             <a href="#" class="text-sm text-white/80 transition-colors hover:text-brand-teal-light">LinkedIn</a>
             <a href="#" class="text-sm text-white/80 transition-colors hover:text-brand-teal-light">Instagram</a>
+            <!-- Spec 024, Task 2.2: o mesmo número do "Falar no WhatsApp" do /planos. -->
+            <a
+              href="https://wa.me/5547992908953"
+              target="_blank"
+              rel="noopener"
+              class="text-sm text-white/80 transition-colors hover:text-brand-teal-light">
+              WhatsApp
+            </a>
             <a href="tel:+5547992908953" class="text-sm text-white/80 transition-colors hover:text-brand-teal-light">
               (47) 99290-8953
             </a>

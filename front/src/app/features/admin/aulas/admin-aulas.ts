@@ -296,7 +296,13 @@ type EditTarget = { kind: 'module' | 'lesson'; id: string } | null;
             </form>
           }
 
-          @if (lessons().length === 0) {
+          <!--
+            Carregando antes de "sem aulas" (Spec 024, Task 2.1): o estado vazio
+            durante a carga levava a criar uma aula duplicada.
+          -->
+          @if (lessonsLoading()) {
+            <p class="text-sm text-slate-500" aria-live="polite">Carregando aulas…</p>
+          } @else if (lessons().length === 0) {
             <p class="text-sm text-slate-500">
               Este módulo ainda não tem aulas. Crie a primeira para poder enviar o vídeo.
             </p>
@@ -510,6 +516,8 @@ export class AdminAulas implements OnDestroy {
 
   protected readonly modules = signal<AdminModule[]>([]);
   protected readonly lessons = signal<AdminLesson[]>([]);
+  /** Aulas do modulo selecionado a caminho; o estado vazio so vale depois dela. */
+  protected readonly lessonsLoading = signal(false);
   protected readonly selectedModuleId = signal<string | null>(null);
   protected readonly selectedLessonId = signal<string | null>(null);
   protected readonly video = signal<LessonVideoState | null>(null);
@@ -1034,10 +1042,16 @@ export class AdminAulas implements OnDestroy {
     this.error.set('');
     this.removingId.set(material.id);
 
+    const lessonId = this.selectedLessonId();
+
     this.content.removeMaterial(material.id).subscribe({
       next: () => {
         this.removingId.set(null);
         this.materials.update(list => list.filter(item => item.id !== material.id));
+
+        if (lessonId) {
+          this.syncMaterialCount(lessonId, this.materials().length);
+        }
       },
       error: (message: string) => {
         this.error.set(message);
@@ -1063,16 +1077,35 @@ export class AdminAulas implements OnDestroy {
     });
   }
 
+  /**
+   * Toda resposta de lista confere se o modulo (ou a aula) ainda e o
+   * selecionado (Spec 024, Task 2.1): trocar rapido de modulo deixaria a
+   * resposta atrasada do anterior pintar as aulas dele sob o titulo do novo.
+   */
   private loadLessons(moduleId: string): void {
+    this.lessonsLoading.set(true);
+
     this.content.lessons(moduleId).subscribe({
       next: lessons => {
+        if (this.selectedModuleId() !== moduleId) {
+          return;
+        }
+
+        this.lessonsLoading.set(false);
         this.lessons.set(lessons);
 
         if (lessons.length > 0) {
           this.selectLesson(lessons[0].id);
         }
       },
-      error: (message: string) => this.error.set(message),
+      error: (message: string) => {
+        if (this.selectedModuleId() !== moduleId) {
+          return;
+        }
+
+        this.lessonsLoading.set(false);
+        this.error.set(message);
+      },
     });
   }
 
@@ -1085,8 +1118,15 @@ export class AdminAulas implements OnDestroy {
 
     this.content.videoState(lessonId).subscribe({
       next: state => {
-        this.video.set(state);
+        // O badge da lista continua valendo para a aula consultada; o painel
+        // de video, so se ela ainda for a aberta.
         this.syncLessonVideo(lessonId, state);
+
+        if (this.selectedLessonId() !== lessonId) {
+          return;
+        }
+
+        this.video.set(state);
 
         if (state.status === 'PROCESSING') {
           this.schedulePoll();
@@ -1104,9 +1144,28 @@ export class AdminAulas implements OnDestroy {
     }
 
     this.content.materials(lessonId).subscribe({
-      next: materials => this.materials.set(materials),
-      error: (message: string) => this.error.set(message),
+      next: materials => {
+        // A contagem da linha da aula acompanha a lista recem-lida (Spec 024,
+        // Task 2.1): antes ela so ficava certa depois de recarregar a pagina.
+        this.syncMaterialCount(lessonId, materials.length);
+
+        if (this.selectedLessonId() === lessonId) {
+          this.materials.set(materials);
+        }
+      },
+      error: (message: string) => {
+        if (this.selectedLessonId() === lessonId) {
+          this.error.set(message);
+        }
+      },
     });
+  }
+
+  /** Mantem "N material(is)" da lista de aulas coerente com a central da aula. */
+  private syncMaterialCount(lessonId: string, count: number): void {
+    this.lessons.update(list =>
+      list.map(lesson => (lesson.id === lessonId ? { ...lesson, materialCount: count } : lesson)),
+    );
   }
 
   /** Mantem o badge da lista de aulas coerente com o estado recem-consultado. */
