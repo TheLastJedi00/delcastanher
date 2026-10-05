@@ -191,6 +191,14 @@ Ordem das fases:
 - [ ] **Task 8.8:** Em produção:
   - conferir o diploma do curso e o de um módulo na tela;
   - imprimir em "Salvar como PDF" e conferir uma página só, com o gradiente.
+- [ ] **Task 8.9:** Botão **"Baixar PDF"**, separado de "Imprimir", em `/ava/certificado` e `/ava/certificado/modulo/:moduleId`, que baixa direto o arquivo `certificado-<codigo>.pdf` (pedido do usuário, 2026-10-05).
+  - Hoje "Baixar / imprimir" só abre o diálogo de impressão (`window.print()`), e o aluno precisa saber escolher "Salvar como PDF".
+  - O PDF sai em A4 paisagem, numa página só, com o gradiente, o código e o hash legíveis.
+  - O botão "Imprimir" continua existindo.
+  - Decidir antes de implementar:
+    - **no navegador:** html2canvas + jsPDF, sem custo de servidor. O texto vira imagem, então não dá para selecionar nem buscar no PDF;
+    - **na API:** `GET /certificates/me/pdf`, com o PDF montado no servidor. O texto fica selecionável e o arquivo é igual em qualquer aparelho, mas a função fica mais pesada.
+  - Specs: o botão gera o arquivo com o nome certo e não chama `window.print()`.
 
 ## Registro da execução (2026-10-02)
 
@@ -222,7 +230,19 @@ Branches `feat/023-dados-e-mail-service`, `feat/023-nota-fiscal`, `feat/023-camp
 12. **Vídeo (Parte C):** a constante do id em `landing.ts` está vazia. A seção e o `VideoObject` só aparecem com ela preenchida (Task 7.1).
 
 ### Pendências
-- Tasks 1.1 a 1.8 (contador, certificado, contas na Notaas e no Resend).
-- Task 6.2 (o usuário sobe as variáveis), 6.1, 6.3 e 6.5 a 6.9.
-- Task 6.4: rodar `npm run spec023:backfill-cpf` primeiro em leitura e, com autorização, com `-- --apply`.
-- Task 7.1: preencher `PRESENTATION` em `front/src/app/features/landing/landing.ts` com o id e a data do upload.
+Atualizadas em 2026-10-05, depois da Parte D (PR #39, mergeado na `release/023`). Cada grupo tem um cartão `[023]` no Trello (quadro "Lidiane").
+
+| Pendência | Tasks | Lista no Trello |
+|---|---|---|
+| Dados fiscais com o contador e a classificação no Mercado Pago | 1.1, 1.8 | Pendências |
+| Certificado digital A1 do CNPJ | 1.3 | Pendências |
+| Notaas: conta com os dois projetos, pergunta ao suporte e sondagem na homologação | 1.4, 1.5, 1.6 | Pendências |
+| Resend: remetente, conta e DNS de `mail.delcastanher.srv.br` | 1.2, 1.7, 6.1 | Pendências |
+| Variáveis na Vercel e webhook da Notaas | 6.2, 6.3 | Pendências |
+| Backfill do CPF dos pedidos pagos (`npm run spec023:backfill-cpf`, primeiro em leitura, depois com `-- --apply` e com autorização). A migration da 6.4 já foi aplicada. | 6.4 | Pendências |
+| NF-e no preview, primeira venda real e cancelamento | 6.5, 6.6, 6.7 | Pendências |
+| Teste de campanha no Gmail e no Outlook | 6.8 | Pendências |
+| Política de Privacidade: nota fiscal e e-mail de novidades, ajustados pelo painel | 6.9 | Pendências |
+| Vídeo da landing: subir no YouTube, preencher `PRESENTATION` em `landing.ts` e verificar em produção | 7.1, 7.6 | Pendências |
+| Carga horária dos módulos no painel, teste de impressão e botão "Baixar PDF" do certificado | 8.7, 8.8, 8.9 | A Fazer (cartão "Certificado Estilizado") |
+| Segmento "concluíram o curso" (B2) conta também quem só tem diploma de módulo: corrigir a regra ou o rótulo. Achado na revisão de 2026-10-05. | 4.1 | Bugs |
