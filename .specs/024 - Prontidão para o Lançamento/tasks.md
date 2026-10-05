@@ -63,6 +63,9 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
     - O `/planos` em 390 px também foi conferido no visual. Nada a corrigir.
     - **Falta:** loja, checkout e área do aluno (Hub, trilha, materiais, certificado). O Chrome da verificação está logado como **admin**, e o admin é levado ao `/admin`. É preciso uma conta de aluno, que o usuário cria.
 - [ ] **Task 5.2:** Varredura de links do site publicado (D10): nenhum 404, nenhum `#`, e WhatsApp e redes abrindo o destino certo.
+  - **Parcial (2026-10-05):** 11 páginas lidas do HTML publicado e **104 links únicos conferidos, todos com 200**. Sem 404, e os links externos abrem: WhatsApp (`wa.me`), Instagram, YouTube e a Prospere.
+    - Sobram **14 `href="#"`**: são os dois do rodapé (LinkedIn e Instagram) em cada uma das 7 páginas pré-renderizadas. Saem com a Task 1.2.
+    - Para o Instagram, a landing já usa o perfil `instagram.com/lidianedelcastanher`. A cliente confirma se é esse o do rodapé.
 - [ ] **Task 5.3:** Lighthouse no celular na landing, no `/planos` e na página do curso (D12):
   - corrigir o que for crítico;
   - registrar os números e o que ficou para a Spec 025.
