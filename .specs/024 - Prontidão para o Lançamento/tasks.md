@@ -50,7 +50,7 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
 - [ ] **Task 3.5:** Atualizar o texto da Política de Privacidade (D2): nota fiscal e e-mail transacional. A cliente publica pelo painel.
 
 ## Fase 4: Código - Certificado (D8)
-- [ ] **Task 4.1:** Decidir com o usuário onde o PDF é gerado (navegador ou API).
+- [x] **Task 4.1:** Decidir com o usuário onde o PDF é gerado (navegador ou API). **No navegador** (D8).
 - [ ] **Task 4.2:** Botão "Baixar PDF" em `/ava/certificado` e `/ava/certificado/modulo/:moduleId`, separado de "Imprimir":
   - arquivo `certificado-<codigo>.pdf` em A4 paisagem, uma página;
   - specs de que o botão gera o arquivo e não chama `window.print()`.
