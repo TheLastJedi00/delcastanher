@@ -10,6 +10,7 @@ Ordem das fases:
 2. O `MailService` vem antes da nota, porque a nota o usa (A8).
 3. O vídeo (Fase 7) é independente e pode ir a qualquer momento.
 4. Tudo o que toca produção (Fase 6) fica para depois do código pronto.
+5. O certificado (Fase 8, Parte D) é independente; a migration dele vai ao banco antes do deploy da API.
 
 ## Fase 1: Pré-requisitos (usuário, contador e Notaas)
 - [ ] **Task 1.1:** Com o contador, levantar e registrar aqui (Parte A, "Pré-requisitos fiscais"):
@@ -169,6 +170,27 @@ Ordem das fases:
   - conferir na aba de rede que nada vai ao YouTube antes do clique;
   - registrar se aparece anúncio;
   - validar no Rich Results Test.
+
+## Fase 8: Novo modelo de certificado (Parte D)
+- [x] **Task 8.1:** Migration `Module.workloadHours` (D2). Suíte e implementação, com TDD:
+  - o diploma de módulo traz a carga e o resumo do próprio módulo;
+  - nulo não herda a carga do curso;
+  - o diploma do curso traz a carga do curso e o resumo nulo;
+  - a verificação pública usa a mesma carga;
+  - `PATCH /admin/modules/:moduleId/workload` aceita de 1 a 999 ou nulo, recusa campo a mais e o papel aluno.
+- [x] **Task 8.2:** Botão "Carga horária" no painel de aulas, ao lado de "Preço", com o rótulo na linha do módulo (D2).
+- [x] **Task 8.3:** Modelo `ui-certificado` em `shared/ui/certificado/`, com entradas, escala por `cqw`, código, hash, rubrica pendente e data por extenso (D1, D3, D4 e D5).
+- [x] **Task 8.4:** Ligar o modelo:
+  - em `/ava/certificado` (curso);
+  - na página nova `/ava/certificado/modulo/:moduleId`;
+  - no botão "Ver diploma do módulo" da trilha (D1).
+- [x] **Task 8.5:** Specs do modelo, da página de módulo, da trilha e do painel. Rodar `npm test` no `api/`, `ng test` e `ng build`.
+- [x] **Task 8.6:** Aplicar a migration `20261005120000_carga_horaria_do_modulo` no Neon (o banco é o de produção), **com autorização**, **antes** do deploy da API. A API nova seleciona a coluna, e sem ela as rotas de certificado falham.
+  - **Aplicada em 2026-10-05, com autorização do usuário** (`prisma migrate deploy`; `migrate status`: "Database schema is up to date"). Só adição: a coluna nasce nula em todos os módulos ("a definir"), e a API publicada, que não a lê, segue funcionando.
+- [ ] **Task 8.7:** Preencher a carga horária de cada módulo no painel.
+- [ ] **Task 8.8:** Em produção:
+  - conferir o diploma do curso e o de um módulo na tela;
+  - imprimir em "Salvar como PDF" e conferir uma página só, com o gradiente.
 
 ## Registro da execução (2026-10-02)
 

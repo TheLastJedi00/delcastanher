@@ -485,6 +485,43 @@ O `id` fica numa constante em `landing.ts`, e a seção só aparece com ela pree
 - A chamada entra como `VideoObject` no `subjectOf` do `personSchema()`, com `embedUrl`. O `url` do YouTube só entra se o vídeo for público.
 - A Política de Cookies precisa citar o YouTube, como no card da Spec 018.
 
+## Parte D: Novo modelo de certificado (fase simples)
+O usuário desenhou um modelo novo de diploma de conclusão (`front/src/app/shared/ui/certificado/`, 2026-10-05): folha A4 paisagem com o gradiente da marca, o logo, "CERTIFICADO DE CONCLUSÃO", o texto corrido e a assinatura de Lidiane Delcastanher. O modelo substitui o diploma do curso (Spec 008) e dá ao diploma de módulo (Spec 010, decisão 11) uma folha própria, que ele não tinha.
+
+**D1. Os dois escopos usam o mesmo modelo.** O texto se adapta:
+- curso: "concluiu com êxito o curso **{curso}**";
+- módulo: "concluiu com êxito o **Módulo N: {título}**, do curso {curso}".
+
+O diploma de módulo ganha a página `/ava/certificado/modulo/:moduleId`. Antes, o botão "Ver diploma do módulo" da trilha levava só para a verificação pública. A emissão continua na trilha.
+
+**D2. Carga horária por módulo.** Até aqui, o diploma de módulo mostrava a carga do **curso inteiro** (`Course.workloadHours`), ou seja, horas que o aluno não cursou.
+- `Module.workloadHours Int?` é nulo e quer dizer "a definir", como no curso. Migration só de adição: `20261005120000_carga_horaria_do_modulo`.
+- `PATCH /admin/modules/:moduleId/workload` aceita horas inteiras de 1 a 999 ou `null`. É uma rota própria, pelo mesmo motivo do preço (Spec 014): salvar título e resumo não reescreve a carga.
+- Nulo no módulo continua nulo e **não** herda a carga do curso. O diploma mostra o placeholder `[CARGA HORÁRIA]`.
+- A verificação pública usa a mesma regra, para o portal e a folha nunca divergirem.
+- A carga é lida na hora, e não copiada no certificado. Ajustar no painel corrige também os diplomas já emitidos. O hash não inclui a carga, então nada deixa de validar.
+
+**D3. Resumo do módulo no texto.** `StudentCertificate.summary` traz `Module.summary` no diploma de módulo e é nulo no do curso.
+- Os resumos são frases completas ("O que separa o RH operacional…").
+- Por isso o "O programa abordou {descrição}, contribuindo…" do modelo virou "Conteúdo abordado: {resumo} O programa contribuiu para o desenvolvimento de competências e a aplicação prática dos conhecimentos."
+- No diploma do curso sai só a segunda frase.
+
+**D4. O que o modelo ganhou para valer como documento:**
+- **código de validação, hash e endereço da verificação** no rodapé (Spec 008, decisão 6). Sem eles a folha não pode ser conferida;
+- **rubrica pendente:** decisão do usuário (2026-10-05). O nome, o cargo, a cidade e a data ficam como no modelo, e o espaço da rubrica continua com o placeholder `[ASSINATURA DA COORDENAÇÃO]` até a imagem ser enviada;
+- **data por extenso no fuso de São Paulo** ("Blumenau, 5 de outubro de 2026"), igual no servidor e no navegador.
+
+**D5. Ajustes técnicos no modelo:**
+- **Escala:** fonte base em `cqw` sobre a largura do próprio diploma (`container-type: inline-size`) e medidas internas em `em`. A folha mantém a proporção em qualquer largura e no papel. O `h-[500px]` fixo estourava no celular.
+  - No celular a folha vira uma miniatura (texto por volta de 7 px). Lê-se com zoom ou impressa.
+  - O pai precisa ter largura (bloco ou `w-full`). Dentro de um flex que encolhe, a folha fica com largura zero.
+- **Impressão:** a folha tem 262 mm de largura no papel, que é o que cabe no A4 paisagem com a margem de 12 mm do `@page`. O gradiente sai com `print-color-adjust: exact`, herdado do `.print-area`.
+- **Marca d'água:** fica presa à seção (`relative overflow-hidden`) e sai da árvore de acessibilidade (`aria-hidden`).
+- **Código:**
+  - seletor `ui-certificado` e classe `CertificadoDiploma`. O `app-certificado` colidia com a página do aluno;
+  - `OnPush`, com os dados por `input()` em vez de fixos;
+  - "cotribuindo" corrigido.
+
 ## Fora de escopo
 - NFS-e: o contador definiu NF-e de livro digital (Parte A).
 - Emissão automática da NF-e de devolução no estorno fora do prazo (A7). Fica como pendência no painel até o contador fixar o formato.
