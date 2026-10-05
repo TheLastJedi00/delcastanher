@@ -3,8 +3,8 @@ import type { jsPDF } from 'jspdf';
 import { CertificatePdfService, certificateFileName } from './certificate-pdf.service';
 
 /**
- * Geracao real do PDF no navegador do Karma (Spec 024, Task 4.2): html2canvas
- * desenha a folha e o jsPDF monta o A4 paisagem.
+ * Geracao real do PDF no navegador do Karma (Spec 024, Task 4.2): html-to-image
+ * captura a folha e o jsPDF monta o A4 paisagem.
  */
 describe('CertificatePdfService', () => {
   let sheet: HTMLElement;
@@ -30,7 +30,7 @@ describe('CertificatePdfService', () => {
     expect(pdf.output()).toContain('/DCTDecode');
   });
 
-  it('nao muda a largura da folha na tela: so a copia e redimensionada', async () => {
+  it('nao mexe na folha da tela', async () => {
     await service.render(sheet);
 
     expect(sheet.style.width).toBe('300px');
