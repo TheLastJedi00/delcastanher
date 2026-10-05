@@ -180,6 +180,8 @@ export const routes: Routes = [
         loadComponent: () => import('./features/student/trilha/trilha').then(m => m.Trilha),
       },
       { path: 'certificado', canActivate: [accessGuard], loadComponent: () => import('./features/student/certificado/certificado').then(m => m.Certificado) },
+      // Diploma de modulo com a folha impressa (Spec 023, Parte D).
+      { path: 'certificado/modulo/:moduleId', canActivate: [accessGuard], loadComponent: () => import('./features/student/certificado/certificado-modulo').then(m => m.CertificadoModulo) },
       { path: 'perfil', loadComponent: () => import('./features/perfil/perfil').then(m => m.Perfil) },
       { path: 'materiais', canActivate: [accessGuard], loadComponent: () => import('./features/student/materiais/materiais').then(m => m.Materiais) },
       { path: 'artigos', canActivate: [accessGuard], loadComponent: () => import('./features/student/artigos/artigos').then(m => m.Artigos) }

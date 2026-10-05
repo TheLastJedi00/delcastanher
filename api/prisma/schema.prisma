@@ -147,6 +147,11 @@ model Module {
   /// decidido, e nao herdado por descuido.
   priceCents Int?
 
+  /// Carga horaria do modulo, impressa no diploma de modulo (Spec 023, Parte
+  /// D). **Nulo e "a definir"**, como em `Course.workloadHours`: o diploma
+  /// mostra o placeholder da carga horaria, e nao "0 horas".
+  workloadHours Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

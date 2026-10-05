@@ -5,7 +5,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import type { AdminLessonItem, AdminModuleItem } from './content.types';
 import { CreateLessonDto, ReorderDto, UpdateLessonDto } from './dto/lesson.dto';
 import { UpdateModulePriceDto } from '../payments/dto/admin-access.dto';
-import { CreateModuleDto, UpdateModuleDto } from './dto/module.dto';
+import { CreateModuleDto, UpdateModuleDto, UpdateModuleWorkloadDto } from './dto/module.dto';
 import { LessonsService } from './lessons.service';
 
 /**
@@ -65,6 +65,19 @@ export class AdminLessonsController {
     @Body() dto: UpdateModulePriceDto,
   ): Promise<AdminModuleItem> {
     return this.lessons.updateModulePrice(moduleId, dto.priceCents ?? null);
+  }
+
+  /**
+   * Carga horaria do modulo (Spec 023, Parte D), impressa no diploma de
+   * modulo. Rota propria pelo mesmo motivo do preco: um salvar de titulo e
+   * resumo nao reescreve a carga por tabela.
+   */
+  @Patch('modules/:moduleId/workload')
+  updateModuleWorkload(
+    @Param('moduleId') moduleId: string,
+    @Body() dto: UpdateModuleWorkloadDto,
+  ): Promise<AdminModuleItem> {
+    return this.lessons.updateModuleWorkload(moduleId, dto.workloadHours);
   }
 
   /** Aulas do modulo, com estado do video e os numeros da remocao. */

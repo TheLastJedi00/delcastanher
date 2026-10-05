@@ -127,6 +127,7 @@ const MODULE_CERTIFICATE = {
   courseTitle: 'Imersão RH Estratégico',
   moduleTitle: 'Módulo 1: Fundamentos',
   moduleId: 'm1',
+  summary: 'Resumo 1',
   workloadHours: null,
   issuedAt: '2026-09-11T12:00:00.000Z',
   status: 'ACTIVE',
@@ -537,6 +538,19 @@ describe('Trilha', () => {
 
       expect(text()).toContain('DELC-MODU-2345');
       expect(text()).not.toContain('Emitir certificado do módulo');
+    });
+
+    // Spec 023, Parte D: o botao abre a folha do diploma, e nao mais so a
+    // verificacao publica.
+    it('leva o diploma emitido para a pagina da folha do modulo', async () => {
+      await create('m1', 'l1');
+      respond(progress(['l1', 'l2']), { certificates: [MODULE_CERTIFICATE] });
+
+      const hrefs = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('a'),
+      ).map(anchor => anchor.getAttribute('href'));
+
+      expect(hrefs).toContain('/ava/certificado/modulo/m1');
     });
   });
 });
