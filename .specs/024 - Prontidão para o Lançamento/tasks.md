@@ -29,11 +29,12 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
 - [ ] **Task 1.10 · Usuário:** URL de retorno do OAuth no preview da API (Spec 020) e verificação em sandbox da conta recebedora (D4).
 
 ## Fase 2: Código - Painel e conteúdo
-- [ ] **Task 2.1:** Bugs da Gestão de Aulas (D7), com specs:
+- [x] **Task 2.1:** Bugs da Gestão de Aulas (D7), com specs:
   - `lessonsLoading`, com "Carregando aulas…" no lugar do estado vazio;
   - `materialCount` da aula atualizado depois de enviar ou remover material;
   - resposta descartada quando o módulo ou a aula selecionada já mudou.
 - [ ] **Task 2.2:** Rodapé (D10): LinkedIn e Instagram reais e o link `wa.me` ao lado do telefone. Spec sem nenhum `href="#"` no rodapé.
+  - **Parcial (2026-10-05, PR #42):** WhatsApp no ar. LinkedIn e Instagram seguem em `#` até a Task 1.2; a spec de "nenhum `#`" entra junto com eles.
 - [ ] **Task 2.3:** Placeholders (D9): trocar pelo conteúdo da Task 1.6 ou retirar da tela, com specs de que nenhum texto `[...]` aparece na landing, no `/planos` e na página do curso.
 
 ## Fase 3: Código - E-mail de confirmação da compra (TDD)
@@ -67,7 +68,7 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
 - [ ] **Task 5.6:** Certificado: conferir na tela e no "Baixar PDF" o do curso e o de um módulo (Spec 023, task 8.8).
 
 ## Fase 6: Lançamento (com autorização do usuário)
-- [ ] **Task 6.1:** PR da `release/023` para a `main` e deploy. As migrations da 023 já estão no Neon.
+- [x] **Task 6.1:** PR da `release/023` para a `main` e deploy. As migrations da 023 já estão no Neon.
 - [ ] **Task 6.2:** Backfill do CPF dos pedidos pagos (Spec 023, task 6.4).
 - [ ] **Task 6.3:** Rodada de validação da cliente com a lista dela, como uma pessoa nova: do site ao acesso, no celular e no computador.
 - [ ] **Task 6.4:** Primeira venda real, de valor baixo, com estorno:
@@ -75,3 +76,24 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
   - e-mail de confirmação recebido;
   - acesso liberado e depois revogado.
 - [ ] **Task 6.5:** Limpar os dados de teste (D13), com snapshot do Neon antes e cada lista conferida antes de apagar. É a última task antes de abrir ao público.
+
+## Registro da execução (2026-10-05)
+
+- **PR #42** (`feat/024-gestao-aulas-rodape`): Task 2.1 completa e a parte de WhatsApp da Task 2.2. Front com 661 testes passando e `ng build` ok.
+- **Merges, nesta ordem:**
+  1. PRs #40, #41 e #42 na `release/023`;
+  2. **PR #38 na `main`** (`78324e3`), depois do build da Vercel do novo topo passar.
+- **Produção conferida depois do deploy:**
+  - WhatsApp no rodapé;
+  - `GET /admin/invoices/config` respondendo 401 sem login, ou seja, a rota da 023 está no ar;
+  - landing, `/planos`, página do curso, `/login`, `/descadastro`, `/certificado/verificar`, `/termos-de-uso` e `/politica-de-privacidade` com 200, em 0,2 a 0,4 s.
+- **Não conferido:**
+  - as correções da Gestão de Aulas no navegador de produção (os cartões ficam em "Fase de teste" no Trello até isso);
+  - se a conta recebedora está conectada em produção (exige login de admin; Task 1.3).
+- **Termos de Uso:** a API de produção responde "Este documento ainda não foi publicado" (`LEGAL_DOCUMENT_UNPUBLISHED`), apesar de o cartão do Trello estar marcado como concluído. A Task 1.7 continua aberta.
+
+### Pendências
+- Fase 1 inteira (cliente, usuário e terceiros).
+- Task 2.2: LinkedIn e Instagram, assim que a cliente passar os endereços.
+- Task 2.3 e Fases 3 a 5.
+- Tasks 6.2 a 6.5.
