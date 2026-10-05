@@ -66,9 +66,19 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
   - **Parcial (2026-10-05):** 11 páginas lidas do HTML publicado e **104 links únicos conferidos, todos com 200**. Sem 404, e os links externos abrem: WhatsApp (`wa.me`), Instagram, YouTube e a Prospere.
     - Sobram **14 `href="#"`**: são os dois do rodapé (LinkedIn e Instagram) em cada uma das 7 páginas pré-renderizadas. Saem com a Task 1.2.
     - Para o Instagram, a landing já usa o perfil `instagram.com/lidianedelcastanher`. A cliente confirma se é esse o do rodapé.
-- [ ] **Task 5.3:** Lighthouse no celular na landing, no `/planos` e na página do curso (D12):
+- [x] **Task 5.3:** Lighthouse no celular na landing, no `/planos` e na página do curso (D12):
   - corrigir o que for crítico;
   - registrar os números e o que ficou para a Spec 025.
+
+  Lighthouse 12 em produção, perfil celular, em 2026-10-05:
+
+  | Página | Performance | Acessibilidade | Boas práticas | SEO | LCP | CLS | TBT |
+  |---|---|---|---|---|---|---|---|
+  | Landing | 97 | 100 | 100 | 100 | 2,2 s | 0 | 20 ms |
+  | `/planos` | 97 | 100 | 100 | 100 | 2,3 s | 0,006 | 70 ms |
+  | `/cursos/imersao-rh` | 94 | 100 | 100 | 100 | 2,7 s | 0,027 | 110 ms |
+
+  **Nada crítico:** o LCP fica abaixo de 4 s, nenhuma imagem está sem dimensão e o CLS está perto de zero. O que sobrou foi para a Spec 025 (E11).
 - [ ] **Task 5.4:** Teste de ponta a ponta da compra em sandbox (D5), com o roteiro único do `context.md`. Depende das Tasks 1.9, 1.10 e da Fase 3.
 - [ ] **Task 5.5:** Nota de homologação no preview (Spec 023, task 6.5).
 - [ ] **Task 5.6:** Certificado: conferir na tela e no "Baixar PDF" o do curso e o de um módulo (Spec 023, task 8.8).
