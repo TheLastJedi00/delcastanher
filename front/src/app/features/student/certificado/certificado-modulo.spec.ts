@@ -67,7 +67,7 @@ describe('CertificadoModulo (Spec 023, Parte D)', () => {
     const print = spyOn(window, 'print');
 
     Array.from(el().querySelectorAll('button'))
-      .find(button => button.textContent?.includes('Baixar / imprimir'))
+      .find(button => button.textContent?.includes('Imprimir'))
       ?.click();
 
     expect(print).toHaveBeenCalled();

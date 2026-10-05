@@ -218,13 +218,13 @@ describe('Certificado', () => {
       expect(el().querySelectorAll('.print-hidden').length).toBeGreaterThan(0);
     });
 
-    it('aciona a impressao nativa, sem lib de PDF', async () => {
+    it('aciona a impressao nativa pelo botao Imprimir', async () => {
       await create();
       respond(progress(['m1', 'm2', 'm3']), CERTIFICATE);
 
       const print = spyOn(window, 'print');
 
-      buttonWith('Baixar / imprimir')?.click();
+      buttonWith('Imprimir')?.click();
 
       expect(print).toHaveBeenCalled();
     });

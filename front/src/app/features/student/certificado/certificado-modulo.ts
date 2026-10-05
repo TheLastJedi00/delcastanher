@@ -6,10 +6,11 @@ import { CertificateService } from '../../../core/services/certificate.service';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
 import { Button } from '../../../shared/ui/button/button';
 import { Card } from '../../../shared/ui/card/card';
+import { CertificadoAcoes } from './certificado-acoes';
 import { CertificadoDiploma } from '../../../shared/ui/certificado/certificado';
 import { PageContainer } from '../../../shared/ui/page-container/page-container';
 import { SectionHeader } from '../../../shared/ui/section-header/section-header';
-import { VERIFICATION_PATH, verificationUrl } from './certificado';
+import { verificationUrl } from './verification';
 
 /**
  * Diploma de um modulo (`/ava/certificado/modulo/:moduleId`, Spec 023, Parte
@@ -23,7 +24,7 @@ import { VERIFICATION_PATH, verificationUrl } from './certificado';
 @Component({
   selector: 'app-certificado-modulo',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BackLink, Button, Card, CertificadoDiploma, PageContainer, RouterLink, SectionHeader],
+  imports: [BackLink, Button, Card, CertificadoAcoes, CertificadoDiploma, PageContainer, RouterLink, SectionHeader],
   template: `
     <ui-page-container maxWidth="lg">
       <div class="mb-4 print-hidden">
@@ -52,15 +53,10 @@ import { VERIFICATION_PATH, verificationUrl } from './certificado';
       } @else if (certificate(); as diploma) {
         <!-- Bloco impresso: tudo fora de .print-area some no papel. -->
         <article class="print-area overflow-hidden rounded-2xl shadow-card">
-          <ui-certificado [data]="diploma" [verificationUrl]="verificationUrl" />
+          <ui-certificado #sheet [data]="diploma" [verificationUrl]="verificationUrl" />
         </article>
 
-        <div class="mt-8 flex flex-col gap-3 sm:flex-row print-hidden">
-          <ui-button variant="primary" (click)="print()">Baixar / imprimir</ui-button>
-          <a [routerLink]="verificationPath" [queryParams]="{ codigo: diploma.code }">
-            <ui-button variant="outline">Ver como um recrutador vê</ui-button>
-          </a>
-        </div>
+        <app-certificado-acoes class="mt-8" [sheet]="sheet.element" [code]="diploma.code" />
       } @else {
         <ui-card variant="default" padding="lg" [hover]="false">
           <h2 class="text-xl font-bold text-brand-navy">Diploma ainda não emitido</h2>
@@ -86,7 +82,6 @@ export class CertificadoModulo {
     { initialValue: '' },
   );
 
-  protected readonly verificationPath = VERIFICATION_PATH;
   protected readonly verificationUrl = verificationUrl();
 
   protected readonly loading = signal(true);
@@ -117,8 +112,4 @@ export class CertificadoModulo {
     });
   }
 
-  /** Impressao nativa: o "salvar como PDF" e do proprio navegador. */
-  protected print(): void {
-    window.print();
-  }
 }

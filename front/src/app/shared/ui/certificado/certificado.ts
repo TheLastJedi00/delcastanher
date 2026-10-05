@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input } from '@angular/core';
 import { PLACEHOLDER } from '../../../core/mocks/placeholders';
 import { StudentCertificate } from '../../../core/services/certificate.service';
 import { Logo } from '../logo/logo';
@@ -128,6 +128,9 @@ const LONG_DATE = new Intl.DateTimeFormat('pt-BR', {
   `,
 })
 export class CertificadoDiploma {
+  /** A folha inteira, que o "Baixar PDF" desenha (Spec 024, Task 4.2). */
+  readonly element: HTMLElement = inject(ElementRef<HTMLElement>).nativeElement;
+
   readonly data = input.required<DiplomaData>();
   /** Endereco publico da verificacao, ja com o host. */
   readonly verificationUrl = input.required<string>();
