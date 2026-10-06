@@ -483,6 +483,8 @@ describe('InvoicesService', () => {
 
       expect(gateway.cancel).not.toHaveBeenCalled();
       expect(invoices[0].status).toBe('REFUND_PENDING');
+      // Spec 024.2, N7: em Blumenau, depois do prazo nao ha cancelamento direto.
+      expect(invoices[0].lastError).toContain('contadora');
     });
 
     it('o 422 de prazo tambem vira REFUND_PENDING', async () => {
