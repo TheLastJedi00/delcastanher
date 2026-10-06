@@ -34,13 +34,13 @@ Cada resposta vai para um campo da Notaas ou da plataforma.
 | 2 | Código de tributação nacional (cTribNac) | **080201** (item 8.02 da LC 116) | `NFSE_CODIGO_SERVICO` e o padrão do projeto na Notaas |
 | 10b | Prazo de cancelamento | **Em Blumenau, a NFS-e não pode ser cancelada direto no sistema depois de 8 dias da emissão.** A plataforma cancela sozinha até 8 dias (192 horas); depois disso, a nota fica marcada para tratar com a contadora | `NFSE_CANCEL_WINDOW_HOURS=192` |
 | 12 | Classificação no Mercado Pago | **Não muda:** quem define a natureza legal da venda é a nota | — |
+| 9 | Informações complementares | **Nenhuma** | `NFSE_INFORMACOES_COMPLEMENTARES` fica vazia |
 
 ### Ainda em aberto
 | # | Pergunta | Sugestão | Onde entra |
 |---|---|---|---|
 | 5 | **Inscrição municipal** da empresa em Blumenau, e se é exigida no Sistema Nacional | — | Cadastro do emitente |
 | 7 | **IBS/CBS** (reforma tributária): se o Simples precisa informar em 2026 e, se sim, CST, classificação tributária (cClassTrib), indicador de operação (cIndOp) e **NBS** | — | Reforma tributária |
-| 9 | **Informações complementares** a imprimir na nota, se houver | — | Informações complementares |
 
 ## O que já está pronto
 - Conta na Notaas, com o município habilitado no Sistema Nacional.
