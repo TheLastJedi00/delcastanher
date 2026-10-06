@@ -32,7 +32,7 @@ Cruzando a lista dela com o estado do código em 2026-10-05:
 
 ## Decisões
 
-**D1. Nota fiscal antes da primeira venda.** A emissão de NF-e por venda é obrigação legal. O código está pronto (Spec 023, Parte A) e emissão sem `NOTAAS_API_KEY` fica desligada. Falta a cadeia de configuração, nesta ordem:
+**D1. Nota fiscal antes da primeira venda.** A emissão de nota fiscal por venda é obrigação legal. Por sugestão da contadora (2026-10-06), o documento passou a ser a **NFS-e de treinamento**, e não mais a NF-e de livro digital da Spec 023: ver a **Spec 024.2**, que tem o código, a lista de pendências contábeis (`pendencias-contabeis.md`) e as tasks. A emissão sem `NOTAAS_API_KEY` fica desligada, e sem as variáveis `NFSE_*` da contadora nenhuma nota sai. Falta a cadeia de configuração, nesta ordem:
 1. contador;
 2. certificado A1;
 3. Notaas (conta, suporte e sondagem);

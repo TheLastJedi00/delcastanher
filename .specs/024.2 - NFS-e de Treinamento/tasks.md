@@ -17,11 +17,21 @@ O código (Fase 2) não depende da contadora: sem `NFSE_CODIGO_SERVICO` e `NFSE_
   - cTribNac padrão;
   - IBS/CBS padrão.
 - [ ] **Task 1.3 · Usuário:** decidir entre o plano Dev da Notaas (R$ 99/mês, com projeto de homologação) e o teste em produção com cancelamento (N4).
-- [ ] **Task 1.4 · Usuário e Claude:** conferir com a Notaas (suporte ou sondagem):
+- [ ] **Task 1.4 · Usuário e Claude:** conferir com a Notaas (suporte ou sondagem). **Sondagem feita em 2026-10-06** (só leitura, com a chave de produção; resultado abaixo):
   - os escopos que a chave precisa além de `nfse:emit` (status, PDF, XML e cancelamento);
   - se um segundo `POST /emitir` com a mesma `referencia` é recusado (N3);
   - os eventos do webhook já cadastrado, que precisam ser os `nfse.*` (N1).
+
+  Resultado:
+  - **Escopos ok:** com só `nfse:emit`, as rotas de status, PDF, XML e cancelamento respondem 404 a uma nota inexistente, e não 403.
+  - **Ids da Notaas são UUID.** Um id fora desse formato responde 500 ("invalid input syntax for type uuid"), e não 404.
+  - **Webhook:** o endpoint `65f90fb1-…` já tem os eventos `nfse.*`, mas aponta para `https://delcastanher.srv.br/webhooks/notaas`, **sem o `api.`**. Esse host redireciona para o site, então nenhum aviso chega à API. A correção ficou com o usuário (Task 3.3).
+  - **`referencia`:** não conferida. Exige emitir duas notas reais (fica para o suporte, ou para a Task 3.4).
+  - **Cobertura:** Blumenau ativo, engine `snnfse`, "SNNFSE Nacional".
+  - **`api/.env` local:** a chave tem um comentário na mesma linha (`ntaas_… # …`). O `dotenv` ignora o comentário, mas um script que lê a linha crua manda chave inválida (401). **Conferir que o valor na Vercel é só a chave.**
 - [ ] **Task 1.5 · Usuário:** trocar a senha do certificado A1 e reenviá-lo com um nome de arquivo sem a senha. Hoje a senha aparece no nome do arquivo, na tela de Certificados.
+
+- [x] **Task 1.6 · Claude:** lista de pendências para a contadora, em `pendencias-contabeis.md`.
 
 ## Fase 2: Código (TDD)
 - [x] **Task 2.1:** Suíte e implementação de `invoice.config.ts` (N2, N4, N7 e N9):
@@ -34,14 +44,14 @@ O código (Fase 2) não depende da contadora: sem `NFSE_CODIGO_SERVICO` e `NFSE_
 - [x] **Task 2.6:** Painel financeiro (N10): textos da NFS-e, com as specs do componente.
 
 ## Fase 3: Deploy e primeira nota (com autorização do usuário)
-- [ ] **Task 3.1 · Claude:** na Vercel (`delcastanher-api`), criar `NFSE_ENV` (`producao` em Production, `homologacao` em Preview) e remover `NFE_ENV`. Junto, as variáveis fiscais da Task 1.1 em Production.
+- [ ] **Task 3.1 · Claude:** (`NFSE_ENV` criada em 2026-10-06; falta remover `NFE_ENV` depois do deploy, e as variáveis fiscais) na Vercel (`delcastanher-api`), criar `NFSE_ENV` (`producao` em Production, `homologacao` em Preview) e remover `NFE_ENV`. Junto, as variáveis fiscais da Task 1.1 em Production.
 - [ ] **Task 3.2 · Claude:** PR da `release/024.2-nfse` para a `main`, e deploy.
-- [ ] **Task 3.3 · Usuário:** webhook da Notaas com `nfse.issued`, `nfse.error`, `nfse.cancelled` e `nfse.documents_ready`, apontando para `https://api.delcastanher.srv.br/webhooks/notaas` (Task 1.4).
+- [ ] **Task 3.3 · Usuário:** corrigir a URL do webhook `65f90fb1-594e-46a0-8212-6e9c727a2377` para `https://api.delcastanher.srv.br/webhooks/notaas` (`PATCH /webhooks/endpoints/{id}` com `{ "url": … }`). Os eventos já estão certos. Webhook da Notaas com `nfse.issued`, `nfse.error`, `nfse.cancelled` e `nfse.documents_ready`, apontando para `https://api.delcastanher.srv.br/webhooks/notaas` (Task 1.4).
 - [ ] **Task 3.4 · Usuário e Claude:** primeira venda real, de valor baixo, com estorno. Substitui a Task 6.4 da Spec 024 no que é nota:
   - NFS-e autorizada, com número e código de verificação no painel;
   - e-mail com PDF e XML;
   - estorno, cancelamento e XML do cancelamento guardado.
-- [ ] **Task 3.5 · Claude:** atualizar a D1 da Spec 024 e a Política de Privacidade (rascunho da Task 3.5 da 024), onde dizem NF-e.
+- [x] **Task 3.5 · Claude:** atualizar a D1 da Spec 024 e a Política de Privacidade (rascunho da Task 3.5 da 024), onde dizem NF-e.
 
 ## Registro da execução (2026-10-06)
 

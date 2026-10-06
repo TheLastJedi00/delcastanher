@@ -19,12 +19,11 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
   - carga horária de cada módulo, preenchida no painel (D8; Spec 023, task 8.7).
 - [ ] **Task 1.6 · Cliente:** conteúdo comercial para cada placeholder, ou a decisão de retirar: cursos futuros, depoimentos, garantias e logo da Cronus (D9).
 - [ ] **Task 1.7 · Usuário e jurídico:** texto dos Termos de Uso, publicado pela cliente no painel (D2).
-- [ ] **Task 1.8 · Usuário:** cadeia da nota fiscal (D1), conforme a Spec 023:
-  - contador e classificação no Mercado Pago (1.1 e 1.8);
-  - certificado A1 (1.3);
-  - Notaas (1.4 a 1.6);
+- [ ] **Task 1.8 · Usuário:** cadeia da nota fiscal (D1). **Substituída pela Fase 1 da Spec 024.2** (NFS-e), que cobre contadora, Notaas e webhook. Da Spec 023 sobram:
   - Resend e DNS (1.2, 1.7 e 6.1);
-  - variáveis e webhook (6.2 e 6.3).
+  - backfill do CPF (6.4, que é a Task 6.2 desta spec).
+
+  O certificado A1 já está na Notaas, válido até 30/09/2027.
 - [ ] **Task 1.9 · Usuário:** credenciais de sandbox da Orders API: aplicação criada na conta do vendedor de teste `TESTUSER8605452672838458141` (D5).
 - [ ] **Task 1.10 · Usuário:** URL de retorno do OAuth no preview da API (Spec 020) e verificação em sandbox da conta recebedora (D4).
 
@@ -93,7 +92,7 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
 - [ ] **Task 6.2:** Backfill do CPF dos pedidos pagos (Spec 023, task 6.4).
 - [ ] **Task 6.3:** Rodada de validação da cliente com a lista dela, como uma pessoa nova: do site ao acesso, no celular e no computador.
 - [ ] **Task 6.4:** Primeira venda real, de valor baixo, com estorno:
-  - NF-e autorizada e cancelada (Spec 023, tasks 6.6 e 6.7);
+  - NFS-e autorizada e cancelada (Spec 024.2, Task 3.4);
   - e-mail de confirmação recebido;
   - acesso liberado e depois revogado.
 - [ ] **Task 6.5:** Limpar os dados de teste (D13), com snapshot do Neon antes e cada lista conferida antes de apagar. É a última task antes de abrir ao público.
