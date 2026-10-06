@@ -661,6 +661,8 @@ describe('OrdersService — pedido de pacote', () => {
     expect(payload.amountCents).toBe(59000);
     expect(payload.items).toHaveLength(12);
     expect(payload.items.reduce((sum: number, item: { priceCents: number }) => sum + item.priceCents, 0)).toBe(59000);
+    // O gateway manda o pacote como um item so: a Orders API recusa mais de 10.
+    expect(payload.bundle).toEqual({ id: 'b1', title: 'Pacote de Lançamento — Imersão RH Estratégico' });
   });
 
   it('devolve o pacote e o lote no pedido', async () => {

@@ -274,6 +274,63 @@ describe('MercadoPagoService', () => {
       expect(bodyOf(fetchMock).items[0].description).toBeTruthy();
     });
 
+    // A Orders API recusa mais de 10 itens ("maximum_items"): o pacote de 12
+    // modulos nunca chegava ao gateway.
+    it('manda o pacote como um item so, com o valor do pedido', async () => {
+      const { service, fetchMock } = await build();
+      const modules = Array.from({ length: 12 }, (_, i) => ({
+        moduleId: `mod-${i + 1}`,
+        title: `Modulo ${i + 1}`,
+        priceCents: i === 0 ? 4924 : 4916,
+      }));
+
+      await service.createOrder({
+        orderId: 'ord-1',
+        accessToken: SELLER_TOKEN,
+        amountCents: 59000,
+        method: 'PIX',
+        payer: PAYER,
+        items: modules,
+        bundle: { id: 'bundle-1', title: 'Pacote de Lançamento — Imersão RH Estratégico' },
+      });
+
+      const body = bodyOf(fetchMock);
+
+      expect(body.items).toHaveLength(1);
+      expect(body.items[0]).toMatchObject({
+        title: 'Pacote de Lançamento — Imersão RH Estratégico',
+        quantity: 1,
+        unit_price: '590.00',
+        external_code: 'bundle-1',
+      });
+      expect(body.items[0].description).toContain('12 módulos');
+      expect(body.total_amount).toBe('590.00');
+    });
+
+    it('junta em um item a compra avulsa com mais de 10 modulos', async () => {
+      const { service, fetchMock } = await build();
+      const modules = Array.from({ length: 11 }, (_, i) => ({
+        moduleId: `mod-${i + 1}`,
+        title: `Modulo ${i + 1}`,
+        priceCents: 19700,
+      }));
+
+      await service.createOrder({
+        orderId: 'ord-1',
+        accessToken: SELLER_TOKEN,
+        amountCents: 216700,
+        method: 'PIX',
+        payer: PAYER,
+        items: modules,
+      });
+
+      const body = bodyOf(fetchMock);
+
+      expect(body.items).toHaveLength(1);
+      expect(body.items[0]).toMatchObject({ quantity: 1, unit_price: '2167.00' });
+      expect(body.items[0].title).toContain('11 módulos');
+    });
+
     // Decisao 13: retentativa de rede nao pode virar cobranca dobrada.
     it('usa o id do pedido como chave de idempotencia', async () => {
       const { service, fetchMock } = await build();

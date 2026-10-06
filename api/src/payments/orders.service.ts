@@ -60,6 +60,7 @@ interface OrderRow {
   paidAt: Date | null;
   refundedAt: Date | null;
   expiresAt: Date | null;
+  bundleId?: string | null;
   bundleTitleSnapshot?: string | null;
   tierNameSnapshot?: string | null;
   mpConnectionId?: string | null;
@@ -193,6 +194,7 @@ export class OrdersService {
         title: item.titleSnapshot,
         priceCents: item.priceCents,
       })),
+      bundle: { id: order.bundleId as string, title: order.bundleTitleSnapshot as string },
       card: dto.card,
       deviceId: dto.deviceId,
     });
