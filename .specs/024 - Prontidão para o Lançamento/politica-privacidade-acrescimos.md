@@ -3,7 +3,7 @@
 **O que é:** três parágrafos novos para o **fim da seção 15** ("Informações específicas desta plataforma") da Política de Privacidade publicada. Essa seção já é o complemento operacional redigido pela Delcastanher, fora do texto revisado pelo jurídico. Por isso os acréscimos entram nela, e as seções 1 a 14 ficam como estão.
 
 **Por que:**
-- Desde a Spec 023, o checkout grava o CPF e o endereço do comprador, porque a NF-e exige o destinatário (decisão A3).
+- Desde a Spec 023, o checkout grava o CPF e o endereço do comprador para a nota fiscal (decisão A3). Com a Spec 024.2, a nota passou a ser a **NFS-e**, que exige CPF e nome do tomador e leva o endereço quando completo.
 - Desde a Spec 024, a plataforma envia o e-mail "Compra confirmada" (decisão D6).
 - Desde a Spec 023, há e-mails de novidades para alunos, com descadastro (decisão B5).
 
@@ -16,7 +16,7 @@ A seção 3 já cita CPF e endereço, e a seção 4 já cita a emissão de docum
 
 ---
 
-Para a emissão da nota fiscal de cada compra, a Delcastanher registra no pedido o CPF, o nome e o endereço do comprador (CEP, logradouro, número, complemento, bairro, cidade e estado). Esses dados são exigidos pela legislação fiscal para identificar o destinatário da nota e são tratados com base no cumprimento de obrigação legal. Eles são enviados à empresa responsável pela emissão da nota fiscal eletrônica, que atua como operadora, e ficam guardados junto com a nota pelo prazo exigido pela legislação fiscal. Esses dados não são usados para nenhuma outra finalidade e não aparecem em nenhuma área pública da plataforma.
+Para a emissão da nota fiscal de serviço eletrônica (NFS-e) de cada compra, a Delcastanher registra no pedido o CPF, o nome e o endereço do comprador (CEP, logradouro, número, complemento, bairro, cidade e estado). O CPF e o nome são exigidos pela legislação fiscal para identificar o tomador do serviço, e o endereço completa essa identificação. Esses dados são tratados com base no cumprimento de obrigação legal. Eles são enviados à empresa responsável pela emissão da nota fiscal, que atua como operadora, e ficam guardados junto com a nota pelo prazo exigido pela legislação fiscal. Esses dados não são usados para nenhuma outra finalidade e não aparecem em nenhuma área pública da plataforma.
 
 Depois de cada compra aprovada, a Delcastanher envia ao e-mail da conta do comprador a confirmação da compra e, quando emitida, a nota fiscal com seus arquivos. São mensagens ligadas à execução do contrato e ao cumprimento de obrigação legal, e por isso continuam sendo enviadas mesmo para quem optou por não receber novidades. O envio é feito por um provedor de e-mail que atua como operador.
 
