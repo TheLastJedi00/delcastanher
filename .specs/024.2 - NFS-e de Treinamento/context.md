@@ -100,8 +100,8 @@ A documentação usa os dois nomes para número e data (`numeroNfe`/`nNFSe` e `e
 
 **N7. Cancelamento.**
 - **Decisão do usuário (2026-10-06): o estorno segue a lei, em até 7 dias da compra** (arrependimento, CDC art. 49), e os Termos de Uso dizem isso (Spec 024, Task 1.7). Isso substitui a ideia anterior, do mesmo dia, de uma compra sem estorno.
-- Com estorno em até 7 dias, a nota pode precisar ser cancelada até uns 8 dias depois de emitida. Por isso **`NFSE_CANCEL_WINDOW_HOURS=192`** em produção (8 dias; o padrão do código segue 24). Fora dele, o estorno vira `REFUND_PENDING` (Spec 023, A7).
-- **A contadora confirma** o prazo e o que se faz fora dele (Task 1.1). No Sistema Nacional, o cancelamento depois do prazo do município vira pedido de análise fiscal, que a Notaas não expõe na API.
+- Com estorno em até 7 dias, a nota pode precisar ser cancelada até uns 8 dias depois de emitida. **A contadora confirmou (2026-10-06): em Blumenau, a NFS-e não pode ser cancelada direto no sistema depois de 8 dias da emissão.** Por isso **`NFSE_CANCEL_WINDOW_HOURS=192`** em produção (o padrão do código segue 24). Fora dele, o estorno vira `REFUND_PENDING`, e o painel manda tratar com a contadora.
+- **A classificação no Mercado Pago não muda:** quem define a natureza legal da venda é a nota.
 - Uma recusa da Notaas que fale em prazo também vira `REFUND_PENDING`, e as outras viram `CANCEL_ERROR`, como hoje.
 
 **N8. E-mail ao comprador.** Mesmo fluxo (Spec 023, A8), com o texto da NFS-e:
