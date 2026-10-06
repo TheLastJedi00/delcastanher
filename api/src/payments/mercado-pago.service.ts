@@ -165,13 +165,19 @@ export class MercadoPagoService {
       return false;
     }
 
-    const age = Math.abs(Math.floor(Date.now() / 1000) - Number(parts.ts));
+    // A documentacao fala em milissegundos e os exemplos dela vem em segundos:
+    // aceita os dois, e a janela continua sendo a mesma.
+    const ts = Number(parts.ts);
+    const signedAt = ts > 1e12 ? ts / 1000 : ts;
+    const age = Math.abs(Date.now() / 1000 - signedAt);
 
     if (!Number.isFinite(age) || age > WEBHOOK_TOLERANCE_SECONDS) {
       return false;
     }
 
-    const manifest = `id:${input.dataId};request-id:${input.requestId};ts:${parts.ts};`;
+    // O Mercado Pago assina o id em minusculas: `ORD01JQ...` entra no
+    // manifesto como `ord01jq...`. Sem isso, toda notificacao de order cai.
+    const manifest = `id:${input.dataId.toLowerCase()};request-id:${input.requestId};ts:${parts.ts};`;
     const expected = createHmac('sha256', mercadoPagoWebhookSecret(this.config))
       .update(manifest)
       .digest('hex');

@@ -346,8 +346,9 @@ describe('MercadoPagoService', () => {
    * Mercado Pago de um POST qualquer da internet e esta assinatura.
    */
   describe('verifyWebhookSignature', () => {
+    // Como o Mercado Pago assina: o id da order em minusculas.
     function signatureFor(dataId: string, requestId: string, ts: string, secret = WEBHOOK_SECRET) {
-      const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+      const manifest = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${ts};`;
 
       return `ts=${ts},v1=${createHmac('sha256', secret).update(manifest).digest('hex')}`;
     }
@@ -364,6 +365,49 @@ describe('MercadoPagoService', () => {
           dataId: 'ORD-1',
         }),
       ).toBe(true);
+    });
+
+    // O id de uma order real vem em maiusculas, e o Mercado Pago assina em
+    // minusculas. Antes desta correcao, todo webhook de order voltava 401.
+    it('aceita o id de order real, em maiusculas, assinado em minusculas', async () => {
+      const { service } = await build();
+      const dataId = 'ORD01M495BQCDHNGW3YCWD38ZGEET';
+      const manifest = `id:${dataId.toLowerCase()};request-id:req-1;ts:${NOW_SECONDS};`;
+      const v1 = createHmac('sha256', WEBHOOK_SECRET).update(manifest).digest('hex');
+
+      expect(
+        service.verifyWebhookSignature({
+          signature: `ts=${NOW_SECONDS},v1=${v1}`,
+          requestId: 'req-1',
+          dataId,
+        }),
+      ).toBe(true);
+    });
+
+    it('aceita o timestamp em milissegundos', async () => {
+      const { service } = await build();
+      const nowMs = Date.now().toString();
+
+      expect(
+        service.verifyWebhookSignature({
+          signature: signatureFor('ORD-1', 'req-1', nowMs),
+          requestId: 'req-1',
+          dataId: 'ORD-1',
+        }),
+      ).toBe(true);
+    });
+
+    it('recusa timestamp em milissegundos fora da janela', async () => {
+      const { service } = await build();
+      const oldMs = (Date.now() - 60 * 60 * 1000).toString();
+
+      expect(
+        service.verifyWebhookSignature({
+          signature: signatureFor('ORD-1', 'req-1', oldMs),
+          requestId: 'req-1',
+          dataId: 'ORD-1',
+        }),
+      ).toBe(false);
     });
 
     it('recusa assinatura feita com outro segredo', async () => {
