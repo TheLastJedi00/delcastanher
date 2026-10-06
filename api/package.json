@@ -30,7 +30,8 @@
     "spec019:concorrencia": "ts-node -P tsconfig.json scripts/spec019-concorrencia.ts",
     "spec019:vagas": "ts-node -P tsconfig.json scripts/spec019-vagas.ts",
     "spec017:firebase-dominio": "ts-node -P tsconfig.json scripts/spec017-firebase-dominio.ts",
-    "spec023:backfill-cpf": "ts-node -P tsconfig.json scripts/spec023-backfill-cpf.ts"
+    "spec023:backfill-cpf": "ts-node -P tsconfig.json scripts/spec023-backfill-cpf.ts",
+    "spec026:limpeza": "ts-node -P tsconfig.json scripts/spec026-limpeza.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
