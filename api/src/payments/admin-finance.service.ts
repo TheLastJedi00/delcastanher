@@ -58,11 +58,11 @@ const CSV_HEADER = [
   'Pagamento Mercado Pago',
   'Pago em',
   'Estornado em',
-  // Spec 023, decisao A9: vazias no pedido sem nota.
+  // Spec 023, decisao A9: vazias no pedido sem nota. NFS-e sem serie
+  // (Spec 024.2, decisao N5).
   'Situacao da nota',
-  'NF-e',
-  'Serie NF-e',
-  'Chave de acesso',
+  'NFS-e',
+  'Codigo de verificacao',
 ];
 
 /**
@@ -294,7 +294,6 @@ export class AdminFinanceService {
         csvDate(item.refundedAt),
         item.invoice?.status ?? '',
         item.invoice?.number ?? '',
-        item.invoice?.series ?? '',
         item.invoice?.accessKey ?? '',
       ]
         .map(csvField)
