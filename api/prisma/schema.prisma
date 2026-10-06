@@ -385,8 +385,9 @@ model Order {
   /// e consultado com `MP_ACCESS_TOKEN`.
   mpConnectionId String?
 
-  /// Destinatario da NF-e (Spec 023, decisao A3), gravado na criacao do
-  /// pedido. A nota exige CPF e endereco, e ate a Spec 022 o checkout so
+  /// Tomador da nota (Spec 023, decisao A3), gravado na criacao do pedido. A
+  /// NFS-e exige CPF e nome, e leva o endereco quando completo (Spec 024.2,
+  /// decisao N2). Ate a Spec 022 o checkout so
   /// repassava o CPF ao Mercado Pago, sem guarda-lo. Nulos nos pedidos
   /// anteriores: o CPF vem do backfill, e o endereco nao existe em lugar
   /// nenhum. Nenhum destes campos sai em log, nem em resposta alem da do
@@ -814,12 +815,12 @@ model LegalDocumentDraft {
   @@map("legal_document_drafts")
 }
 
-/// NF-e (modelo 55) de livro digital emitida pela Notaas (Spec 023, Parte A).
+/// NFS-e de treinamento emitida pela Notaas (Spec 023, Parte A, e Spec 024.2).
 ///
-/// **Uma por pedido** (`orderId @unique`, decisao A2). A Notaas nao aceita
-/// referencia do cliente na emissao: duas chamadas a `/nfe/emitir` geram duas
-/// notas validas. Por isso a linha nasce em `PENDING` **antes** do POST, e o
-/// `invoiceId` devolvido no `202` e gravado na mesma hora.
+/// **Uma por pedido** (`orderId @unique`, decisao A2). A `referencia` vai com
+/// o id do pedido, mas nada garante que ela barre uma segunda chamada a
+/// `/emitir` (decisao N3). Por isso a linha nasce em `PENDING` **antes** do
+/// POST, e o `invoiceId` devolvido no `202` e gravado na mesma hora.
 model Invoice {
   id          String        @id @default(cuid())
   orderId     String        @unique
@@ -836,15 +837,16 @@ model Invoice {
 
   number        String?
   series        String?
-  /// `chaveAcesso`, 44 digitos. Pode mudar se a Notaas cair em contingencia:
-  /// vale sempre a da ultima consulta.
+  /// `chNFSe`, o codigo de verificacao da NFS-e (era a `chaveAcesso` da NF-e).
+  /// Vale sempre a da ultima consulta. `series` e `protocol` ficam nulos na
+  /// NFS-e (decisao N5).
   accessKey     String? @unique
   protocol      String?
   /// Caminhos no Storage (decisao A8). O XML autorizado e o documento fiscal.
   xmlPath       String?
   pdfPath       String?
   cancelXmlPath String?
-  /// Resposta crua do ultimo erro (`codigoStatus`, `motivo`, `errorMessage`),
+  /// Resposta crua do ultimo erro (`errorCode`, `errorMessage`, `errors[]`),
   /// sem traducao — mesma regra do `mpStatusDetail`.
   lastError     String?
 

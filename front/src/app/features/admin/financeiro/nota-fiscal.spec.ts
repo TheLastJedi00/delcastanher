@@ -18,8 +18,8 @@ function nota(patch: Partial<InvoiceSummary> = {}): InvoiceSummary {
     status: 'AUTHORIZED',
     environment: 'producao',
     number: '42',
-    series: '1',
-    accessKey: '35261012345678000195550010000000421234567890',
+    series: null,
+    accessKey: '42024042258216042000144000000000000126104238271855',
     lastError: null,
     issuedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     hasPdf: true,
@@ -62,7 +62,9 @@ describe('NotaFiscal', () => {
     render(nota());
 
     expect(text()).toContain('Autorizada');
-    expect(text()).toContain('NF-e 42 · série 1');
+    // Spec 024.2, decisao N10: NFS-e, sem serie.
+    expect(text()).toContain('NFS-e nº 42');
+    expect(text()).not.toContain('série');
     expect(labels()).toEqual(['Baixar PDF', 'Reenviar e-mail', 'Cancelar']);
   });
 
@@ -86,10 +88,10 @@ describe('NotaFiscal', () => {
   });
 
   it('erro e rejeição oferecem emitir de novo e mostram a mensagem crua', () => {
-    render(nota({ status: 'DENIED', number: null, lastError: '539 - Duplicidade de NF-e' }));
+    render(nota({ status: 'DENIED', number: null, lastError: 'E0540 - Inconsistencia de tributacao ISSQN' }));
 
     expect(text()).toContain('Rejeitada');
-    expect(text()).toContain('539 - Duplicidade de NF-e');
+    expect(text()).toContain('E0540 - Inconsistencia de tributacao ISSQN');
     expect(labels()).toEqual(['Emitir de novo']);
   });
 
@@ -112,6 +114,7 @@ describe('NotaFiscal', () => {
     ) as HTMLButtonElement;
 
     expect(confirm.disabled).toBeTrue();
+    expect(el().querySelector('ui-modal')?.textContent).toContain('duas NFS-e válidas');
 
     const checkbox = el().querySelector('[data-testid="confirmar-sem-nota"]') as HTMLInputElement;
 
@@ -163,6 +166,8 @@ describe('NotaFiscal', () => {
     button('Cancelar')?.click();
     fixture.detectChanges();
     backend.expectNone(req => req.url.endsWith('/cancel'));
+    expect(el().querySelector('ui-modal')?.textContent).toContain('Cancelar a NFS-e?');
+    expect(el().querySelector('ui-modal')?.textContent).not.toContain('Sefaz');
 
     button('Cancelar a nota')?.click();
     backend.expectOne(req => req.url.endsWith('/admin/invoices/ord-1/cancel')).flush(nota({ status: 'CANCELLING' }));

@@ -28,7 +28,8 @@ const STATUS: Record<InvoiceStatus, { label: string; variant: BadgeVariant }> = 
 type Dialog = 'reissue-unknown' | 'link' | 'cancel' | null;
 
 /**
- * Nota fiscal de um pedido na listagem do financeiro (Spec 023, decisao A9):
+ * Nota fiscal (NFS-e, Spec 024.2) de um pedido na listagem do financeiro
+ * (Spec 023, decisao A9):
  * selo da situacao, numero e as acoes que a situacao permite.
  *
  * `UNKNOWN` e `REFUND_PENDING` saem com destaque e um texto que diz o que
@@ -49,7 +50,7 @@ type Dialog = 'reissue-unknown' | 'link' | 'cancel' | null;
           }
         </div>
         @if (nota.number) {
-          <span class="text-xs text-slate-600">NF-e {{ nota.number }} · série {{ nota.series }}</span>
+          <span class="text-xs text-slate-600">NFS-e nº {{ nota.number }}</span>
         }
         @if (nota.status === 'UNKNOWN') {
           <p class="max-w-[16rem] rounded-lg bg-state-danger/5 px-2 py-1 text-xs text-state-danger" data-testid="destaque">
@@ -89,9 +90,9 @@ type Dialog = 'reissue-unknown' | 'link' | 'cancel' | null;
     @if (dialog() === 'reissue-unknown') {
       <ui-modal title="Emitir a nota de novo?" (closed)="dialog.set(null)">
         <p class="text-sm text-slate-600">
-          A Notaas não aceita referência nossa: se a nota anterior foi enfileirada, emitir de novo
-          gera <strong>duas NF-e válidas</strong>. Abra o painel da Notaas e confira que não existe
-          nota para este pedido. Se existir, use "Vincular nota".
+          Nada garante que a Notaas recuse a segunda emissão do mesmo pedido: se a nota anterior foi
+          enfileirada, emitir de novo gera <strong>duas NFS-e válidas</strong>. Abra o painel da Notaas
+          e confira que não existe nota para este pedido. Se existir, use "Vincular nota".
         </p>
         <label class="mt-4 flex items-start gap-2 text-sm text-slate-700">
           <input type="checkbox" [formControl]="confirmControl" class="mt-1" data-testid="confirmar-sem-nota" />
@@ -126,9 +127,9 @@ type Dialog = 'reissue-unknown' | 'link' | 'cancel' | null;
     }
 
     @if (dialog() === 'cancel') {
-      <ui-modal title="Cancelar a NF-e?" (closed)="dialog.set(null)">
+      <ui-modal title="Cancelar a NFS-e?" (closed)="dialog.set(null)">
         <p class="text-sm text-slate-600">
-          O cancelamento vai à Sefaz e não pode ser desfeito. Use para uma nota emitida em
+          O cancelamento vai ao Sistema Nacional da NFS-e e não pode ser desfeito. Use para uma nota emitida em
           duplicidade ou por engano. O estorno do pagamento continua sendo feito no Mercado Pago.
         </p>
         <div class="mt-6 flex justify-end gap-3">
@@ -252,7 +253,7 @@ export class NotaFiscal {
   }
 
   cancelConfirmed(): void {
-    this.call('cancel', this.invoices.cancel(this.orderId()), 'Cancelamento enviado à Sefaz.');
+    this.call('cancel', this.invoices.cancel(this.orderId()), 'Cancelamento enviado à Notaas.');
   }
 
   private withinCancelWindow(): boolean {
