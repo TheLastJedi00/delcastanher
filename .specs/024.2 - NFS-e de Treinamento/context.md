@@ -31,8 +31,9 @@ A Spec 023 (Parte A) seguiu o contador de 2026-09-29: NF-e de livro digital, com
 - **Blumenau é aderente ao Sistema Nacional da NFS-e**, e a Notaas já habilitou a emissão por ele.
 - Certificado A1 ativo, válido até **30/09/2027**.
 - Chave de API "Delcastanher Prod", com o escopo `nfse:emit`, já em `NOTAAS_API_KEY` na Vercel (Production).
-- **Faltam os dados da contadora** (Task 1.1):
-  - regime tributário (hoje "Não Optante", ou seja, regime normal);
+- **Respostas da contadora em 2026-10-06** (`pendencias-contabeis.md`): **Simples Nacional (ME)**, ISS de **2%**, ISSQN **tributável**, a descrição sugerida, competência no mês do pagamento. Com o Simples, PIS/COFINS vão no DAS e a Notaas ignora o grupo federal.
+- **Ainda faltam** (Task 1.1):
+  - regime no cadastro da Notaas, que ainda diz "Não Optante" (Task 1.2);
   - código de tributação (cTribNac);
   - inscrição municipal;
   - PIS/COFINS;
@@ -98,8 +99,8 @@ A documentação usa os dois nomes para número e data (`numeroNfe`/`nNFSe` e `e
 **N6. Documentos sem vazar a chave para o CDN.** PDF e XML podem responder `302` para o CDN público da Notaas. O cliente segue o redirecionamento **sem** o `x-api-key`: a chave só vai à API.
 
 **N7. Cancelamento.**
-- **Decisão do usuário (2026-10-06): a compra do curso não tem estorno, e isso vai nos Termos de Uso** (Spec 024, Task 1.7). O cancelamento da nota fica para as exceções: devolução por contestação no cartão, cobrança em duplicidade, decisão judicial ou arrependimento (CDC, art. 49), se o jurídico entender que se aplica. O fluxo do estorno da Spec 023 continua no código para esses casos.
-- O prazo continua configurável (`NFSE_CANCEL_WINDOW_HOURS`, padrão 24 horas). Fora dele, o estorno vira `REFUND_PENDING` (Spec 023, A7).
+- **Decisão do usuário (2026-10-06): o estorno segue a lei, em até 7 dias da compra** (arrependimento, CDC art. 49), e os Termos de Uso dizem isso (Spec 024, Task 1.7). Isso substitui a ideia anterior, do mesmo dia, de uma compra sem estorno.
+- Com estorno em até 7 dias, a nota pode precisar ser cancelada até uns 8 dias depois de emitida. Por isso **`NFSE_CANCEL_WINDOW_HOURS=192`** em produção (8 dias; o padrão do código segue 24). Fora dele, o estorno vira `REFUND_PENDING` (Spec 023, A7).
 - **A contadora confirma** o prazo e o que se faz fora dele (Task 1.1). No Sistema Nacional, o cancelamento depois do prazo do município vira pedido de análise fiscal, que a Notaas não expõe na API.
 - Uma recusa da Notaas que fale em prazo também vira `REFUND_PENDING`, e as outras viram `CANCEL_ERROR`, como hoje.
 
