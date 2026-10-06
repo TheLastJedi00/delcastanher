@@ -16,25 +16,31 @@ Uma **NFS-e por venda** da plataforma on-line "Imersão RH Estratégico", seguin
   - o valor total do pedido;
   - o CPF e o nome do comprador, e o endereço quando ele informa.
 - **Quando sai:** na aprovação do pagamento, automaticamente.
-- **Sem estorno:** a compra do curso não tem reembolso, e isso estará nos Termos de Uso. A plataforma só cancela a nota nas exceções: quando o pagamento é devolvido mesmo assim (contestação no cartão, cobrança em duplicidade ou decisão judicial), e dentro do prazo de cancelamento.
+- **Estorno:** segue a lei. A compra pode ser desfeita em até 7 dias (CDC, art. 49), como dirão os Termos de Uso. No estorno, a plataforma cancela a nota automaticamente, dentro do prazo de cancelamento.
 
 ## O que precisamos de vocês
-Cada resposta vai para um campo da Notaas ou da plataforma. A coluna "Sugestão" é só ponto de partida, para confirmar ou corrigir.
+Cada resposta vai para um campo da Notaas ou da plataforma.
 
+### Respondidas em 06/10/2026
+| # | Pergunta | Resposta | Onde entra |
+|---|---|---|---|
+| 1 | Regime tributário | **Simples Nacional, ME** | Cadastro do emitente na Notaas (hoje está "Não Optante") |
+| 3 | Alíquota de ISS | **2%** | `NFSE_ALIQUOTA_ISS` |
+| 4 | Tributação do ISSQN | **1, tributável** | `NFSE_TRIB_ISSQN` e o padrão do projeto |
+| 6 | PIS/COFINS | **Não se aplica:** recolhidos no DAS do Simples | — |
+| 8 | Descrição do serviço | **"Treinamento educacional on-line Imersão RH Estratégico: [módulos comprados]."** | `NFSE_DESCRICAO` |
+| 10 | Estorno | **Segue a lei: estorno em até 7 dias da compra** (arrependimento, CDC art. 49) | Termos de Uso e prazo de cancelamento da nota |
+| 11 | Competência | **Mês do pagamento, no horário de Brasília** | Competência |
+
+### Ainda em aberto
 | # | Pergunta | Sugestão | Onde entra |
 |---|---|---|---|
-| 1 | **Regime tributário** da empresa: Simples Nacional, Lucro Presumido ou Lucro Real? | Na Notaas está "Não Optante" (regime normal). Confirmar | Cadastro do emitente |
-| 2 | **Código de tributação nacional (cTribNac)** do serviço | **080201**: item 8.02 da LC 116 (instrução, treinamento, orientação pedagógica e educacional, avaliação de conhecimentos de qualquer natureza) | Código do serviço |
-| 3 | **Alíquota de ISS** de Blumenau para esse código | — | Alíquota de ISS |
-| 4 | **Tributação do ISSQN** | 1, tributável | Tributação ISSQN |
+| 2 | **Código de tributação nacional (cTribNac)** do serviço | **080201**: item 8.02 da LC 116 (instrução, treinamento, orientação pedagógica e educacional, avaliação de conhecimentos de qualquer natureza) | `NFSE_CODIGO_SERVICO`. **Sem ele, nenhuma nota é emitida** |
 | 5 | **Inscrição municipal** da empresa em Blumenau, e se é exigida no Sistema Nacional | — | Cadastro do emitente |
-| 6 | **PIS/COFINS** (se não for Simples): CST, alíquotas e tipo de retenção | — | Configuração tributária |
-| 7 | **IBS/CBS** (reforma tributária): CST, classificação tributária (cClassTrib), indicador de operação (cIndOp) e **NBS** do serviço | — | Reforma tributária |
-| 8 | **Descrição do serviço** na nota | "Treinamento educacional on-line Imersão RH Estratégico: [módulos comprados]." | Descrição |
+| 7 | **IBS/CBS** (reforma tributária): se o Simples precisa informar em 2026 e, se sim, CST, classificação tributária (cClassTrib), indicador de operação (cIndOp) e **NBS** | — | Reforma tributária |
 | 9 | **Informações complementares** a imprimir na nota, se houver | — | Informações complementares |
-| 10 | **Exceções ao "sem estorno":** qual o prazo de cancelamento da NFS-e no Sistema Nacional, e o que fazer quando o pagamento é devolvido depois dele? | Cancelamento automático em até 24 horas da emissão; depois disso, tratamento manual por vocês | Prazo de cancelamento |
-| 11 | **Competência:** usar o mês do pagamento? | Sim, no horário de Brasília | Competência |
-| 12 | A **classificação da atividade** no Mercado Pago e o texto dos **Termos de Uso** precisam passar a dizer "treinamento"? | — | Mercado Pago e Termos |
+| 10b | **Prazo de cancelamento** da NFS-e no Sistema Nacional. Com estorno em até 7 dias, a nota pode precisar ser cancelada até uns 8 dias depois de emitida. Isso cabe no prazo? Se não couber, o que se faz? | A plataforma tenta cancelar até 8 dias depois da emissão. Depois disso, ou se o sistema recusar, a nota fica marcada para tratamento manual | Prazo de cancelamento |
+| 12 | A **classificação da atividade** no Mercado Pago precisa passar a dizer "treinamento"? | — | Mercado Pago |
 
 ## O que já está pronto
 - Conta na Notaas, com o município habilitado no Sistema Nacional.
