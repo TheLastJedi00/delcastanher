@@ -378,7 +378,8 @@ describe('AdminFinanceService — nota fiscal', () => {
     expect(item.invoice).toBeNull();
   });
 
-  it('o CSV ganha numero, serie, chave e situacao da nota', async () => {
+  // Spec 024.2, decisao N10: NFS-e, sem serie.
+  it('o CSV ganha numero, codigo de verificacao e situacao da nota', async () => {
     const { service } = await build([{ ...PEDIDO, invoice: NOTA }, PEDIDO], 2);
 
     const [cabecalho, comNota, semNota] = (await service.exportOrdersCsv(query()))
@@ -387,10 +388,10 @@ describe('AdminFinanceService — nota fiscal', () => {
     const colunas = cabecalho.split(';');
     const col = (name: string) => colunas.indexOf(name);
 
-    expect(col('NF-e')).toBeGreaterThan(-1);
-    expect(comNota.split(';')[col('NF-e')]).toBe('42');
-    expect(comNota.split(';')[col('Serie NF-e')]).toBe('1');
-    expect(comNota.split(';')[col('Chave de acesso')]).toBe(NOTA.accessKey);
+    expect(col('NFS-e')).toBeGreaterThan(-1);
+    expect(col('Serie NF-e')).toBe(-1);
+    expect(comNota.split(';')[col('NFS-e')]).toBe('42');
+    expect(comNota.split(';')[col('Codigo de verificacao')]).toBe(NOTA.accessKey);
     expect(comNota.split(';')[col('Situacao da nota')]).toBe('AUTHORIZED');
     expect(semNota.split(';')[col('Situacao da nota')]).toBe('');
   });

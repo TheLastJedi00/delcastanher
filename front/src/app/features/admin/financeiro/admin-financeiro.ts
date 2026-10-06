@@ -153,7 +153,7 @@ export class AdminFinanceiro {
 
   private readonly invoices = inject(AdminInvoicesService);
 
-  /** Ambiente, prazo de cancelamento e certificado da NF-e (Spec 023). */
+  /** Ambiente, prazo de cancelamento e certificado da NFS-e (Specs 023 e 024.2). */
   readonly invoiceSettings = signal<InvoiceSettings | null>(null);
 
   constructor() {

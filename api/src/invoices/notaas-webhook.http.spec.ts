@@ -8,15 +8,15 @@ import { NotaasWebhookController } from './notaas-webhook.controller';
 
 const SECRET = 'segredo-do-webhook-notaas';
 
+/** Envelope de `nfse.issued` (Spec 024.2, decisao N1). */
 const EVENT = {
-  event: 'nfe.issued',
+  event: 'nfse.issued',
   deliveryId: 'dlv-1',
-  timestamp: '2026-10-02T19:30:00Z',
+  timestamp: '2026-10-06T19:30:00Z',
   data: {
     invoiceId: 'nts-1',
-    chaveAcesso: '35261012345678000195550010000000421234567890',
-    cStat: 100,
-    xMotivo: 'Autorizado o uso da NF-e',
+    chNFSe: '42024042258216042000144000000000000126104238271855',
+    nNFSe: '00012',
   },
 };
 
@@ -50,7 +50,7 @@ function post(app: INestApplication, raw: string, signature?: string) {
   const call = request(app.getHttpServer())
     .post('/webhooks/notaas')
     .set('Content-Type', 'application/json')
-    .set('X-Notaas-Event', 'nfe.issued')
+    .set('X-Notaas-Event', 'nfse.issued')
     .set('X-Notaas-Delivery', 'dlv-1');
 
   return (signature === undefined ? call : call.set('X-Notaas-Signature', signature)).send(raw);

@@ -8,21 +8,14 @@ import { INVOICE_GATEWAY, ProviderInvoice } from './invoice-gateway';
 import { InvoicesService, REFUND_CANCEL_REASON } from './invoices.service';
 import { FakeOrder, fakeInvoiceDb } from './invoices.testing';
 
-const KEY = '35261012345678000195550010000000421234567890';
+/** `chNFSe`, o codigo de verificacao da NFS-e nacional (50 digitos). */
+const KEY = '42024042258216042000144000000000000126104238271855';
 
 const ENV: Record<string, string> = {
   NOTAAS_API_KEY: 'chave-homologacao',
-  NFE_NATUREZA_OPERACAO: 'Venda de livro digital',
-  NFE_NCM: '49019900',
-  NFE_CFOP_INTERNO: '5102',
-  NFE_CFOP_INTERESTADUAL: '6108',
-  NFE_CSOSN: '300',
-  NFE_CST_PIS: '07',
-  NFE_CST_COFINS: '07',
-  NFE_PRESENCA_COMPRADOR: '2',
-  NFE_INDICADOR_INTERMEDIADOR: '0',
-  NFE_INF_CPL: 'Livro digital imune.',
-  NFE_EMITENTE_UF: 'SP',
+  NFSE_CODIGO_SERVICO: '080201',
+  NFSE_ALIQUOTA_ISS: '2',
+  NFSE_DESCRICAO: 'Treinamento educacional on-line Imersão RH Estratégico',
 };
 
 function order(overrides: Partial<FakeOrder> = {}): FakeOrder {
@@ -31,6 +24,7 @@ function order(overrides: Partial<FakeOrder> = {}): FakeOrder {
     status: 'PAID',
     amountCents: 19900,
     method: 'PIX',
+    paidAt: new Date('2026-10-06T15:00:00.000Z'),
     payerDocument: '19119119100',
     payerName: 'Ana Souza',
     payerZip: '01310100',
@@ -51,11 +45,11 @@ function issued(overrides: Partial<ProviderInvoice> = {}): ProviderInvoice {
   return {
     providerInvoiceId: 'nts-1',
     status: 'issued',
-    tpAmb: 2,
+    environment: 'homologacao',
     number: '42',
-    series: '1',
+    series: null,
     accessKey: KEY,
-    protocol: '135260000012345',
+    protocol: null,
     issuedAt: new Date(),
     cancelledAt: null,
     errorDetail: null,
@@ -78,7 +72,7 @@ async function build(options: BuildOptions = {}) {
     status: jest.fn().mockResolvedValue(issued()),
     cancel: jest.fn().mockResolvedValue({ kind: 'accepted' }),
     downloadPdf: jest.fn().mockResolvedValue(Buffer.from('%PDF')),
-    downloadXml: jest.fn().mockResolvedValue(Buffer.from('<nfeProc/>')),
+    downloadXml: jest.fn().mockResolvedValue(Buffer.from('<NFSe/>')),
   };
 
   const files = new Map<string, Buffer>();
@@ -137,14 +131,17 @@ describe('InvoicesService', () => {
       expect(prisma.invoice.create).toHaveBeenCalledTimes(1);
     });
 
-    it('manda o corpo do NfeBuilder, com os dados do pedido', async () => {
+    it('manda o corpo do NfseBuilder, com os dados do pedido', async () => {
       const { service, gateway } = await build();
 
       await service.onOrderPaid('ord-1');
 
       expect(gateway.emit.mock.calls[0][0]).toMatchObject({
-        dest: { cpf: '19119119100', nome: 'Ana Souza' },
-        items: [{ codigo: 'mod-1', cfop: '5102', csosn: '300' }],
+        tomador: { cpf: '19119119100', nome: 'Ana Souza' },
+        servico: { codigo: '080201', descricao: expect.stringContaining('Fundamentos') },
+        valores: { total: 199, aliquotaIss: 2 },
+        competencia: '2026-10',
+        referencia: 'ord-1',
       });
     });
 
@@ -178,23 +175,35 @@ describe('InvoicesService', () => {
       expect(invoices[0]).toMatchObject({ status: 'UNKNOWN', providerInvoiceId: null });
     });
 
-    it('pedido sem endereco vira ERROR sem chamar a Notaas (decisao A3)', async () => {
+    // Decisao N2: a NFS-e nao exige endereco.
+    it('pedido sem endereco emite sem endereco', async () => {
       const { service, gateway, invoices } = await build({ orders: [order({ payerZip: null })] });
+
+      await service.onOrderPaid('ord-1');
+
+      expect(gateway.emit.mock.calls[0][0].tomador).not.toHaveProperty('endereco');
+      expect(invoices[0].status).toBe('PROCESSING');
+    });
+
+    it('pedido sem CPF vira ERROR sem chamar a Notaas', async () => {
+      const { service, gateway, invoices } = await build({ orders: [order({ payerDocument: null })] });
 
       await service.onOrderPaid('ord-1');
 
       expect(gateway.emit).not.toHaveBeenCalled();
       expect(invoices[0].status).toBe('ERROR');
-      expect(invoices[0].lastError).toContain('endereço');
+      expect(invoices[0].lastError).toContain('CPF');
     });
 
+    // Decisao N2: sem os dados da contadora, nenhuma nota sai.
     it('dado fiscal ausente vira ERROR com o nome da variavel', async () => {
-      const { NFE_NCM: _ncm, ...semNcm } = ENV;
-      const { service, invoices } = await build({ env: semNcm });
+      const { NFSE_CODIGO_SERVICO: _codigo, ...semCodigo } = ENV;
+      const { service, gateway, invoices } = await build({ env: semCodigo });
 
       await service.onOrderPaid('ord-1');
 
-      expect(invoices[0]).toMatchObject({ status: 'ERROR', lastError: 'NFE_NCM nao configurada.' });
+      expect(gateway.emit).not.toHaveBeenCalled();
+      expect(invoices[0]).toMatchObject({ status: 'ERROR', lastError: 'NFSE_CODIGO_SERVICO nao configurada.' });
     });
 
     it('sem NOTAAS_API_KEY, nao cria nota nenhuma', async () => {
@@ -216,8 +225,8 @@ describe('InvoicesService', () => {
       await expect(service.onOrderPaid('ord-1')).resolves.toBeUndefined();
     });
 
-    it('com NFE_ENV=producao, a nota nasce em producao', async () => {
-      const { service, invoices } = await build({ env: { ...ENV, NFE_ENV: 'producao' } });
+    it('com NFSE_ENV=producao, a nota nasce em producao', async () => {
+      const { service, invoices } = await build({ env: { ...ENV, NFSE_ENV: 'producao' } });
 
       await service.onOrderPaid('ord-1');
 
@@ -234,7 +243,7 @@ describe('InvoicesService', () => {
       return built;
     }
 
-    it('autorizada grava numero, serie, chave e protocolo pela reconsulta', async () => {
+    it('autorizada grava numero e codigo de verificacao pela reconsulta', async () => {
       const { service, gateway, invoices } = await emitted();
 
       await service.syncByProviderId('nts-1');
@@ -243,21 +252,21 @@ describe('InvoicesService', () => {
       expect(invoices[0]).toMatchObject({
         status: 'AUTHORIZED',
         number: '42',
-        series: '1',
+        series: null,
         accessKey: KEY,
-        protocol: '135260000012345',
+        protocol: null,
       });
       expect(invoices[0].issuedAt).toBeInstanceOf(Date);
     });
 
-    it('guarda XML e DANFE no Storage e manda o e-mail com os anexos', async () => {
+    it('guarda XML e DANFSe no Storage e manda o e-mail com os anexos', async () => {
       const { service, invoices, storage, mail } = await emitted();
 
       await service.syncByProviderId('nts-1');
 
       expect(storage.saveFile).toHaveBeenCalledWith(
         `invoices/homologacao/${KEY}.xml`,
-        Buffer.from('<nfeProc/>'),
+        Buffer.from('<NFSe/>'),
         'application/xml',
       );
       expect(storage.saveFile).toHaveBeenCalledWith(
@@ -275,10 +284,12 @@ describe('InvoicesService', () => {
 
       expect(message.to).toBe('aluno@delcastanher.com');
       expect(message.text).toContain(KEY);
-      expect(message.text).toContain('NF-e nº 42');
+      expect(message.text).toContain('NFS-e nº 42');
+      expect(message.text).toContain('https://www.nfse.gov.br/consultapublica');
+      expect(message.text).not.toContain('NF-e ');
       expect(message.attachments.map((a: { filename: string }) => a.filename)).toEqual([
-        `nfe-${KEY}.pdf`,
-        `nfe-${KEY}.xml`,
+        `nfse-${KEY}.pdf`,
+        `nfse-${KEY}.xml`,
       ]);
     });
 
@@ -340,12 +351,15 @@ describe('InvoicesService', () => {
       const { service, gateway, invoices } = await emitted();
 
       gateway.status.mockResolvedValue(
-        issued({ status: 'error', accessKey: null, errorDetail: '539 - Duplicidade de NF-e' }),
+        issued({ status: 'error', accessKey: null, errorDetail: 'E0540 - Inconsistencia de tributacao ISSQN' }),
       );
 
       await service.syncByProviderId('nts-1');
 
-      expect(invoices[0]).toMatchObject({ status: 'DENIED', lastError: '539 - Duplicidade de NF-e' });
+      expect(invoices[0]).toMatchObject({
+        status: 'DENIED',
+        lastError: 'E0540 - Inconsistencia de tributacao ISSQN',
+      });
     });
 
     it('queued e processing ficam em PROCESSING', async () => {
@@ -358,11 +372,11 @@ describe('InvoicesService', () => {
       expect(invoices[0].status).toBe('PROCESSING');
     });
 
-    // Decisao A6: preview e producao dividem o banco.
-    it('tpAmb que nao bate com o ambiente vira ERROR, e nada e guardado nem enviado', async () => {
+    // Decisao N4: preview e producao dividem o banco.
+    it('ambiente que nao bate com o da nota vira ERROR, e nada e guardado nem enviado', async () => {
       const { service, gateway, invoices, mail } = await emitted();
 
-      gateway.status.mockResolvedValue(issued({ tpAmb: 1 }));
+      gateway.status.mockResolvedValue(issued({ environment: 'producao' }));
 
       await service.syncByProviderId('nts-1');
 
@@ -371,10 +385,20 @@ describe('InvoicesService', () => {
       expect(mail.send).not.toHaveBeenCalled();
     });
 
+    it('consulta sem ambiente nao bloqueia: a Notaas so o devolve com a nota emitida', async () => {
+      const { service, gateway, invoices } = await emitted();
+
+      gateway.status.mockResolvedValue(issued({ status: 'processing', environment: null, accessKey: null }));
+
+      await service.syncByProviderId('nts-1');
+
+      expect(invoices[0].status).toBe('PROCESSING');
+    });
+
     // Contingencia: a chave muda, e vale a da ultima consulta.
     it('uma chave diferente numa consulta posterior substitui a gravada', async () => {
       const { service, gateway, invoices } = await emitted();
-      const OTHER = '35261012345678000195550010000000429999999999';
+      const OTHER = '42024042258216042000144000000000000126104299999999';
 
       await service.syncByProviderId('nts-1');
       gateway.status.mockResolvedValue(issued({ accessKey: OTHER }));
@@ -459,6 +483,8 @@ describe('InvoicesService', () => {
 
       expect(gateway.cancel).not.toHaveBeenCalled();
       expect(invoices[0].status).toBe('REFUND_PENDING');
+      // Spec 024.2, N7: em Blumenau, depois do prazo nao ha cancelamento direto.
+      expect(invoices[0].lastError).toContain('contadora');
     });
 
     it('o 422 de prazo tambem vira REFUND_PENDING', async () => {
@@ -586,7 +612,7 @@ describe('InvoicesService', () => {
     // Decisao A10.
     it('avisa o vencimento do certificado a 30 dias', async () => {
       const in20days = new Date(Date.now() + 20 * 24 * HOUR).toISOString().slice(0, 10);
-      const { service } = await build({ env: { ...ENV, NFE_CERT_EXPIRES_AT: in20days } });
+      const { service } = await build({ env: { ...ENV, NFSE_CERT_EXPIRES_AT: in20days } });
 
       expect((await service.reconcile()).certificateWarning).toBe(true);
       expect(service.settings().certificateWarning).toBe(true);

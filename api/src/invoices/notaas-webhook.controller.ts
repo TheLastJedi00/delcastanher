@@ -42,11 +42,12 @@ export function verifyNotaasSignature(raw: Buffer, header: string | undefined, s
 }
 
 /**
- * Webhook da Notaas (Spec 023, decisao A5).
+ * Webhook da Notaas (Spec 023, decisao A5), com os eventos `nfse.*` (Spec
+ * 024.2, decisao N1).
  *
  * Rota **publica**, fora do `FirebaseAuthGuard`, como os webhooks do Mux e do
  * Mercado Pago. Validada a assinatura, o aviso e so **qual nota mudou**: o
- * estado vem de `GET /nfe/invoices/{id}/status`. Isso tambem torna inofensivas
+ * estado vem de `GET /invoices/{id}/status`. Isso tambem torna inofensivas
  * as entregas repetidas (`X-Notaas-Delivery`).
  *
  * Id desconhecido responde 200 (o servico ignora). Reconsulta que falha

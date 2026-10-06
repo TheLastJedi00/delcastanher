@@ -9,12 +9,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import {
   certificateExpiresAt,
-  expectedTpAmb,
   fiscalConfig,
   invoicesEnabled,
-  nfeCancelWindowHours,
-  nfeEnvironment,
-  NfeEnvironment,
+  nfseCancelWindowHours,
+  nfseEnvironment,
+  NfseEnvironment,
 } from '../config/invoice.config';
 import { InvoiceStatus, Prisma } from '../generated/prisma/client';
 import { renderEmail } from '../mail/email-content';
@@ -23,9 +22,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ReadUrlResult, StorageService } from '../storage/storage.service';
 import { INVOICE_GATEWAY } from './invoice-gateway';
 import type { InvoiceGateway, ProviderInvoice } from './invoice-gateway';
-import { buildNfe, NfeOrder } from './notaas/nfe-builder';
+import { buildNfse, NfseOrder } from './notaas/nfse-builder';
 
-/** Motivo do cancelamento no estorno: de 15 a 255 caracteres (decisao A7). */
+/** Motivo do cancelamento no estorno: ate 255 caracteres (decisoes A7 e N7). */
 export const REFUND_CANCEL_REASON = 'Venda desfeita: pagamento estornado ao comprador';
 
 /** Motivo do cancelamento pelo painel, a saida para uma duplicata (decisao A2). */
@@ -43,7 +42,7 @@ type InvoiceRow = Prisma.InvoiceGetPayload<object>;
 /** Configuracao da emissao, para o aviso do painel (decisoes A6 e A10). */
 export interface InvoiceSettings {
   enabled: boolean;
-  environment: NfeEnvironment;
+  environment: NfseEnvironment;
   certificateExpiresAt: string | null;
   /** Dias ate o vencimento; nulo sem data configurada. */
   certificateDaysLeft: number | null;
@@ -66,7 +65,6 @@ function translate(status: ProviderInvoice['status']): InvoiceStatus {
     case 'issued':
       return 'AUTHORIZED';
     case 'error':
-    case 'inutilized':
       return 'DENIED';
     case 'cancelled':
       return 'CANCELLED';
@@ -76,16 +74,17 @@ function translate(status: ProviderInvoice['status']): InvoiceStatus {
 }
 
 /**
- * NF-e de cada venda (Spec 023, Parte A).
+ * NFS-e de cada venda (Spec 023, Parte A, com a Spec 024.2).
  *
  * Tres regras organizam tudo o que esta aqui:
  *
  * 1. **Uma falha da nota nunca desfaz nem atrasa o pagamento** (decisao A4).
  *    `onOrderPaid` e `onOrderRefunded` nunca lancam: a nota e assunto do
  *    painel, e nao do comprador.
- * 2. **Nada reenvia o que pode ter sido enfileirado** (decisao A2). A Notaas
- *    nao aceita referencia do cliente: o `invoiceId` e gravado no instante do
- *    `202`, e `UNKNOWN` so sai do lugar pela mao do admin.
+ * 2. **Nada reenvia o que pode ter sido enfileirado** (decisoes A2 e N3). A
+ *    `referencia` vai com o id do pedido, mas nada garante que ela barre uma
+ *    segunda nota: o `invoiceId` e gravado no instante do `202`, e `UNKNOWN`
+ *    so sai do lugar pela mao do admin.
  * 3. **O estado vem da consulta, e nao do aviso** (decisao A5). O webhook e o
  *    cron so dizem qual nota reconsultar.
  */
@@ -321,7 +320,9 @@ export class InvoicesService {
     }
 
     if (!this.withinCancelWindow(invoice)) {
-      throw new ConflictException('O prazo de cancelamento da NF-e (24 horas) ja passou.');
+      throw new ConflictException(
+        `O prazo de cancelamento da NFS-e (${nfseCancelWindowHours(this.config)} horas) ja passou.`,
+      );
     }
 
     return this.requestCancel(invoice, ADMIN_CANCEL_REASON);
@@ -335,17 +336,17 @@ export class InvoicesService {
       throw new ConflictException('A nota ainda nao tem os arquivos para enviar.');
     }
 
-    await this.sendEmail(invoice, `nfe-${invoice.id}-${Date.now()}`);
+    await this.sendEmail(invoice, `nfse-${invoice.id}-${Date.now()}`);
 
     return this.prisma.invoice.update({ where: { id: invoice.id }, data: { emailedAt: new Date() } });
   }
 
-  /** "Baixar PDF": URL assinada de leitura do DANFE guardado. */
+  /** "Baixar PDF": URL assinada de leitura do DANFSe guardado. */
   async pdfUrl(orderId: string): Promise<ReadUrlResult> {
     const invoice = await this.requireInvoice(orderId);
 
     if (!invoice.pdfPath) {
-      throw new NotFoundException('O DANFE desta nota ainda nao foi guardado.');
+      throw new NotFoundException('O PDF desta nota ainda nao foi guardado.');
     }
 
     return this.storage.createReadUrl(invoice.pdfPath);
@@ -381,7 +382,7 @@ export class InvoicesService {
       certificateExpiresAt: expires?.toISOString() ?? null,
       certificateDaysLeft: daysLeft,
       certificateWarning: daysLeft !== null && daysLeft <= CERT_WARNING_DAYS,
-      cancelWindowHours: nfeCancelWindowHours(this.config),
+      cancelWindowHours: nfseCancelWindowHours(this.config),
     };
   }
 
@@ -415,12 +416,12 @@ export class InvoicesService {
     }
   }
 
-  /** Monta, chama `/nfe/emitir` e grava o desfecho na hora (decisoes A2 e A4). */
+  /** Monta, chama `/emitir` e grava o desfecho na hora (decisoes A2 e A4). */
   private async emit(invoice: InvoiceRow, note: string | null = null): Promise<InvoiceRow> {
     const order = (await this.prisma.order.findUnique({
       where: { id: invoice.orderId },
       include: { items: true },
-    })) as unknown as NfeOrder | null;
+    })) as unknown as NfseOrder | null;
 
     if (!order) {
       throw new NotFoundException('Pedido da nota nao encontrado.');
@@ -429,10 +430,10 @@ export class InvoicesService {
     let body;
 
     try {
-      body = buildNfe(order, fiscalConfig(this.config));
+      body = buildNfse(order, fiscalConfig(this.config));
     } catch (error) {
-      // Dado fiscal ausente ou pedido sem endereco: nada saiu, e reenviar
-      // depois de corrigir e seguro.
+      // Dado fiscal ausente ou pedido sem CPF: nada saiu, e reenviar depois
+      // de corrigir e seguro.
       return this.prisma.invoice.update({
         where: { id: invoice.id },
         data: { status: 'ERROR', lastError: (error as Error).message },
@@ -472,20 +473,19 @@ export class InvoicesService {
   private async refresh(invoice: InvoiceRow): Promise<InvoiceRow> {
     const provider = await this.gateway.status(invoice.providerInvoiceId as string);
 
-    // Decisao A6: preview e producao dividem o banco. Uma chave de API do
+    // Decisao N4: preview e producao dividem o banco. Uma chave de API do
     // ambiente errado emitiria nota real de uma venda de teste, ou o inverso.
-    const expected = expectedTpAmb(invoice.environment as NfeEnvironment);
-
-    if (provider.tpAmb !== null && provider.tpAmb !== expected) {
+    // A Notaas so devolve o `ambiente` com a nota emitida.
+    if (provider.environment !== null && provider.environment !== invoice.environment) {
       this.logger.error(
-        `Nota ${invoice.id} voltou com tpAmb ${provider.tpAmb}, esperado ${expected}: chave de API do ambiente errado.`,
+        `Nota ${invoice.id} voltou em ${provider.environment}, esperado ${invoice.environment}: chave de API do ambiente errado.`,
       );
 
       return this.prisma.invoice.update({
         where: { id: invoice.id },
         data: {
           status: 'ERROR',
-          lastError: `Chave de API do ambiente errado: tpAmb ${provider.tpAmb}, esperado ${expected} (${invoice.environment}).`,
+          lastError: `Chave de API do ambiente errado: a Notaas emitiu em ${provider.environment}, e a nota e de ${invoice.environment}.`,
         },
       });
     }
@@ -493,7 +493,7 @@ export class InvoicesService {
     const translated = translate(provider.status);
 
     // Cancelamento pedido e ainda nao confirmado: a nota segue `issued` na
-    // Notaas ate a Sefaz registrar o evento.
+    // Notaas ate o sistema nacional registrar o evento.
     const status =
       invoice.status === 'CANCELLING' && translated === 'AUTHORIZED' ? 'CANCELLING' : translated;
 
@@ -559,7 +559,7 @@ export class InvoicesService {
     return this.sendEmailOnce(stored);
   }
 
-  /** XML e DANFE no Storage (decisao A8). Falha fica para o cron. */
+  /** XML e DANFSe no Storage (decisao A8). Falha fica para o cron. */
   private async storeDocuments(invoice: InvoiceRow): Promise<InvoiceRow> {
     if ((invoice.xmlPath && invoice.pdfPath) || !invoice.accessKey) {
       return invoice;
@@ -622,7 +622,7 @@ export class InvoicesService {
     }
 
     try {
-      await this.sendEmail(invoice, `nfe-${invoice.id}`);
+      await this.sendEmail(invoice, `nfse-${invoice.id}`);
 
       return { ...invoice, emailedAt: claimedAt };
     } catch (error) {
@@ -638,7 +638,7 @@ export class InvoicesService {
   }
 
   /**
-   * "Sua nota fiscal", com o DANFE e o XML em anexo (decisao A8). Transacional:
+   * "Sua nota fiscal", com o DANFSe e o XML em anexo (decisoes A8 e N8). Transacional:
    * **ignora o descadastro** de campanhas (decisao B5) e nao leva cabecalho de
    * descadastro.
    */
@@ -662,14 +662,14 @@ export class InvoicesService {
 
     const body = [
       firstName ? `Olá, ${firstName}!` : 'Olá!',
-      `Segue a nota fiscal da sua compra na Delcastanher: NF-e nº ${invoice.number ?? '-'}, série ${invoice.series ?? '-'}.`,
-      `Chave de acesso: ${invoice.accessKey}`,
-      'O DANFE (PDF) e o XML estão em anexo. O XML é o documento fiscal da compra: guarde este e-mail.',
-      'Você pode consultar a nota pela chave de acesso no portal da NF-e: https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx',
+      `Segue a nota fiscal de serviço da sua compra na Delcastanher: NFS-e nº ${invoice.number ?? '-'}.`,
+      `Código de verificação: ${invoice.accessKey}`,
+      'O PDF (DANFSe) e o XML estão em anexo. O XML é o documento fiscal da compra: guarde este e-mail.',
+      'Você pode consultar a nota pelo código de verificação no portal da NFS-e: https://www.nfse.gov.br/consultapublica',
       ...(testing ? ['Esta é uma nota de HOMOLOGAÇÃO, emitida em ambiente de teste e sem valor fiscal.'] : []),
     ].join('\n\n');
 
-    const content = renderEmail({ body, preheader: `NF-e nº ${invoice.number ?? ''} da sua compra` });
+    const content = renderEmail({ body, preheader: `NFS-e nº ${invoice.number ?? ''} da sua compra` });
 
     await this.mail.send({
       to: order.user.email,
@@ -677,8 +677,8 @@ export class InvoicesService {
       html: content.html,
       text: content.text,
       attachments: [
-        { filename: `nfe-${invoice.accessKey}.pdf`, content: pdf },
-        { filename: `nfe-${invoice.accessKey}.xml`, content: xml },
+        { filename: `nfse-${invoice.accessKey}.pdf`, content: pdf },
+        { filename: `nfse-${invoice.accessKey}.xml`, content: xml },
       ],
       idempotencyKey,
     });
@@ -691,7 +691,8 @@ export class InvoicesService {
         where: { id: invoice.id },
         data: {
           status: 'REFUND_PENDING',
-          lastError: 'Estorno fora do prazo de cancelamento: emitir o documento definido pelo contador.',
+          lastError:
+            'Estorno fora do prazo de cancelamento da NFS-e: o cancelamento direto nao e mais possivel, tratar com a contadora.',
         },
       });
     }
@@ -730,7 +731,7 @@ export class InvoicesService {
 
   private withinCancelWindow(invoice: InvoiceRow, now: Date = new Date()): boolean {
     const issuedAt = invoice.issuedAt ?? invoice.updatedAt;
-    const windowMs = nfeCancelWindowHours(this.config) * 60 * 60 * 1000;
+    const windowMs = nfseCancelWindowHours(this.config) * 60 * 60 * 1000;
 
     return now.getTime() - issuedAt.getTime() < windowMs;
   }
@@ -751,8 +752,8 @@ export class InvoicesService {
     }
   }
 
-  private environment(): NfeEnvironment {
-    return nfeEnvironment(this.config);
+  private environment(): NfseEnvironment {
+    return nfseEnvironment(this.config);
   }
 
   /** Um item do cron que falha nao derruba os outros. */
