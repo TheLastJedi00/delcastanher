@@ -16,6 +16,11 @@ Começa **depois** da Task 6.5 da Spec 024 (lançamento). No backend a suíte ve
 - [ ] **Task 3.3:** Acessibilidade da loja, do checkout e do `/planos` com teclado e leitor de tela (E7).
 - [ ] **Task 3.4:** Logo do Mercado Pago, selos e itens recomendados da avaliação de qualidade (E8).
 - [ ] **Task 3.5:** Melhorias de velocidade registradas na Spec 024 (E11).
+- [ ] **Task 3.6:** Remover a tela "Artigos" (E12):
+  - a rota, com redirecionamento de `/ava/artigos` para `/ava`;
+  - o componente, o `ui-article-card`, o item da sidebar, o ícone `article`, o card do hub e a `aula3.jpeg`;
+  - o `layout.spec.ts` ajustado para a loja depois de Materiais.
+  - Conferir no navegador: a sidebar e o hub sem Artigos, e `/ava/artigos` caindo no hub.
 
 ## Fase 4: Vídeo da landing
 - [ ] **Task 4.1:** Subir a "Chamada módulo 1" no YouTube e preencher `PRESENTATION` em `landing.ts` (E9; Spec 023, task 7.1).
