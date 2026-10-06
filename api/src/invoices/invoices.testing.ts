@@ -34,6 +34,7 @@ export interface FakeOrder {
   status: string;
   amountCents: number;
   method: string;
+  paidAt: Date | null;
   payerDocument: string | null;
   payerName: string | null;
   payerZip: string | null;
