@@ -16,6 +16,9 @@ import {
 /** Janela aceita entre o timestamp assinado e o relogio desta API. */
 const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
 
+/** Limite da Orders API: acima disso ela responde `maximum_items`. */
+const MAX_ORDER_ITEMS = 10;
+
 /** Pagador, no vocabulario desta plataforma. */
 export interface OrderPayer {
   email: string;
@@ -44,6 +47,11 @@ export interface CreateOrderInput {
   method: PaymentMethodKind;
   payer: OrderPayer;
   items: OrderModuleItem[];
+  /**
+   * Pacote comprado (Spec 019). Vai ao gateway como **um** item: e o que foi
+   * vendido, e a Orders API recusa mais de 10 itens por order.
+   */
+  bundle?: { id: string; title: string };
   card?: { token: string; paymentMethodId: string; installments: number };
   /** `MP_DEVICE_SESSION_ID` capturado pelo SDK no navegador. */
   deviceId?: string | null;
@@ -204,7 +212,7 @@ export class MercadoPagoService {
         last_name: input.payer.lastName,
         identification: { type: 'CPF', number: input.payer.document },
       },
-      items: input.items.map((item) => this.toItem(item)),
+      items: this.toItems(input),
       transactions: {
         payments: [
           {
@@ -225,6 +233,45 @@ export class MercadoPagoService {
         ],
       },
     };
+  }
+
+  /**
+   * Um item por modulo, para o antifraude e a conciliacao, ate o limite de 10
+   * da Orders API (`maximum_items`). O pacote vai sempre como um item so, e a
+   * compra avulsa acima do limite e consolidada: o valor e o do pedido, para a
+   * soma bater com o `total_amount`. O detalhe por modulo continua nos
+   * `order_items` do nosso banco.
+   */
+  private toItems(input: CreateOrderInput): OrderItemPayload[] {
+    const count = input.items.length;
+
+    if (input.bundle) {
+      return [
+        {
+          title: input.bundle.title,
+          description: `Acesso de 6 meses aos ${count} módulos do ${input.bundle.title}`,
+          quantity: 1,
+          unit_price: toAmount(input.amountCents),
+          external_code: input.bundle.id,
+        },
+      ];
+    }
+
+    if (count > MAX_ORDER_ITEMS) {
+      const titles = input.items.map((item) => item.title).join(', ');
+
+      return [
+        {
+          title: `${count} módulos da Imersão RH Estratégico`,
+          description: `Acesso de 6 meses a ${count} módulos da Imersão RH Estratégico: ${titles}`.slice(0, 600),
+          quantity: 1,
+          unit_price: toAmount(input.amountCents),
+          external_code: input.orderId,
+        },
+      ];
+    }
+
+    return input.items.map((item) => this.toItem(item));
   }
 
   private toItem(item: OrderModuleItem): OrderItemPayload {

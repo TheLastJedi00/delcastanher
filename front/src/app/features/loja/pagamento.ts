@@ -643,31 +643,30 @@ export class Pagamento implements OnInit {
     try {
       const sdk = await this.mp.load();
 
-      sdk.fields
-        .create('cardNumber', {
-          placeholder: '0000 0000 0000 0000',
-          // O BIN e o que permite descobrir bandeira e parcelas antes do
-          // cartao inteiro ser digitado.
-          onBinChange: async (data: { bin?: string }) => {
-            if (!data?.bin || data.bin.length < 6) {
-              this.installmentsState.set([]);
-              this.lastBin = '';
+      const cardNumber = sdk.fields.create('cardNumber', { placeholder: '0000 0000 0000 0000' });
 
-              return;
-            }
+      // O BIN e o que permite descobrir bandeira e parcelas antes do cartao
+      // inteiro ser digitado. Os Secure Fields so o entregam pelo evento
+      // `binChange`: uma opcao `onBinChange` no `create()` e ignorada pelo SDK.
+      cardNumber.on('binChange', async (data: { bin?: string }) => {
+        if (!data?.bin || data.bin.length < 6) {
+          this.installmentsState.set([]);
+          this.lastBin = '';
 
-            this.lastBin = data.bin;
+          return;
+        }
 
-            const [methods, options] = await Promise.all([
-              sdk.getPaymentMethods({ bin: data.bin }),
-              this.mp.installments(this.store.totalCents(), data.bin, this.maxInstallments()),
-            ]);
+        this.lastBin = data.bin;
 
-            this.paymentMethodId = methods.results?.[0]?.id ?? '';
-            this.installmentsState.set(options);
-          },
-        })
-        .mount('cardNumber');
+        const [methods, options] = await Promise.all([
+          sdk.getPaymentMethods({ bin: data.bin }),
+          this.mp.installments(this.store.totalCents(), data.bin, this.maxInstallments()),
+        ]);
+
+        this.paymentMethodId = methods.results?.[0]?.id ?? '';
+        this.installmentsState.set(options);
+      });
+      cardNumber.mount('cardNumber');
 
       sdk.fields.create('expirationDate', { placeholder: 'MM/AA' }).mount('expirationDate');
       sdk.fields.create('securityCode', { placeholder: 'CVV' }).mount('securityCode');

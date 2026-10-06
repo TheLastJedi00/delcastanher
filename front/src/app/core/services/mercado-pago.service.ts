@@ -22,7 +22,14 @@ export interface CardToken {
 /** Superficie do SDK que este servico usa. */
 interface MercadoPagoSdk {
   fields: {
-    create(type: string, options: Record<string, unknown>): { mount(id: string): void };
+    create(
+      type: string,
+      options: Record<string, unknown>,
+    ): {
+      mount(id: string): void;
+      /** Eventos do campo; o `cardNumber` emite `binChange` com `{ bin }`. */
+      on(event: string, handler: (data: { bin?: string }) => void): void;
+    };
     createCardToken(data: Record<string, unknown>): Promise<{ id: string }>;
   };
   getPaymentMethods(options: { bin: string }): Promise<{ results: { id: string }[] }>;
