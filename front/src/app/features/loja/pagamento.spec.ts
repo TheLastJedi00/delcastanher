@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { StoreService } from '../../core/services/store.service';
+import { MercadoPagoLoader } from '../../core/services/mercado-pago.service';
 import { Pagamento } from './pagamento';
 
 const CONFIG = { publicKey: 'APP_USR-public', sandbox: false, maxInstallments: 12 };
@@ -176,5 +177,64 @@ describe('Pagamento — endereço para a nota fiscal', () => {
         state: 'SP',
       },
     });
+  });
+});
+
+/**
+ * Os Secure Fields so avisam a bandeira pelo evento `binChange`, assinado com
+ * `.on()`: uma opcao `onBinChange` no `create()` e ignorada pelo SDK, e o
+ * pagamento com cartao saia sem `payment_method_id`.
+ */
+describe('Pagamento — bandeira do cartão', () => {
+  it('assina o binChange do número do cartão e guarda a bandeira e as parcelas', async () => {
+    const handlers: Record<string, (data: { bin?: string }) => Promise<void> | void> = {};
+    const field = (name: string) => ({
+      on: (event: string, handler: (data: { bin?: string }) => void) => {
+        handlers[`${name}:${event}`] = handler;
+      },
+      mount: () => undefined,
+    });
+    const sdk = {
+      fields: { create: (name: string) => field(name), createCardToken: async () => ({ id: 'tok' }) },
+      getPaymentMethods: async () => ({ results: [{ id: 'master' }] }),
+      getInstallments: async () => [],
+    };
+    const installments = [
+      { installments: 1, recommendedMessage: '1x de R$ 197,00', installmentAmount: 197, totalAmount: 197 },
+    ];
+
+    TestBed.configureTestingModule({
+      imports: [Pagamento],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: MercadoPagoLoader,
+          useValue: { load: async () => sdk, installments: async () => installments, ready: () => true },
+        },
+      ],
+    });
+
+    TestBed.inject(StoreService).toggle('mod-1');
+    const fixture = TestBed.createComponent(Pagamento);
+    const backend = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    backend.match(req => req.url.endsWith('/users/me')).forEach(req => req.flush(null));
+    backend
+      .match(req => req.url.endsWith('/store/payment-config'))
+      .forEach(req => req.flush({ ...CONFIG, enabled: true, reason: null }));
+
+    fixture.componentInstance.setMethod('CREDIT_CARD');
+    await fixture.whenStable();
+
+    expect(handlers['cardNumber:binChange']).toBeDefined();
+
+    await handlers['cardNumber:binChange']({ bin: '54808328' });
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as { paymentMethodId: string };
+    expect(component.paymentMethodId).toBe('master');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#installments')).not.toBeNull();
   });
 });
