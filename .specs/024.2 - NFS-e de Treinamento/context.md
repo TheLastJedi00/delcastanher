@@ -98,6 +98,7 @@ A documentação usa os dois nomes para número e data (`numeroNfe`/`nNFSe` e `e
 **N6. Documentos sem vazar a chave para o CDN.** PDF e XML podem responder `302` para o CDN público da Notaas. O cliente segue o redirecionamento **sem** o `x-api-key`: a chave só vai à API.
 
 **N7. Cancelamento.**
+- **Decisão do usuário (2026-10-06): a compra do curso não tem estorno, e isso vai nos Termos de Uso** (Spec 024, Task 1.7). O cancelamento da nota fica para as exceções: devolução por contestação no cartão, cobrança em duplicidade, decisão judicial ou arrependimento (CDC, art. 49), se o jurídico entender que se aplica. O fluxo do estorno da Spec 023 continua no código para esses casos.
 - O prazo continua configurável (`NFSE_CANCEL_WINDOW_HOURS`, padrão 24 horas). Fora dele, o estorno vira `REFUND_PENDING` (Spec 023, A7).
 - **A contadora confirma** o prazo e o que se faz fora dele (Task 1.1). No Sistema Nacional, o cancelamento depois do prazo do município vira pedido de análise fiscal, que a Notaas não expõe na API.
 - Uma recusa da Notaas que fale em prazo também vira `REFUND_PENDING`, e as outras viram `CANCEL_ERROR`, como hoje.

@@ -16,7 +16,7 @@ Uma **NFS-e por venda** da plataforma on-line "Imersão RH Estratégico", seguin
   - o valor total do pedido;
   - o CPF e o nome do comprador, e o endereço quando ele informa.
 - **Quando sai:** na aprovação do pagamento, automaticamente.
-- **Estorno:** a nota é cancelada, dentro do prazo de cancelamento.
+- **Sem estorno:** a compra do curso não tem reembolso, e isso estará nos Termos de Uso. A plataforma só cancela a nota nas exceções: quando o pagamento é devolvido mesmo assim (contestação no cartão, cobrança em duplicidade ou decisão judicial), e dentro do prazo de cancelamento.
 
 ## O que precisamos de vocês
 Cada resposta vai para um campo da Notaas ou da plataforma. A coluna "Sugestão" é só ponto de partida, para confirmar ou corrigir.
@@ -32,7 +32,7 @@ Cada resposta vai para um campo da Notaas ou da plataforma. A coluna "Sugestão"
 | 7 | **IBS/CBS** (reforma tributária): CST, classificação tributária (cClassTrib), indicador de operação (cIndOp) e **NBS** do serviço | — | Reforma tributária |
 | 8 | **Descrição do serviço** na nota | "Treinamento educacional on-line Imersão RH Estratégico: [módulos comprados]." | Descrição |
 | 9 | **Informações complementares** a imprimir na nota, se houver | — | Informações complementares |
-| 10 | **Prazo de cancelamento** da NFS-e no Sistema Nacional, e o que fazer num estorno depois dele | Cancelamento automático em até 24 horas da emissão; depois disso, tratamento manual | Prazo de cancelamento |
+| 10 | **Exceções ao "sem estorno":** qual o prazo de cancelamento da NFS-e no Sistema Nacional, e o que fazer quando o pagamento é devolvido depois dele? | Cancelamento automático em até 24 horas da emissão; depois disso, tratamento manual por vocês | Prazo de cancelamento |
 | 11 | **Competência:** usar o mês do pagamento? | Sim, no horário de Brasília | Competência |
 | 12 | A **classificação da atividade** no Mercado Pago e o texto dos **Termos de Uso** precisam passar a dizer "treinamento"? | — | Mercado Pago e Termos |
 
@@ -43,5 +43,5 @@ Cada resposta vai para um campo da Notaas ou da plataforma. A coluna "Sugestão"
 
 ## Depois das respostas
 1. Os dados entram no cadastro da Notaas e na configuração da plataforma.
-2. Fazemos uma venda real de valor baixo, com a nota emitida e depois cancelada no estorno, para conferir o documento.
+2. Fazemos uma venda real de valor baixo, com a nota emitida e depois cancelada pelo painel, para conferir o documento.
 3. Enviamos a vocês o PDF e o XML dessa nota de teste para conferência.

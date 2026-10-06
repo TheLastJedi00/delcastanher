@@ -18,7 +18,7 @@ Ordem: as tasks que dependem de terceiros (Fase 1) começam já, em paralelo ao 
   - rubrica digitalizada (PNG com fundo transparente);
   - carga horária de cada módulo, preenchida no painel (D8; Spec 023, task 8.7).
 - [ ] **Task 1.6 · Cliente:** conteúdo comercial para cada placeholder, ou a decisão de retirar: cursos futuros, depoimentos, garantias e logo da Cronus (D9).
-- [ ] **Task 1.7 · Usuário e jurídico:** texto dos Termos de Uso, publicado pela cliente no painel (D2).
+- [ ] **Task 1.7 · Usuário e jurídico:** texto dos Termos de Uso, publicado pela cliente no painel (D2). **Inclui a política sem estorno da compra** (decisão do usuário, 2026-10-06; Spec 024.2, N7). O jurídico confere como ela convive com o direito de arrependimento de 7 dias do CDC (art. 49) na compra on-line.
 - [ ] **Task 1.8 · Usuário:** cadeia da nota fiscal (D1). **Substituída pela Fase 1 da Spec 024.2** (NFS-e), que cobre contadora, Notaas e webhook. Da Spec 023 sobram:
   - Resend e DNS (1.2, 1.7 e 6.1);
   - backfill do CPF (6.4, que é a Task 6.2 desta spec).

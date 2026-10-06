@@ -47,7 +47,7 @@ O código (Fase 2) não depende da contadora: sem `NFSE_CODIGO_SERVICO` e `NFSE_
 - [ ] **Task 3.1 · Claude:** (`NFSE_ENV` criada em 2026-10-06; falta remover `NFE_ENV` depois do deploy, e as variáveis fiscais) na Vercel (`delcastanher-api`), criar `NFSE_ENV` (`producao` em Production, `homologacao` em Preview) e remover `NFE_ENV`. Junto, as variáveis fiscais da Task 1.1 em Production.
 - [ ] **Task 3.2 · Claude:** PR da `release/024.2-nfse` para a `main`, e deploy.
 - [ ] **Task 3.3 · Usuário:** corrigir a URL do webhook `65f90fb1-594e-46a0-8212-6e9c727a2377` para `https://api.delcastanher.srv.br/webhooks/notaas` (`PATCH /webhooks/endpoints/{id}` com `{ "url": … }`). Os eventos já estão certos. Webhook da Notaas com `nfse.issued`, `nfse.error`, `nfse.cancelled` e `nfse.documents_ready`, apontando para `https://api.delcastanher.srv.br/webhooks/notaas` (Task 1.4).
-- [ ] **Task 3.4 · Usuário e Claude:** primeira venda real, de valor baixo, com estorno. Substitui a Task 6.4 da Spec 024 no que é nota:
+- [ ] **Task 3.4 · Usuário e Claude:** primeira venda real, de valor baixo, com estorno manual (é teste: a política sem estorno, N7, vale para os alunos). Substitui a Task 6.4 da Spec 024 no que é nota:
   - NFS-e autorizada, com número e código de verificação no painel;
   - e-mail com PDF e XML;
   - estorno, cancelamento e XML do cancelamento guardado.
