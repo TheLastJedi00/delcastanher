@@ -59,7 +59,7 @@ type Dialog = 'reissue-unknown' | 'link' | 'cancel' | null;
         }
         @if (nota.status === 'REFUND_PENDING') {
           <p class="max-w-[16rem] rounded-lg bg-state-danger/5 px-2 py-1 text-xs text-state-danger" data-testid="destaque">
-            Estorno fora do prazo de cancelamento: emitir o documento definido pelo contador.
+            Estorno fora do prazo de cancelamento: a nota não pode mais ser cancelada direto no sistema. Tratar com a contadora.
           </p>
         }
         @if (nota.lastError && showsError()) {

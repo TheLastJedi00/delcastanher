@@ -31,16 +31,16 @@ Cada resposta vai para um campo da Notaas ou da plataforma.
 | 8 | Descrição do serviço | **"Treinamento educacional on-line Imersão RH Estratégico: [módulos comprados]."** | `NFSE_DESCRICAO` |
 | 10 | Estorno | **Segue a lei: estorno em até 7 dias da compra** (arrependimento, CDC art. 49) | Termos de Uso e prazo de cancelamento da nota |
 | 11 | Competência | **Mês do pagamento, no horário de Brasília** | Competência |
+| 2 | Código de tributação nacional (cTribNac) | **080201** (item 8.02 da LC 116) | `NFSE_CODIGO_SERVICO` e o padrão do projeto na Notaas |
+| 10b | Prazo de cancelamento | **Em Blumenau, a NFS-e não pode ser cancelada direto no sistema depois de 8 dias da emissão.** A plataforma cancela sozinha até 8 dias (192 horas); depois disso, a nota fica marcada para tratar com a contadora | `NFSE_CANCEL_WINDOW_HOURS=192` |
+| 12 | Classificação no Mercado Pago | **Não muda:** quem define a natureza legal da venda é a nota | — |
 
 ### Ainda em aberto
 | # | Pergunta | Sugestão | Onde entra |
 |---|---|---|---|
-| 2 | **Código de tributação nacional (cTribNac)** do serviço | **080201**: item 8.02 da LC 116 (instrução, treinamento, orientação pedagógica e educacional, avaliação de conhecimentos de qualquer natureza) | `NFSE_CODIGO_SERVICO`. **Sem ele, nenhuma nota é emitida** |
 | 5 | **Inscrição municipal** da empresa em Blumenau, e se é exigida no Sistema Nacional | — | Cadastro do emitente |
 | 7 | **IBS/CBS** (reforma tributária): se o Simples precisa informar em 2026 e, se sim, CST, classificação tributária (cClassTrib), indicador de operação (cIndOp) e **NBS** | — | Reforma tributária |
 | 9 | **Informações complementares** a imprimir na nota, se houver | — | Informações complementares |
-| 10b | **Prazo de cancelamento** da NFS-e no Sistema Nacional. Com estorno em até 7 dias, a nota pode precisar ser cancelada até uns 8 dias depois de emitida. Isso cabe no prazo? Se não couber, o que se faz? | A plataforma tenta cancelar até 8 dias depois da emissão. Depois disso, ou se o sistema recusar, a nota fica marcada para tratamento manual | Prazo de cancelamento |
-| 12 | A **classificação da atividade** no Mercado Pago precisa passar a dizer "treinamento"? | — | Mercado Pago |
 
 ## O que já está pronto
 - Conta na Notaas, com o município habilitado no Sistema Nacional.

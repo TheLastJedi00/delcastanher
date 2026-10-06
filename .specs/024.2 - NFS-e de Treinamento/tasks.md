@@ -9,7 +9,7 @@ No backend, a suíte vem **antes** da implementação (`.claude/RULES.md`). As d
 O código (Fase 2) não depende da contadora: sem `NFSE_CODIGO_SERVICO` e `NFSE_ALIQUOTA_ISS`, nenhuma nota sai (N2). O deploy e a primeira nota (Fase 3) esperam a Fase 1.
 
 ## Fase 1: Contadora e Notaas
-- [ ] **Task 1.1 · Usuário:** (parcial, 2026-10-06: Simples Nacional ME, ISS 2%, ISSQN tributável, descrição, competência, estorno em 7 dias; faltam cTribNac, inscrição municipal, IBS/CBS, informações complementares, prazo de cancelamento e Mercado Pago) respostas da contadora às perguntas do `context.md`: regime, cTribNac, alíquota de ISS, inscrição municipal, PIS/COFINS, IBS/CBS, descrição e cancelamento.
+- [ ] **Task 1.1 · Usuário:** (parcial, 2026-10-06: Simples Nacional ME, cTribNac 080201, ISS 2%, ISSQN tributável, descrição, competência, estorno em 7 dias, cancelamento direto até 8 dias, Mercado Pago sem mudança; faltam inscrição municipal, IBS/CBS e informações complementares) respostas da contadora às perguntas do `context.md`: regime, cTribNac, alíquota de ISS, inscrição municipal, PIS/COFINS, IBS/CBS, descrição e cancelamento.
 - [ ] **Task 1.2 · Usuário:** (**regime: trocar "Não Optante" por Simples Nacional**) preencher no painel da Notaas (Configurações → Editar) o que a contadora definir:
   - regime tributário;
   - inscrição municipal;
@@ -44,7 +44,7 @@ O código (Fase 2) não depende da contadora: sem `NFSE_CODIGO_SERVICO` e `NFSE_
 - [x] **Task 2.6:** Painel financeiro (N10): textos da NFS-e, com as specs do componente.
 
 ## Fase 3: Deploy e primeira nota (com autorização do usuário)
-- [ ] **Task 3.1 · Claude:** (`NFSE_ENV` criada em 2026-10-06, e em Production `NFSE_ALIQUOTA_ISS=2`, `NFSE_TRIB_ISSQN=1`, `NFSE_DESCRICAO`, `NFSE_CANCEL_WINDOW_HOURS=192` e `NFSE_CERT_EXPIRES_AT=2027-09-30`; falta `NFSE_CODIGO_SERVICO`, que liga a emissão, e remover `NFE_ENV` depois do deploy) na Vercel (`delcastanher-api`), criar `NFSE_ENV` (`producao` em Production, `homologacao` em Preview) e remover `NFE_ENV`. Junto, as variáveis fiscais da Task 1.1 em Production.
+- [ ] **Task 3.1 · Claude:** (`NFSE_ENV` criada em 2026-10-06, e em Production `NFSE_ALIQUOTA_ISS=2`, `NFSE_TRIB_ISSQN=1`, `NFSE_DESCRICAO`, `NFSE_CANCEL_WINDOW_HOURS=192` e `NFSE_CERT_EXPIRES_AT=2027-09-30`; falta `NFSE_CODIGO_SERVICO=080201`, que liga a emissão e **só sobe depois de o regime da Notaas virar Simples Nacional** (Task 1.2; em 2026-10-06 ainda estava "Não Optante"), e remover `NFE_ENV` depois do deploy) na Vercel (`delcastanher-api`), criar `NFSE_ENV` (`producao` em Production, `homologacao` em Preview) e remover `NFE_ENV`. Junto, as variáveis fiscais da Task 1.1 em Production.
 - [ ] **Task 3.2 · Claude:** PR da `release/024.2-nfse` para a `main`, e deploy.
 - [ ] **Task 3.3 · Usuário:** corrigir a URL do webhook `65f90fb1-594e-46a0-8212-6e9c727a2377` para `https://api.delcastanher.srv.br/webhooks/notaas` (`PATCH /webhooks/endpoints/{id}` com `{ "url": … }`). Os eventos já estão certos. Webhook da Notaas com `nfse.issued`, `nfse.error`, `nfse.cancelled` e `nfse.documents_ready`, apontando para `https://api.delcastanher.srv.br/webhooks/notaas` (Task 1.4).
 - [ ] **Task 3.4 · Usuário e Claude:** primeira venda real, de valor baixo, com estorno pelo painel do Mercado Pago, dentro dos 7 dias (N7). Substitui a Task 6.4 da Spec 024 no que é nota:

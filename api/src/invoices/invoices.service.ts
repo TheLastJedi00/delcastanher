@@ -691,7 +691,8 @@ export class InvoicesService {
         where: { id: invoice.id },
         data: {
           status: 'REFUND_PENDING',
-          lastError: 'Estorno fora do prazo de cancelamento: emitir o documento definido pelo contador.',
+          lastError:
+            'Estorno fora do prazo de cancelamento da NFS-e: o cancelamento direto nao e mais possivel, tratar com a contadora.',
         },
       });
     }

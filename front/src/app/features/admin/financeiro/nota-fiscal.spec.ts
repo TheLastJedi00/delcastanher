@@ -154,6 +154,7 @@ describe('NotaFiscal', () => {
     render(nota({ status: 'REFUND_PENDING' }), 'REFUNDED');
 
     expect(el().querySelector('[data-testid="destaque"]')?.textContent).toContain('fora do prazo');
+    expect(el().querySelector('[data-testid="destaque"]')?.textContent).toContain('contadora');
     expect(labels()).toEqual([]);
   });
 
