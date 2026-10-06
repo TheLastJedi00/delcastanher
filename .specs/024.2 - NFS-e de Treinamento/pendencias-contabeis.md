@@ -51,3 +51,48 @@ Cada resposta vai para um campo da Notaas ou da plataforma.
 1. Os dados entram no cadastro da Notaas e na configuração da plataforma.
 2. Fazemos uma venda real de valor baixo, com a nota emitida e depois cancelada pelo painel, para conferir o documento.
 3. Enviamos a vocês o PDF e o XML dessa nota de teste para conferência.
+
+---
+
+# Para retomar (interno, não vai para a contadora)
+**Atualizado em 06/10/2026.** Este arquivo é o ponto de partida para continuar a Spec 024.2. O detalhe está no `context.md` (decisões N1 a N10) e no `tasks.md` desta pasta.
+
+## Onde estamos
+- **Código pronto** na `release/024.2-nfse`, no **PR #47** (https://github.com/TheLastJedi00/delcastanher/pull/47), **ainda sem merge**.
+  - API e front testados.
+  - A única falha é o `common/cache.http.spec.ts`, em código que o PR não toca.
+- **Na Vercel** (`delcastanher-api`):
+  - `NFSE_ENV` (Production `producao`, Preview `homologacao`).
+  - Só em Production: `NFSE_ALIQUOTA_ISS=2`, `NFSE_TRIB_ISSQN=1`, `NFSE_DESCRICAO`, `NFSE_CANCEL_WINDOW_HOURS=192` e `NFSE_CERT_EXPIRES_AT=2027-09-30`.
+  - Também: `NOTAAS_API_KEY`, `NOTAAS_WEBHOOK_SECRET` e a `NFE_ENV` antiga.
+- **Emissão desligada de propósito:** falta `NFSE_CODIGO_SERVICO`. Sem ela, uma venda gera nota em `ERROR` no painel, a Notaas não é chamada, e o pagamento segue normal.
+- **Na Notaas:**
+  - certificado A1 ativo até 30/09/2027;
+  - projeto único, em **Produção**, no plano Free;
+  - **regime ainda "Não Optante"**.
+
+## Próximos passos, em ordem
+- [ ] **1. Usuário:** na Notaas (Configurações → Editar), trocar o **Regime Tributário para Simples Nacional** e pôr o **Código de Tributação Padrão = 080201**. Conferido em 06/10: ainda "Não Optante".
+- [ ] **2. Usuário:** corrigir a **URL do webhook** `65f90fb1-594e-46a0-8212-6e9c727a2377`. Hoje ela é `https://delcastanher.srv.br/webhooks/notaas`, sem o `api.`, e nenhum aviso chega à API. Os eventos `nfse.*` já estão certos.
+  ```
+  curl -X PATCH https://platform.notaas.com.br/api/v1/webhooks/endpoints/65f90fb1-594e-46a0-8212-6e9c727a2377 -H "x-api-key: <chave>" -H "Content-Type: application/json" -d "{\"url\":\"https://api.delcastanher.srv.br/webhooks/notaas\"}"
+  ```
+- [ ] **3. Usuário:** conferir que o valor de `NOTAAS_API_KEY` na Vercel é **só a chave**. No `api/.env` local há um comentário na mesma linha (`ntaas_… # …`). O `dotenv` ignora, mas na Vercel o comentário iria junto, e a Notaas responderia 401.
+- [ ] **4. Claude:** conferir o regime no painel da Notaas e subir **`NFSE_CODIGO_SERVICO=080201`** em Production. É ela que liga a emissão, e **só sobe depois do passo 1**.
+- [ ] **5. Usuário:** **merge do PR #47** na `main`, que publica front e API.
+- [ ] **6. Claude:** remover a **`NFE_ENV`** da Vercel (Production e Preview) e conferir o deploy da API.
+- [ ] **7. Usuário e Claude:** **venda real de valor baixo** (Task 3.4):
+  - nota autorizada no financeiro, com "NFS-e nº" e código de verificação;
+  - e-mail com o PDF e o XML;
+  - estorno pelo Mercado Pago dentro dos 7 dias, com a nota cancelada e o XML do cancelamento guardado;
+  - PDF e XML enviados à contadora.
+- [ ] **8. Usuário:** trocar a senha do certificado A1 e reenviá-lo à Notaas com um nome de arquivo **sem a senha** (hoje ela aparece no nome, na tela de Certificados).
+- [ ] **9. Usuário e jurídico:** Termos de Uso com o estorno em até 7 dias, pelo CDC, art. 49 (Spec 024, Task 1.7).
+- [ ] **10. Cliente:** publicar os acréscimos da Política de Privacidade (Spec 024, `politica-privacidade-acrescimos.md`, já falando em NFS-e).
+
+## Com a contadora (não seguram a emissão)
+- [ ] **Inscrição municipal** em Blumenau: vai no cadastro da Notaas.
+- [ ] **IBS/CBS:** se o Simples precisa informar em 2026. Se sim, CST, cClassTrib, cIndOp e NBS, nas variáveis `NFSE_IBSCBS_*` e `NFSE_NBS`, ou nos padrões do projeto na Notaas.
+
+## Não confirmado
+- Se a `referencia` (o id do pedido) faz a Notaas recusar uma segunda nota do mesmo pedido. Por isso o estado `UNKNOWN` continua (N3). Dá para perguntar ao suporte da Notaas.
