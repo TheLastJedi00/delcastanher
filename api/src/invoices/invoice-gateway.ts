@@ -1,4 +1,5 @@
-import type { NfeBody } from './notaas/nfe-builder';
+import type { NfseEnvironment } from '../config/invoice.config';
+import type { NfseBody } from './notaas/nfse-builder';
 
 /**
  * Emissor de nota fiscal, no vocabulario desta plataforma (Spec 023, decisao
@@ -21,39 +22,35 @@ export type EmitResult =
   | { kind: 'rejected'; message: string }
   | { kind: 'unknown'; message: string };
 
-/** Status da Notaas. */
-export type ProviderInvoiceStatus =
-  | 'queued'
-  | 'processing'
-  | 'issued'
-  | 'error'
-  | 'cancelled'
-  | 'inutilized';
+/** Status da NFS-e na Notaas. */
+export type ProviderInvoiceStatus = 'queued' | 'processing' | 'issued' | 'error' | 'cancelled';
 
 /** Retrato da nota na Notaas, ja nos nomes desta plataforma. */
 export interface ProviderInvoice {
   providerInvoiceId: string;
   status: ProviderInvoiceStatus;
-  /** 1 = producao, 2 = homologacao. */
-  tpAmb: number | null;
+  /** `ambiente` da consulta, quando a nota sai (Spec 024.2, decisao N4). */
+  environment: NfseEnvironment | null;
   number: string | null;
+  /** A NFS-e nao tem serie nem protocolo: ficam nulos (decisao N5). */
   series: string | null;
+  /** `chNFSe`, o codigo de verificacao. */
   accessKey: string | null;
   protocol: string | null;
   issuedAt: Date | null;
   cancelledAt: Date | null;
-  /** `codigoStatus`, `motivo` e `errorMessage`, crus, no `error`. */
+  /** `errorCode`, `errorMessage` e `errors[]`, crus, no `error`. */
   errorDetail: string | null;
 }
 
-/** Desfecho do cancelamento (decisao A7). */
+/** Desfecho do cancelamento (decisoes A7 e N7). */
 export type CancelResult =
   | { kind: 'accepted' }
   | { kind: 'expired'; message: string }
   | { kind: 'refused'; message: string };
 
 export interface InvoiceGateway {
-  emit(body: NfeBody): Promise<EmitResult>;
+  emit(body: NfseBody): Promise<EmitResult>;
   status(providerInvoiceId: string): Promise<ProviderInvoice>;
   cancel(providerInvoiceId: string, reason: string): Promise<CancelResult>;
   downloadPdf(providerInvoiceId: string): Promise<Buffer>;
