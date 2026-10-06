@@ -63,7 +63,7 @@ Fonte das respostas 5 e 7: NFS-e emitida pela empresa em 09/2026 (`libs/WhatsApp
   - `NFSE_ENV` (Production `producao`, Preview `homologacao`).
   - Só em Production: `NFSE_ALIQUOTA_ISS=2`, `NFSE_TRIB_ISSQN=1`, `NFSE_DESCRICAO`, `NFSE_CANCEL_WINDOW_HOURS=192` e `NFSE_CERT_EXPIRES_AT=2027-09-30`.
   - Também: `NOTAAS_API_KEY`, `NOTAAS_WEBHOOK_SECRET` e a `NFE_ENV` antiga.
-- **Emissão ainda desligada no ar:** a `NFSE_CODIGO_SERVICO=080201` subiu para Production depois do deploy do merge. Ela só vale a partir do próximo deploy da `delcastanher-api` (passo 6).
+- **Emissão ligada em produção** desde o redeploy de 06/10, com a `NFSE_CODIGO_SERVICO=080201`. A próxima venda paga emite NFS-e de verdade.
 - **Na Notaas:**
   - certificado A1 ativo até 30/09/2027;
   - projeto único, em **Produção**, no plano Free;
@@ -81,7 +81,8 @@ Fonte das respostas 5 e 7: NFS-e emitida pela empresa em 09/2026 (`libs/WhatsApp
 - [x] **3. Usuário:** conferir que a `NOTAAS_API_KEY` na Vercel é só a chave. **Confirmado em 06/10:** o comentário do `api/.env` foi escrito depois que a chave subiu para a Vercel.
 - [x] **4. Claude:** subir **`NFSE_CODIGO_SERVICO=080201`** em Production, que liga a emissão. **Feito em 06/10**, depois do passo 1.
 - [x] **5. Usuário:** merge do PR #47 na `main`. **Feito em 06/10.**
-- [ ] **6. Usuário:** remover a **`NFE_ENV`** da Vercel (Production e Preview). O modo automático não deixou o Claude apagar variáveis na Vercel. Depois, **redeploy de produção da `delcastanher-api`**, para a `NFSE_CODIGO_SERVICO` valer. Claude confere o deploy.
+- [x] **6. Redeploy de produção da `delcastanher-api`:** **feito em 06/10.** O deploy ficou Ready, com alias em `api.delcastanher.srv.br`, que responde 200, e a `NFSE_CODIGO_SERVICO` passou a valer.
+  - [ ] A `NFE_ENV` ainda aparecia na `delcastanher-api` (Production e Preview) depois da remoção. O código a ignora, então não segura nada; é só limpeza. O modo automático não deixa o Claude apagar variáveis na Vercel.
 - [ ] **7. Usuário e Claude:** **venda real de valor baixo** (Task 3.4):
   - nota autorizada no financeiro, com "NFS-e nº" e código de verificação;
   - e-mail com o PDF e o XML;
