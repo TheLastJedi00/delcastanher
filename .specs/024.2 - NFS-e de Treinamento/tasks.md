@@ -9,7 +9,7 @@ No backend, a suíte vem **antes** da implementação (`.claude/RULES.md`). As d
 O código (Fase 2) não depende da contadora: sem `NFSE_CODIGO_SERVICO` e `NFSE_ALIQUOTA_ISS`, nenhuma nota sai (N2). O deploy e a primeira nota (Fase 3) esperam a Fase 1.
 
 ## Fase 1: Contadora e Notaas
-- [ ] **Task 1.1 · Usuário:** (parcial, 2026-10-06: Simples Nacional ME, cTribNac 080201, ISS 2%, ISSQN tributável, descrição, competência, estorno em 7 dias, cancelamento direto até 8 dias, Mercado Pago sem mudança; faltam inscrição municipal, IBS/CBS e informações complementares) respostas da contadora às perguntas do `context.md`: regime, cTribNac, alíquota de ISS, inscrição municipal, PIS/COFINS, IBS/CBS, descrição e cancelamento.
+- [ ] **Task 1.1 · Usuário:** (parcial, 2026-10-06: Simples Nacional ME, cTribNac 080201, ISS 2%, ISSQN tributável, descrição, competência, estorno em 7 dias, cancelamento direto até 8 dias, Mercado Pago sem mudança, sem informações complementares; faltam inscrição municipal e IBS/CBS, que o usuário consulta com a contadora) respostas da contadora às perguntas do `context.md`: regime, cTribNac, alíquota de ISS, inscrição municipal, PIS/COFINS, IBS/CBS, descrição e cancelamento.
 - [ ] **Task 1.2 · Usuário:** (**regime: trocar "Não Optante" por Simples Nacional**) preencher no painel da Notaas (Configurações → Editar) o que a contadora definir:
   - regime tributário;
   - inscrição municipal;
