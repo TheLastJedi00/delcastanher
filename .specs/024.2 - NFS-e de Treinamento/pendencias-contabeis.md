@@ -35,12 +35,10 @@ Cada resposta vai para um campo da Notaas ou da plataforma.
 | 10b | Prazo de cancelamento | **Em Blumenau, a NFS-e não pode ser cancelada direto no sistema depois de 8 dias da emissão.** A plataforma cancela sozinha até 8 dias (192 horas); depois disso, a nota fica marcada para tratar com a contadora | `NFSE_CANCEL_WINDOW_HOURS=192` |
 | 12 | Classificação no Mercado Pago | **Não muda:** quem define a natureza legal da venda é a nota | — |
 | 9 | Informações complementares | **Nenhuma** | `NFSE_INFORMACOES_COMPLEMENTARES` fica vazia |
+| 5 | Inscrição municipal | **176842** (Blumenau) | Cadastro do emitente na Notaas |
+| 7 | IBS/CBS e NBS | **Não informar:** numa NFS-e real da empresa (09/2026, Sistema Nacional), o grupo IBS/CBS e o NBS saem vazios | `NFSE_IBSCBS_*` e `NFSE_NBS` ficam sem valor |
 
-### Ainda em aberto
-| # | Pergunta | Sugestão | Onde entra |
-|---|---|---|---|
-| 5 | **Inscrição municipal** da empresa em Blumenau, e se é exigida no Sistema Nacional | — | Cadastro do emitente |
-| 7 | **IBS/CBS** (reforma tributária): se o Simples precisa informar em 2026 e, se sim, CST, classificação tributária (cClassTrib), indicador de operação (cIndOp) e **NBS** | — | Reforma tributária |
+Fonte das respostas 5 e 7: NFS-e emitida pela empresa em 09/2026 (`libs/WhatsApp Image 2026-10-06 at 09.43.23.jpeg`). Ela também confirma: **Optante do Simples, ME/EPP**, com **regime de apuração dos tributos federais e municipal pelo Simples Nacional**.
 
 ## O que já está pronto
 - Conta na Notaas, com o município habilitado no Sistema Nacional.
@@ -58,29 +56,33 @@ Cada resposta vai para um campo da Notaas ou da plataforma.
 **Atualizado em 06/10/2026.** Este arquivo é o ponto de partida para continuar a Spec 024.2. O detalhe está no `context.md` (decisões N1 a N10) e no `tasks.md` desta pasta.
 
 ## Onde estamos
-- **Código pronto** na `release/024.2-nfse`, no **PR #47** (https://github.com/TheLastJedi00/delcastanher/pull/47), **ainda sem merge**.
+- **Código na `main`:** o **PR #47** (https://github.com/TheLastJedi00/delcastanher/pull/47) teve merge em 06/10, às 15:08 UTC (`1e8b5ed`), e a API foi para produção nesse deploy.
   - API e front testados.
   - A única falha é o `common/cache.http.spec.ts`, em código que o PR não toca.
 - **Na Vercel** (`delcastanher-api`):
   - `NFSE_ENV` (Production `producao`, Preview `homologacao`).
   - Só em Production: `NFSE_ALIQUOTA_ISS=2`, `NFSE_TRIB_ISSQN=1`, `NFSE_DESCRICAO`, `NFSE_CANCEL_WINDOW_HOURS=192` e `NFSE_CERT_EXPIRES_AT=2027-09-30`.
   - Também: `NOTAAS_API_KEY`, `NOTAAS_WEBHOOK_SECRET` e a `NFE_ENV` antiga.
-- **Emissão desligada de propósito:** falta `NFSE_CODIGO_SERVICO`. Sem ela, uma venda gera nota em `ERROR` no painel, a Notaas não é chamada, e o pagamento segue normal.
+- **Emissão ligada em produção** desde o redeploy de 06/10, com a `NFSE_CODIGO_SERVICO=080201`. A próxima venda paga emite NFS-e de verdade.
 - **Na Notaas:**
   - certificado A1 ativo até 30/09/2027;
   - projeto único, em **Produção**, no plano Free;
-  - **regime ainda "Não Optante"**.
+  - regime **Simples Nacional (ME/EPP)**, IM 176842 e cTribNac 080201, desde 06/10.
 
 ## Próximos passos, em ordem
-- [ ] **1. Usuário:** na Notaas (Configurações → Editar), trocar o **Regime Tributário para Simples Nacional** e pôr o **Código de Tributação Padrão = 080201**. Conferido em 06/10: ainda "Não Optante".
-- [ ] **2. Usuário:** corrigir a **URL do webhook** `65f90fb1-594e-46a0-8212-6e9c727a2377`. Hoje ela é `https://delcastanher.srv.br/webhooks/notaas`, sem o `api.`, e nenhum aviso chega à API. Os eventos `nfse.*` já estão certos.
-  ```
-  curl -X PATCH https://platform.notaas.com.br/api/v1/webhooks/endpoints/65f90fb1-594e-46a0-8212-6e9c727a2377 -H "x-api-key: <chave>" -H "Content-Type: application/json" -d "{\"url\":\"https://api.delcastanher.srv.br/webhooks/notaas\"}"
-  ```
-- [ ] **3. Usuário:** conferir que o valor de `NOTAAS_API_KEY` na Vercel é **só a chave**. No `api/.env` local há um comentário na mesma linha (`ntaas_… # …`). O `dotenv` ignora, mas na Vercel o comentário iria junto, e a Notaas responderia 401.
-- [ ] **4. Claude:** conferir o regime no painel da Notaas e subir **`NFSE_CODIGO_SERVICO=080201`** em Production. É ela que liga a emissão, e **só sobe depois do passo 1**.
-- [ ] **5. Usuário:** **merge do PR #47** na `main`, que publica front e API.
-- [ ] **6. Claude:** remover a **`NFE_ENV`** da Vercel (Production e Preview) e conferir o deploy da API.
+- [x] **1. Notaas (Configurações → Editar):** **feito em 06/10 por Claude, pelo painel**, e conferido depois de recarregar:
+  - Regime Tributário **Simples Nacional (ME/EPP)**;
+  - apuração do ISS no Simples (regApTribSN) **"1, ISS incluído no DAS"**;
+  - Inscrição Municipal **176842**;
+  - Código de Tributação Padrão **080201**;
+  - IBS/CBS, NBS e alíquota DAS em branco;
+  - endereço igual ao da NFS-e real, decisão do usuário: complemento **Casa 07 Sala 01** e CEP **89010-904**, no lugar de 89032-457.
+- [x] **2. Usuário:** corrigir a URL do webhook `65f90fb1-594e-46a0-8212-6e9c727a2377`. **Feito em 06/10.** Conferido pela API da Notaas: a URL é `https://api.delcastanher.srv.br/webhooks/notaas`, e o webhook está ativo, com os eventos `nfse.*`.
+- [x] **3. Usuário:** conferir que a `NOTAAS_API_KEY` na Vercel é só a chave. **Confirmado em 06/10:** o comentário do `api/.env` foi escrito depois que a chave subiu para a Vercel.
+- [x] **4. Claude:** subir **`NFSE_CODIGO_SERVICO=080201`** em Production, que liga a emissão. **Feito em 06/10**, depois do passo 1.
+- [x] **5. Usuário:** merge do PR #47 na `main`. **Feito em 06/10.**
+- [x] **6. Redeploy de produção da `delcastanher-api`:** **feito em 06/10.** O deploy ficou Ready, com alias em `api.delcastanher.srv.br`, que responde 200, e a `NFSE_CODIGO_SERVICO` passou a valer.
+  - [ ] A `NFE_ENV` ainda aparecia na `delcastanher-api` (Production e Preview) depois da remoção. O código a ignora, então não segura nada; é só limpeza. O modo automático não deixa o Claude apagar variáveis na Vercel.
 - [ ] **7. Usuário e Claude:** **venda real de valor baixo** (Task 3.4):
   - nota autorizada no financeiro, com "NFS-e nº" e código de verificação;
   - e-mail com o PDF e o XML;
@@ -90,9 +92,8 @@ Cada resposta vai para um campo da Notaas ou da plataforma.
 - [ ] **9. Usuário e jurídico:** Termos de Uso com o estorno em até 7 dias, pelo CDC, art. 49 (Spec 024, Task 1.7).
 - [ ] **10. Cliente:** publicar os acréscimos da Política de Privacidade (Spec 024, `politica-privacidade-acrescimos.md`, já falando em NFS-e).
 
-## Com a contadora (não seguram a emissão)
-- [ ] **Inscrição municipal** em Blumenau: vai no cadastro da Notaas.
-- [ ] **IBS/CBS:** se o Simples precisa informar em 2026. Se sim, CST, cClassTrib, cIndOp e NBS, nas variáveis `NFSE_IBSCBS_*` e `NFSE_NBS`, ou nos padrões do projeto na Notaas.
+## Com a contadora
+Nada em aberto desde 06/10/2026. A inscrição municipal (176842) e o IBS/CBS (não informar) saíram de uma NFS-e real da empresa. Se a Notaas recusar a nota por falta de IBS/CBS, a pergunta volta para a contadora.
 
 ## Não confirmado
 - Se a `referencia` (o id do pedido) faz a Notaas recusar uma segunda nota do mesmo pedido. Por isso o estado `UNKNOWN` continua (N3). Dá para perguntar ao suporte da Notaas.
