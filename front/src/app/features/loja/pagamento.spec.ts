@@ -238,3 +238,36 @@ describe('Pagamento — bandeira do cartão', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('#installments')).not.toBeNull();
   });
 });
+
+/** Fix: no celular, o texto do endereco subia por cima do titulo. */
+describe('Pagamento — espaçamento do formulário', () => {
+  it('mantém o texto do endereço abaixo do título, e rótulo, campo e ajuda separados', () => {
+    TestBed.configureTestingModule({
+      imports: [Pagamento],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+
+    TestBed.inject(StoreService).toggle('mod-1');
+    const fixture = TestBed.createComponent(Pagamento);
+    const el = fixture.nativeElement as HTMLElement;
+    el.style.display = 'block';
+    el.style.width = '390px';
+    document.body.appendChild(el);
+    fixture.detectChanges();
+
+    const backend = TestBed.inject(HttpTestingController);
+    backend.match(req => req.url.endsWith('/users/me')).forEach(req => req.flush(null));
+    backend
+      .match(req => req.url.endsWith('/store/payment-config'))
+      .forEach(req => req.flush({ ...CONFIG, enabled: true, reason: null }));
+    fixture.detectChanges();
+
+    const box = (selector: string) => el.querySelector(selector)!.getBoundingClientRect();
+
+    expect(box('legend + p').top).toBeGreaterThanOrEqual(box('legend').bottom);
+    expect(box('#document').top - box('label[for="document"]').bottom).toBeGreaterThanOrEqual(6);
+    expect(box('#cpf-motivo').top - box('#document').bottom).toBeGreaterThanOrEqual(6);
+
+    el.remove();
+  });
+});
