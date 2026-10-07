@@ -88,7 +88,7 @@ import { UserService } from '../../core/services/user.service';
                     class="input" />
                   <!-- Dado novo na plataforma: dizer por que ele é pedido é
                        parte do que a Spec 009 exige. -->
-                  <p id="cpf-motivo" class="mt-1 text-xs text-slate-500">
+                  <p id="cpf-motivo" class="mt-1.5 text-xs leading-relaxed text-slate-500">
                     Obrigatório para emitir o PIX e para a análise antifraude do cartão.
                   </p>
                   @if (invalid('document')) {
@@ -98,71 +98,73 @@ import { UserService } from '../../core/services/user.service';
 
                 <!-- Spec 023, decisao A3: a NF-e exige o endereco do
                      destinatario. Dizer por que ele e pedido e parte do que a
-                     Spec 009 exige, como no CPF. -->
-                <fieldset formGroupName="address" class="sm:col-span-2 grid gap-4 sm:grid-cols-2">
-                  <legend class="sm:col-span-2 text-sm font-semibold text-brand-navy">
-                    Endereço
-                  </legend>
-                  <p class="sm:col-span-2 -mt-2 text-xs text-slate-500">
+                     Spec 009 exige, como no CPF. O grid fica num div interno:
+                     o <legend> nao vira item de grid do fieldset, e o texto de
+                     baixo, com margem negativa, subia por cima dele. -->
+                <fieldset formGroupName="address" class="sm:col-span-2 mt-2">
+                  <legend class="text-sm font-semibold text-brand-navy">Endereço</legend>
+                  <p class="mt-1 text-xs leading-relaxed text-slate-500">
                     Obrigatório para emitir a nota fiscal da compra, enviada por e-mail.
                   </p>
 
-                  <div>
-                    <label for="zip" class="block text-sm text-slate-700">CEP</label>
-                    <input
-                      id="zip"
-                      formControlName="zip"
-                      inputmode="numeric"
-                      maxlength="9"
-                      autocomplete="postal-code"
-                      class="input" />
-                    @if (cepState() === 'loading') {
-                      <p class="mt-1 text-xs text-slate-500">Buscando o endereço...</p>
-                    } @else if (cepState() === 'notfound') {
-                      <p class="mt-1 text-xs text-state-danger" data-testid="cep-erro">
-                        CEP não encontrado. Confira os números.
+                  <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label for="zip" class="block text-sm text-slate-700">CEP</label>
+                      <input
+                        id="zip"
+                        formControlName="zip"
+                        inputmode="numeric"
+                        maxlength="9"
+                        autocomplete="postal-code"
+                        class="input" />
+                      @if (cepState() === 'loading') {
+                        <p class="mt-1 text-xs text-slate-500">Buscando o endereço...</p>
+                      } @else if (cepState() === 'notfound') {
+                        <p class="mt-1 text-xs text-state-danger" data-testid="cep-erro">
+                          CEP não encontrado. Confira os números.
+                        </p>
+                      } @else if (invalid('address.zip')) {
+                        <p class="mt-1 text-xs text-state-danger">Informe um CEP válido (8 dígitos).</p>
+                      }
+                    </div>
+
+                    <div>
+                      <span class="block text-sm text-slate-700">Cidade / UF</span>
+                      <p class="mt-1 py-2.5 text-slate-900" data-testid="cidade-uf">
+                        {{ cityLabel() || '—' }}
                       </p>
-                    } @else if (invalid('address.zip')) {
-                      <p class="mt-1 text-xs text-state-danger">Informe um CEP válido (8 dígitos).</p>
-                    }
-                  </div>
+                    </div>
 
-                  <div>
-                    <span class="block text-sm text-slate-700">Cidade / UF</span>
-                    <p class="mt-1 py-2.5 text-slate-900" data-testid="cidade-uf">
-                      {{ cityLabel() || '—' }}
-                    </p>
-                  </div>
+                    <div class="sm:col-span-2">
+                      <label for="street" class="block text-sm text-slate-700">Logradouro</label>
+                      <input id="street" formControlName="street" autocomplete="address-line1" class="input" />
+                      @if (invalid('address.street')) {
+                        <p class="mt-1 text-xs text-state-danger">Informe o logradouro.</p>
+                      }
+                    </div>
 
-                  <div class="sm:col-span-2">
-                    <label for="street" class="block text-sm text-slate-700">Logradouro</label>
-                    <input id="street" formControlName="street" autocomplete="address-line1" class="input" />
-                    @if (invalid('address.street')) {
-                      <p class="mt-1 text-xs text-state-danger">Informe o logradouro.</p>
-                    }
-                  </div>
+                    <div>
+                      <label for="number" class="block text-sm text-slate-700">Número</label>
+                      <input id="number" formControlName="number" class="input" />
+                      @if (invalid('address.number')) {
+                        <p class="mt-1 text-xs text-state-danger">Informe o número (ou SN).</p>
+                      }
+                    </div>
 
-                  <div>
-                    <label for="number" class="block text-sm text-slate-700">Número</label>
-                    <input id="number" formControlName="number" class="input" />
-                    @if (invalid('address.number')) {
-                      <p class="mt-1 text-xs text-state-danger">Informe o número (ou SN).</p>
-                    }
-                  </div>
+                    <div>
+                      <label for="complement" class="block text-sm text-slate-700">
+                        Complemento <span class="text-slate-400">(opcional)</span>
+                      </label>
+                      <input id="complement" formControlName="complement" autocomplete="address-line2" class="input" />
+                    </div>
 
-                  <div>
-                    <label for="complement" class="block text-sm text-slate-700">
-                      Complemento <span class="text-slate-400">(opcional)</span>
-                    </label>
-                    <input id="complement" formControlName="complement" autocomplete="address-line2" class="input" />
-                  </div>
-
-                  <div class="sm:col-span-2">
-                    <label for="district" class="block text-sm text-slate-700">Bairro</label>
-                    <input id="district" formControlName="district" class="input" />
-                    @if (invalid('address.district')) {
-                      <p class="mt-1 text-xs text-state-danger">Informe o bairro.</p>
-                    }
+                    <div class="sm:col-span-2">
+                      <label for="district" class="block text-sm text-slate-700">Bairro</label>
+                      <input id="district" formControlName="district" class="input" />
+                      @if (invalid('address.district')) {
+                        <p class="mt-1 text-xs text-state-danger">Informe o bairro.</p>
+                      }
+                    </div>
                   </div>
                 </fieldset>
               </form>
@@ -330,7 +332,7 @@ import { UserService } from '../../core/services/user.service';
   styles: [
     `
       .input {
-        @apply mt-1 w-full rounded-xl border border-brand-navy/15 bg-white px-3 py-2.5 text-slate-900 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/30;
+        @apply mt-1.5 w-full rounded-xl border border-brand-navy/15 bg-white px-3 py-2.5 text-slate-900 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/30;
       }
     `,
   ],
