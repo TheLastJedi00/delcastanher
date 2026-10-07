@@ -2,6 +2,12 @@
 export const REDIRECT_PARAM = 'redirect';
 
 /**
+ * Query param que abre o login direto no cadastro (`/login?criar=1`): e por
+ * ele que o "Quero me Inscrever Agora" da landing chega.
+ */
+export const CREATE_ACCOUNT_PARAM = 'criar';
+
+/**
  * Devolve o destino pedido em `?redirect=` so quando ele e um caminho interno
  * do app, e `null` em qualquer outro caso (Spec 019, decisao 17).
  *

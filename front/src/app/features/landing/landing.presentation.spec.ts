@@ -51,7 +51,7 @@ describe('Landing — Conheça a Imersão', () => {
     expect(section.previousElementSibling?.tagName).toBe('HEADER');
     expect(section.nextElementSibling?.id).toBe('mentora');
     expect(section.textContent).toContain('Conheça a Imersão');
-    expect(section.querySelector('a[href="/cursos/imersao-rh"]')?.textContent).toContain(
+    expect(section.querySelector('a[href="/login?criar=1"]')?.textContent).toContain(
       'Quero me Inscrever Agora',
     );
   });

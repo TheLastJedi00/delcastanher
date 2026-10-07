@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { REDIRECT_PARAM, safeRedirect } from '../../../core/guards/safe-redirect';
+import { CREATE_ACCOUNT_PARAM, REDIRECT_PARAM, safeRedirect } from '../../../core/guards/safe-redirect';
 import { AuthService } from '../../../core/services/auth.service';
 import { CreateAccountModal } from '../create-account-modal/create-account-modal';
 import { BackLink } from '../../../shared/ui/back-link/back-link';
@@ -27,8 +27,12 @@ export class Login {
   readonly recoverSent = signal(false);
   readonly recoverMessage = signal('');
 
-  /** Controla a abertura do formulario modal de criacao de conta. */
-  readonly showCreateAccount = signal(false);
+  /**
+   * Controla a abertura do formulario modal de criacao de conta. Ja nasce
+   * aberto com `?criar=1`, que e por onde o "Quero me Inscrever Agora" da
+   * landing chega: inscrever-se e criar a conta.
+   */
+  readonly showCreateAccount = signal(this.route.snapshot.queryParamMap.get(CREATE_ACCOUNT_PARAM) === '1');
 
   /** Bloqueia a tela enquanto a requisicao de login esta em andamento. */
   readonly isLoading = signal(false);
