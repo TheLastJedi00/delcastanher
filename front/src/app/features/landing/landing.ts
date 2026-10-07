@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, InjectionToken, inject } from '@ang
 import { AuthService } from '../../core/services/auth.service';
 import { RouterLink } from '@angular/router';
 import { JsonLdService } from '../../core/services/json-ld.service';
+import { CREATE_ACCOUNT_PARAM } from '../../core/guards/safe-redirect';
 import { SITE_ORIGIN } from '../../core/services/seo.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { Button } from '../../shared/ui/button/button';
@@ -200,6 +201,9 @@ export class Landing {
       },
     },
   ];
+
+  /** "Quero me Inscrever Agora" abre o login direto no cadastro. */
+  readonly createAccount = { [CREATE_ACCOUNT_PARAM]: '1' };
 
   /** Video da secao "Conheca a Imersao" (decisao C5). */
   readonly presentation = inject(PRESENTATION_VIDEO);

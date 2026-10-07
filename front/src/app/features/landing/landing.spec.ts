@@ -36,6 +36,16 @@ describe('Landing', () => {
     it('mantem um unico h1 na pagina', () => {
       expect(el.querySelectorAll('h1').length).toBe(1);
     });
+
+    // A pagina do curso abre com uma hero quase igual a esta: quem clicava
+    // achava que o botao nao levava a lugar nenhum. Inscrever-se e criar conta.
+    it('"Quero me Inscrever Agora" leva a criacao de conta', () => {
+      const cta = Array.from(el.querySelectorAll<HTMLAnchorElement>('header a')).find(a =>
+        a.textContent?.includes('Quero me Inscrever Agora'),
+      );
+
+      expect(cta?.getAttribute('href')).toBe('/login?criar=1');
+    });
   });
 
   describe('secao Na midia (Spec 018)', () => {

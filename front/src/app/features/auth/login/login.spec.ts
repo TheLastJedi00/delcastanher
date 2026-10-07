@@ -149,3 +149,37 @@ describe('Login com destino', () => {
     http.verify();
   });
 });
+
+/** "Quero me Inscrever Agora" da landing chega aqui com o cadastro aberto. */
+describe('Login vindo do "Quero me inscrever"', () => {
+  function render(params: Record<string, string>): ComponentFixture<Login> {
+    localStorage.clear();
+
+    TestBed.configureTestingModule({
+      imports: [Login],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(params) } } },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(Login);
+    fixture.detectChanges();
+
+    return fixture;
+  }
+
+  it('abre o modal de criar conta com ?criar=1', () => {
+    const fixture = render({ criar: '1' });
+
+    expect(fixture.componentInstance.showCreateAccount()).toBeTrue();
+  });
+
+  it('sem o parametro, abre so o formulario de entrar', () => {
+    const fixture = render({});
+
+    expect(fixture.componentInstance.showCreateAccount()).toBeFalse();
+  });
+});

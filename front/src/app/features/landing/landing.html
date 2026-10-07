@@ -39,9 +39,10 @@
           <br />
           Transforme seu departamento em um parceiro de resultados com a Imersão RH Estratégico.
         </p>
-        <!-- CTA principal vai para a oferta; /login segue como acesso de aluno no header. -->
+        <!-- Inscrever-se e criar a conta: o CTA abre o login direto no cadastro. A
+             oferta segue em "Ver planos e soluções" e no menu. -->
         <div class="flex flex-col gap-4 sm:flex-row">
-          <a routerLink="/cursos/imersao-rh">
+          <a routerLink="/login" [queryParams]="createAccount">
             <ui-button variant="primary" size="lg">Quero me Inscrever Agora</ui-button>
           </a>
           <a routerLink="/planos">
@@ -72,7 +73,7 @@
           [title]="presentationTitle"
           [poster]="presentationPoster" />
 
-        <a routerLink="/cursos/imersao-rh" class="mt-10 inline-block">
+        <a routerLink="/login" [queryParams]="createAccount" class="mt-10 inline-block">
           <ui-button variant="primary" size="lg">Quero me Inscrever Agora</ui-button>
         </a>
       </div>
