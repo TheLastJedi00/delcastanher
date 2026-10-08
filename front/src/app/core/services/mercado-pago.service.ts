@@ -19,20 +19,38 @@ export interface CardToken {
   paymentMethodId: string;
 }
 
+/** Evento de um Secure Field. */
+export interface SecureFieldEvent {
+  /** `binChange` do `cardNumber`. */
+  bin?: string;
+  /** `validityChange`: vazio quando o que foi digitado e valido. */
+  errorMessages?: unknown[];
+}
+
+/** Um Secure Field (iframe do Mercado Pago). */
+export interface SecureField {
+  mount(id: string): void;
+  /** O `cardNumber` emite `binChange`; todos emitem `validityChange` e `blur`. */
+  on(event: string, handler: (data: SecureFieldEvent) => void): void;
+  /** Troca as regras do campo, como o tamanho do CVV da bandeira. */
+  update(properties: Record<string, unknown>): void;
+}
+
+/** Regras da bandeira para os campos: tamanho do numero e do CVV. */
+export interface PaymentMethodSettings {
+  card_number?: Record<string, unknown>;
+  security_code?: Record<string, unknown>;
+}
+
 /** Superficie do SDK que este servico usa. */
-interface MercadoPagoSdk {
+export interface MercadoPagoSdk {
   fields: {
-    create(
-      type: string,
-      options: Record<string, unknown>,
-    ): {
-      mount(id: string): void;
-      /** Eventos do campo; o `cardNumber` emite `binChange` com `{ bin }`. */
-      on(event: string, handler: (data: { bin?: string }) => void): void;
-    };
+    create(type: string, options: Record<string, unknown>): SecureField;
     createCardToken(data: Record<string, unknown>): Promise<{ id: string }>;
   };
-  getPaymentMethods(options: { bin: string }): Promise<{ results: { id: string }[] }>;
+  getPaymentMethods(options: {
+    bin: string;
+  }): Promise<{ results: { id: string; settings?: PaymentMethodSettings[] }[] }>;
   getInstallments(options: {
     amount: string;
     bin: string;
@@ -84,7 +102,13 @@ export class MercadoPagoLoader {
       return Promise.resolve(this.sdk);
     }
 
-    this.loading ??= this.doLoad();
+    // Uma falha (rede ruim, bloqueador) nao fica guardada: a proxima tentativa
+    // carrega de novo, sem exigir que o comprador recarregue a pagina.
+    this.loading ??= this.doLoad().catch((error: unknown) => {
+      this.loading = null;
+
+      throw error;
+    });
 
     return this.loading;
   }
@@ -170,7 +194,12 @@ export class MercadoPagoLoader {
       script.src = SDK_URL;
       script.async = true;
       script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Falha ao carregar o SDK de pagamento.'));
+      // A tag com erro sai do <head>: deixada la, a proxima tentativa
+      // esperaria por um `load` que ja nao vem.
+      script.onerror = () => {
+        script.remove();
+        reject(new Error('Falha ao carregar o SDK de pagamento.'));
+      };
 
       document.head.appendChild(script);
     });
