@@ -1,6 +1,17 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  OnInit,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  WritableSignal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { EMPTY, distinctUntilChanged, map, switchMap, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { Button } from '../../shared/ui/button/button';
@@ -9,9 +20,108 @@ import { PaymentTrust } from '../../shared/ui/payment-trust/payment-trust';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
 import { tierLabel } from '../../core/mocks/plans.mock';
 import { CepService } from '../../core/services/cep.service';
-import { InstallmentOption, MercadoPagoLoader } from '../../core/services/mercado-pago.service';
+import {
+  InstallmentOption,
+  MercadoPagoLoader,
+  MercadoPagoSdk,
+  SecureField,
+} from '../../core/services/mercado-pago.service';
 import { PaymentMethodKind, StoreService, formatPrice } from '../../core/services/store.service';
 import { UserService } from '../../core/services/user.service';
+
+/** Os tres Secure Fields; o id do contêiner e o tipo do campo no SDK. */
+type CardField = 'cardNumber' | 'expirationDate' | 'securityCode';
+
+/** `srLabel` e o rotulo que o leitor de tela le dentro do iframe. */
+const CARD_FIELDS: { type: CardField; placeholder: string; srLabel: string }[] = [
+  { type: 'cardNumber', placeholder: '0000 0000 0000 0000', srLabel: 'Número do cartão' },
+  { type: 'expirationDate', placeholder: 'MM/AA', srLabel: 'Validade do cartão' },
+  { type: 'securityCode', placeholder: 'CVV', srLabel: 'Código de segurança' },
+];
+
+/**
+ * Estilo dentro do iframe. 16px e o minimo para o iOS nao dar zoom ao tocar no
+ * campo; o padding e o que o `.input` daria se o iframe nao ocupasse a caixa.
+ */
+const SECURE_FIELD_STYLE = {
+  fontSize: '16px',
+  color: '#0f172a',
+  placeholderColor: '#94a3b8',
+  padding: '0 12px',
+};
+
+/** So os digitos do CPF. */
+function cpfDigits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+/** CPF com ou sem mascara, conferido pelos digitos verificadores. */
+function cpfValidator(control: AbstractControl<string>): ValidationErrors | null {
+  const raw = control.value ?? '';
+
+  if (!raw) {
+    return null;
+  }
+
+  const digits = cpfDigits(raw);
+
+  if (!/^[\d.\-\s]+$/.test(raw) || digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) {
+    return { cpf: true };
+  }
+
+  const check = (length: number) => {
+    const sum = [...digits.slice(0, length)].reduce(
+      (total, digit, index) => total + Number(digit) * (length + 1 - index),
+      0,
+    );
+
+    return ((sum * 10) % 11) % 10;
+  };
+
+  return check(9) === Number(digits[9]) && check(10) === Number(digits[10]) ? null : { cpf: true };
+}
+
+/**
+ * Traduz a recusa do `createCardToken`. O SDK rejeita com a lista de causas do
+ * Mercado Pago (`[{ code, message }]`), e o comprador precisa saber qual campo
+ * corrigir, nao so que "nao foi possivel".
+ */
+function cardTokenMessage(error: unknown): string | null {
+  const causes = Array.isArray(error)
+    ? error
+    : Array.isArray((error as { cause?: unknown })?.cause)
+      ? (error as { cause: unknown[] }).cause
+      : null;
+
+  if (!causes) {
+    return null;
+  }
+
+  const codes = causes.map(cause => String((cause as { code?: unknown })?.code ?? ''));
+  const has = (...wanted: string[]) => codes.some(code => wanted.includes(code));
+
+  if (has('205', 'E301')) {
+    return 'Confira o número do cartão.';
+  }
+
+  if (has('208', '209', '325', '326', 'E203', 'E205')) {
+    return 'Confira a validade do cartão.';
+  }
+
+  if (has('224', 'E302')) {
+    return 'Confira o código de segurança do cartão.';
+  }
+
+  if (has('221', '316')) {
+    return 'Informe o nome como está impresso no cartão.';
+  }
+
+  if (has('212', '213', '214', '322', '323', '324')) {
+    return 'Confira o CPF: o Mercado Pago não o aceitou.';
+  }
+
+  return 'Confira os dados do cartão: número, validade, código de segurança e nome.';
+}
 
 /**
  * Etapa de pagamento (Spec 014).
@@ -55,7 +165,7 @@ import { UserService } from '../../core/services/user.service';
               <form [formGroup]="form" class="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
                   <label for="firstName" class="block text-sm text-slate-700">Nome</label>
-                  <input id="firstName" formControlName="firstName" class="input" />
+                  <input id="firstName" formControlName="firstName" autocomplete="given-name" class="input" />
                   @if (invalid('firstName')) {
                     <p class="mt-1 text-xs text-state-danger">Informe seu nome.</p>
                   }
@@ -63,7 +173,7 @@ import { UserService } from '../../core/services/user.service';
 
                 <div>
                   <label for="lastName" class="block text-sm text-slate-700">Sobrenome</label>
-                  <input id="lastName" formControlName="lastName" class="input" />
+                  <input id="lastName" formControlName="lastName" autocomplete="family-name" class="input" />
                   @if (invalid('lastName')) {
                     <p class="mt-1 text-xs text-state-danger">Informe seu sobrenome.</p>
                   }
@@ -71,7 +181,14 @@ import { UserService } from '../../core/services/user.service';
 
                 <div class="sm:col-span-2">
                   <label for="email" class="block text-sm text-slate-700">E-mail</label>
-                  <input id="email" type="email" formControlName="email" class="input" />
+                  <input
+                    id="email"
+                    type="email"
+                    formControlName="email"
+                    autocomplete="email"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    class="input" />
                   @if (invalid('email')) {
                     <p class="mt-1 text-xs text-state-danger">Informe um e-mail válido.</p>
                   }
@@ -92,7 +209,9 @@ import { UserService } from '../../core/services/user.service';
                     Obrigatório para emitir o PIX e para a análise antifraude do cartão.
                   </p>
                   @if (invalid('document')) {
-                    <p class="mt-1 text-xs text-state-danger">Informe um CPF válido (11 dígitos).</p>
+                    <p class="mt-1 text-xs text-state-danger">
+                      Informe um CPF válido (11 dígitos, com ou sem pontos).
+                    </p>
                   }
                 </div>
 
@@ -197,52 +316,83 @@ import { UserService } from '../../core/services/user.service';
                   Geramos um QR Code com validade de 30 minutos. O acesso é liberado assim que o
                   pagamento for confirmado.
                 </p>
-              } @else {
-                <!-- Secure Fields: os iframes do Mercado Pago são montados nestes
-                     contêineres. Os dados do cartão não passam por este app. -->
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div class="sm:col-span-2">
-                    <span class="block text-sm text-slate-700">Número do cartão</span>
-                    <div id="cardNumber" class="input h-11"></div>
-                  </div>
-                  <div>
-                    <span class="block text-sm text-slate-700">Validade</span>
-                    <div id="expirationDate" class="input h-11"></div>
-                  </div>
-                  <div>
-                    <span class="block text-sm text-slate-700">Código de segurança</span>
-                    <div id="securityCode" class="input h-11"></div>
-                  </div>
-                  <div class="sm:col-span-2">
-                    <label for="cardholderName" class="block text-sm text-slate-700">
-                      Nome impresso no cartão
-                    </label>
-                    <input id="cardholderName" [formControl]="cardholderName" class="input" />
-                  </div>
+              }
 
-                  @if (installments().length > 0) {
+              <!-- Secure Fields: os iframes do Mercado Pago são montados nestes
+                   contêineres. Os dados do cartão não passam por este app.
+                   O bloco entra no primeiro clique em "Cartão" e depois só é
+                   escondido: removido do DOM, levava os iframes junto, e voltar
+                   do PIX deixava os campos vazios e sem como digitar. -->
+              @if (cardOpened()) {
+                <div class="mt-4" [class.hidden]="method() !== 'CREDIT_CARD'">
+                  <div class="grid gap-4 sm:grid-cols-2">
                     <div class="sm:col-span-2">
-                      <label for="installments" class="block text-sm text-slate-700">Parcelas</label>
-                      <select id="installments" [formControl]="installmentsControl" class="input">
-                        @for (option of installments(); track option.installments) {
-                          <option [value]="option.installments">{{ option.recommendedMessage }}</option>
-                        }
-                      </select>
-                      <!-- Decisão 9: os juros são do comprador, e isso é dito
-                           aqui, não em um rodapé. -->
-                      <p class="mt-1 text-xs text-slate-500">
-                        Parcelamento em até {{ maxInstallments() }}x. Os juros do parcelamento são
-                        cobrados do comprador e já estão nos valores acima, informados pelo Mercado
-                        Pago.
-                      </p>
+                      <span class="block text-sm text-slate-700">Número do cartão</span>
+                      <div id="cardNumber" class="input secure-field"></div>
+                      @if (cardFieldError('cardNumber')) {
+                        <p class="mt-1 text-xs text-state-danger" data-testid="erro-cardNumber">
+                          Confira o número do cartão.
+                        </p>
+                      }
                     </div>
-                  }
-                </div>
+                    <div>
+                      <span class="block text-sm text-slate-700">Validade</span>
+                      <div id="expirationDate" class="input secure-field"></div>
+                      @if (cardFieldError('expirationDate')) {
+                        <p class="mt-1 text-xs text-state-danger" data-testid="erro-expirationDate">
+                          Confira a validade (MM/AA).
+                        </p>
+                      }
+                    </div>
+                    <div>
+                      <span class="block text-sm text-slate-700">Código de segurança</span>
+                      <div id="securityCode" class="input secure-field"></div>
+                      @if (cardFieldError('securityCode')) {
+                        <p class="mt-1 text-xs text-state-danger" data-testid="erro-securityCode">
+                          Confira o código de segurança.
+                        </p>
+                      }
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label for="cardholderName" class="block text-sm text-slate-700">
+                        Nome impresso no cartão
+                      </label>
+                      <input
+                        id="cardholderName"
+                        [formControl]="cardholderName"
+                        autocomplete="cc-name"
+                        autocapitalize="characters"
+                        spellcheck="false"
+                        class="input" />
+                      @if (cardholderName.invalid && cardholderName.touched) {
+                        <p class="mt-1 text-xs text-state-danger">Informe o nome como está no cartão.</p>
+                      }
+                    </div>
 
-                <p class="mt-3 text-xs text-slate-500">
-                  Os dados do cartão são digitados dentro de campos seguros do Mercado Pago e não
-                  passam pelos nossos servidores.
-                </p>
+                    @if (installments().length > 0) {
+                      <div class="sm:col-span-2">
+                        <label for="installments" class="block text-sm text-slate-700">Parcelas</label>
+                        <select id="installments" [formControl]="installmentsControl" class="input">
+                          @for (option of installments(); track option.installments) {
+                            <option [value]="option.installments">{{ option.recommendedMessage }}</option>
+                          }
+                        </select>
+                        <!-- Decisão 9: os juros são do comprador, e isso é dito
+                             aqui, não em um rodapé. -->
+                        <p class="mt-1 text-xs text-slate-500">
+                          Parcelamento em até {{ maxInstallments() }}x. Os juros do parcelamento são
+                          cobrados do comprador e já estão nos valores acima, informados pelo Mercado
+                          Pago.
+                        </p>
+                      </div>
+                    }
+                  </div>
+
+                  <p class="mt-3 text-xs text-slate-500">
+                    Os dados do cartão são digitados dentro de campos seguros do Mercado Pago e não
+                    passam pelos nossos servidores.
+                  </p>
+                </div>
               }
 
               @if (error(); as message) {
@@ -334,6 +484,13 @@ import { UserService } from '../../core/services/user.service';
       .input {
         @apply mt-1.5 w-full rounded-xl border border-brand-navy/15 bg-white px-3 py-2.5 text-slate-900 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/30;
       }
+
+      /* O iframe do Mercado Pago ocupa 100% do contêiner. Com o padding do
+         .input sobravam uns 22px de altura, e tocar na borda da caixa não
+         abria o teclado. O espaçamento interno vai no style do campo. */
+      .secure-field {
+        @apply h-12 overflow-hidden p-0 focus-within:border-brand-teal focus-within:ring-2 focus-within:ring-brand-teal/30;
+      }
     `,
   ],
 })
@@ -345,12 +502,28 @@ export class Pagamento implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly cep = inject(CepService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
 
   private readonly methodState = signal<PaymentMethodKind>('PIX');
   private readonly installmentsState = signal<InstallmentOption[]>([]);
   private readonly errorState = signal<string | null>(null);
   private readonly submittingState = signal(false);
   private readonly fieldsMounted = signal(false);
+  private mounting = false;
+  /** O bloco do cartao entra no DOM no primeiro clique e nao sai mais. */
+  private readonly cardOpenedState = signal(false);
+  /** Campo do cartao com valor invalido, informado pelo `validityChange`. */
+  private readonly cardInvalidState = signal<Record<CardField, boolean>>({
+    cardNumber: false,
+    expirationDate: false,
+    securityCode: false,
+  });
+  /** Campo que o comprador ja visitou: o erro so aparece depois do `blur`. */
+  private readonly cardTouchedState = signal<Record<CardField, boolean>>({
+    cardNumber: false,
+    expirationDate: false,
+    securityCode: false,
+  });
   private readonly priceChangeState = signal<{ from: string; to: string; tierName: string } | null>(null);
   /** Ultimo BIN digitado: com o valor mudado, as parcelas precisam ser refeitas. */
   private lastBin = '';
@@ -360,6 +533,7 @@ export class Pagamento implements OnInit {
   readonly hasSelection = this.store.hasSelection;
   readonly priceChange = this.priceChangeState.asReadonly();
   readonly method = this.methodState.asReadonly();
+  readonly cardOpened = this.cardOpenedState.asReadonly();
   readonly installments = this.installmentsState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly submitting = this.submittingState.asReadonly();
@@ -373,7 +547,9 @@ export class Pagamento implements OnInit {
     firstName: ['', [Validators.required, Validators.maxLength(80)]],
     lastName: ['', [Validators.required, Validators.maxLength(80)]],
     email: ['', [Validators.required, Validators.email]],
-    document: ['', [Validators.required, Validators.pattern(/^\d{11}$/)]],
+    // Aceita o CPF como o celular preenche (com pontos e traco); a API recebe
+    // so os digitos.
+    document: ['', [Validators.required, cpfValidator]],
     // Cidade, UF e codigo IBGE nao sao digitados: vem do ViaCEP, e vazios
     // significam CEP nao encontrado (Spec 023, decisao A3).
     address: this.fb.nonNullable.group({
@@ -392,7 +568,11 @@ export class Pagamento implements OnInit {
   readonly cepState = signal<'idle' | 'loading' | 'found' | 'notfound'>('idle');
   readonly cityLabel = signal('');
 
-  readonly cardholderName = this.fb.nonNullable.control('');
+  /** Obrigatorio para o `createCardToken`: vazio, o Mercado Pago recusa o token. */
+  readonly cardholderName = this.fb.nonNullable.control('', [
+    Validators.required,
+    Validators.maxLength(80),
+  ]);
   readonly installmentsControl = this.fb.nonNullable.control(1);
 
   ngOnInit(): void {
@@ -475,6 +655,7 @@ export class Pagamento implements OnInit {
 
     return {
       ...payer,
+      document: cpfDigits(payer.document),
       address: {
         zip: address.zip.replace(/\D/g, ''),
         street: address.street.trim(),
@@ -515,9 +696,29 @@ export class Pagamento implements OnInit {
     this.methodState.set(method);
     this.errorState.set(null);
 
-    if (method === 'CREDIT_CARD') {
-      void this.mountCardFields();
+    if (method !== 'CREDIT_CARD') {
+      return;
     }
+
+    // O nome do cartao quase sempre e o do comprador: ja vem preenchido, e
+    // quem paga com o cartao de outra pessoa corrige.
+    if (!this.cardholderName.value) {
+      const { firstName, lastName } = this.form.getRawValue();
+
+      this.cardholderName.setValue(`${firstName} ${lastName}`.trim().toUpperCase());
+    }
+
+    this.cardOpenedState.set(true);
+
+    // Os contêineres so existem depois que o Angular desenha o bloco do
+    // cartao. Montar antes fazia o SDK so avisar no console ("Container not
+    // found") e os campos ficavam vazios, sem como digitar.
+    afterNextRender(() => void this.mountCardFields(), { injector: this.injector });
+  }
+
+  /** Erro de um Secure Field, depois que o comprador saiu dele. */
+  cardFieldError(field: CardField): boolean {
+    return this.cardInvalidState()[field] && this.cardTouchedState()[field];
   }
 
   backToStore(): void {
@@ -529,6 +730,10 @@ export class Pagamento implements OnInit {
     this.form.markAllAsTouched();
 
     if (this.form.invalid || this.submittingState()) {
+      return;
+    }
+
+    if (this.methodState() === 'CREDIT_CARD' && !this.cardReady()) {
       return;
     }
 
@@ -556,7 +761,9 @@ export class Pagamento implements OnInit {
       this.router.navigate(['/loja/pedido', order.id]);
     } catch (error) {
       this.errorState.set(
-        typeof error === 'string' ? error : 'Não foi possível concluir o pagamento. Tente de novo.',
+        typeof error === 'string'
+          ? error
+          : (cardTokenMessage(error) ?? 'Não foi possível concluir o pagamento. Tente de novo.'),
       );
     } finally {
       this.submittingState.set(false);
@@ -624,7 +831,7 @@ export class Pagamento implements OnInit {
     const token = await sdk.fields.createCardToken({
       cardholderName: this.cardholderName.value,
       identificationType: 'CPF',
-      identificationNumber: this.form.getRawValue().document,
+      identificationNumber: cpfDigits(this.form.getRawValue().document),
     });
 
     return {
@@ -636,48 +843,153 @@ export class Pagamento implements OnInit {
 
   private paymentMethodId = '';
 
+  /**
+   * Confere o cartao antes de cobrar: tudo o que o `createCardToken` e a API
+   * exigem. Sem isso, um campo vazio virava "Nao foi possivel concluir o
+   * pagamento", sem dizer qual.
+   */
+  private cardReady(): boolean {
+    this.cardholderName.markAsTouched();
+    this.cardTouchedState.set({ cardNumber: true, expirationDate: true, securityCode: true });
+
+    if (!this.fieldsMounted()) {
+      this.errorState.set('O formulário de cartão ainda está carregando. Tente de novo em instantes.');
+      void this.mountCardFields();
+
+      return false;
+    }
+
+    const invalid = this.cardInvalidState();
+
+    if (invalid.cardNumber || invalid.expirationDate || invalid.securityCode) {
+      this.errorState.set('Confira os dados do cartão destacados acima.');
+
+      return false;
+    }
+
+    if (this.cardholderName.invalid) {
+      this.errorState.set('Informe o nome como está impresso no cartão.');
+
+      return false;
+    }
+
+    // A bandeira vem do BIN; vazia, a API recusa o pedido (`paymentMethodId`).
+    if (!this.paymentMethodId) {
+      this.errorState.set('Confira o número do cartão: não reconhecemos a bandeira.');
+
+      return false;
+    }
+
+    return true;
+  }
+
   /** Monta os Secure Fields e, a cada BIN, pede as parcelas ao gateway. */
   private async mountCardFields(): Promise<void> {
-    if (this.fieldsMounted()) {
+    if (this.fieldsMounted() || this.mounting) {
       return;
     }
 
+    this.mounting = true;
+
     try {
       const sdk = await this.mp.load();
+      const fields = {} as Record<CardField, SecureField>;
 
-      const cardNumber = sdk.fields.create('cardNumber', { placeholder: '0000 0000 0000 0000' });
+      for (const { type, placeholder, srLabel } of CARD_FIELDS) {
+        const field = sdk.fields.create(type, {
+          placeholder,
+          srLabel,
+          ariaRequired: true,
+          style: SECURE_FIELD_STYLE,
+        });
+
+        field.on('validityChange', data =>
+          this.setCardFlag(this.cardInvalidState, type, !!data?.errorMessages?.length),
+        );
+        field.on('blur', () => this.setCardFlag(this.cardTouchedState, type, true));
+        fields[type] = field;
+      }
 
       // O BIN e o que permite descobrir bandeira e parcelas antes do cartao
       // inteiro ser digitado. Os Secure Fields so o entregam pelo evento
       // `binChange`: uma opcao `onBinChange` no `create()` e ignorada pelo SDK.
-      cardNumber.on('binChange', async (data: { bin?: string }) => {
-        if (!data?.bin || data.bin.length < 6) {
-          this.installmentsState.set([]);
-          this.lastBin = '';
+      fields.cardNumber.on('binChange', data => this.onBinChange(sdk, fields, data?.bin));
 
-          return;
-        }
+      for (const { type } of CARD_FIELDS) {
+        fields[type].mount(type);
+      }
 
-        this.lastBin = data.bin;
+      // O `mount()` do SDK nao lanca erro quando falha: so avisa no console.
+      // O iframe no contêiner e a unica prova de que o campo existe.
+      const missing = CARD_FIELDS.some(
+        ({ type }) => !document.getElementById(type)?.querySelector('iframe'),
+      );
 
-        const [methods, options] = await Promise.all([
-          sdk.getPaymentMethods({ bin: data.bin }),
-          this.mp.installments(this.store.totalCents(), data.bin, this.maxInstallments()),
-        ]);
-
-        this.paymentMethodId = methods.results?.[0]?.id ?? '';
-        this.installmentsState.set(options);
-      });
-      cardNumber.mount('cardNumber');
-
-      sdk.fields.create('expirationDate', { placeholder: 'MM/AA' }).mount('expirationDate');
-      sdk.fields.create('securityCode', { placeholder: 'CVV' }).mount('securityCode');
+      if (missing) {
+        throw new Error('Secure Fields sem iframe.');
+      }
 
       this.fieldsMounted.set(true);
+      this.errorState.set(null);
     } catch {
       this.errorState.set(
         'Não foi possível carregar o formulário de cartão. Tente o PIX ou recarregue a página.',
       );
+    } finally {
+      this.mounting = false;
     }
+  }
+
+  /**
+   * Com o BIN, descobre a bandeira, ajusta os campos a ela (a American Express
+   * tem 15 digitos e CVV de 4) e pede as parcelas.
+   */
+  private async onBinChange(
+    sdk: MercadoPagoSdk,
+    fields: Record<CardField, SecureField>,
+    bin: string | undefined,
+  ): Promise<void> {
+    if (!bin || bin.length < 6) {
+      this.installmentsState.set([]);
+      this.paymentMethodId = '';
+      this.lastBin = '';
+
+      return;
+    }
+
+    this.lastBin = bin;
+
+    try {
+      const [methods, options] = await Promise.all([
+        sdk.getPaymentMethods({ bin }),
+        this.mp.installments(this.store.totalCents(), bin, this.maxInstallments()),
+      ]);
+      const method = methods.results?.[0];
+      const settings = method?.settings?.[0];
+
+      this.paymentMethodId = method?.id ?? '';
+      this.installmentsState.set(options);
+      this.installmentsControl.setValue(options[0]?.installments ?? 1);
+
+      if (settings?.card_number) {
+        fields.cardNumber.update({ settings: settings.card_number });
+      }
+
+      if (settings?.security_code) {
+        fields.securityCode.update({ settings: settings.security_code });
+      }
+    } catch {
+      // Sem bandeira, o `cardReady()` barra o envio com uma mensagem clara.
+      this.paymentMethodId = '';
+      this.installmentsState.set([]);
+    }
+  }
+
+  private setCardFlag(
+    state: WritableSignal<Record<CardField, boolean>>,
+    field: CardField,
+    value: boolean,
+  ): void {
+    state.update(current => ({ ...current, [field]: value }));
   }
 }

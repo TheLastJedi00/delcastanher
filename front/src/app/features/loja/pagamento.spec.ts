@@ -181,61 +181,282 @@ describe('Pagamento — endereço para a nota fiscal', () => {
 });
 
 /**
+ * SDK falso dos Secure Fields. Como o real, o `mount()` poe um iframe no
+ * contêiner e, quando o contêiner nao existe, so avisa (nao lanca erro).
+ */
+function fakeSdk(overrides: { mountsIframe?: boolean; settings?: unknown[]; tokenError?: unknown } = {}) {
+  const handlers: Record<string, (data: { bin?: string; errorMessages?: unknown[] }) => unknown> = {};
+  const created: string[] = [];
+  const updates: Record<string, unknown[]> = {};
+
+  const sdk = {
+    fields: {
+      create: (name: string) => {
+        created.push(name);
+
+        return {
+          on: (event: string, handler: (data: { bin?: string }) => unknown) => {
+            handlers[`${name}:${event}`] = handler;
+          },
+          update: (properties: unknown) => {
+            (updates[name] ??= []).push(properties);
+          },
+          mount: (id: string) => {
+            const container = document.getElementById(id);
+
+            if (container && overrides.mountsIframe !== false) {
+              container.innerHTML = '';
+              container.appendChild(document.createElement('iframe'));
+            }
+          },
+        };
+      },
+      createCardToken: async () => {
+        if (overrides.tokenError) {
+          throw overrides.tokenError;
+        }
+
+        return { id: 'tok' };
+      },
+    },
+    getPaymentMethods: async () => ({ results: [{ id: 'master', settings: overrides.settings }] }),
+    getInstallments: async () => [],
+  };
+
+  return { sdk, handlers, created, updates };
+}
+
+const ONE_INSTALLMENT = [
+  { installments: 1, recommendedMessage: '1x de R$ 197,00', installmentAmount: 197, totalAmount: 197 },
+];
+
+/** Monta a tela com o SDK falso e os dados do comprador ja preenchidos. */
+function renderCard(fake: ReturnType<typeof fakeSdk>) {
+  TestBed.configureTestingModule({
+    imports: [Pagamento],
+    providers: [
+      provideRouter([{ path: '**', children: [] }]),
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      {
+        provide: MercadoPagoLoader,
+        useValue: {
+          load: async () => fake.sdk,
+          installments: async () => ONE_INSTALLMENT,
+          ready: () => true,
+          deviceId: () => undefined,
+        },
+      },
+    ],
+  });
+
+  TestBed.inject(StoreService).toggle('mod-1');
+  const fixture = TestBed.createComponent(Pagamento);
+  const backend = TestBed.inject(HttpTestingController);
+  fixture.detectChanges();
+  backend.match(req => req.url.endsWith('/users/me')).forEach(req => req.flush(null));
+  backend
+    .match(req => req.url.endsWith('/store/payment-config'))
+    .forEach(req => req.flush({ ...CONFIG, enabled: true, reason: null }));
+  backend.match(req => req.url.includes('/store/')).forEach(req => req.flush([]));
+  fixture.detectChanges();
+
+  const el = fixture.nativeElement as HTMLElement;
+  const component = fixture.componentInstance;
+
+  component.form.patchValue({
+    firstName: 'Ana',
+    lastName: 'Souza',
+    email: 'ana@exemplo.com',
+    document: '191.191.191-00',
+    address: {
+      zip: '01310100',
+      street: 'Av. Paulista',
+      number: '1000',
+      district: 'Bela Vista',
+      city: 'São Paulo',
+      cityIbge: '3550308',
+      state: 'SP',
+    },
+  });
+  backend.match(req => req.url.includes('viacep')).forEach(req => req.flush({ erro: true }));
+  component.form.controls.address.patchValue({ city: 'São Paulo', cityIbge: '3550308', state: 'SP' });
+
+  /** Escolhe o cartao e espera o Angular desenhar e o SDK montar. */
+  async function chooseCard(): Promise<void> {
+    component.setMethod('CREDIT_CARD');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  async function choosePix(): Promise<void> {
+    component.setMethod('PIX');
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  async function pay(): Promise<void> {
+    await component.pay();
+    fixture.detectChanges();
+  }
+
+  return { fixture, backend, el, component, chooseCard, choosePix, pay };
+}
+
+/**
  * Os Secure Fields so avisam a bandeira pelo evento `binChange`, assinado com
  * `.on()`: uma opcao `onBinChange` no `create()` e ignorada pelo SDK, e o
  * pagamento com cartao saia sem `payment_method_id`.
  */
 describe('Pagamento — bandeira do cartão', () => {
   it('assina o binChange do número do cartão e guarda a bandeira e as parcelas', async () => {
-    const handlers: Record<string, (data: { bin?: string }) => Promise<void> | void> = {};
-    const field = (name: string) => ({
-      on: (event: string, handler: (data: { bin?: string }) => void) => {
-        handlers[`${name}:${event}`] = handler;
-      },
-      mount: () => undefined,
-    });
-    const sdk = {
-      fields: { create: (name: string) => field(name), createCardToken: async () => ({ id: 'tok' }) },
-      getPaymentMethods: async () => ({ results: [{ id: 'master' }] }),
-      getInstallments: async () => [],
-    };
-    const installments = [
-      { installments: 1, recommendedMessage: '1x de R$ 197,00', installmentAmount: 197, totalAmount: 197 },
-    ];
+    const fake = fakeSdk();
+    const { el, component, fixture, chooseCard } = renderCard(fake);
 
-    TestBed.configureTestingModule({
-      imports: [Pagamento],
-      providers: [
-        provideRouter([]),
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        {
-          provide: MercadoPagoLoader,
-          useValue: { load: async () => sdk, installments: async () => installments, ready: () => true },
-        },
-      ],
-    });
+    await chooseCard();
 
-    TestBed.inject(StoreService).toggle('mod-1');
-    const fixture = TestBed.createComponent(Pagamento);
-    const backend = TestBed.inject(HttpTestingController);
-    fixture.detectChanges();
-    backend.match(req => req.url.endsWith('/users/me')).forEach(req => req.flush(null));
-    backend
-      .match(req => req.url.endsWith('/store/payment-config'))
-      .forEach(req => req.flush({ ...CONFIG, enabled: true, reason: null }));
+    expect(fake.handlers['cardNumber:binChange']).toBeDefined();
 
-    fixture.componentInstance.setMethod('CREDIT_CARD');
-    await fixture.whenStable();
-
-    expect(handlers['cardNumber:binChange']).toBeDefined();
-
-    await handlers['cardNumber:binChange']({ bin: '54808328' });
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
     fixture.detectChanges();
 
-    const component = fixture.componentInstance as unknown as { paymentMethodId: string };
-    expect(component.paymentMethodId).toBe('master');
-    expect((fixture.nativeElement as HTMLElement).querySelector('#installments')).not.toBeNull();
+    expect((component as unknown as { paymentMethodId: string }).paymentMethodId).toBe('master');
+    expect(el.querySelector('#installments')).not.toBeNull();
+  });
+
+  it('ajusta número e CVV às regras da bandeira (Amex: CVV de 4)', async () => {
+    const settings = [{ card_number: { length: 15 }, security_code: { length: 4, mode: 'mandatory' } }];
+    const fake = fakeSdk({ settings });
+    const { chooseCard } = renderCard(fake);
+
+    await chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '37000000' });
+
+    expect(fake.updates['securityCode']).toEqual([{ settings: { length: 4, mode: 'mandatory' } }]);
+    expect(fake.updates['cardNumber']).toEqual([{ settings: { length: 15 } }]);
+  });
+});
+
+/**
+ * Fix: em alguns aparelhos os campos do cartao ficavam vazios e sem como
+ * digitar. O `mount()` rodava antes de o Angular desenhar os contêineres, ou
+ * depois de o bloco ter saido do DOM, e o SDK so avisava no console.
+ */
+describe('Pagamento — campos do cartão', () => {
+  it('monta os três campos depois de desenhar os contêineres', async () => {
+    const fake = fakeSdk();
+    const { el, chooseCard } = renderCard(fake);
+
+    await chooseCard();
+
+    for (const id of ['cardNumber', 'expirationDate', 'securityCode']) {
+      expect(el.querySelector(`#${id} iframe`)).withContext(id).not.toBeNull();
+    }
+  });
+
+  it('PIX → Cartão → PIX → Cartão mantém os campos, sem montar de novo', async () => {
+    const fake = fakeSdk();
+    const { el, chooseCard, choosePix } = renderCard(fake);
+
+    await chooseCard();
+    await choosePix();
+    await chooseCard();
+
+    expect(el.querySelector('#cardNumber iframe')).not.toBeNull();
+    expect(fake.created).toEqual(['cardNumber', 'expirationDate', 'securityCode']);
+  });
+
+  it('avisa quando o SDK não pôs o iframe, e tenta de novo no próximo clique', async () => {
+    const fake = fakeSdk({ mountsIframe: false });
+    const { el, chooseCard } = renderCard(fake);
+
+    await chooseCard();
+
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain(
+      'Não foi possível carregar o formulário de cartão',
+    );
+
+    await chooseCard();
+
+    expect(fake.created.length).toBe(6);
+  });
+
+  it('preenche o nome do cartão com o do comprador, e ele é obrigatório', async () => {
+    const { component, chooseCard } = renderCard(fakeSdk());
+
+    await chooseCard();
+
+    expect(component.cardholderName.value).toBe('ANA SOUZA');
+
+    component.cardholderName.setValue('');
+
+    expect(component.cardholderName.invalid).toBeTrue();
+  });
+
+  it('mostra o erro do campo do cartão depois que o comprador sai dele', async () => {
+    const fake = fakeSdk();
+    const { el, fixture, chooseCard } = renderCard(fake);
+
+    await chooseCard();
+    fake.handlers['securityCode:validityChange']({ errorMessages: [{ message: 'invalid' }] });
+    fixture.detectChanges();
+
+    expect(el.querySelector('[data-testid="erro-securityCode"]')).toBeNull();
+
+    fake.handlers['securityCode:blur']({});
+    fixture.detectChanges();
+
+    expect(el.querySelector('[data-testid="erro-securityCode"]')?.textContent).toContain(
+      'Confira o código de segurança',
+    );
+  });
+
+  it('sem bandeira reconhecida, não cobra e diz o que conferir', async () => {
+    const { el, backend, chooseCard, pay } = renderCard(fakeSdk());
+
+    await chooseCard();
+    await pay();
+
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain('Confira o número do cartão');
+    backend.expectNone(req => req.method === 'POST' && req.url.endsWith('/orders'));
+  });
+
+  it('traduz a recusa do token em qual campo corrigir', async () => {
+    const fake = fakeSdk({ tokenError: [{ code: 'E301', message: 'invalid card number' }] });
+    const { el, chooseCard, pay } = renderCard(fake);
+
+    await chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+    await pay();
+
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain('Confira o número do cartão.');
+  });
+
+  it('envia o CPF digitado com máscara só com os dígitos', async () => {
+    const fake = fakeSdk();
+    const { backend, chooseCard, component } = renderCard(fake);
+
+    await chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+    const paying = component.pay();
+    await new Promise(resolve => setTimeout(resolve));
+
+    const order = backend.expectOne(req => req.method === 'POST' && req.url.endsWith('/orders'));
+
+    expect(order.request.body.payer.document).toBe('19119119100');
+    expect(order.request.body.card).toEqual({ token: 'tok', paymentMethodId: 'master', installments: 1 });
+
+    order.flush({ id: 'ord-1' });
+    await paying;
+  });
+
+  it('recusa CPF com dígito verificador errado', () => {
+    const { component } = renderCard(fakeSdk());
+
+    component.form.controls.document.setValue('191.191.191-01');
+
+    expect(component.form.controls.document.invalid).toBeTrue();
   });
 });
 
