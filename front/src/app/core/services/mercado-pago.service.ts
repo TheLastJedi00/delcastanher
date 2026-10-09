@@ -42,6 +42,14 @@ export interface PaymentMethodSettings {
   security_code?: Record<string, unknown>;
 }
 
+/** Bandeira do cartao e o BIN com que o Mercado Pago a reconheceu. */
+export interface CardBrand {
+  id: string;
+  /** 8 ou 6 digitos: e com ele que as parcelas sao pedidas. */
+  bin: string;
+  settings?: PaymentMethodSettings;
+}
+
 /** Superficie do SDK que este servico usa. */
 export interface MercadoPagoSdk {
   fields: {
@@ -121,6 +129,30 @@ export class MercadoPagoLoader {
    */
   deviceId(): string | undefined {
     return window.MP_DEVICE_SESSION_ID;
+  }
+
+  /**
+   * Bandeira do cartao pelo BIN, ou `null` se o Mercado Pago nao conhece o
+   * cartao.
+   *
+   * O Secure Field so entrega o BIN com 8 digitos, e a tabela do Mercado Pago
+   * nao tem muitos BINs Visa de 8 digitos cujos 6 primeiros ela conhece: a
+   * busca volta vazia, e a bandeira so aparece consultando com 6.
+   */
+  async paymentMethod(bin: string): Promise<CardBrand | null> {
+    const sdk = await this.load();
+    const candidates = [...new Set([bin.slice(0, 8), bin.slice(0, 6)])];
+
+    for (const candidate of candidates) {
+      const { results } = await sdk.getPaymentMethods({ bin: candidate });
+      const method = results?.[0];
+
+      if (method) {
+        return { id: method.id, bin: candidate, settings: method.settings?.[0] };
+      }
+    }
+
+    return null;
   }
 
   /**
