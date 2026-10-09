@@ -70,8 +70,8 @@ export class CertificatePdfService {
    * As fontes da folha, embutidas no SVG da captura. Sem isso o `html-to-image`
    * embute **todas** as `@font-face` da pagina (48, com os recortes de alfabeto
    * do Google Fonts) e a captura passa de um minuto. A folha so usa a familia
-   * da marca no alfabeto latino, e o Google a serve como fonte variavel: um
-   * arquivo so, baixado uma vez por sessao.
+   * da marca e a da assinatura no alfabeto latino: um arquivo por familia
+   * (a da marca e variavel), baixado uma vez por sessao.
    */
   private fontCss(): Promise<string> {
     this.fontCssCache ??= this.buildFontCss().catch(() => '');
@@ -85,7 +85,7 @@ export class CertificatePdfService {
       .match(/@font-face\s*{[^}]*}/g)
       ?.filter(
         face =>
-          face.includes(FONT_FAMILY) &&
+          FONT_FAMILIES.some(family => face.includes(family)) &&
           /font-style:\s*normal/.test(face) &&
           LATIN_RANGE.test(face),
       ) ?? [];
@@ -111,8 +111,11 @@ export class CertificatePdfService {
   }
 }
 
-/** Familia da marca (`tailwind.config.js`) e o recorte latino do Google Fonts. */
-const FONT_FAMILY = 'Plus Jakarta Sans';
+/**
+ * Familias da folha (`tailwind.config.js`): a da marca e a da assinatura. Fora
+ * desta lista a fonte nao entra no SVG e o PDF cai na fonte padrao.
+ */
+const FONT_FAMILIES = ['Plus Jakarta Sans', 'Monsieur La Doulaise'];
 const LATIN_RANGE = /unicode-range:\s*U\+0(000)?-0?0?FF\b/i;
 
 /**

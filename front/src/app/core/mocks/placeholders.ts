@@ -18,9 +18,6 @@ export const PLACEHOLDER = {
   // So o certificado e a verificacao usam: la, "a definir" e dado de
   // diploma. Na vitrine a carga horaria vem da API (Spec 022, decisao 13).
   workload: '[CARGA HORÁRIA]',
-  // A assinatura digitalizada da coordenacao ainda nao foi enviada. Ela e a
-  // rubrica de uma pessoa real: nao ha como desenhar uma "provisoria".
-  signature: '[ASSINATURA DA COORDENAÇÃO]',
 } as const;
 
 /** Marcador reconhecido pelo template: qualquer texto no formato `[ALGO]`. */
