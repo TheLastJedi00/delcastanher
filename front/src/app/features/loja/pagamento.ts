@@ -21,9 +21,9 @@ import { PageContainer } from '../../shared/ui/page-container/page-container';
 import { tierLabel } from '../../core/mocks/plans.mock';
 import { CepService } from '../../core/services/cep.service';
 import {
+  CardBrand,
   InstallmentOption,
   MercadoPagoLoader,
-  MercadoPagoSdk,
   SecureField,
 } from '../../core/services/mercado-pago.service';
 import { PaymentMethodKind, StoreService, formatPrice } from '../../core/services/store.service';
@@ -49,6 +49,10 @@ const SECURE_FIELD_STYLE = {
   placeholderColor: '#94a3b8',
   padding: '0 12px',
 };
+
+/** Cartao que o Mercado Pago nao conhece, como um Visa so de debito. */
+const CARD_UNSUPPORTED =
+  'Este cartão não é aceito pelo Mercado Pago. Tente outro cartão de crédito ou pague com PIX.';
 
 /** So os digitos do CPF. */
 function cpfDigits(value: string): string {
@@ -329,7 +333,13 @@ function cardTokenMessage(error: unknown): string | null {
                     <div class="sm:col-span-2">
                       <span class="block text-sm text-slate-700">Número do cartão</span>
                       <div id="cardNumber" class="input secure-field"></div>
-                      @if (cardFieldError('cardNumber')) {
+                      <!-- Dito assim que o número é digitado, para o comprador
+                           não preencher validade, CVV e nome à toa. -->
+                      @if (cardUnsupported()) {
+                        <p class="mt-1 text-xs text-state-danger" data-testid="cartao-nao-aceito">
+                          {{ cardUnsupportedMessage }}
+                        </p>
+                      } @else if (cardFieldError('cardNumber')) {
                         <p class="mt-1 text-xs text-state-danger" data-testid="erro-cardNumber">
                           Confira o número do cartão.
                         </p>
@@ -525,8 +535,12 @@ export class Pagamento implements OnInit {
     securityCode: false,
   });
   private readonly priceChangeState = signal<{ from: string; to: string; tierName: string } | null>(null);
-  /** Ultimo BIN digitado: com o valor mudado, as parcelas precisam ser refeitas. */
+  /** O Mercado Pago nao conhece o cartao digitado, nem com 8 nem com 6 digitos. */
+  private readonly cardUnsupportedState = signal(false);
+  /** BIN que reconheceu a bandeira: com o valor mudado, as parcelas sao refeitas com ele. */
   private lastBin = '';
+  /** Ultimo BIN emitido pelo campo: resposta de um BIN anterior e descartada. */
+  private typedBin = '';
 
   readonly selected = this.store.selectedModules;
   readonly bundle = this.store.selectedBundle;
@@ -534,6 +548,8 @@ export class Pagamento implements OnInit {
   readonly priceChange = this.priceChangeState.asReadonly();
   readonly method = this.methodState.asReadonly();
   readonly cardOpened = this.cardOpenedState.asReadonly();
+  readonly cardUnsupported = this.cardUnsupportedState.asReadonly();
+  readonly cardUnsupportedMessage = CARD_UNSUPPORTED;
   readonly installments = this.installmentsState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly submitting = this.submittingState.asReadonly();
@@ -875,7 +891,11 @@ export class Pagamento implements OnInit {
 
     // A bandeira vem do BIN; vazia, a API recusa o pedido (`paymentMethodId`).
     if (!this.paymentMethodId) {
-      this.errorState.set('Confira o número do cartão: não reconhecemos a bandeira.');
+      this.errorState.set(
+        this.cardUnsupportedState()
+          ? CARD_UNSUPPORTED
+          : 'Confira o número do cartão: não reconhecemos a bandeira.',
+      );
 
       return false;
     }
@@ -913,7 +933,7 @@ export class Pagamento implements OnInit {
       // O BIN e o que permite descobrir bandeira e parcelas antes do cartao
       // inteiro ser digitado. Os Secure Fields so o entregam pelo evento
       // `binChange`: uma opcao `onBinChange` no `create()` e ignorada pelo SDK.
-      fields.cardNumber.on('binChange', data => this.onBinChange(sdk, fields, data?.bin));
+      fields.cardNumber.on('binChange', data => this.onBinChange(fields, data?.bin));
 
       for (const { type } of CARD_FIELDS) {
         fields[type].mount(type);
@@ -943,45 +963,62 @@ export class Pagamento implements OnInit {
   /**
    * Com o BIN, descobre a bandeira, ajusta os campos a ela (a American Express
    * tem 15 digitos e CVV de 4) e pede as parcelas.
+   *
+   * Bandeira e parcelas sao consultas separadas: uma falha nas parcelas deixa
+   * o pagamento em 1x, e nao apaga a bandeira ja reconhecida.
    */
-  private async onBinChange(
-    sdk: MercadoPagoSdk,
-    fields: Record<CardField, SecureField>,
-    bin: string | undefined,
-  ): Promise<void> {
+  private async onBinChange(fields: Record<CardField, SecureField>, bin: string | undefined): Promise<void> {
+    this.typedBin = bin ?? '';
+    this.paymentMethodId = '';
+    this.lastBin = '';
+    this.cardUnsupportedState.set(false);
+    this.installmentsState.set([]);
+    this.installmentsControl.setValue(1);
+
     if (!bin || bin.length < 6) {
-      this.installmentsState.set([]);
-      this.paymentMethodId = '';
-      this.lastBin = '';
+      return;
+    }
+
+    let brand: CardBrand | null;
+
+    try {
+      brand = await this.mp.paymentMethod(bin);
+    } catch {
+      // Falha de rede: o `cardReady()` barra o envio e pede para conferir.
+      return;
+    }
+
+    // O comprador trocou o numero enquanto a consulta voltava: vale o novo.
+    if (this.typedBin !== bin) {
+      return;
+    }
+
+    if (!brand) {
+      this.cardUnsupportedState.set(true);
 
       return;
     }
 
-    this.lastBin = bin;
+    this.paymentMethodId = brand.id;
+    this.lastBin = brand.bin;
+
+    if (brand.settings?.card_number) {
+      fields.cardNumber.update({ settings: brand.settings.card_number });
+    }
+
+    if (brand.settings?.security_code) {
+      fields.securityCode.update({ settings: brand.settings.security_code });
+    }
 
     try {
-      const [methods, options] = await Promise.all([
-        sdk.getPaymentMethods({ bin }),
-        this.mp.installments(this.store.totalCents(), bin, this.maxInstallments()),
-      ]);
-      const method = methods.results?.[0];
-      const settings = method?.settings?.[0];
+      const options = await this.mp.installments(this.store.totalCents(), brand.bin, this.maxInstallments());
 
-      this.paymentMethodId = method?.id ?? '';
-      this.installmentsState.set(options);
-      this.installmentsControl.setValue(options[0]?.installments ?? 1);
-
-      if (settings?.card_number) {
-        fields.cardNumber.update({ settings: settings.card_number });
-      }
-
-      if (settings?.security_code) {
-        fields.securityCode.update({ settings: settings.security_code });
+      if (this.typedBin === bin) {
+        this.installmentsState.set(options);
+        this.installmentsControl.setValue(options[0]?.installments ?? 1);
       }
     } catch {
-      // Sem bandeira, o `cardReady()` barra o envio com uma mensagem clara.
-      this.paymentMethodId = '';
-      this.installmentsState.set([]);
+      // Sem parcelas, o pagamento segue em 1x.
     }
   }
 

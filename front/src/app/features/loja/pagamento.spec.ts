@@ -184,10 +184,23 @@ describe('Pagamento — endereço para a nota fiscal', () => {
  * SDK falso dos Secure Fields. Como o real, o `mount()` poe um iframe no
  * contêiner e, quando o contêiner nao existe, so avisa (nao lanca erro).
  */
-function fakeSdk(overrides: { mountsIframe?: boolean; settings?: unknown[]; tokenError?: unknown } = {}) {
+function fakeSdk(
+  overrides: {
+    mountsIframe?: boolean;
+    settings?: unknown[];
+    tokenError?: unknown;
+    /** Bandeira por BIN, como na tabela do Mercado Pago; sem isso, todo BIN e `master`. */
+    brands?: Record<string, string>;
+    /** Segura a resposta da bandeira de um BIN ate o teste liberar. */
+    holdBin?: string;
+  } = {},
+) {
   const handlers: Record<string, (data: { bin?: string; errorMessages?: unknown[] }) => unknown> = {};
   const created: string[] = [];
   const updates: Record<string, unknown[]> = {};
+  const binsSearched: string[] = [];
+  let release: () => void = () => undefined;
+  const held = new Promise<void>(resolve => (release = resolve));
 
   const sdk = {
     fields: {
@@ -219,19 +232,35 @@ function fakeSdk(overrides: { mountsIframe?: boolean; settings?: unknown[]; toke
         return { id: 'tok' };
       },
     },
-    getPaymentMethods: async () => ({ results: [{ id: 'master', settings: overrides.settings }] }),
+    getPaymentMethods: async ({ bin }: { bin: string }) => {
+      binsSearched.push(bin);
+
+      if (bin === overrides.holdBin) {
+        await held;
+      }
+
+      const id = overrides.brands ? overrides.brands[bin] : 'master';
+
+      return { results: id ? [{ id, settings: overrides.settings }] : [] };
+    },
     getInstallments: async () => [],
   };
 
-  return { sdk, handlers, created, updates };
+  return { sdk, handlers, created, updates, binsSearched, release };
 }
 
 const ONE_INSTALLMENT = [
   { installments: 1, recommendedMessage: '1x de R$ 197,00', installmentAmount: 197, totalAmount: 197 },
 ];
 
-/** Monta a tela com o SDK falso e os dados do comprador ja preenchidos. */
-function renderCard(fake: ReturnType<typeof fakeSdk>) {
+/**
+ * Monta a tela com o SDK falso e os dados do comprador ja preenchidos. A
+ * busca da bandeira e a do servico de verdade, sobre o SDK falso.
+ */
+function renderCard(fake: ReturnType<typeof fakeSdk>, options: { installmentsFail?: boolean } = {}) {
+  const load = async () => fake.sdk;
+  const installmentBins: string[] = [];
+
   TestBed.configureTestingModule({
     imports: [Pagamento],
     providers: [
@@ -241,8 +270,17 @@ function renderCard(fake: ReturnType<typeof fakeSdk>) {
       {
         provide: MercadoPagoLoader,
         useValue: {
-          load: async () => fake.sdk,
-          installments: async () => ONE_INSTALLMENT,
+          load,
+          paymentMethod: (bin: string) => MercadoPagoLoader.prototype.paymentMethod.call({ load }, bin),
+          installments: async (_amount: number, bin: string) => {
+            installmentBins.push(bin);
+
+            if (options.installmentsFail) {
+              throw { status: 404 };
+            }
+
+            return ONE_INSTALLMENT;
+          },
           ready: () => true,
           deviceId: () => undefined,
         },
@@ -301,8 +339,10 @@ function renderCard(fake: ReturnType<typeof fakeSdk>) {
     fixture.detectChanges();
   }
 
-  return { fixture, backend, el, component, chooseCard, choosePix, pay };
+  return { fixture, backend, el, component, chooseCard, choosePix, pay, installmentBins };
 }
+
+const brandOf = (component: Pagamento) => (component as unknown as { paymentMethodId: string }).paymentMethodId;
 
 /**
  * Os Secure Fields so avisam a bandeira pelo evento `binChange`, assinado com
@@ -335,6 +375,90 @@ describe('Pagamento — bandeira do cartão', () => {
 
     expect(fake.updates['securityCode']).toEqual([{ settings: { length: 4, mode: 'mandatory' } }]);
     expect(fake.updates['cardNumber']).toEqual([{ settings: { length: 15 } }]);
+  });
+});
+
+/**
+ * Fix: o Secure Field so entrega o BIN com 8 digitos, e a tabela do Mercado
+ * Pago nao tem muitos BINs Visa de 8 digitos cujos 6 primeiros ela conhece.
+ * A bandeira ficava vazia e o pagamento parava em "nao reconhecemos a bandeira".
+ */
+describe('Pagamento — bandeira Visa pelo BIN de 6 dígitos', () => {
+  it('sem resultado com 8 dígitos, reconhece a bandeira com os 6 primeiros', async () => {
+    const fake = fakeSdk({ brands: { '423564': 'visa' } });
+    const { component, chooseCard, installmentBins } = renderCard(fake);
+
+    await chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '42356449' });
+
+    expect(fake.binsSearched).toEqual(['42356449', '423564']);
+    expect(brandOf(component)).toBe('visa');
+    expect(installmentBins).toEqual(['423564']);
+  });
+
+  it('com resultado em 8 dígitos, não consulta com 6', async () => {
+    const fake = fakeSdk({ brands: { '42356477': 'visa' } });
+    const { component, chooseCard, installmentBins } = renderCard(fake);
+
+    await chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '42356477' });
+
+    expect(fake.binsSearched).toEqual(['42356477']);
+    expect(brandOf(component)).toBe('visa');
+    expect(installmentBins).toEqual(['42356477']);
+  });
+
+  it('falha nas parcelas não apaga a bandeira, e o pagamento segue em 1x', async () => {
+    const fake = fakeSdk({ brands: { '423564': 'visa' } });
+    const { el, fixture, component, backend, chooseCard } = renderCard(fake, { installmentsFail: true });
+
+    await chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '42356449' });
+    fixture.detectChanges();
+
+    expect(brandOf(component)).toBe('visa');
+    expect(el.querySelector('#installments')).toBeNull();
+
+    const paying = component.pay();
+    await new Promise(resolve => setTimeout(resolve));
+
+    const order = backend.expectOne(req => req.method === 'POST' && req.url.endsWith('/orders'));
+
+    expect(order.request.body.card).toEqual({ token: 'tok', paymentMethodId: 'visa', installments: 1 });
+
+    order.flush({ id: 'ord-1' });
+    await paying;
+  });
+
+  it('cartão que o Mercado Pago não conhece: avisa no campo e não cobra', async () => {
+    const fake = fakeSdk({ brands: {} });
+    const { el, fixture, backend, chooseCard, pay } = renderCard(fake);
+
+    await chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '45062900' });
+    fixture.detectChanges();
+
+    expect(el.querySelector('[data-testid="cartao-nao-aceito"]')?.textContent).toContain(
+      'Este cartão não é aceito',
+    );
+
+    await pay();
+
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain('Este cartão não é aceito');
+    backend.expectNone(req => req.method === 'POST' && req.url.endsWith('/orders'));
+  });
+
+  it('resposta atrasada de um número anterior não sobrescreve a do atual', async () => {
+    const fake = fakeSdk({ brands: { '42356477': 'visa', '54808328': 'master' }, holdBin: '42356477' });
+    const { component, chooseCard } = renderCard(fake);
+
+    await chooseCard();
+    const first = fake.handlers['cardNumber:binChange']({ bin: '42356477' });
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+    fake.release();
+    await first;
+
+    expect(brandOf(component)).toBe('master');
   });
 });
 
