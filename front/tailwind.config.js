@@ -33,6 +33,8 @@ module.exports = {
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', '"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
+        // Assinatura do certificado: nome cursivo no lugar da rubrica digitalizada.
+        signature: ['"Monsieur La Doulaise"', 'cursive'],
       },
       borderRadius: {
         '2xl': '1rem',

@@ -63,13 +63,22 @@ describe('CertificadoDiploma (Spec 023, Parte D)', () => {
     expect(text()).not.toContain('1 horas');
   });
 
-  // Carga e rubrica pendentes ficam como placeholder, nunca inventadas.
-  it('mostra os placeholders da carga horaria e da rubrica', () => {
+  // Carga pendente fica como placeholder, nunca inventada.
+  it('mostra o placeholder da carga horaria', () => {
     render({ ...COURSE, workloadHours: null });
 
     expect(text()).toContain('[CARGA HORÁRIA]');
-    expect(text()).toContain('[ASSINATURA DA COORDENAÇÃO]');
     expect(text()).toContain('LIDIANE DELCASTANHER');
+  });
+
+  it('assina com o nome em fonte cursiva, sem placeholder', () => {
+    render(COURSE);
+
+    const signature = fixture.nativeElement.querySelector('.font-signature') as HTMLElement;
+
+    expect(signature.textContent?.trim()).toBe('Lidiane Delcastanher');
+    expect(signature.getAttribute('aria-hidden')).toBe('true');
+    expect(text()).not.toContain('[ASSINATURA');
   });
 
   it('imprime a data por extenso no fuso de Sao Paulo', () => {

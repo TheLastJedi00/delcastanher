@@ -103,11 +103,13 @@ const LONG_DATE = new Intl.DateTimeFormat('pt-BR', {
 
         <div class="flex flex-col items-center justify-center">
           <!--
-            A rubrica digitalizada e de uma pessoa real e ainda nao foi enviada:
-            ate la o espaco dela fica como pendente, como os demais placeholders.
+            Nome em fonte cursiva no lugar da rubrica digitalizada. Decorativo:
+            o nome legivel ja vem logo abaixo da linha.
           -->
-          <div class="flex h-[2.2em] items-end justify-center text-[0.6em]">
-            <ui-placeholder-text tone="light" [value]="signature" />
+          <div
+            class="flex h-[2.2em] items-end justify-center whitespace-nowrap font-signature text-[2.3em] leading-none"
+            aria-hidden="true">
+            Lidiane Delcastanher
           </div>
           <div class="line mb-[0.5em] w-[50%]"></div>
           <p class="font-semibold">LIDIANE DELCASTANHER</p>
@@ -140,8 +142,6 @@ export class CertificadoDiploma {
   readonly data = input.required<DiplomaData>();
   /** Endereco publico da verificacao, ja com o host. */
   readonly verificationUrl = input.required<string>();
-
-  protected readonly signature = PLACEHOLDER.signature;
 
   protected readonly subject = computed(() => (this.data().scope === 'module' ? 'o' : 'o curso'));
 

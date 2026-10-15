@@ -189,10 +189,8 @@ describe('Certificado', () => {
       expect(rendered).toContain('10 de setembro de 2026');
       expect(rendered).toContain('DELC-ABCD-2345');
       expect(rendered).toContain(CERTIFICATE.hash);
-      // Carga horaria e assinatura ainda pendentes: tratamento de placeholder,
-      // nunca um numero ou uma rubrica inventada.
+      // Carga horaria ainda pendente: tratamento de placeholder, nunca um numero.
       expect(rendered).toContain('[CARGA HORÁRIA]');
-      expect(rendered).toContain('[ASSINATURA DA COORDENAÇÃO]');
     });
 
     it('exibe a carga horaria quando o curso ja tem o dado', async () => {
