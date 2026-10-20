@@ -103,19 +103,17 @@ const MODULES: readonly { order: number; title: string; summary: string; priceCe
   },
 ];
 
-/** Pacote de Lancamento da Spec 019 e os lotes dele, sem emoji no nome. */
+/**
+ * Pacote com os 12 modulos (Spec 019). O slug e o da Spec 019, que ja esta em
+ * links publicados; o titulo e o da Spec 027.
+ */
 const BUNDLE = {
   slug: 'imersao-rh-lancamento',
-  title: 'Pacote de Lançamento — Imersão RH Estratégico',
+  title: 'Imersão RH Estratégico — Pacote completo',
 };
 
-const TIERS: readonly { order: number; name: string; priceCents: number; capacity: number | null }[] = [
-  { order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20 },
-  { order: 2, name: '2º Lote', priceCents: 79700, capacity: 30 },
-  { order: 3, name: '3º Lote', priceCents: 99700, capacity: 50 },
-  // Sem limite: so o ultimo lote pode ter capacidade nula (decisao 3).
-  { order: 4, name: 'Preço oficial', priceCents: 149700, capacity: null },
-];
+/** Preco unico, sem limite de vagas (Spec 027, decisao 3). */
+const SINGLE_TIER = { order: 1, name: 'Preço único', priceCents: 98900, capacity: null };
 
 function connectionString(): string {
   const url = process.env['DATABASE_URL_UNPOOLED'] ?? process.env['DATABASE_URL'];
@@ -189,18 +187,20 @@ async function main(): Promise<void> {
       skipDuplicates: true,
     });
 
-    for (const tier of TIERS) {
-      await prisma.bundleTier.upsert({
-        where: { bundleId_order: { bundleId: bundle.id, order: tier.order } },
-        update: {},
-        create: { bundleId: bundle.id, ...tier },
-      });
+    // Lote so em pacote sem nenhum (Spec 027, decisao 3). Um `upsert` por
+    // ordem recriaria os lotes que a migration da Spec 027 apagou, com vagas,
+    // e o pacote voltaria a ser vendido pelo preco de lancamento.
+    const tierCount = await prisma.bundleTier.count({ where: { bundleId: bundle.id } });
+
+    if (tierCount === 0) {
+      await prisma.bundleTier.create({ data: { bundleId: bundle.id, ...SINGLE_TIER } });
     }
 
     console.log(
       `Curso "${course.title}" e ${MODULES.length} modulos sincronizados` +
         (createdLessons > 0 ? `, ${createdLessons} aula(s) inicial(is) criada(s)` : '') +
-        `; pacote "${bundle.title}" com ${TIERS.length} lotes.`,
+        `; pacote "${bundle.title}"` +
+        (tierCount === 0 ? ' criado com o preco unico.' : ` com ${tierCount} lote(s), sem mudanca.`),
     );
   } finally {
     await prisma.$disconnect();
