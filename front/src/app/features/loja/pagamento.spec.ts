@@ -610,9 +610,52 @@ describe('Pagamento — espaçamento do formulário', () => {
     const box = (selector: string) => el.querySelector(selector)!.getBoundingClientRect();
 
     expect(box('legend + p').top).toBeGreaterThanOrEqual(box('legend').bottom);
-    expect(box('#document').top - box('label[for="document"]').bottom).toBeGreaterThanOrEqual(6);
-    expect(box('#cpf-motivo').top - box('#document').bottom).toBeGreaterThanOrEqual(6);
+    // Arredondado: o layout tem subpixel (5,99997), e a ordem aleatoria dos testes muda o deslocamento.
+    expect(Math.round(box('#document').top - box('label[for="document"]').bottom)).toBeGreaterThanOrEqual(6);
+    expect(Math.round(box('#cpf-motivo').top - box('#document').bottom)).toBeGreaterThanOrEqual(6);
 
     el.remove();
+  });
+});
+
+/** Spec 027, decisao 6: o resumo do pacote sem lote. */
+describe('Pagamento — resumo do pacote', () => {
+  it('mostra o pacote completo com o preço único, sem lote', () => {
+    TestBed.configureTestingModule({
+      imports: [Pagamento],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+
+    const store = TestBed.inject(StoreService);
+    const backend = TestBed.inject(HttpTestingController);
+
+    store.loadOffer().subscribe();
+    backend.expectOne(req => req.url.endsWith('/store/offer')).flush({
+      modules: [],
+      bundle: {
+        slug: 'imersao-rh-lancamento',
+        title: 'Imersão RH Estratégico — Pacote completo',
+        modules: [],
+        modulesTotalCents: 256400,
+        tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, capacity: null, remaining: null },
+        nextTier: null,
+      },
+    });
+    store.selectBundle('imersao-rh-lancamento');
+
+    const fixture = TestBed.createComponent(Pagamento);
+    fixture.detectChanges();
+    backend.match(req => req.url.endsWith('/users/me')).forEach(req => req.flush(null));
+    backend
+      .match(req => req.url.endsWith('/store/payment-config'))
+      .forEach(req => req.flush({ ...CONFIG, enabled: true, reason: null }));
+    fixture.detectChanges();
+
+    const text = ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
+
+    expect(text).toContain('Imersão RH Estratégico — Pacote completo 12 módulos');
+    expect(text).toContain('R$ 989,00');
+    expect(text).not.toContain('Preço único');
+    expect(text).not.toContain('Lote');
   });
 });
