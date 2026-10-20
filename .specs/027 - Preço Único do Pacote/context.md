@@ -64,7 +64,7 @@ Saem da vitrine o selo do lote com emoji, a faixa "Restam X vagas no 🔥 Lote F
    - **`PATCH /admin/bundles/:slug/tiers/:tierId` só aceita o último lote.** Em outro lote, 400 "Este lote foi encerrado e não pode ser editado." Sem isso, subir as vagas do Fundador o reabriria a R$ 590.
    - **O DTO perde `capacity`.** Com o `forbidNonWhitelisted` do `main.ts`, mandar `capacity` passa a ser 400. Uma capacidade no último lote recriaria a escassez e, esgotada, deixaria o pacote sem lote e fora da loja.
    - **Na tela:** o bloco passa a se chamar "Pacote completo" e mostra o preço único com o botão "Editar preço". Abaixo, "Lotes encerrados", em tabela só de leitura com nome, preço e vendidos ("Lote Fundador · R$ 590,00 · 3 vendidos"). Sai o texto que explica a virada de lote e sai a coluna "Vagas".
-   - O `GET` do painel não muda de formato. Quem decide o que é editável na tela é o `current` que ele já devolve.
+   - O `GET` do painel não muda de formato. Na tela, editável é o **último lote na ordem**, o mesmo critério do servidor. O `current` não serve para isso: antes da migration, o vigente ainda é o Fundador.
 
 5. **A rota pública `GET /store/offer` não muda.**
    Ela continua devolvendo `tier` (com `remaining: null`) e `nextTier` (nulo). Mudar o formato obrigaria a ajustar testes e tipos dos dois lados sem mudar nada do que a página mostra, e o front deixa de ler `remaining` e `nextTier` (decisão 6).
