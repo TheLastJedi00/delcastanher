@@ -90,7 +90,7 @@ async function buildApp(role: Role | null = 'admin', prisma = prismaWith()) {
 
 const BASE = '/admin/bundles/imersao-rh-lancamento';
 
-/** Spec 019, decisoes 3 e 13. */
+/** Spec 019, decisoes 3 e 13; Spec 027, decisao 4. */
 describe('Admin — pacote e lotes (HTTP)', () => {
   let app: INestApplication;
 
@@ -104,12 +104,12 @@ describe('Admin — pacote e lotes (HTTP)', () => {
     it('recusa sem sessao e com papel aluno, nas duas rotas', async () => {
       ({ app } = await buildApp(null));
       await request(app.getHttpServer()).get(BASE).expect(401);
-      await request(app.getHttpServer()).patch(`${BASE}/tiers/t1`).send({ capacity: 25 }).expect(401);
+      await request(app.getHttpServer()).patch(`${BASE}/tiers/t1`).send({ priceCents: 98900 }).expect(401);
       await app.close();
 
       ({ app } = await buildApp('aluno'));
       await request(app.getHttpServer()).get(BASE).expect(403);
-      await request(app.getHttpServer()).patch(`${BASE}/tiers/t1`).send({ capacity: 25 }).expect(403);
+      await request(app.getHttpServer()).patch(`${BASE}/tiers/t1`).send({ priceCents: 98900 }).expect(403);
     });
   });
 
@@ -130,59 +130,61 @@ describe('Admin — pacote e lotes (HTTP)', () => {
   });
 
   describe('PATCH /admin/bundles/:slug/tiers/:tierId', () => {
-    it('altera preco e vagas', async () => {
+    it('altera o preco do ultimo lote, com o pacote travado', async () => {
       const prisma = prismaWith();
       ({ app } = await buildApp('admin', prisma));
 
-      await request(app.getHttpServer())
-        .patch(`${BASE}/tiers/t1`)
-        .send({ priceCents: 64000, capacity: 25 })
-        .expect(200);
+      await request(app.getHttpServer()).patch(`${BASE}/tiers/t4`).send({ priceCents: 98900 }).expect(200);
 
       expect(prisma.tx.bundleTier.update).toHaveBeenCalledWith({
-        where: { id: 't1' },
-        data: { priceCents: 64000, capacity: 25 },
+        where: { id: 't4' },
+        data: { priceCents: 98900 },
       });
       expect(prisma.tx.$queryRaw).toHaveBeenCalled();
     });
 
-    it('recusa capacidade menor que as vagas ja ocupadas', async () => {
-      ({ app } = await buildApp('admin', prismaWith({ t1: 12 })));
+    // Spec 027, decisao 4: so o ultimo lote vende; os outros sao historico.
+    it('recusa editar lote encerrado', async () => {
+      const prisma = prismaWith();
+      ({ app } = await buildApp('admin', prisma));
 
       const response = await request(app.getHttpServer())
         .patch(`${BASE}/tiers/t1`)
-        .send({ capacity: 11 })
+        .send({ priceCents: 64000 })
         .expect(400);
 
-      expect(response.body.message).toContain('12');
+      expect(response.body.message).toBe('Este lote foi encerrado e não pode ser editado.');
+      expect(prisma.tx.bundleTier.update).not.toHaveBeenCalled();
     });
 
-    it('recusa capacidade nula fora do ultimo lote, e aceita no ultimo', async () => {
+    // Spec 027, decisao 4: vagas recriariam a escassez e, esgotadas, tirariam o pacote da loja.
+    it('vagas nao sao mais editaveis, nem no ultimo lote', async () => {
       ({ app } = await buildApp());
 
-      await request(app.getHttpServer()).patch(`${BASE}/tiers/t2`).send({ capacity: null }).expect(400);
-      await request(app.getHttpServer()).patch(`${BASE}/tiers/t4`).send({ capacity: null }).expect(200);
+      for (const capacity of [25, null]) {
+        await request(app.getHttpServer()).patch(`${BASE}/tiers/t4`).send({ capacity }).expect(400);
+      }
     });
 
     it('recusa preco nulo, zero ou negativo', async () => {
       ({ app } = await buildApp());
 
       for (const priceCents of [null, 0, -100]) {
-        await request(app.getHttpServer()).patch(`${BASE}/tiers/t1`).send({ priceCents }).expect(400);
+        await request(app.getHttpServer()).patch(`${BASE}/tiers/t4`).send({ priceCents }).expect(400);
       }
     });
 
     it('nome e ordem nao sao editaveis', async () => {
       ({ app } = await buildApp());
 
-      await request(app.getHttpServer()).patch(`${BASE}/tiers/t1`).send({ name: 'Outro' }).expect(400);
-      await request(app.getHttpServer()).patch(`${BASE}/tiers/t1`).send({ order: 9 }).expect(400);
+      await request(app.getHttpServer()).patch(`${BASE}/tiers/t4`).send({ name: 'Outro' }).expect(400);
+      await request(app.getHttpServer()).patch(`${BASE}/tiers/t4`).send({ order: 9 }).expect(400);
     });
 
     it('lote de outro pacote e 404', async () => {
       ({ app } = await buildApp());
 
-      await request(app.getHttpServer()).patch(`${BASE}/tiers/t-outro`).send({ capacity: 25 }).expect(404);
+      await request(app.getHttpServer()).patch(`${BASE}/tiers/t-outro`).send({ priceCents: 98900 }).expect(404);
     });
   });
 });
