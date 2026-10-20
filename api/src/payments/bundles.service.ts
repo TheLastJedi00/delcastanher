@@ -143,10 +143,9 @@ export interface AdminBundleView {
   tiers: AdminBundleTier[];
 }
 
-/** O que o painel pode mudar num lote: preco e vagas, e so. */
+/** O que o painel pode mudar no lote vigente: o preco, e so (Spec 027, decisao 4). */
 export interface UpdateTierInput {
   priceCents?: number;
-  capacity?: number | null;
 }
 
 /** Pedido de pacote pedido pelo `OrdersService`. Sem preco e sem lote. */
@@ -309,15 +308,14 @@ export class BundlesService {
   }
 
   /**
-   * Preco e vagas de um lote (decisao 13), com as recusas da decisao 3:
+   * Preco do ultimo lote (Spec 019, decisao 13; Spec 027, decisao 4).
    *
-   * - **capacidade nula so no ultimo lote** — sem limite antes dele, os lotes
-   *   seguintes nunca seriam alcancados;
-   * - **capacidade nunca abaixo das vagas ja ocupadas** — seria vender mais do
-   *   que o lote diz ter.
+   * Desde a Spec 027 o pacote tem preco unico, e os lotes anteriores sao
+   * historico: editar um deles e recusado, porque subir as vagas do Fundador o
+   * reabriria pelo preco de lancamento.
    *
-   * Roda com o pacote travado, a mesma trava do pedido: a contagem que valida
-   * a capacidade nova nao cruza com uma venda no meio do caminho.
+   * Roda com o pacote travado, a mesma trava do pedido: o lote vigente
+   * devolvido nao cruza com uma venda no meio do caminho.
    */
   async updateTier(
     slug: string,
@@ -341,6 +339,10 @@ export class BundlesService {
         throw new NotFoundException('Lote não encontrado neste pacote.');
       }
 
+      if (tier.order !== Math.max(...tiers.map((row) => row.order))) {
+        throw new BadRequestException('Este lote foi encerrado e não pode ser editado.');
+      }
+
       const occupied = await this.occupied(
         tiers.map((row) => row.id),
         now,
@@ -348,24 +350,10 @@ export class BundlesService {
       );
       const taken = occupied.get(tier.id) ?? 0;
 
-      if (input.capacity === null && tier.order !== Math.max(...tiers.map((row) => row.order))) {
-        throw new BadRequestException('Só o último lote pode ficar sem limite de vagas.');
-      }
-
-      if (typeof input.capacity === 'number' && input.capacity < taken) {
-        throw new BadRequestException(
-          `Este lote já tem ${taken} vaga(s) ocupada(s); a capacidade não pode ser menor que isso.`,
-        );
-      }
-
       const data: UpdateTierInput = {};
 
       if (input.priceCents !== undefined) {
         data.priceCents = input.priceCents;
-      }
-
-      if (input.capacity !== undefined) {
-        data.capacity = input.capacity;
       }
 
       const saved = await tx.bundleTier.update({ where: { id: tier.id }, data });
