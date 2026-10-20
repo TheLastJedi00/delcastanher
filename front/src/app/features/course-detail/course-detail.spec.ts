@@ -247,11 +247,11 @@ describe('CourseDetail', () => {
       modules: [],
       bundle: {
         slug: 'imersao-rh-lancamento',
-        title: 'Pacote de Lançamento — Imersão RH Estratégico',
+        title: 'Imersão RH Estratégico — Pacote completo',
         modules: [],
         modulesTotalCents: 237200,
-        tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
-        nextTier: { name: '2º Lote', priceCents: 79700 },
+        tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, capacity: null, remaining: null },
+        nextTier: null,
       },
     };
 
@@ -281,25 +281,30 @@ describe('CourseDetail', () => {
       responderOferta(OFFER);
     });
 
-    it('mostra o preço do lote vigente, a âncora dos avulsos e o parcelamento', () => {
+    it('mostra o preço do pacote completo, a âncora dos avulsos e o parcelamento', () => {
       responderOferta(OFFER);
 
-      expect(ofertaTexto()).toContain('Lote Fundador');
-      expect(ofertaTexto()).toContain('R$ 590,00');
+      expect(ofertaTexto()).toContain('Pacote completo: os');
+      expect(ofertaTexto()).toContain('R$ 989,00');
       expect(ofertaTexto()).toContain('R$ 2.372,00');
       expect(ofertaTexto()).toContain('em até 12x no cartão');
     });
 
-    it('anuncia a escassez com as vagas reais do lote', () => {
-      responderOferta(OFFER);
-
-      expect(oferta().querySelector('ui-scarcity-banner')?.textContent).toContain('Restam 7 vagas');
-    });
-
-    it('sem vagas limitadas, não há faixa de escassez', () => {
-      responderOferta({ ...OFFER, bundle: { ...OFFER.bundle!, tier: { ...OFFER.bundle!.tier!, remaining: null } } });
+    // Spec 027, decisao 6: nem com a oferta antiga, de lote e vagas.
+    it('não anuncia lote nem vagas', () => {
+      responderOferta({
+        ...OFFER,
+        bundle: {
+          ...OFFER.bundle!,
+          tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
+          nextTier: { name: '2º Lote', priceCents: 79700 },
+        },
+      });
 
       expect(oferta().querySelector('ui-scarcity-banner')).toBeNull();
+      for (const word of ['Lote', 'Restam', 'vaga', 'Lançamento']) {
+        expect(ofertaTexto()).withContext(word).not.toContain(word);
+      }
     });
 
     it('com a oferta fora do ar, manda consultar na loja, sem inventar número', () => {
