@@ -19,17 +19,18 @@ function module(order: number, priceCents = 19700): StoreModuleItem {
   };
 }
 
-const CATALOG = [module(1), module(2), module(3, 29700), module(4)];
+const CATALOG = [module(1), module(2), module(3, 29700), module(4), module(5), module(6)];
 
+/** Preco unico da Spec 027. */
 const OFFER: StoreOffer = {
   modules: [],
   bundle: {
     slug: 'imersao-rh-lancamento',
-    title: 'Pacote de Lançamento — Imersão RH Estratégico',
+    title: 'Imersão RH Estratégico — Pacote completo',
     modules: [],
     modulesTotalCents: 256400,
-    tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
-    nextTier: { name: '2º Lote', priceCents: 79700 },
+    tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, capacity: null, remaining: null },
+    nextTier: null,
   },
 };
 
@@ -72,18 +73,20 @@ function check(element: HTMLElement, id: string): void {
   current.detectChanges();
 }
 
-/** Spec 019, decisoes 11 e 12. */
+/** Spec 019, decisoes 11 e 12; Spec 027, decisao 6. */
 describe('Loja', () => {
-  it('mostra o pacote no topo, com o lote, a ancora e as vagas', async () => {
+  it('mostra o pacote no topo, com a ancora e o preco, sem lote nem vagas', async () => {
     const { element } = await open();
     // O real formatado usa espaco nao separavel depois do R$.
     const text = (element.textContent ?? '').replace(/ /g, ' ');
 
     expect(element.querySelector('#pacote')).not.toBeNull();
-    expect(text).toContain('🔥 Lote Fundador');
+    expect(text).toContain('Pacote completo');
     expect(text).toContain('R$ 2.564,00');
-    expect(text).toContain('R$ 590,00');
-    expect(text).toContain('Restam 7 vagas neste lote');
+    expect(text).toContain('R$ 989,00');
+    for (const word of ['Lote', 'Preço único', 'Restam', 'vaga']) {
+      expect(text).withContext(word).not.toContain(word);
+    }
   });
 
   it('pacote e avulsos sao exclusivos', async () => {
@@ -117,17 +120,22 @@ describe('Loja', () => {
     expect(TestBed.inject(Router).url).toBe('/loja');
   });
 
-  it('no terceiro avulso acima do Fundador, oferece a troca pelo pacote', async () => {
+  it('quando os avulsos passam do preco do pacote, oferece a troca', async () => {
     const { element, store, harness } = await open();
 
-    check(element, 'mod-mod-1');
-    check(element, 'mod-mod-2');
+    // R$ 888 em quatro modulos: ainda abaixo dos R$ 989 do pacote.
+    for (const id of ['mod-mod-1', 'mod-mod-2', 'mod-mod-3', 'mod-mod-4']) {
+      check(element, id);
+    }
     harness.detectChanges();
     expect(element.textContent).not.toContain('Trocar pelo pacote');
 
-    check(element, 'mod-mod-4');
+    // R$ 1.085 com o quinto.
+    check(element, 'mod-mod-5');
     harness.detectChanges();
-    expect(element.textContent).toContain('O pacote com os 12 módulos sai por');
+    expect((element.textContent ?? '').replace(/\s+/g, ' ')).toContain(
+      'O pacote com os 12 módulos sai por R$ 989,00.',
+    );
 
     const button = [...element.querySelectorAll('button')].find(b =>
       b.textContent?.includes('Trocar pelo pacote'),

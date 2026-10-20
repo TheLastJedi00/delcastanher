@@ -22,16 +22,15 @@ export interface AdminBundle {
   tiers: AdminBundleTier[];
 }
 
-/** O que o painel pode mudar num lote: preco e vagas (decisao 13). */
+/** O que o painel pode mudar no lote que vende: o preco, e so (Spec 027, decisao 4). */
 export interface UpdateTierInput {
   priceCents?: number;
-  capacity?: number | null;
 }
 
 /**
  * Pacote e lotes no painel (Spec 019, decisao 13). Leitura dos lotes com as
- * vagas ocupadas e edicao de preco e vagas — criar pacote ou lote e spec
- * propria.
+ * vagas ocupadas e edicao do preco do ultimo lote (Spec 027, decisao 4) —
+ * criar pacote ou lote e spec propria.
  */
 @Injectable({ providedIn: 'root' })
 export class AdminBundlesService {

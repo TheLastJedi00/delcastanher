@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { ENTERPRISE_PLAN, LAUNCH_BUNDLE_COPY, bundleScarcity } from '../../core/mocks/plans.mock';
+import { ENTERPRISE_PLAN, LAUNCH_BUNDLE_COPY } from '../../core/mocks/plans.mock';
 import { AuthService } from '../../core/services/auth.service';
 import { StoreService, formatPrice } from '../../core/services/store.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
@@ -9,21 +9,20 @@ import { BundlePrice } from '../../shared/ui/bundle-price/bundle-price';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
-import { ScarcityBanner } from '../../shared/ui/scarcity-banner/scarcity-banner';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
 
 /** Estado da leitura da oferta: o preco so existe no navegador (decisao 10). */
 type OfferState = 'loading' | 'ready' | 'error';
 
 /**
- * Planos e precos (Spec 019, decisao 11): o Pacote de Lancamento em destaque,
- * os modulos avulsos e a venda para empresas.
+ * Planos e precos (Spec 019, decisao 11): o pacote completo em destaque, os
+ * modulos avulsos e a venda para empresas. Desde a Spec 027 o pacote tem preco
+ * unico, sem lote nem faixa de escassez.
  *
- * A pagina e prerenderizada, mas o preco **nao** entra no HTML do build: o
- * lote vira com a venda, e um preco gravado no deploy mostraria "Lote
- * Fundador" depois de o Fundador esgotar. A oferta e lida no navegador, depois
- * da primeira renderizacao, e ate la a area de preco e um esqueleto do mesmo
- * tamanho (decisao 10).
+ * A pagina e prerenderizada, mas o preco **nao** entra no HTML do build: ele
+ * e editavel no painel, e um preco gravado no deploy ficaria defasado. A
+ * oferta e lida no navegador, depois da primeira renderizacao, e ate la a area
+ * de preco e um esqueleto do mesmo tamanho (decisao 10).
  */
 @Component({
   selector: 'app-plans',
@@ -36,7 +35,6 @@ type OfferState = 'loading' | 'ready' | 'error';
     SectionHeader,
     AnimateOnScroll,
     BundlePrice,
-    ScarcityBanner,
   ],
   templateUrl: './plans.html',
 })
@@ -64,9 +62,6 @@ export class Plans {
   protected readonly bundle = computed(() => this.store.offer()?.bundle ?? null);
   protected readonly modules = computed(() => this.store.offer()?.modules ?? []);
   protected readonly tier = computed(() => this.bundle()?.tier ?? null);
-
-  /** Escassez com numero verdadeiro (decisao 11). */
-  protected readonly scarcity = computed(() => bundleScarcity(this.bundle()));
 
   constructor() {
     // So no navegador: no prerender nao ha chamada, e o HTML sai com o

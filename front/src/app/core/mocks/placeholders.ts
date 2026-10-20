@@ -1,10 +1,10 @@
 /**
  * Placeholders comerciais da Spec 006.
  *
- * Nada aqui pode virar dado inventado: preco, prazo de garantia, numero de vagas
- * e link de checkout so saem do placeholder quando o time comercial definir o
- * valor real. O template renderiza esses textos com tratamento visual proprio
- * (ver `isPlaceholder`), entao o visitante enxerga "a definir" e nao um erro.
+ * Nada aqui pode virar dado inventado: preco, prazo de garantia e link de
+ * checkout so saem do placeholder quando o time comercial definir o valor real.
+ * O template renderiza esses textos com tratamento visual proprio (ver
+ * `isPlaceholder`), entao o visitante enxerga "a definir" e nao um erro.
  */
 export const PLACEHOLDER = {
   price: '[PREÇO]',
@@ -13,7 +13,6 @@ export const PLACEHOLDER = {
   course: '[CURSO A SER CADASTRADO]',
   checkout: '[LINK DE CHECKOUT]',
   deadline: '[TURMA ENCERRA EM]',
-  seats: '[VAGAS RESTANTES]',
   guaranteePeriod: '[PRAZO DE GARANTIA]',
   // So o certificado e a verificacao usam: la, "a definir" e dado de
   // diploma. Na vitrine a carga horaria vem da API (Spec 022, decisao 13).
