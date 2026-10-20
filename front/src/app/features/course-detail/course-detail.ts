@@ -21,7 +21,7 @@ import {
   resolveCourseText,
 } from '../../core/mocks/courses.mock';
 import { isPlaceholder } from '../../core/mocks/placeholders';
-import { LAUNCH_BUNDLE_COPY, bundleScarcity } from '../../core/mocks/plans.mock';
+import { LAUNCH_BUNDLE_COPY } from '../../core/mocks/plans.mock';
 import { AnalyticsService } from '../../core/services/analytics.service';
 import { buildThenBrowser } from '../../core/services/build-then-browser';
 import { CourseSummaryService } from '../../core/services/course-summary.service';
@@ -34,7 +34,6 @@ import { BundlePrice } from '../../shared/ui/bundle-price/bundle-price';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
 import { GlassCard } from '../../shared/ui/glass-card/glass-card';
-import { ScarcityBanner } from '../../shared/ui/scarcity-banner/scarcity-banner';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
 import { SectionHeader } from '../../shared/ui/section-header/section-header';
 
@@ -52,7 +51,6 @@ const PLACEHOLDER_MARKER = /\[[^\]]+\]/;
     Footer,
     Button,
     GlassCard,
-    ScarcityBanner,
     SectionHeader,
     AnimateOnScroll,
   ],
@@ -160,9 +158,6 @@ export class CourseDetail {
   protected readonly offerState = signal<'loading' | 'ready' | 'error'>('loading');
   protected readonly bundle = computed(() => this.store.offer()?.bundle ?? null);
   protected readonly tier = computed(() => this.bundle()?.tier ?? null);
-
-  /** Faixa de escassez com as vagas reais do lote vigente, como no /planos. */
-  protected readonly scarcity = computed(() => bundleScarcity(this.bundle()));
 
   /**
    * Menor preco entre os modulos avulsos a venda, lido da oferta: muda sozinho

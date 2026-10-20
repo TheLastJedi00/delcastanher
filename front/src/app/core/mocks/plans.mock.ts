@@ -4,19 +4,17 @@
  * Ate a Spec 019 este arquivo tinha cinco planos de prototipo da Spec 006 —
  * Mini Curso, Curso Individual, Trilhas, Formacao Completa e Empresas —, quatro
  * deles sem produto cadastrado e todos com preco `[PREÇO]`. Sairam: a pagina
- * passa a vender o que existe, o Pacote de Lancamento e os modulos avulsos.
+ * passa a vender o que existe, o pacote completo e os modulos avulsos.
  *
- * **Preco, lote e vagas nao moram aqui.** Mudam com a venda e chegam de
- * `GET /store/offer`, lido no navegador (decisao 10). Isto e so o texto que nao
- * muda de um dia para outro.
+ * **Preco nao mora aqui.** Ele muda pelo painel e chega de `GET /store/offer`,
+ * lido no navegador (decisao 10). Isto e so o texto que nao muda de um dia
+ * para outro.
  */
 
-import { formatPrice } from '../services/store.service';
-
-/** Pacote de Lancamento: o que a oferta promete, em texto. */
+/** Pacote completo: o que a oferta promete, em texto. O nome da constante e da Spec 019. */
 export const LAUNCH_BUNDLE_COPY = {
   slug: 'imersao-rh-lancamento',
-  overline: 'Pacote de lançamento — Imersão RH Estratégico',
+  overline: 'Pacote completo — Imersão RH Estratégico',
   headline: 'Estruture o RH da sua empresa',
   subheadline: 'Do Zero ao Estratégico',
   support: '12 módulos | Método RH 360° | Materiais práticos | Templates | Plano de Ação',
@@ -35,40 +33,6 @@ export const LAUNCH_BUNDLE_COPY = {
   ],
 } as const;
 
-/**
- * Emoji de cada lote, pela ordem. O banco guarda o nome sem ele, porque o nome
- * vai para o recibo e para o painel; o emoji e copy de marketing.
- */
-const TIER_EMOJI: Record<number, string> = { 1: '🔥', 2: '🚀', 3: '⭐', 4: '💎' };
-
-export function tierLabel(tier: { order: number; name: string }): string {
-  const emoji = TIER_EMOJI[tier.order];
-
-  return emoji ? `${emoji} ${tier.name}` : tier.name;
-}
-
-/**
- * Faixa de escassez com numero verdadeiro (Spec 019, decisao 11): so em lote
- * com vagas. No Preco oficial, sem limite, nao ha o que anunciar e a faixa
- * some. Usada no `/planos` e na pagina do curso, para as duas dizerem o mesmo.
- */
-export function bundleScarcity(
-  bundle: { tier: { order: number; name: string; remaining: number | null } | null; nextTier: { name: string; priceCents: number } | null } | null,
-): { headline: string; next: string } | null {
-  const tier = bundle?.tier;
-
-  if (!tier || tier.remaining === null) {
-    return null;
-  }
-
-  const next = bundle.nextTier;
-
-  return {
-    headline: `Restam ${tier.remaining} ${tier.remaining === 1 ? 'vaga' : 'vagas'} no ${tierLabel(tier)}`,
-    next: next ? `${formatPrice(next.priceCents)} no ${next.name}` : '',
-  };
-}
-
 /** O unico plano do prototipo que continua: a venda para empresas, sob consulta. */
 export const ENTERPRISE_PLAN = {
   name: 'Empresas',
@@ -85,5 +49,5 @@ export const ENTERPRISE_PLAN = {
 export const PLANS_META = {
   title: 'Planos e Preços | Delcastanher',
   description:
-    'Pacote de Lançamento da Imersão RH Estratégico com os 12 módulos, módulos avulsos e soluções para empresas. Veja o lote vigente e escolha como estruturar o seu RH.',
+    'Pacote completo da Imersão RH Estratégico com os 12 módulos, módulos avulsos e soluções para empresas. Escolha como estruturar o seu RH.',
 };

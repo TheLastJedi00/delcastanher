@@ -25,7 +25,7 @@ export class AdminBundlesController {
     return this.bundles.adminView(slug);
   }
 
-  /** Preco e vagas de um lote. Nome e ordem nao sao editaveis. */
+  /** Preco do lote vigente; lote encerrado, nome, ordem e vagas nao sao editaveis (Spec 027). */
   @Patch(':slug/tiers/:tierId')
   updateTier(
     @Param('slug') slug: string,

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { LAUNCH_BUNDLE_COPY, tierLabel } from '../../core/mocks/plans.mock';
+import { LAUNCH_BUNDLE_COPY } from '../../core/mocks/plans.mock';
 import { Badge } from '../../shared/ui/badge/badge';
 import { BundlePrice } from '../../shared/ui/bundle-price/bundle-price';
 import { Button } from '../../shared/ui/button/button';
@@ -16,7 +16,7 @@ import { UserService } from '../../core/services/user.service';
  * 19), e tambem de quem quer comprar mais um modulo. A selecao e multipla
  * porque a compra pode ser de um ou de varios de uma vez.
  *
- * Desde a Spec 019 o Pacote de Lancamento vem primeiro, e a escolha e
+ * Desde a Spec 019 o pacote completo vem primeiro, e a escolha e
  * exclusiva: o pacote **ou** modulos avulsos, porque o pedido e um ou outro
  * (decisao 12).
  */
@@ -49,7 +49,7 @@ import { UserService } from '../../core/services/user.service';
 
       <div class="grid gap-8 lg:grid-cols-[1fr_340px] items-start">
         <div class="space-y-8">
-          <!-- Pacote de Lançamento (Spec 019): primeiro, e exclusivo com os avulsos. -->
+          <!-- Pacote completo (Spec 019; Spec 027, preço único): primeiro, e exclusivo com os avulsos. -->
           @if (bundle(); as pack) {
             <section aria-labelledby="pacote-titulo">
               <ui-card [variant]="bundleSelected() ? 'elevated' : 'default'" padding="md">
@@ -79,16 +79,6 @@ import { UserService } from '../../core/services/user.service';
                           [tier]="pack.tier"
                           [anchorCents]="pack.modulesTotalCents"
                           [maxInstallments]="maxInstallments()" />
-
-                        @if (pack.tier?.remaining !== null && pack.tier?.remaining !== undefined) {
-                          <p class="mt-2 text-sm font-semibold text-state-warning">
-                            Restam {{ pack.tier!.remaining }}
-                            {{ pack.tier!.remaining === 1 ? 'vaga' : 'vagas' }} neste lote
-                            @if (pack.nextTier) {
-                              — depois, {{ price(pack.nextTier.priceCents) }}
-                            }
-                          </p>
-                        }
                       </div>
 
                       <ul class="space-y-1.5 text-sm text-slate-700">
@@ -178,9 +168,7 @@ import { UserService } from '../../core/services/user.service';
               <li class="flex justify-between gap-3 text-sm">
                 <span class="text-slate-700">
                   {{ pack.title }}
-                  @if (pack.tier) {
-                    <span class="block text-xs text-slate-500">{{ tierName(pack.tier) }} · 12 módulos</span>
-                  }
+                  <span class="block text-xs text-slate-500">12 módulos</span>
                 </span>
                 <span class="text-slate-900 font-medium shrink-0">{{ price(totalCents()) }}</span>
               </li>
@@ -209,13 +197,12 @@ import { UserService } from '../../core/services/user.service';
               <span class="text-2xl font-semibold text-brand-navy">{{ price(totalCents()) }}</span>
             </div>
 
-            <!-- Decisão 12: com três ou mais avulsos acima do lote, o pacote
+            <!-- Decisão 12: com três ou mais avulsos acima do pacote, ele
                  sai mais barato — e o resumo diz isso antes do pagamento. -->
             @if (economy(); as deal) {
               <div class="mt-4 rounded-xl bg-brand-teal/10 px-4 py-3" role="status">
                 <p class="text-sm text-brand-navy">
-                  O pacote com os 12 módulos sai por <strong>{{ price(deal.priceCents) }}</strong>
-                  no {{ deal.tierName }}.
+                  O pacote com os 12 módulos sai por <strong>{{ price(deal.priceCents) }}</strong>.
                 </p>
                 <div class="mt-3">
                   <ui-button variant="outline" size="sm" (click)="toggleBundle(deal.slug)">
@@ -279,8 +266,8 @@ export class Loja implements OnInit {
 
   /**
    * Oferta de troca pelo pacote (decisao 12): tres ou mais avulsos e a soma
-   * acima do lote vigente. No Fundador isso acontece ja no terceiro modulo
-   * (3 x R$ 197 = R$ 591, contra R$ 590).
+   * acima do preco do pacote. Com o preco unico da Spec 027 (R$ 989), isso
+   * acontece a partir do quinto modulo de R$ 197.
    */
   readonly economy = computed(() => {
     const pack = this.bundle();
@@ -291,7 +278,7 @@ export class Loja implements OnInit {
     }
 
     return this.totalCents() > tier.priceCents
-      ? { slug: pack.slug, priceCents: tier.priceCents, tierName: tierLabel(tier) }
+      ? { slug: pack.slug, priceCents: tier.priceCents }
       : null;
   });
 
@@ -352,10 +339,6 @@ export class Loja implements OnInit {
 
   toggleBundle(slug: string): void {
     this.store.toggleBundle(slug);
-  }
-
-  tierName(tier: { order: number; name: string }): string {
-    return tierLabel(tier);
   }
 
   price(cents: number | null): string {
