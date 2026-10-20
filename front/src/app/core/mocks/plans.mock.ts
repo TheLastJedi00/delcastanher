@@ -16,7 +16,7 @@ import { formatPrice } from '../services/store.service';
 /** Pacote de Lancamento: o que a oferta promete, em texto. */
 export const LAUNCH_BUNDLE_COPY = {
   slug: 'imersao-rh-lancamento',
-  overline: 'Pacote de lançamento — Imersão RH Estratégico',
+  overline: 'Pacote completo — Imersão RH Estratégico',
   headline: 'Estruture o RH da sua empresa',
   subheadline: 'Do Zero ao Estratégico',
   support: '12 módulos | Método RH 360° | Materiais práticos | Templates | Plano de Ação',
@@ -85,5 +85,5 @@ export const ENTERPRISE_PLAN = {
 export const PLANS_META = {
   title: 'Planos e Preços | Delcastanher',
   description:
-    'Pacote de Lançamento da Imersão RH Estratégico com os 12 módulos, módulos avulsos e soluções para empresas. Veja o lote vigente e escolha como estruturar o seu RH.',
+    'Pacote completo da Imersão RH Estratégico com os 12 módulos, módulos avulsos e soluções para empresas. Escolha como estruturar o seu RH.',
 };

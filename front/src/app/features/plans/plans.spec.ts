@@ -17,21 +17,36 @@ const MODULES = PRICES.map((priceCents, index) => ({
   priceCents,
 }));
 
-function offer(tier: Partial<NonNullable<StoreOffer['bundle']>['tier']> = {}, next = true): StoreOffer {
+/** Oferta com o preco unico da Spec 027. */
+function offer(): StoreOffer {
   return {
     modules: MODULES,
     bundle: {
       slug: 'imersao-rh-lancamento',
-      title: 'Pacote de Lançamento — Imersão RH Estratégico',
+      title: 'Imersão RH Estratégico — Pacote completo',
       modules: MODULES,
       modulesTotalCents: 256400,
-      tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7, ...tier },
-      nextTier: next ? { name: '2º Lote', priceCents: 79700 } : null,
+      tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, capacity: null, remaining: null },
+      nextTier: null,
     },
   };
 }
 
-/** Spec 019, decisoes 10 e 11. */
+/** A oferta da Spec 019, com lote e vagas, como a API respondia antes da migration da Spec 027. */
+function launchOffer(): StoreOffer {
+  const current = offer();
+
+  return {
+    ...current,
+    bundle: {
+      ...current.bundle!,
+      tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
+      nextTier: { name: '2º Lote', priceCents: 79700 },
+    },
+  };
+}
+
+/** Spec 019, decisoes 10 e 11; Spec 027, decisao 6. */
 describe('Plans', () => {
   let fixture: ComponentFixture<Plans>;
   let http: HttpTestingController;
@@ -62,36 +77,33 @@ describe('Plans', () => {
 
   it('mostra o esqueleto no lugar do preço enquanto a oferta não chega', () => {
     expect(el().querySelector('ui-bundle-price [aria-busy="true"]')).not.toBeNull();
-    expect(text()).not.toContain('R$ 590,00');
-    // A faixa de escassez tem o lugar reservado: chegar depois nao empurra a pagina.
-    expect(el().querySelector('[data-testid="faixa-carregando"]')).not.toBeNull();
+    expect(text()).not.toContain('R$ 989,00');
 
     request().flush(offer());
   });
 
-  it('mostra lote, preço, âncora, parcelamento e vagas depois da resposta', () => {
+  it('mostra preço, âncora e parcelamento depois da resposta', () => {
     respond(offer());
 
-    expect(text()).toContain('🔥 Lote Fundador');
-    expect(text()).toContain('R$ 590,00');
+    expect(text()).toContain('R$ 989,00');
     expect(text()).toContain('R$ 2.564,00');
     expect(text()).toContain('em até 12x no cartão');
-    expect(text()).toContain('Restam 7 vagas no 🔥 Lote Fundador');
-    expect(text()).toContain('R$ 797,00 no 2º Lote');
-    expect(el().querySelector('[data-testid="faixa-carregando"]')).toBeNull();
   });
 
   it('não promete o valor da parcela', () => {
     respond(offer());
 
-    expect(text()).not.toContain('49,17');
+    expect(text()).not.toContain('82,42');
   });
 
-  it('sem faixa de escassez no Preço oficial, que não tem limite', () => {
-    respond(offer({ id: 't4', order: 4, name: 'Preço oficial', priceCents: 149700, capacity: null, remaining: null }, false));
+  it('não fala em lote, vaga nem lançamento, mesmo com a oferta antiga', () => {
+    respond(launchOffer());
 
-    expect(text()).toContain('💎 Preço oficial');
+    for (const word of ['Lote', 'Preço único', 'vaga', 'Restam', 'R$ 797,00', 'lançamento', 'Lançamento']) {
+      expect(text()).withContext(word).not.toContain(word);
+    }
     expect(el().querySelector('ui-scarcity-banner')).toBeNull();
+    expect(el().querySelector('#pacote a')?.textContent).toContain('Quero o pacote completo');
   });
 
   it('em erro, mantém a oferta e manda consultar o valor na loja', () => {
