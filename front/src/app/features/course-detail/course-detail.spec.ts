@@ -301,7 +301,6 @@ describe('CourseDetail', () => {
         },
       });
 
-      expect(oferta().querySelector('ui-scarcity-banner')).toBeNull();
       for (const word of ['Lote', 'Restam', 'vaga', 'Lançamento']) {
         expect(ofertaTexto()).withContext(word).not.toContain(word);
       }

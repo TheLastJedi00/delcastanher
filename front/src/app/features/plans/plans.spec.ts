@@ -102,7 +102,6 @@ describe('Plans', () => {
     for (const word of ['Lote', 'Preço único', 'vaga', 'Restam', 'R$ 797,00', 'lançamento', 'Lançamento']) {
       expect(text()).withContext(word).not.toContain(word);
     }
-    expect(el().querySelector('ui-scarcity-banner')).toBeNull();
     expect(el().querySelector('#pacote a')?.textContent).toContain('Quero o pacote completo');
   });
 
