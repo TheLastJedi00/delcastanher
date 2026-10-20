@@ -55,3 +55,7 @@ Ordem das fases:
   - `ng test`: 693 de 693 em quatro rodadas seguidas. Uma rodada anterior falhou nos 11 testes do `/planos` de uma vez, no `beforeEach`, e não se repetiu.
   - `ng build`: ok, com 8 rotas prerenderizadas.
   - `npm test` da API: 1179 de 1180. A falha é `cache.http.spec.ts › o 404 tambem vai para o cache` (500 no lugar de 404), que falha igual com o `api/src` da `main` e não tem relação com esta spec.
+- **Conferência local (20/10/2026):** API em `localhost:3000` e front em `localhost:4200`, na `release/027-preco-unico-do-pacote`, lendo o banco de produção ainda sem a migration.
+  - No `/planos` e na página do curso, o preço aparece sem selo de lote e sem faixa de escassez. O texto diz "Pacote completo", e o CTA do `/planos` diz "Quero o pacote completo".
+  - O preço exibido é R$ 590,00, porque sem a migration o vigente ainda é o Fundador.
+  - A loja, o pagamento e o painel pedem login e não foram abertos: sem conta de teste, e o banco é o de produção. Eles ficam com os testes automáticos e com a Task 4.3.
