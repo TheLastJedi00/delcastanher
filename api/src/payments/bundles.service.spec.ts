@@ -391,3 +391,87 @@ describe('BundlesService.placeOrder (Spec 019, decisoes 5 e 6)', () => {
     }
   });
 });
+
+/**
+ * Os lotes depois da Spec 027 (decisao 2): o Fundador fechado com as vagas que
+ * vendeu, o 2º e o 3º apagados e o ultimo como preco unico, sem limite.
+ */
+const CLOSED_TIERS: TierRow[] = [
+  { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, capacity: null },
+  { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 3 },
+];
+const FOUNDER_SOLD = [{ bundleTierId: 't1', _count: { _all: 3 } }];
+
+describe('Preco unico (Spec 027, decisoes 1 e 5)', () => {
+  it('a vitrine mostra o preco unico, sem vagas e sem proximo lote', async () => {
+    const { service } = await buildOffer({ ...bundleRow(), tiers: CLOSED_TIERS }, FOUNDER_SOLD);
+
+    const offer = await service.offer(NOW);
+
+    expect(offer?.tier).toMatchObject({ id: 't4', name: 'Preço único', priceCents: 98900, remaining: null });
+    expect(offer?.nextTier).toBeNull();
+  });
+
+  it('o pedido sai a R$ 989, com os itens rateados somando o valor', async () => {
+    const { service, tx } = await buildPlace({ bundle: { ...bundleRow(), tiers: CLOSED_TIERS }, groups: FOUNDER_SOLD });
+
+    await service.placeOrder(PLACE, NOW);
+    const data = tx.order.create.mock.calls[0][0].data as Record<string, unknown>;
+    const items = (data.items as { create: { priceCents: number }[] }).create;
+
+    expect(data).toMatchObject({ amountCents: 98900, bundleTierId: 't4', tierNameSnapshot: 'Preço único' });
+    expect(items.reduce((sum, item) => sum + item.priceCents, 0)).toBe(98900);
+  });
+});
+
+/** Edicao pelo painel com o pacote travado, como no pedido (Spec 019, decisao 13). */
+function buildUpdate(tiers: TierRow[] = CLOSED_TIERS) {
+  const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    bundle: { findUnique: jest.fn().mockResolvedValue({ id: 'b1', slug: 'imersao-rh-lancamento', tiers }) },
+    bundleTier: {
+      update: jest.fn(async ({ where, data }: { where: { id: string }; data: object }) => ({
+        ...tiers.find((tier) => tier.id === where.id),
+        ...data,
+      })),
+    },
+    order: { groupBy: jest.fn().mockResolvedValue(FOUNDER_SOLD) },
+  };
+  const prisma = { $transaction: jest.fn(async (fn: (client: unknown) => unknown) => fn(tx)) };
+
+  return Test.createTestingModule({
+    providers: [BundlesService, { provide: PrismaService, useValue: prisma }],
+  })
+    .compile()
+    .then((moduleRef) => ({ service: moduleRef.get(BundlesService), tx }));
+}
+
+describe('BundlesService.updateTier (Spec 027, decisao 4)', () => {
+  it('lote encerrado nao e editavel: subir as vagas do Fundador o reabriria', async () => {
+    const { service, tx } = await buildUpdate();
+
+    await expect(service.updateTier('imersao-rh-lancamento', 't1', { priceCents: 50000 }, NOW)).rejects.toMatchObject({
+      status: 400,
+      message: 'Este lote foi encerrado e não pode ser editado.',
+    });
+    expect(tx.bundleTier.update).not.toHaveBeenCalled();
+  });
+
+  it('o preco unico e editavel e continua sendo o vigente', async () => {
+    const { service, tx } = await buildUpdate();
+
+    const saved = await service.updateTier('imersao-rh-lancamento', 't4', { priceCents: 99900 }, NOW);
+
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(tx.bundleTier.update).toHaveBeenCalledWith({ where: { id: 't4' }, data: { priceCents: 99900 } });
+    expect(saved).toMatchObject({ id: 't4', priceCents: 99900, capacity: null, current: true });
+  });
+
+  it('lote de outro pacote e 404', async () => {
+    const { service } = await buildUpdate();
+
+    await expect(service.updateTier('imersao-rh-lancamento', 't-outro', { priceCents: 99900 }, NOW)).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+});
