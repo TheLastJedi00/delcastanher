@@ -18,7 +18,6 @@ import { Button } from '../../shared/ui/button/button';
 import { Card } from '../../shared/ui/card/card';
 import { PaymentTrust } from '../../shared/ui/payment-trust/payment-trust';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
-import { tierLabel } from '../../core/mocks/plans.mock';
 import { CepService } from '../../core/services/cep.service';
 import {
   CardBrand,
@@ -409,12 +408,13 @@ function cardTokenMessage(error: unknown): string | null {
                 <p class="mt-4 text-sm text-state-danger" role="alert">{{ message }}</p>
               }
 
-              <!-- Spec 019, decisão 12: o lote virou entre a loja e aqui. O
-                   valor novo é dito antes de cobrar, e o próximo clique confirma. -->
+              <!-- Spec 019, decisão 12: o preço mudou entre a loja e aqui. O
+                   valor novo é dito antes de cobrar, e o próximo clique confirma.
+                   Sem lotes desde a Spec 027, quem muda o preço é o painel. -->
               @if (priceChange(); as change) {
                 <div class="mt-4 rounded-xl bg-state-warning/10 px-4 py-3 text-sm text-slate-800" role="alert">
-                  As vagas do lote anterior acabaram enquanto você escolhia. O pacote agora sai por
-                  <strong>{{ change.to }}</strong> no {{ change.tierName }} (antes, {{ change.from }}).
+                  O preço do pacote mudou enquanto você escolhia. Agora ele sai por
+                  <strong>{{ change.to }}</strong> (antes, {{ change.from }}).
                   Confira o valor e clique de novo para continuar.
                 </div>
               }
@@ -454,9 +454,7 @@ function cardTokenMessage(error: unknown): string | null {
                 <li class="flex justify-between gap-3 text-sm">
                   <span class="text-slate-700">
                     {{ pack.title }}
-                    @if (pack.tier) {
-                      <span class="block text-xs text-slate-500">{{ tierName(pack.tier) }} · 12 módulos</span>
-                    }
+                    <span class="block text-xs text-slate-500">12 módulos</span>
                   </span>
                   <span class="text-slate-900 font-medium shrink-0">{{ total() }}</span>
                 </li>
@@ -534,7 +532,7 @@ export class Pagamento implements OnInit {
     expirationDate: false,
     securityCode: false,
   });
-  private readonly priceChangeState = signal<{ from: string; to: string; tierName: string } | null>(null);
+  private readonly priceChangeState = signal<{ from: string; to: string } | null>(null);
   /** O Mercado Pago nao conhece o cartao digitado, nem com 8 nem com 6 digitos. */
   private readonly cardUnsupportedState = signal(false);
   /** BIN que reconheceu a bandeira: com o valor mudado, as parcelas sao refeitas com ele. */
@@ -685,10 +683,6 @@ export class Pagamento implements OnInit {
     };
   }
 
-  tierName(tier: { order: number; name: string }): string {
-    return tierLabel(tier);
-  }
-
   invalid(field: string): boolean {
     const control = this.form.get(field);
 
@@ -787,11 +781,12 @@ export class Pagamento implements OnInit {
   }
 
   /**
-   * Rele a oferta antes de cobrar o pacote (Spec 019, decisao 12). Se o lote
-   * virou desde a loja, mostra o valor novo, refaz as parcelas do cartao e
-   * **nao** cobra: o proximo clique e a confirmacao.
+   * Rele a oferta antes de cobrar o pacote (Spec 019, decisao 12). Se o preco
+   * mudou desde a loja — pelo painel, desde a Spec 027 —, mostra o valor novo,
+   * refaz as parcelas do cartao e **nao** cobra: o proximo clique e a
+   * confirmacao.
    *
-   * Quem escolhe o lote cobrado continua sendo o servidor. Esta releitura so
+   * Quem decide o valor cobrado continua sendo o servidor. Esta releitura so
    * evita que o aluno descubra o preco novo depois de pagar.
    */
   private async bundlePriceChanged(): Promise<boolean> {
@@ -803,7 +798,7 @@ export class Pagamento implements OnInit {
       });
     } catch {
       // Sem a releitura, segue com o que a tela mostra: o servidor cobra o
-      // lote vigente de qualquer jeito, e a tela do pedido mostra o valor.
+      // preco vigente de qualquer jeito, e a tela do pedido mostra o valor.
       return false;
     }
 
@@ -816,11 +811,7 @@ export class Pagamento implements OnInit {
       return false;
     }
 
-    this.priceChangeState.set({
-      from: formatPrice(before),
-      to: formatPrice(after),
-      tierName: tierLabel(tier),
-    });
+    this.priceChangeState.set({ from: formatPrice(before), to: formatPrice(after) });
 
     if (this.methodState() === 'CREDIT_CARD' && this.lastBin) {
       this.installmentsState.set(
