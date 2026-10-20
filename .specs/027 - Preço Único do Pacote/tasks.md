@@ -34,7 +34,7 @@ Ordem das fases:
 
 ## Fase 4: Produção
 - [ ] **Task 4.1:** Abrir o PR e fazer o merge na `main`.
-- [ ] **Task 4.2:** Com **autorização explícita** (decisão 8), rodar `npx prisma migrate deploy` contra produção e registrar o resultado das `NOTICE`.
+- [x] **Task 4.2:** Com **autorização explícita** (decisão 8), rodar `npx prisma migrate deploy` contra produção e registrar o resultado das `NOTICE`.
 - [ ] **Task 4.3:** Conferir no Chrome, em `www.delcastanher.srv.br`:
   - `/planos`, `/cursos/imersao-rh` e `/loja` com R$ 989,00, a âncora riscada e nada de lote ou vagas;
   - o painel com o preço único editável e o Fundador encerrado com 3 vendidos;
@@ -59,3 +59,8 @@ Ordem das fases:
   - No `/planos` e na página do curso, o preço aparece sem selo de lote e sem faixa de escassez. O texto diz "Pacote completo", e o CTA do `/planos` diz "Quero o pacote completo".
   - O preço exibido é R$ 590,00, porque sem a migration o vigente ainda é o Fundador.
   - A loja, o pagamento e o painel pedem login e não foram abertos: sem conta de teste, e o banco é o de produção. Eles ficam com os testes automáticos e com a Task 4.3.
+- **Task 4.1 (20/10/2026):** PR #58 aberto contra a `main`. O merge fica com o usuário.
+- **Task 4.2 (20/10/2026):** com autorização do usuário, `prisma migrate deploy` em produção, **antes** do merge. O usuário aprovou rodar a migration junto com a abertura do PR, e assim o site deixou de vender a R$ 590 na hora, sem esperar o deploy.
+  - Estado depois: título "Imersão RH Estratégico — Pacote completo"; Lote Fundador com capacidade 3 (3 `PAID`, 5 `CANCELLED`, intactos); "Preço único" a R$ 989,00 sem limite. O 2º e o 3º lote foram apagados.
+  - `GET https://api.delcastanher.srv.br/store/offer` já devolve o preço único, com `remaining: null` e `nextTier: null`.
+  - Até o merge, o front publicado mostra "💎 Preço único" em selo, a R$ 989, sem faixa de escassez — a janela aceitável da decisão 8.
