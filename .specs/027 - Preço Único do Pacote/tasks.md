@@ -9,18 +9,18 @@ Ordem das fases:
 4. Por fim, a produção: merge, migration com autorização e conferência no Chrome.
 
 ## Fase 1: API - Painel e Seed
-- [ ] **Task 1.1:** Em `bundles.service.spec.ts`, escrever os casos do `updateTier` (decisão 4):
+- [x] **Task 1.1:** Em `bundles.service.spec.ts`, escrever os casos do `updateTier` (decisão 4) e os do preço único na vitrine e no pedido (decisões 1 e 5):
   - lote que não é o último → 400 "Este lote foi encerrado e não pode ser editado.";
   - último lote com `priceCents` → grava e devolve o lote com `current: true`.
 
-  Remover os casos de capacidade da Spec 019, que deixam de existir.
-- [ ] **Task 1.2:** Em `admin-bundles.http.spec.ts`, cobrir `capacity` no corpo → 400 (DTO com `forbidNonWhitelisted`) e `PATCH` em lote encerrado → 400.
-- [ ] **Task 1.3:** Tirar `capacity` do `UpdateBundleTierDto` e do `UpdateTierInput`. No `updateTier`, recusar o lote que não é o de `order` máximo e apagar as validações de capacidade.
-- [ ] **Task 1.4:** No `prisma/seed.ts`, trocar `TIERS` por um lote só (`Preço único`, 98900, sem limite) e criá-lo apenas quando o pacote não tem lote nenhum (decisão 3). Atualizar o título do pacote e a mensagem final do seed.
+  Os casos de capacidade da Spec 019 moravam no `admin-bundles.http.spec.ts` e saem na Task 1.2.
+- [x] **Task 1.2:** Em `admin-bundles.http.spec.ts`, cobrir `capacity` no corpo → 400 (DTO com `forbidNonWhitelisted`) e `PATCH` em lote encerrado → 400.
+- [x] **Task 1.3:** Tirar `capacity` do `UpdateBundleTierDto` e do `UpdateTierInput`. No `updateTier`, recusar o lote que não é o de `order` máximo e apagar as validações de capacidade.
+- [x] **Task 1.4:** No `prisma/seed.ts`, trocar `TIERS` por um lote só (`Preço único`, 98900, sem limite) e criá-lo apenas quando o pacote não tem lote nenhum (decisão 3). Atualizar o título do pacote e a mensagem final do seed.
 
 ## Fase 2: API - Migration
-- [ ] **Task 2.1:** Escrever `prisma/migrations/<timestamp>_preco_unico_do_pacote/migration.sql` (decisão 2): fechar com a contagem de `PAID` + `REFUNDED` os lotes não-últimos que têm pedido, apagar os não-últimos sem pedido, gravar `Preço único` a R$ 989,00 sem limite no último e o título novo no pacote. Usar `RAISE NOTICE` com as contagens. Tudo filtrado por `slug = 'imersao-rh-lancamento'`.
-- [ ] **Task 2.2:** Conferir a migration contra uma cópia do estado de produção sem gravar no banco de produção — por exemplo, num branch do Neon ou num Postgres local com os dados da tabela de "Situação em produção". Rodar duas vezes para provar que é idempotente.
+- [x] **Task 2.1:** Escrever `prisma/migrations/<timestamp>_preco_unico_do_pacote/migration.sql` (decisão 2): fechar com a contagem de `PAID` + `REFUNDED` os lotes não-últimos que têm pedido, apagar os não-últimos sem pedido, gravar `Preço único` a R$ 989,00 sem limite no último e o título novo no pacote. Usar `RAISE NOTICE` com as contagens. Tudo filtrado por `slug = 'imersao-rh-lancamento'`.
+- [x] **Task 2.2:** Conferir a migration contra uma cópia do estado de produção sem gravar no banco de produção — por exemplo, num branch do Neon ou num Postgres local com os dados da tabela de "Situação em produção". Rodar duas vezes para provar que é idempotente.
 
 ## Fase 3: Front
 - [ ] **Task 3.1:** Na `ui-bundle-price`, tirar o selo do lote e o `tierLabel`. Ajustar o spec do componente.
@@ -40,3 +40,10 @@ Ordem das fases:
   - o painel com o preço único editável e o Fundador encerrado com 3 vendidos;
   - o financeiro com os 3 pedidos do Fundador intactos.
 - [ ] **Task 4.4:** Rodar o inventário de novo, só leitura, e registrar o estado final no fim deste arquivo.
+
+## Registro da execução
+
+- **Task 2.2 (20/10/2026):** sem Postgres local, a migration rodou no PGlite (Postgres em WASM) com as tabelas `bundles`, `bundle_tiers` e `orders` e o estado de produção da tabela "Situação em produção" (3 `PAID` e 5 `CANCELLED` no Fundador), mais um pedido `PENDING` no Fundador.
+  - Primeira e segunda passada: sobram o Lote Fundador (capacidade 3, o pendente não conta) e o Preço único (R$ 989,00, sem limite). O 2º e o 3º lote são apagados, os 10 pedidos ficam e o título do pacote é o novo.
+  - Banco sem o pacote: nenhum efeito.
+  - Estornado conta como vaga vendida, e um lote com pedido só expirado fica, fechado em 0 vagas.
