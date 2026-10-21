@@ -74,50 +74,62 @@ const POLL_MS = 5000;
 
           @case ('PENDING') {
             <ui-card padding="lg">
-              <h1 class="text-2xl font-semibold text-brand-navy">Pague com PIX para liberar</h1>
-
-              @if (pedido.pix; as pix) {
-                <div class="mt-6 grid gap-6 md:grid-cols-[220px_1fr] items-start">
-                  <img
-                    [src]="'data:image/png;base64,' + pix.qrCodeBase64"
-                    alt="QR Code do PIX para pagamento"
-                    class="w-full max-w-[220px] rounded-xl border border-brand-navy/10" />
-
-                  <div>
-                    <label for="copia-e-cola" class="block text-sm text-slate-700">
-                      PIX Copia e Cola
-                    </label>
-                    <textarea
-                      id="copia-e-cola"
-                      readonly
-                      rows="4"
-                      class="mt-1 w-full rounded-xl border border-brand-navy/15 bg-slate-50 px-3 py-2 text-xs text-slate-700">{{ pix.qrCode }}</textarea>
-
-                    <div class="mt-3 flex items-center gap-3">
-                      <ui-button variant="outline" size="sm" (click)="copy(pix.qrCode)">
-                        Copiar código
-                      </ui-button>
-                      <span class="text-sm text-state-success" aria-live="polite">
-                        {{ copied() ? 'Código copiado!' : '' }}
-                      </span>
-                    </div>
-
-                    <p class="mt-4 text-sm text-slate-600" aria-live="polite">
-                      @if (remaining(); as restante) {
-                        Este código expira em <strong>{{ restante }}</strong>.
-                      }
-                    </p>
-
-                    <p class="mt-2 text-sm text-slate-500" role="status">
-                      Estamos conferindo o pagamento automaticamente. Pode deixar esta página
-                      aberta.
-                    </p>
-                  </div>
-                </div>
-              } @else {
-                <p class="mt-3 text-slate-700" role="status">
-                  Estamos processando seu pagamento. Isso costuma levar alguns segundos.
+              <!-- Spec 028, decisão 11: o cartão em análise caía no texto do PIX. -->
+              @if (pedido.method === 'CREDIT_CARD') {
+                <h1 class="text-2xl font-semibold text-brand-navy">Pagamento em análise</h1>
+                <p class="mt-3 text-slate-700" role="status" data-testid="cartao-em-analise">
+                  O Mercado Pago está analisando o pagamento com cartão. O acesso é liberado assim
+                  que ele for aprovado, e você recebe a confirmação por e-mail.
                 </p>
+                <p class="mt-2 text-sm text-slate-500">
+                  Pode deixar esta página aberta: ela se atualiza sozinha.
+                </p>
+              } @else {
+                <h1 class="text-2xl font-semibold text-brand-navy">Pague com PIX para liberar</h1>
+
+                @if (pedido.pix; as pix) {
+                  <div class="mt-6 grid gap-6 md:grid-cols-[220px_1fr] items-start">
+                    <img
+                      [src]="'data:image/png;base64,' + pix.qrCodeBase64"
+                      alt="QR Code do PIX para pagamento"
+                      class="w-full max-w-[220px] rounded-xl border border-brand-navy/10" />
+
+                    <div>
+                      <label for="copia-e-cola" class="block text-sm text-slate-700">
+                        PIX Copia e Cola
+                      </label>
+                      <textarea
+                        id="copia-e-cola"
+                        readonly
+                        rows="4"
+                        class="mt-1 w-full rounded-xl border border-brand-navy/15 bg-slate-50 px-3 py-2 text-xs text-slate-700">{{ pix.qrCode }}</textarea>
+
+                      <div class="mt-3 flex items-center gap-3">
+                        <ui-button variant="outline" size="sm" (click)="copy(pix.qrCode)">
+                          Copiar código
+                        </ui-button>
+                        <span class="text-sm text-state-success" aria-live="polite">
+                          {{ copied() ? 'Código copiado!' : '' }}
+                        </span>
+                      </div>
+
+                      <p class="mt-4 text-sm text-slate-600" aria-live="polite">
+                        @if (remaining(); as restante) {
+                          Este código expira em <strong>{{ restante }}</strong>.
+                        }
+                      </p>
+
+                      <p class="mt-2 text-sm text-slate-500" role="status">
+                        Estamos conferindo o pagamento automaticamente. Pode deixar esta página
+                        aberta.
+                      </p>
+                    </div>
+                  </div>
+                } @else {
+                  <p class="mt-3 text-slate-700" role="status">
+                    Estamos processando seu pagamento. Isso costuma levar alguns segundos.
+                  </p>
+                }
               }
             </ui-card>
           }
@@ -146,6 +158,18 @@ const POLL_MS = 5000;
                 <ui-button variant="primary" (click)="retry(pedido)">
                   Tentar outro meio de pagamento
                 </ui-button>
+                <a routerLink="/loja"><ui-button variant="outline">Voltar à loja</ui-button></a>
+              </div>
+            </ui-card>
+          }
+
+          @case ('FAILED') {
+            <ui-card padding="lg">
+              <h1 class="text-2xl font-semibold text-state-danger">Pagamento não concluído</h1>
+              <p class="mt-3 text-slate-700">{{ pedido.message }}</p>
+              <p class="mt-2 text-sm text-slate-500">Nenhum valor foi cobrado.</p>
+              <div class="mt-6 flex flex-wrap gap-3">
+                <ui-button variant="primary" (click)="retry(pedido)">Tentar de novo</ui-button>
                 <a routerLink="/loja"><ui-button variant="outline">Voltar à loja</ui-button></a>
               </div>
             </ui-card>

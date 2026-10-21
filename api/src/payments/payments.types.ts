@@ -133,17 +133,28 @@ export function toOrderStatus(mpStatus: string | null | undefined): OrderStatus 
   return ORDER_STATUS_MAP[mpStatus ?? ''] ?? 'PENDING';
 }
 
+/** Limite insuficiente: a Orders API tem dois codigos distintos para isso. */
+const INSUFFICIENT_AMOUNT = 'O cartão não tem limite suficiente para este valor. Tente outro cartão ou pague com PIX.';
+
+/** Desafio 3DS que falhou ou expirou. */
+const THREE_DS_FAILED =
+  'A autenticação do banco não foi concluída. Tente de novo ou pague com PIX.';
+
 /**
  * Mensagem ao comprador a partir do `status_detail` da recusa.
  *
  * Cinco recusas com cinco saidas diferentes: mandar "pagamento recusado" para
  * todas faria o comprador tentar de novo exatamente o que acabou de falhar.
+ *
+ * As chaves sao as da Orders API (Spec 028, decisao 3). Ela junta numero,
+ * validade e CVV errados em `bad_filled_card_data`, e o `status_detail` vem
+ * da transacao, nao da order.
  */
 const REJECTION_MESSAGES: Record<string, string> = {
-  bad_filled_card_data: 'Confira os dados do cartão: número, validade e código de segurança.',
-  bad_filled_security_code: 'O código de segurança do cartão está incorreto.',
-  bad_filled_date: 'A data de validade do cartão está incorreta.',
-  insufficient_amount: 'O cartão não tem limite suficiente para este valor.',
+  bad_filled_card_data:
+    'Confira os dados do cartão: número, validade, código de segurança e nome impresso.',
+  insufficient_amount: INSUFFICIENT_AMOUNT,
+  card_insufficient_amount: INSUFFICIENT_AMOUNT,
   rejected_by_issuer:
     'O banco emissor recusou a cobrança. Fale com ele ou tente outro cartão.',
   required_call_for_authorize:
@@ -154,6 +165,8 @@ const REJECTION_MESSAGES: Record<string, string> = {
   high_risk:
     'Não foi possível concluir esta compra. Tente outro meio de pagamento ou fale com o suporte.',
   processing_error: 'Houve uma falha no processamento. Tente de novo em instantes.',
+  cc_rejected_3ds_challenge: THREE_DS_FAILED,
+  '3ds_challenge_expired': THREE_DS_FAILED,
 };
 
 export function rejectionMessage(statusDetail: string | null | undefined): string {

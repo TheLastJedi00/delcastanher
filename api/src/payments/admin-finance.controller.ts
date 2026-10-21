@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -6,7 +6,7 @@ import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { AdminFinanceService } from './admin-finance.service';
-import type { FinanceOrderListResult, FinanceSummary } from './admin-finance.types';
+import type { FinanceOrderListResult, FinanceSummary, PaymentLogView } from './admin-finance.types';
 import { FinanceSummaryDto, ListFinanceOrdersDto } from './dto/finance-query.dto';
 import { CreateGatewayFeeDto } from './dto/gateway-fee.dto';
 import { CurrentFeeRates, GatewayFeeRateView, GatewayFeesService } from './gateway-fees.service';
@@ -80,6 +80,15 @@ export class AdminFinanceController {
   @Get('orders')
   listOrders(@Query() query: ListFinanceOrdersDto): Promise<FinanceOrderListResult> {
     return this.finance.listOrders(query);
+  }
+
+  /**
+   * Linha do tempo do modal "Logs do pagamento" (Spec 028, decisao 8). Depois
+   * de `orders/export`, pela razao dita la. So leitura.
+   */
+  @Get('orders/:id/logs')
+  orderLogs(@Param('id') id: string): Promise<PaymentLogView[]> {
+    return this.finance.orderLogs(id);
   }
 
   /** Vigencias de taxa, da mais recente para a mais antiga, com autor e data. */

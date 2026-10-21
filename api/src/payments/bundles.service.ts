@@ -158,6 +158,8 @@ export interface PlaceBundleOrderInput {
   mpConnectionId?: string | null;
   /** Destinatario da NF-e (Spec 023, decisao A3). */
   recipient?: OrderRecipient;
+  /** Clique em pagar que gerou o pedido (Spec 028, decisao 9). */
+  attemptId?: string | null;
 }
 
 /** Linha gravada do pedido de pacote, com os itens rateados. */
@@ -264,6 +266,7 @@ export class BundlesService {
           bundleTitleSnapshot: bundle.title,
           tierNameSnapshot: tier.name,
           mpConnectionId: input.mpConnectionId ?? null,
+          attemptId: input.attemptId ?? null,
           ...(input.recipient ?? {}),
           items: {
             create: modules.map((module, index) => ({

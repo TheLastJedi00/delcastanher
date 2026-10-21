@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PaymentMethodKind } from '../generated/prisma/client';
 import { INVOICE_SUMMARY_SELECT, InvoiceSummaryRow, toInvoiceSummary } from '../invoices/invoice-view';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,6 +15,7 @@ import {
   FinanceOrderListResult,
   FinanceSummary,
   FinanceTotals,
+  PaymentLogView,
 } from './admin-finance.types';
 import { FinanceSummaryDto, ListFinanceOrdersDto } from './dto/finance-query.dto';
 import {
@@ -25,6 +26,7 @@ import {
   resolvePeriod,
 } from './finance-period';
 import { GatewayFeeRateView, GatewayFeesService, feeOf } from './gateway-fees.service';
+import { PaymentLogService } from './payment-log.service';
 
 /** Os dois metodos, na ordem em que a tela os lista. */
 const METHODS: PaymentMethodKind[] = ['PIX', 'CREDIT_CARD'];
@@ -185,7 +187,41 @@ export class AdminFinanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly fees: GatewayFeesService,
+    private readonly paymentLog: PaymentLogService,
   ) {}
+
+  /**
+   * Linha do tempo do modal "Logs do pagamento" (Spec 028, decisao 8): os
+   * logs do pedido e os do navegador da mesma tentativa, do mais antigo ao
+   * mais novo. So leitura.
+   */
+  async orderLogs(orderId: string): Promise<PaymentLogView[]> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, attemptId: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pedido não encontrado.');
+    }
+
+    const logs = await this.paymentLog.forOrder(order);
+
+    return logs.map((log) => ({
+      id: log.id,
+      createdAt: log.createdAt.toISOString(),
+      source: log.source,
+      stage: log.stage,
+      level: log.level,
+      httpStatus: log.httpStatus,
+      mpOrderId: log.mpOrderId,
+      mpStatus: log.mpStatus,
+      mpStatusDetail: log.mpStatusDetail,
+      message: log.message,
+      detail: log.detail,
+      environment: log.environment,
+    }));
+  }
 
   /** O painel inteiro de um periodo, em uma resposta. */
   async summary(query: FinanceSummaryDto): Promise<FinanceSummary> {
@@ -384,7 +420,7 @@ export class AdminFinanceService {
 
   /** Os indicadores do topo. */
   private async totalsOf(period: ResolvedPeriod, fee: FeeResult): Promise<FinanceTotals> {
-    const [paid, refunded, undated, pendingOrders, rejectedOrders, attempts, buyers] =
+    const [paid, refunded, undated, pendingOrders, rejectedOrders, failedOrders, attempts, buyers] =
       await Promise.all([
         this.prisma.order.aggregate({
           where: { status: 'PAID', paidAt: { gte: period.from, lt: period.to } },
@@ -408,6 +444,10 @@ export class AdminFinanceService {
         }),
         this.prisma.order.count({
           where: { status: 'REJECTED', createdAt: { gte: period.from, lt: period.to } },
+        }),
+        // Spec 028, decisao 5: ao lado dos recusados, e nunca na receita.
+        this.prisma.order.count({
+          where: { status: 'FAILED', createdAt: { gte: period.from, lt: period.to } },
         }),
         // Decisao 10: conversao por **pessoa**. Quem abre o PIX, desiste e
         // volta no cartao gera um CANCELLED e um PAID — e "pagos / criados"
@@ -437,6 +477,7 @@ export class AdminFinanceService {
       paidOrders,
       pendingOrders,
       rejectedOrders,
+      failedOrders,
       refundedOrders: refunded._count._all,
       uncoveredOrders: fee.uncoveredOrders,
       uncoveredFrom: fee.uncoveredFrom?.toISOString() ?? null,

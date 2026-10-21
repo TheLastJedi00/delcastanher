@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AdminFinanceService } from './admin-finance.service';
 import { ListFinanceOrdersDto } from './dto/finance-query.dto';
 import { GatewayFeesService } from './gateway-fees.service';
+import { PaymentLogService } from './payment-log.service';
 
 /** Pedido como a consulta da listagem o devolve, com comprador e itens. */
 const PEDIDO = {
@@ -37,6 +38,7 @@ function build(rows: unknown[] = [PEDIDO], total = 1) {
       AdminFinanceService,
       { provide: PrismaService, useValue: prisma },
       { provide: GatewayFeesService, useValue: { ratesUntil: jest.fn().mockResolvedValue([]) } },
+      { provide: PaymentLogService, useValue: { forOrder: jest.fn() } },
     ],
   })
     .compile()

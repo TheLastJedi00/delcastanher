@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { StoreService } from '../../core/services/store.service';
 import { MercadoPagoLoader } from '../../core/services/mercado-pago.service';
 import { Pagamento } from './pagamento';
@@ -199,6 +199,7 @@ function fakeSdk(
   const created: string[] = [];
   const updates: Record<string, unknown[]> = {};
   const binsSearched: string[] = [];
+  const tokenCalls = { count: 0 };
   let release: () => void = () => undefined;
   const held = new Promise<void>(resolve => (release = resolve));
 
@@ -225,6 +226,8 @@ function fakeSdk(
         };
       },
       createCardToken: async () => {
+        tokenCalls.count += 1;
+
         if (overrides.tokenError) {
           throw overrides.tokenError;
         }
@@ -246,7 +249,7 @@ function fakeSdk(
     getInstallments: async () => [],
   };
 
-  return { sdk, handlers, created, updates, binsSearched, release };
+  return { sdk, handlers, created, updates, binsSearched, release, tokenCalls };
 }
 
 const ONE_INSTALLMENT = [
@@ -257,8 +260,22 @@ const ONE_INSTALLMENT = [
  * Monta a tela com o SDK falso e os dados do comprador ja preenchidos. A
  * busca da bandeira e a do servico de verdade, sobre o SDK falso.
  */
-function renderCard(fake: ReturnType<typeof fakeSdk>, options: { installmentsFail?: boolean } = {}) {
-  const load = async () => fake.sdk;
+function renderCard(
+  fake: ReturnType<typeof fakeSdk>,
+  options: {
+    installmentsFail?: boolean;
+    /** O SDK nao carrega (bloqueador, rede): `load()` rejeita. */
+    loadFails?: boolean;
+    installments?: typeof ONE_INSTALLMENT;
+  } = {},
+) {
+  const load = async () => {
+    if (options.loadFails) {
+      throw new Error('Falha ao carregar o SDK de pagamento.');
+    }
+
+    return fake.sdk;
+  };
   const installmentBins: string[] = [];
 
   TestBed.configureTestingModule({
@@ -279,7 +296,7 @@ function renderCard(fake: ReturnType<typeof fakeSdk>, options: { installmentsFai
               throw { status: 404 };
             }
 
-            return ONE_INSTALLMENT;
+            return options.installments ?? ONE_INSTALLMENT;
           },
           ready: () => true,
           deviceId: () => undefined,
@@ -657,5 +674,240 @@ describe('Pagamento — resumo do pacote', () => {
     expect(text).toContain('R$ 989,00');
     expect(text).not.toContain('Preço único');
     expect(text).not.toContain('Lote');
+  });
+});
+
+/** Pedido como a API devolve na recusa ou no erro (Spec 028, decisoes 4 e 5). */
+function closedOrder(status: 'REJECTED' | 'FAILED', message: string) {
+  return { id: 'ord-1', status, method: 'CREDIT_CARD', message, items: [], amountCents: 19700 };
+}
+
+/** Cobra com a bandeira ja reconhecida e devolve a requisicao do pedido. */
+async function payWithCard(setup: ReturnType<typeof renderCard>, fake: ReturnType<typeof fakeSdk>) {
+  await setup.chooseCard();
+  await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+  const paying = setup.component.pay();
+  await new Promise(resolve => setTimeout(resolve));
+
+  return { paying, order: setup.backend.expectOne(req => req.method === 'POST' && req.url.endsWith('/orders')) };
+}
+
+const clientLogs = (backend: HttpTestingController) =>
+  backend.match(req => req.method === 'POST' && req.url.endsWith('/payments/client-logs'));
+
+/**
+ * Spec 028, decisao 4: a recusa do cartao fica na tela de pagamento, com a
+ * selecao e os campos prontos para outro cartao ou o PIX.
+ */
+describe('Pagamento — recusa e erro na própria tela', () => {
+  for (const [status, message] of [
+    ['REJECTED', 'O cartão não tem limite suficiente para este valor.'],
+    ['FAILED', 'Não foi possível falar com o provedor de pagamento.'],
+  ] as const) {
+    it(`pedido ${status}: mostra a mensagem, mantém a seleção e não sai da tela`, async () => {
+      const fake = fakeSdk();
+      const setup = renderCard(fake);
+      const navigate = spyOn(TestBed.inject(Router), 'navigate');
+      const { paying, order } = await payWithCard(setup, fake);
+
+      order.flush(closedOrder(status, message));
+      await paying;
+      setup.fixture.detectChanges();
+
+      expect(setup.el.querySelector('[role="alert"]')?.textContent).toContain(message);
+      expect(TestBed.inject(StoreService).hasSelection()).toBeTrue();
+      expect(navigate).not.toHaveBeenCalled();
+      expect(setup.el.querySelector('#cardNumber iframe')).not.toBeNull();
+    });
+  }
+
+  it('a nova tentativa gera outro token e outra tentativa', async () => {
+    const fake = fakeSdk();
+    const setup = renderCard(fake);
+    const first = await payWithCard(setup, fake);
+
+    first.order.flush(closedOrder('REJECTED', 'Recusado.'));
+    await first.paying;
+
+    const paying = setup.component.pay();
+    await new Promise(resolve => setTimeout(resolve));
+    const second = setup.backend.expectOne(req => req.method === 'POST' && req.url.endsWith('/orders'));
+
+    expect(fake.tokenCalls.count).toBe(2);
+    expect(second.request.body.attemptId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second.request.body.attemptId).not.toBe(first.order.request.body.attemptId);
+
+    second.flush({ id: 'ord-2', status: 'PAID' });
+    await paying;
+  });
+
+  it('trocar para o PIX limpa a mensagem da recusa', async () => {
+    const fake = fakeSdk();
+    const setup = renderCard(fake);
+    const { paying, order } = await payWithCard(setup, fake);
+
+    order.flush(closedOrder('REJECTED', 'Recusado.'));
+    await paying;
+    await setup.choosePix();
+    setup.fixture.detectChanges();
+
+    expect(setup.el.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('pago segue para a tela do pedido e limpa a seleção', async () => {
+    const fake = fakeSdk();
+    const setup = renderCard(fake);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate');
+    const { paying, order } = await payWithCard(setup, fake);
+
+    order.flush({ id: 'ord-1', status: 'PAID' });
+    await paying;
+
+    expect(navigate).toHaveBeenCalledWith(['/loja/pedido', 'ord-1']);
+    expect(TestBed.inject(StoreService).hasSelection()).toBeFalse();
+  });
+});
+
+/** Spec 028, decisao 9: os erros do navegador sobem para os logs. */
+describe('Pagamento — logs do navegador', () => {
+  it('SDK que não carrega: vai para o log, e pagar cria o pedido FAILED com o motivo', async () => {
+    const fake = fakeSdk();
+    const setup = renderCard(fake, { loadFails: true });
+
+    await setup.chooseCard();
+
+    const logs = clientLogs(setup.backend);
+
+    expect(logs.length).toBe(1);
+    expect(logs[0].request.body).toEqual(
+      jasmine.objectContaining({ stage: 'sdk_load', level: 'ERROR', attemptId: jasmine.any(String) }),
+    );
+    logs.forEach(req => req.flush(null));
+
+    const paying = setup.component.pay();
+    await new Promise(resolve => setTimeout(resolve));
+    clientLogs(setup.backend).forEach(req => req.flush(null));
+    const order = setup.backend.expectOne(req => req.method === 'POST' && req.url.endsWith('/orders'));
+
+    expect(order.request.body.clientError).toEqual({
+      stage: 'sdk_load',
+      message: 'Falha ao carregar o SDK de pagamento.',
+    });
+    expect(order.request.body.card).toBeUndefined();
+    expect(order.request.body.attemptId).toBe(logs[0].request.body.attemptId);
+
+    order.flush(closedOrder('FAILED', 'Não foi possível falar com o provedor de pagamento.'));
+    await paying;
+  });
+
+  it('bandeira que o Mercado Pago não conhece vai como aviso, com só 6 dígitos', async () => {
+    const fake = fakeSdk({ brands: {} });
+    const setup = renderCard(fake);
+
+    await setup.chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '45062900' });
+
+    const [log] = clientLogs(setup.backend);
+
+    expect(log.request.body).toEqual(
+      jasmine.objectContaining({ stage: 'payment_method', level: 'WARNING', detail: { bin: '450629' } }),
+    );
+  });
+
+  it('falha nas parcelas vai para o log, e o pagamento segue em 1x', async () => {
+    const fake = fakeSdk();
+    const setup = renderCard(fake, { installmentsFail: true });
+
+    await setup.chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+
+    const [log] = clientLogs(setup.backend);
+
+    expect(log.request.body).toEqual(jasmine.objectContaining({ stage: 'installments', level: 'ERROR' }));
+  });
+
+  it('dado digitado errado no token: só aviso no log, sem pedido', async () => {
+    const fake = fakeSdk({ tokenError: [{ code: 'E301', message: 'invalid card number' }] });
+    const setup = renderCard(fake);
+
+    await setup.chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+    await setup.pay();
+
+    const [log] = clientLogs(setup.backend);
+
+    expect(log.request.body).toEqual(
+      jasmine.objectContaining({ stage: 'tokenize', level: 'WARNING', detail: { codes: ['E301'] } }),
+    );
+    setup.backend.expectNone(req => req.method === 'POST' && req.url.endsWith('/orders'));
+    expect(setup.el.querySelector('[role="alert"]')?.textContent).toContain('Confira o número do cartão.');
+  });
+
+  it('token que falha por erro do SDK: log de erro e pedido FAILED', async () => {
+    const fake = fakeSdk({ tokenError: new Error('Network request failed') });
+    const setup = renderCard(fake);
+
+    await setup.chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+    const paying = setup.component.pay();
+    await new Promise(resolve => setTimeout(resolve));
+
+    const [log] = clientLogs(setup.backend);
+    const order = setup.backend.expectOne(req => req.method === 'POST' && req.url.endsWith('/orders'));
+
+    expect(log.request.body).toEqual(jasmine.objectContaining({ stage: 'tokenize', level: 'ERROR' }));
+    expect(order.request.body.clientError).toEqual({ stage: 'tokenize', message: 'Network request failed' });
+
+    order.flush(closedOrder('FAILED', 'Não foi possível falar com o provedor de pagamento.'));
+    await paying;
+  });
+
+  it('uma falha ao mandar o log não aparece para o comprador', async () => {
+    const fake = fakeSdk({ brands: {} });
+    const setup = renderCard(fake);
+
+    await setup.chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '45062900' });
+    clientLogs(setup.backend).forEach(req => req.flush(null, { status: 500, statusText: 'Erro' }));
+    setup.fixture.detectChanges();
+
+    expect(setup.el.querySelector('[role="alert"]')).toBeNull();
+  });
+});
+
+/** Spec 028, decisao 13: o botao diz o parcelado, e o total com juros aparece. */
+describe('Pagamento — botão com o parcelado', () => {
+  const THREE = [
+    ...ONE_INSTALLMENT,
+    { installments: 3, recommendedMessage: '3x de R$ 73,04', installmentAmount: 73.04, totalAmount: 219.12 },
+  ];
+
+  it('em 3x, diz "Pagar 3x de R$ 73,04" e o total com juros', async () => {
+    const fake = fakeSdk();
+    const setup = renderCard(fake, { installments: THREE });
+
+    await setup.chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+    setup.component.installmentsControl.setValue(3);
+    setup.fixture.detectChanges();
+
+    const text = (setup.el.textContent ?? '').replace(/\s+/g, ' ');
+
+    expect(text).toContain('Pagar 3x de R$ 73,04');
+    expect(
+      (setup.el.querySelector('[data-testid="total-parcelado"]')?.textContent ?? '').replace(/\s+/g, ' '),
+    ).toContain('R$ 219,12');
+  });
+
+  it('em 1x, diz o total do pedido, sem a linha de juros', async () => {
+    const fake = fakeSdk();
+    const setup = renderCard(fake, { installments: THREE });
+
+    await setup.chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+    setup.fixture.detectChanges();
+
+    expect(setup.el.textContent).toContain('Pagar R$');
+    expect(setup.el.querySelector('[data-testid="total-parcelado"]')).toBeNull();
   });
 });

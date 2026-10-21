@@ -39,6 +39,8 @@ export interface FinanceTotals {
   paidOrders: number;
   pendingOrders: number;
   rejectedOrders: number;
+  /** Pedidos que falharam por erro no periodo (Spec 028, decisao 5). */
+  failedOrders: number;
   refundedOrders: number;
   /** Pedidos pagos sem vigencia de taxa que os cubra (decisao 5). */
   uncoveredOrders: number;
@@ -193,4 +195,23 @@ export interface FinanceOrderListResult {
   total: number;
   page: number;
   pageSize: number;
+}
+
+/**
+ * Uma linha do modal "Logs do pagamento" (Spec 028, decisao 8). O `detail` ja
+ * vem limpo do banco: sem token do cartao nem dados do pagador.
+ */
+export interface PaymentLogView {
+  id: string;
+  createdAt: string;
+  source: 'API' | 'FRONT';
+  stage: string;
+  level: 'ERROR' | 'WARNING' | 'INFO';
+  httpStatus: number | null;
+  mpOrderId: string | null;
+  mpStatus: string | null;
+  mpStatusDetail: string | null;
+  message: string;
+  detail: unknown;
+  environment: string;
 }

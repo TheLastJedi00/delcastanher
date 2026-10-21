@@ -405,11 +405,16 @@ model Order {
   payerCityIbge   String?
   payerState      String?
 
+  /// Clique em pagar que criou o pedido (Spec 028, decisao 9). Liga o pedido
+  /// aos logs do navegador da mesma tentativa, gravados antes de ele existir.
+  attemptId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   items        OrderItem[]
+  paymentLogs  PaymentLog[]
   accesses     ModuleAccess[]
   /// `Restrict`: pacote e lote que ja venderam nao sao removiveis, como
   /// modulo ja vendido nao e (Spec 014).
@@ -594,6 +599,10 @@ enum OrderStatus {
   CANCELLED
   EXPIRED
   REFUNDED
+  /// A cobranca nao chegou a um desfecho por erro: do Mercado Pago (que nao
+  /// seja recusa), da rede ou do SDK no navegador (Spec 028, decisao 5). Nao e
+  /// `CANCELLED`, que e so o pendente substituido por outra tentativa.
+  FAILED
 
   @@map("order_status")
 }
@@ -605,6 +614,61 @@ enum PaymentMethodKind {
   CREDIT_CARD
 
   @@map("payment_method_kind")
+}
+
+/// Evento de pagamento guardado para o painel (Spec 028, decisao 7). Os logs
+/// da Vercel somem em dias e o gestor nao os ve: e daqui que o modal "Logs do
+/// pagamento" le o que aconteceu numa tentativa.
+///
+/// Nunca guarda token, numero, validade ou CVV do cartao, nem e-mail e CPF do
+/// pagador: o `detail` e limpo antes de gravar.
+model PaymentLog {
+  id             String           @id @default(cuid())
+  /// Nulo no erro do navegador antes de o pedido existir.
+  orderId        String?
+  /// Clique em pagar; liga os logs do navegador ao pedido que veio depois.
+  attemptId      String?
+  userId         String?
+  source         PaymentLogSource
+  /// `create_order`, `get_order`, `webhook`, `sdk_load`, `secure_fields`,
+  /// `payment_method`, `installments` ou `tokenize`.
+  stage          String
+  level          PaymentLogLevel
+  httpStatus     Int?
+  mpOrderId      String?
+  mpStatus       String?
+  mpStatusDetail String?
+  message        String
+  /// Corpo da resposta ou do erro, limpo e cortado em 10 KB.
+  detail         Json?
+  /// `production` ou `sandbox`, pelo `MP_SANDBOX` da API que gravou.
+  environment    String
+  createdAt      DateTime         @default(now())
+
+  /// `Cascade`: apagar um pedido de teste (Spec 026) leva os logs dele.
+  order Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // As duas buscas do modal: os logs do pedido e os do navegador da tentativa.
+  @@index([orderId, createdAt])
+  @@index([attemptId])
+  // O limite de eventos do navegador por usuario (decisao 9).
+  @@index([userId, createdAt])
+  @@map("payment_logs")
+}
+
+enum PaymentLogSource {
+  API
+  FRONT
+
+  @@map("payment_log_source")
+}
+
+enum PaymentLogLevel {
+  ERROR
+  WARNING
+  INFO
+
+  @@map("payment_log_level")
 }
 
 /// Vigencia de uma taxa do gateway, mantida **a mao** pelo administrador

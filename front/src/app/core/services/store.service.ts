@@ -71,7 +71,8 @@ export interface PaymentConfig {
   maxInstallments: number;
 }
 
-export type OrderStatus = 'PENDING' | 'PAID' | 'REJECTED' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED';
+/** `FAILED`: a cobranca nao chegou a desfecho por erro (Spec 028, decisao 5). */
+export type OrderStatus = 'PENDING' | 'PAID' | 'REJECTED' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED' | 'FAILED';
 export type PaymentMethodKind = 'PIX' | 'CREDIT_CARD';
 
 export interface OrderItemView {
@@ -140,10 +141,29 @@ export interface CreateOrderPayload {
   /** Token do SDK — nunca numero, validade ou CVV. */
   card?: { token: string; paymentMethodId: string; installments: number };
   deviceId?: string;
+  /** Clique em pagar; liga o pedido aos logs do navegador (Spec 028, decisao 9). */
+  attemptId?: string;
+  /** Falha do navegador no lugar do `card`: o pedido nasce `FAILED`. */
+  clientError?: { stage: ClientErrorStage; message: string };
+}
+
+/** Etapas do navegador no caminho do cartao, como os logs as nomeiam. */
+export type ClientLogStage = 'sdk_load' | 'secure_fields' | 'payment_method' | 'installments' | 'tokenize';
+
+/** As que impedem a cobranca e viram pedido `FAILED`. */
+export type ClientErrorStage = 'sdk_load' | 'secure_fields' | 'tokenize';
+
+/** Evento do navegador para os logs de pagamento (Spec 028, decisao 9). */
+export interface ClientLogEntry {
+  attemptId?: string;
+  stage: ClientLogStage;
+  level: 'ERROR' | 'WARNING';
+  message: string;
+  detail?: Record<string, unknown>;
 }
 
 /** Estados em que nao ha mais o que esperar do gateway. */
-const TERMINAL: OrderStatus[] = ['PAID', 'REJECTED', 'CANCELLED', 'EXPIRED', 'REFUNDED'];
+const TERMINAL: OrderStatus[] = ['PAID', 'REJECTED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'FAILED'];
 
 export function isTerminal(status: OrderStatus): boolean {
   return TERMINAL.includes(status);
@@ -357,6 +377,17 @@ export class StoreService {
       tap(order => this.orderState.set(order)),
       catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
     );
+  }
+
+  /**
+   * Manda um erro do navegador para os logs de pagamento (Spec 028, decisao
+   * 9). Nunca falha para quem chama: o log nao pode atrapalhar o pagamento,
+   * e o comprador nao precisa saber dele.
+   */
+  clientLog(entry: ClientLogEntry): void {
+    this.http
+      .post<void>(`${environment.apiUrl}/payments/client-logs`, entry)
+      .subscribe({ error: () => undefined });
   }
 
   /**

@@ -7,8 +7,9 @@ import { PurchaseEmailService } from './purchase-email.service';
 import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
 import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
-import { MercadoPagoService } from './mercado-pago.service';
+import { MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
 import { OrdersService } from './orders.service';
+import { PaymentLogService } from './payment-log.service';
 
 const ALUNO: AuthUser = {
   uid: 'uid-aluno',
@@ -154,7 +155,11 @@ function build(options: BuildOptions = {}) {
       ),
     },
     order: {
-      create: jest.fn().mockResolvedValue(created),
+      // Devolve o que recebeu, como o banco: o `attemptId` gravado volta na linha.
+      create: jest.fn(async ({ data }: { data: { attemptId?: string | null } }) => ({
+        ...created,
+        attemptId: data.attemptId ?? null,
+      })),
       update: jest.fn().mockResolvedValue(created),
       updateMany: jest.fn().mockResolvedValue({ count: options.transitionCount ?? 1 }),
       findUnique: jest.fn().mockResolvedValue(options.storedOrder ?? created),
@@ -186,6 +191,9 @@ function build(options: BuildOptions = {}) {
   // Spec 024, decisao D6: o e-mail tambem nunca lanca; o double so registra.
   const purchaseEmail = { onOrderPaid: jest.fn().mockResolvedValue(undefined) };
 
+  // Spec 028, decisao 7: o log de pagamento nunca lanca; o double so registra.
+  const paymentLog = { record: jest.fn().mockResolvedValue(undefined) };
+
   const bundles = {
     placeOrder: jest.fn().mockResolvedValue(options.placed ?? PLACED),
   };
@@ -211,6 +219,7 @@ function build(options: BuildOptions = {}) {
       { provide: MercadoPagoConnectionService, useValue: connections },
       { provide: InvoicesService, useValue: invoices },
       { provide: PurchaseEmailService, useValue: purchaseEmail },
+      { provide: PaymentLogService, useValue: paymentLog },
     ],
   })
     .compile()
@@ -223,6 +232,7 @@ function build(options: BuildOptions = {}) {
       connections,
       invoices,
       purchaseEmail,
+      paymentLog,
     }));
 }
 
@@ -644,6 +654,7 @@ describe('OrdersService — pedido de pacote', () => {
       installments: 1,
       mpConnectionId: 'conn-1',
       recipient: RECIPIENT,
+      attemptId: null,
     });
     // O caminho de modulos avulsos nao participa: nem cria pedido nem cancela.
     expect(prisma.order.create).not.toHaveBeenCalled();
@@ -994,5 +1005,366 @@ describe('OrdersService — e-mail de confirmacao da compra (Spec 024, D6)', () 
 
     expect(view.status).toBe('PAID');
     expect(access.grant).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Spec 028, decisoes 5 e 9: a cobranca que nao chega a desfecho por erro vira
+ * `FAILED`, e nao um pendente que a proxima tentativa cancela.
+ */
+describe('OrdersService — falha e tentativa (Spec 028)', () => {
+  const ATTEMPT = '7d5e3f0a-1b2c-4d5e-8f90-123456789abc';
+
+  function cardOrder(extra: Record<string, unknown> = {}) {
+    return {
+      moduleIds: ['mod-1'],
+      method: 'CREDIT_CARD' as const,
+      payer: PAYER,
+      installments: 1,
+      card: { token: 'tok', paymentMethodId: 'visa', installments: 1 },
+      attemptId: ATTEMPT,
+      ...extra,
+    };
+  }
+
+  it('grava FAILED quando o gateway falha, e devolve o pedido com a mensagem', async () => {
+    const { service, gateway, prisma, access } = await build();
+
+    gateway.createOrder.mockRejectedValue(
+      new MercadoPagoGatewayError('create_order', 500, { errors: [{ code: 'internal_error' }] }),
+    );
+
+    const view = await service.create(ALUNO, cardOrder());
+
+    expect(view).toMatchObject({ id: 'ord-1', status: 'FAILED' });
+    expect(view.message).toContain('Não foi possível falar com o provedor de pagamento');
+    expect(prisma.order.updateMany.mock.calls.at(-1)?.[0]).toMatchObject({
+      where: { id: 'ord-1', status: { in: ['PENDING'] } },
+      data: { status: 'FAILED' },
+    });
+    expect(access.grant).not.toHaveBeenCalled();
+  });
+
+  it('grava FAILED tambem numa falha inesperada do gateway', async () => {
+    const { service, gateway } = await build();
+
+    gateway.createOrder.mockRejectedValue(new Error('socket hang up'));
+
+    const view = await service.create(ALUNO, cardOrder());
+
+    expect(view.status).toBe('FAILED');
+  });
+
+  it('grava FAILED no pedido de pacote quando o gateway falha', async () => {
+    const { service, gateway } = await build();
+
+    gateway.createOrder.mockRejectedValue(new MercadoPagoGatewayError('create_order', 429, null));
+
+    const view = await service.create(ALUNO, {
+      bundleSlug: 'imersao-rh-lancamento',
+      method: 'CREDIT_CARD',
+      payer: PAYER,
+      card: { token: 'tok', paymentMethodId: 'visa', installments: 1 },
+    });
+
+    expect(view).toMatchObject({ id: 'ord-b', status: 'FAILED' });
+  });
+
+  it('grava a recusa como REJECTED, com a order e o motivo', async () => {
+    const { service, prisma } = await build({
+      gatewayOrder: { id: 'ORD-9', status: 'failed', statusDetail: 'insufficient_amount', paymentId: 'PAY-9', pix: null },
+    });
+
+    const view = await service.create(ALUNO, cardOrder());
+
+    expect(view.status).toBe('REJECTED');
+    expect(view.message).toContain('limite suficiente');
+    expect(prisma.order.updateMany.mock.calls.at(-1)?.[0].data).toMatchObject({
+      status: 'REJECTED',
+      mpOrderId: 'ORD-9',
+      mpStatusDetail: 'insufficient_amount',
+    });
+  });
+
+  it('grava o attemptId no pedido avulso e no de pacote', async () => {
+    const avulso = await build();
+    const pacote = await build();
+
+    await avulso.service.create(ALUNO, cardOrder());
+    await pacote.service.create(ALUNO, {
+      bundleSlug: 'imersao-rh-lancamento',
+      method: 'PIX',
+      payer: PAYER,
+      attemptId: ATTEMPT,
+    });
+
+    expect(avulso.prisma.order.create.mock.calls[0][0].data.attemptId).toBe(ATTEMPT);
+    expect(pacote.bundles.placeOrder.mock.calls[0][0].attemptId).toBe(ATTEMPT);
+  });
+
+  it('cria o pedido ja FAILED, sem chamar o gateway, quando o navegador falhou', async () => {
+    const { service, gateway, prisma } = await build();
+
+    const view = await service.create(
+      ALUNO,
+      cardOrder({ card: undefined, clientError: { stage: 'sdk_load', message: 'Falha ao carregar o SDK.' } }),
+    );
+
+    expect(gateway.createOrder).not.toHaveBeenCalled();
+    expect(view.status).toBe('FAILED');
+    expect(prisma.order.updateMany.mock.calls.at(-1)?.[0].data).toMatchObject({ status: 'FAILED' });
+  });
+
+  it('recusa clientError junto com o cartao', async () => {
+    const { service } = await build();
+
+    await expect(
+      service.create(ALUNO, cardOrder({ clientError: { stage: 'tokenize', message: 'x' } })),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('nao reconsulta o gateway num pedido FAILED', async () => {
+    const { service, gateway } = await build({
+      storedOrder: { id: 'ord-1', userId: ALUNO.uid, status: 'FAILED', mpOrderId: null, items: [] },
+    });
+
+    const view = await service.findOne(ALUNO, 'ord-1');
+
+    expect(gateway.getOrder).not.toHaveBeenCalled();
+    expect(view.status).toBe('FAILED');
+  });
+
+  // O Mercado Pago pode ter cobrado apesar do erro de rede nosso: o acesso nao
+  // pode ficar preso a uma falha que nao foi do comprador.
+  it('aceita a aprovacao que chega depois para um pedido FAILED', async () => {
+    const { service, prisma, access } = await build({
+      storedOrder: {
+        id: 'ord-1',
+        userId: ALUNO.uid,
+        status: 'FAILED',
+        mpOrderId: 'ORD-2',
+        items: [{ moduleId: 'mod-1', priceCents: 19900, titleSnapshot: 'Fundamentos' }],
+      },
+      gatewayOrder: APPROVED_ORDER,
+    });
+
+    await service.applyFromGateway('ORD-2');
+
+    expect(prisma.order.updateMany.mock.calls.at(-1)?.[0].where.status.in).toEqual(
+      expect.arrayContaining(['PENDING', 'FAILED']),
+    );
+    expect(access.grant).toHaveBeenCalled();
+  });
+
+  it('continua cancelando so os pendentes num pedido novo', async () => {
+    const { service, prisma } = await build();
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(prisma.order.updateMany.mock.calls[0][0]).toEqual({
+      where: { userId: ALUNO.uid, status: 'PENDING' },
+      data: { status: 'CANCELLED' },
+    });
+  });
+});
+
+/** Spec 028, decisao 7: o que cada desfecho grava em `payment_logs`. */
+describe('OrdersService — logs de pagamento (Spec 028)', () => {
+  const ATTEMPT = '7d5e3f0a-1b2c-4d5e-8f90-123456789abc';
+
+  function cardOrder(extra: Record<string, unknown> = {}) {
+    return {
+      moduleIds: ['mod-1'],
+      method: 'CREDIT_CARD' as const,
+      payer: PAYER,
+      card: { token: 'tok', paymentMethodId: 'visa', installments: 1 },
+      attemptId: ATTEMPT,
+      ...extra,
+    };
+  }
+
+  it('grava ERROR com status e corpo quando o gateway falha', async () => {
+    const { service, gateway, paymentLog } = await build();
+
+    gateway.createOrder.mockRejectedValue(
+      new MercadoPagoGatewayError('create_order', 500, { errors: [{ code: 'internal_error' }] }),
+    );
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'ord-1',
+        attemptId: ATTEMPT,
+        userId: ALUNO.uid,
+        source: 'API',
+        stage: 'create_order',
+        level: 'ERROR',
+        httpStatus: 500,
+        detail: { errors: [{ code: 'internal_error' }] },
+      }),
+    );
+  });
+
+  it('grava WARNING com o motivo na recusa', async () => {
+    const { service, paymentLog } = await build({ gatewayOrder: REJECTED_ORDER });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'ord-1',
+        level: 'WARNING',
+        stage: 'create_order',
+        mpOrderId: 'ORD-3',
+        mpStatus: 'failed',
+        mpStatusDetail: 'rejected_by_issuer',
+      }),
+    );
+  });
+
+  it('grava INFO no cartao aprovado', async () => {
+    const { service, paymentLog } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'INFO', mpStatus: 'processed', mpStatusDetail: 'accredited' }),
+    );
+  });
+
+  it('nao grava nada num PIX que so ficou pendente', async () => {
+    const { service, paymentLog } = await build();
+
+    await service.create(ALUNO, pixOrder());
+
+    expect(paymentLog.record).not.toHaveBeenCalled();
+  });
+
+  it('grava o erro do navegador que veio no lugar do cartao', async () => {
+    const { service, paymentLog } = await build();
+
+    await service.create(
+      ALUNO,
+      cardOrder({ card: undefined, clientError: { stage: 'sdk_load', message: 'Falha ao carregar o SDK.' } }),
+    );
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'ord-1',
+        source: 'FRONT',
+        stage: 'sdk_load',
+        level: 'ERROR',
+        message: 'Falha ao carregar o SDK.',
+      }),
+    );
+  });
+
+  it('grava ERROR e propaga quando a reconsulta do pedido falha', async () => {
+    const { service, gateway, paymentLog } = await build({
+      storedOrder: {
+        id: 'ord-1',
+        userId: ALUNO.uid,
+        status: 'PENDING',
+        mpOrderId: 'ORD-1',
+        attemptId: ATTEMPT,
+        items: [],
+      },
+    });
+
+    gateway.getOrder.mockRejectedValue(new MercadoPagoGatewayError('get_order', 404, { message: 'x' }));
+
+    await expect(service.findOne(ALUNO, 'ord-1')).rejects.toBeDefined();
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'ord-1', stage: 'get_order', level: 'ERROR', httpStatus: 404 }),
+    );
+  });
+
+  it('grava ERROR com a etapa webhook e propaga quando a consulta do webhook falha', async () => {
+    const { service, gateway, paymentLog } = await build({
+      storedOrder: { id: 'ord-1', userId: ALUNO.uid, status: 'PENDING', mpOrderId: 'ORD-1', items: [] },
+    });
+
+    gateway.getOrder.mockRejectedValue(new MercadoPagoGatewayError('get_order', 500, null));
+
+    await expect(service.applyFromGateway('ORD-1')).rejects.toBeDefined();
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'ord-1', stage: 'webhook', level: 'ERROR', httpStatus: 500 }),
+    );
+  });
+
+  it('grava WARNING quando o webhook traz a recusa de um pendente', async () => {
+    const { service, paymentLog } = await build({
+      storedOrder: { id: 'ord-1', userId: ALUNO.uid, status: 'PENDING', method: 'CREDIT_CARD', mpOrderId: 'ORD-3', items: [] },
+      gatewayOrder: REJECTED_ORDER,
+    });
+
+    await service.applyFromGateway('ORD-3');
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({ stage: 'webhook', level: 'WARNING', mpStatusDetail: 'rejected_by_issuer' }),
+    );
+  });
+});
+
+/**
+ * Spec 028, decisao 14: dinheiro recebido e acesso. O cartao em analise que
+ * virou CANCELLED por outra tentativa, ou o PIX que venceu no relogio, podem
+ * ser aprovados depois pelo Mercado Pago.
+ */
+describe('OrdersService — aprovacao que chega depois (Spec 028)', () => {
+  it.each(['CANCELLED', 'EXPIRED', 'FAILED'])(
+    'aceita a aprovacao do webhook para um pedido %s, e concede o acesso',
+    async (status) => {
+      const { service, prisma, access } = await build({
+        storedOrder: {
+          id: 'ord-1',
+          userId: ALUNO.uid,
+          status,
+          method: 'CREDIT_CARD',
+          mpOrderId: 'ORD-2',
+          items: [{ moduleId: 'mod-1', priceCents: 19900, titleSnapshot: 'Fundamentos' }],
+        },
+        gatewayOrder: APPROVED_ORDER,
+      });
+
+      await service.applyFromGateway('ORD-2');
+
+      expect(prisma.order.updateMany.mock.calls.at(-1)?.[0].where.status.in).toEqual(
+        expect.arrayContaining(['PENDING', status]),
+      );
+      expect(access.grant).toHaveBeenCalled();
+    },
+  );
+
+  it('recusa e cancelamento continuam saindo so de pendente', async () => {
+    const { service, prisma } = await build({
+      storedOrder: { id: 'ord-1', userId: ALUNO.uid, status: 'PENDING', mpOrderId: 'ORD-3', items: [] },
+      gatewayOrder: REJECTED_ORDER,
+    });
+
+    await service.applyFromGateway('ORD-3');
+
+    expect(prisma.order.updateMany.mock.calls.at(-1)?.[0].where.status.in).toEqual(['PENDING']);
+  });
+
+  // Fase final da Spec 028: a reconsulta do cartao em analise, de 5 em 5
+  // segundos, gravava um INFO a cada vez.
+  it('nao grava log na reconsulta que nao muda o pedido', async () => {
+    const { service, paymentLog } = await build({
+      storedOrder: {
+        id: 'ord-1',
+        userId: ALUNO.uid,
+        status: 'PENDING',
+        method: 'CREDIT_CARD',
+        mpOrderId: 'ORD-9',
+        items: [],
+      },
+      gatewayOrder: { id: 'ORD-9', status: 'processing', statusDetail: 'in_process', paymentId: 'PAY-9', pix: null },
+    });
+
+    await service.findOne(ALUNO, 'ord-1');
+
+    expect(paymentLog.record).not.toHaveBeenCalled();
   });
 });
