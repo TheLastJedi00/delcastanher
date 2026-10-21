@@ -358,3 +358,48 @@ describe('Admin — financeiro: taxas (HTTP)', () => {
     });
   });
 });
+
+/** Spec 028, decisao 8: o modal "Logs do pagamento" e o status `FAILED`. */
+describe('Admin — financeiro: logs do pagamento (HTTP)', () => {
+  let app: INestApplication;
+
+  afterEach(async () => {
+    await app?.close();
+  });
+
+  it('devolve a linha do tempo do pedido ao admin', async () => {
+    const orderLogs = jest.fn().mockResolvedValue([{ id: 'log-1', stage: 'create_order' }]);
+
+    app = await buildApp({ finance: { orderLogs } });
+
+    const response = await request(app.getHttpServer())
+      .get('/admin/finance/orders/ord-1/logs')
+      .expect(200);
+
+    expect(orderLogs).toHaveBeenCalledWith('ord-1');
+    expect(response.body).toEqual([{ id: 'log-1', stage: 'create_order' }]);
+  });
+
+  it('recusa aluno com 403 e quem nao tem sessao com 401', async () => {
+    for (const [role, status] of [['aluno', 403], [null, 401]] as const) {
+      const orderLogs = jest.fn();
+
+      app = await buildApp({ finance: { orderLogs } }, role);
+
+      await request(app.getHttpServer()).get('/admin/finance/orders/ord-1/logs').expect(status);
+      expect(orderLogs).not.toHaveBeenCalled();
+
+      await app.close();
+    }
+  });
+
+  it('aceita FAILED no filtro de situacao', async () => {
+    const listOrders = jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 });
+
+    app = await buildApp({ finance: { listOrders } });
+
+    await request(app.getHttpServer()).get('/admin/finance/orders?status=FAILED').expect(200);
+
+    expect(listOrders.mock.calls[0][0].status).toBe('FAILED');
+  });
+});

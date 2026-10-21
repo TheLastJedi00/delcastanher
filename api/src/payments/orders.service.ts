@@ -14,7 +14,8 @@ import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
 import { CreateOrderDto, MAX_INSTALLMENTS } from './dto/create-order.dto';
 import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-connection.service';
-import { CreateOrderInput, MercadoPagoService } from './mercado-pago.service';
+import { CreateOrderInput, MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
+import { PaymentLogService } from './payment-log.service';
 import { toOrderRecipient } from './order-recipient';
 import { PurchaseEmailService } from './purchase-email.service';
 import { MercadoPagoOrder, PixDetails, rejectionMessage, toOrderStatus } from './payments.types';
@@ -64,6 +65,7 @@ interface OrderRow {
   bundleTitleSnapshot?: string | null;
   tierNameSnapshot?: string | null;
   mpConnectionId?: string | null;
+  attemptId?: string | null;
   items: { moduleId: string; priceCents: number; titleSnapshot: string }[];
 }
 
@@ -90,6 +92,9 @@ const FAILED_MESSAGE =
 /** O que o gateway precisa alem do pedido gravado. */
 type ChargeInput = Omit<CreateOrderInput, 'orderId' | 'accessToken' | 'amountCents' | 'method'>;
 
+/** Etapa do log de pagamento numa chamada ao gateway. */
+type LogStage = 'create_order' | 'get_order' | 'webhook';
+
 /**
  * Pedido de compra de modulos (Spec 014).
  *
@@ -113,6 +118,7 @@ export class OrdersService {
     private readonly connections: MercadoPagoConnectionService,
     private readonly invoices: InvoicesService,
     private readonly purchaseEmail: PurchaseEmailService,
+    private readonly paymentLog: PaymentLogService,
   ) {}
 
   /** Cria o pedido, cobra e devolve o desfecho — ou o QR, no caso do PIX. */
@@ -183,6 +189,14 @@ export class OrdersService {
     input: ChargeInput,
   ): Promise<OrderView> {
     if (dto.clientError) {
+      await this.paymentLog.record({
+        ...this.logOwner(order),
+        source: 'FRONT',
+        stage: dto.clientError.stage,
+        level: 'ERROR',
+        message: dto.clientError.message,
+      });
+
       return this.fail(order);
     }
 
@@ -198,11 +212,63 @@ export class OrdersService {
       });
     } catch (error) {
       this.logger.error(`Pedido ${order.id} sem desfecho do gateway.`, error as Error);
+      await this.logGatewayError(order, 'create_order', error);
 
       return this.fail(order);
     }
 
-    return this.apply(order, mpOrder);
+    return this.apply(order, mpOrder, 'create_order');
+  }
+
+  /** Dono do log: o pedido, a tentativa e o aluno. */
+  private logOwner(order: OrderRow) {
+    return { orderId: order.id, attemptId: order.attemptId ?? null, userId: order.userId };
+  }
+
+  /** Erro de uma chamada ao gateway, com o status e o corpo que ele devolveu. */
+  private logGatewayError(order: OrderRow, stage: LogStage, error: unknown): Promise<void> {
+    const gatewayError = error instanceof MercadoPagoGatewayError ? error : null;
+
+    return this.paymentLog.record({
+      ...this.logOwner(order),
+      source: 'API',
+      stage,
+      level: 'ERROR',
+      httpStatus: gatewayError?.httpStatus ?? null,
+      message: gatewayError
+        ? `Mercado Pago respondeu ${gatewayError.httpStatus ?? 'sem resposta'} em ${gatewayError.stage}.`
+        : (error as Error)?.message ?? 'Erro desconhecido.',
+      detail: gatewayError?.detail ?? null,
+    });
+  }
+
+  /**
+   * Desfecho do cartao no log (Spec 028, decisao 7): a recusa como `WARNING`,
+   * o resto como `INFO`. Na criacao, sempre; depois dela, so quando mudou o
+   * pedido, para a reconsulta a cada poucos segundos nao encher a tabela. O
+   * PIX pendente e o caminho normal e nao vira log.
+   */
+  private logOutcome(
+    order: OrderRow,
+    mpOrder: MercadoPagoOrder,
+    status: OrderStatus,
+    stage: LogStage,
+    changed: boolean,
+  ): Promise<void> {
+    if (order.method !== 'CREDIT_CARD' || (stage !== 'create_order' && !changed)) {
+      return Promise.resolve();
+    }
+
+    return this.paymentLog.record({
+      ...this.logOwner(order),
+      source: 'API',
+      stage,
+      level: status === 'REJECTED' ? 'WARNING' : 'INFO',
+      mpOrderId: mpOrder.id,
+      mpStatus: mpOrder.status,
+      mpStatusDetail: mpOrder.statusDetail,
+      message: `Mercado Pago: ${mpOrder.status}/${mpOrder.statusDetail ?? '-'}; pedido ${status}.`,
+    });
   }
 
   /** Grava `FAILED` e devolve o pedido com a mensagem para o comprador. */
@@ -303,9 +369,24 @@ export class OrdersService {
       return;
     }
 
-    const mpOrder = await this.gateway.getOrder(mpOrderId, await this.tokenFor(order));
+    const mpOrder = await this.consult(order, mpOrderId, 'webhook');
 
-    await this.apply(order, mpOrder);
+    await this.apply(order, mpOrder, 'webhook');
+  }
+
+  /**
+   * Consulta a order no gateway. A falha vai para o log do pedido e continua
+   * subindo: o webhook responde erro para o Mercado Pago reentregar, e a tela
+   * do pedido tenta de novo no proximo polling.
+   */
+  private async consult(order: OrderRow, mpOrderId: string, stage: LogStage): Promise<MercadoPagoOrder> {
+    try {
+      return await this.gateway.getOrder(mpOrderId, await this.tokenFor(order));
+    } catch (error) {
+      await this.logGatewayError(order, stage, error);
+
+      throw error;
+    }
   }
 
   /** Reconsulta o gateway e aplica o resultado; expira sem consultar. */
@@ -322,9 +403,9 @@ export class OrdersService {
       return this.toView(order);
     }
 
-    const mpOrder = await this.gateway.getOrder(order.mpOrderId, await this.tokenFor(order));
+    const mpOrder = await this.consult(order, order.mpOrderId, 'get_order');
 
-    return this.apply(order, mpOrder);
+    return this.apply(order, mpOrder, 'get_order');
   }
 
   /**
@@ -333,9 +414,11 @@ export class OrdersService {
    * A concessao so acontece se **esta** chamada foi a que tirou o pedido de
    * pendente: e isso que torna webhook e polling simultaneos inofensivos.
    */
-  private async apply(order: OrderRow, mpOrder: MercadoPagoOrder): Promise<OrderView> {
+  private async apply(order: OrderRow, mpOrder: MercadoPagoOrder, stage: LogStage): Promise<OrderView> {
     const status = toOrderStatus(mpOrder.status);
     const changed = await this.transition(order, status, mpOrder);
+
+    await this.logOutcome(order, mpOrder, status, stage, changed);
 
     if (changed && status === 'PAID') {
       for (const item of order.items) {

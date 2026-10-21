@@ -17,6 +17,8 @@ export const FINANCE_ORDER_STATUSES = [
   'CANCELLED',
   'EXPIRED',
   'REFUNDED',
+  // Spec 028, decisao 5: a compra que falhou por erro.
+  'FAILED',
 ] as const;
 
 /** Meios de pagamento aceitos. */

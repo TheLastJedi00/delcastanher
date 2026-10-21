@@ -9,6 +9,7 @@ import { BundlesService } from './bundles.service';
 import { MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
 import { OrdersService } from './orders.service';
+import { PaymentLogService } from './payment-log.service';
 
 const ALUNO: AuthUser = {
   uid: 'uid-aluno',
@@ -154,7 +155,11 @@ function build(options: BuildOptions = {}) {
       ),
     },
     order: {
-      create: jest.fn().mockResolvedValue(created),
+      // Devolve o que recebeu, como o banco: o `attemptId` gravado volta na linha.
+      create: jest.fn(async ({ data }: { data: { attemptId?: string | null } }) => ({
+        ...created,
+        attemptId: data.attemptId ?? null,
+      })),
       update: jest.fn().mockResolvedValue(created),
       updateMany: jest.fn().mockResolvedValue({ count: options.transitionCount ?? 1 }),
       findUnique: jest.fn().mockResolvedValue(options.storedOrder ?? created),
@@ -186,6 +191,9 @@ function build(options: BuildOptions = {}) {
   // Spec 024, decisao D6: o e-mail tambem nunca lanca; o double so registra.
   const purchaseEmail = { onOrderPaid: jest.fn().mockResolvedValue(undefined) };
 
+  // Spec 028, decisao 7: o log de pagamento nunca lanca; o double so registra.
+  const paymentLog = { record: jest.fn().mockResolvedValue(undefined) };
+
   const bundles = {
     placeOrder: jest.fn().mockResolvedValue(options.placed ?? PLACED),
   };
@@ -211,6 +219,7 @@ function build(options: BuildOptions = {}) {
       { provide: MercadoPagoConnectionService, useValue: connections },
       { provide: InvoicesService, useValue: invoices },
       { provide: PurchaseEmailService, useValue: purchaseEmail },
+      { provide: PaymentLogService, useValue: paymentLog },
     ],
   })
     .compile()
@@ -223,6 +232,7 @@ function build(options: BuildOptions = {}) {
       connections,
       invoices,
       purchaseEmail,
+      paymentLog,
     }));
 }
 
@@ -1155,5 +1165,144 @@ describe('OrdersService — falha e tentativa (Spec 028)', () => {
       where: { userId: ALUNO.uid, status: 'PENDING' },
       data: { status: 'CANCELLED' },
     });
+  });
+});
+
+/** Spec 028, decisao 7: o que cada desfecho grava em `payment_logs`. */
+describe('OrdersService — logs de pagamento (Spec 028)', () => {
+  const ATTEMPT = '7d5e3f0a-1b2c-4d5e-8f90-123456789abc';
+
+  function cardOrder(extra: Record<string, unknown> = {}) {
+    return {
+      moduleIds: ['mod-1'],
+      method: 'CREDIT_CARD' as const,
+      payer: PAYER,
+      card: { token: 'tok', paymentMethodId: 'visa', installments: 1 },
+      attemptId: ATTEMPT,
+      ...extra,
+    };
+  }
+
+  it('grava ERROR com status e corpo quando o gateway falha', async () => {
+    const { service, gateway, paymentLog } = await build();
+
+    gateway.createOrder.mockRejectedValue(
+      new MercadoPagoGatewayError('create_order', 500, { errors: [{ code: 'internal_error' }] }),
+    );
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'ord-1',
+        attemptId: ATTEMPT,
+        userId: ALUNO.uid,
+        source: 'API',
+        stage: 'create_order',
+        level: 'ERROR',
+        httpStatus: 500,
+        detail: { errors: [{ code: 'internal_error' }] },
+      }),
+    );
+  });
+
+  it('grava WARNING com o motivo na recusa', async () => {
+    const { service, paymentLog } = await build({ gatewayOrder: REJECTED_ORDER });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'ord-1',
+        level: 'WARNING',
+        stage: 'create_order',
+        mpOrderId: 'ORD-3',
+        mpStatus: 'failed',
+        mpStatusDetail: 'rejected_by_issuer',
+      }),
+    );
+  });
+
+  it('grava INFO no cartao aprovado', async () => {
+    const { service, paymentLog } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    await service.create(ALUNO, cardOrder());
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'INFO', mpStatus: 'processed', mpStatusDetail: 'accredited' }),
+    );
+  });
+
+  it('nao grava nada num PIX que so ficou pendente', async () => {
+    const { service, paymentLog } = await build();
+
+    await service.create(ALUNO, pixOrder());
+
+    expect(paymentLog.record).not.toHaveBeenCalled();
+  });
+
+  it('grava o erro do navegador que veio no lugar do cartao', async () => {
+    const { service, paymentLog } = await build();
+
+    await service.create(
+      ALUNO,
+      cardOrder({ card: undefined, clientError: { stage: 'sdk_load', message: 'Falha ao carregar o SDK.' } }),
+    );
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'ord-1',
+        source: 'FRONT',
+        stage: 'sdk_load',
+        level: 'ERROR',
+        message: 'Falha ao carregar o SDK.',
+      }),
+    );
+  });
+
+  it('grava ERROR e propaga quando a reconsulta do pedido falha', async () => {
+    const { service, gateway, paymentLog } = await build({
+      storedOrder: {
+        id: 'ord-1',
+        userId: ALUNO.uid,
+        status: 'PENDING',
+        mpOrderId: 'ORD-1',
+        attemptId: ATTEMPT,
+        items: [],
+      },
+    });
+
+    gateway.getOrder.mockRejectedValue(new MercadoPagoGatewayError('get_order', 404, { message: 'x' }));
+
+    await expect(service.findOne(ALUNO, 'ord-1')).rejects.toBeDefined();
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'ord-1', stage: 'get_order', level: 'ERROR', httpStatus: 404 }),
+    );
+  });
+
+  it('grava ERROR com a etapa webhook e propaga quando a consulta do webhook falha', async () => {
+    const { service, gateway, paymentLog } = await build({
+      storedOrder: { id: 'ord-1', userId: ALUNO.uid, status: 'PENDING', mpOrderId: 'ORD-1', items: [] },
+    });
+
+    gateway.getOrder.mockRejectedValue(new MercadoPagoGatewayError('get_order', 500, null));
+
+    await expect(service.applyFromGateway('ORD-1')).rejects.toBeDefined();
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'ord-1', stage: 'webhook', level: 'ERROR', httpStatus: 500 }),
+    );
+  });
+
+  it('grava WARNING quando o webhook traz a recusa de um pendente', async () => {
+    const { service, paymentLog } = await build({
+      storedOrder: { id: 'ord-1', userId: ALUNO.uid, status: 'PENDING', method: 'CREDIT_CARD', mpOrderId: 'ORD-3', items: [] },
+      gatewayOrder: REJECTED_ORDER,
+    });
+
+    await service.applyFromGateway('ORD-3');
+
+    expect(paymentLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({ stage: 'webhook', level: 'WARNING', mpStatusDetail: 'rejected_by_issuer' }),
+    );
   });
 });
