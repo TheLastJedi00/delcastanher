@@ -108,3 +108,34 @@ describe('CreateOrderDto', () => {
     });
   });
 });
+
+/** Spec 028, decisao 9: a tentativa e o erro do navegador. */
+describe('CreateOrderDto — tentativa e erro do navegador', () => {
+  it('aceita o attemptId em UUID e recusa outro formato', async () => {
+    expect(
+      await errorsOf({ moduleIds: ['mod-1'], attemptId: '7d5e3f0a-1b2c-4d5e-8f90-123456789abc' }),
+    ).toEqual([]);
+    expect(await errorsOf({ moduleIds: ['mod-1'], attemptId: 'abc' })).toContain('Tentativa invalida.');
+  });
+
+  it('aceita o clientError com etapa conhecida e mensagem curta', async () => {
+    expect(
+      await errorsOf({
+        moduleIds: ['mod-1'],
+        method: 'CREDIT_CARD',
+        clientError: { stage: 'sdk_load', message: 'Falha ao carregar o SDK.' },
+      }),
+    ).toEqual([]);
+  });
+
+  it('recusa etapa desconhecida e mensagem longa demais', async () => {
+    const errors = await errorsOf({
+      moduleIds: ['mod-1'],
+      method: 'CREDIT_CARD',
+      clientError: { stage: 'qualquer', message: 'x'.repeat(301) },
+    });
+
+    expect(errors).toContain('Etapa do erro invalida.');
+    expect(errors.some((message) => message.includes('300'))).toBe(true);
+  });
+});
