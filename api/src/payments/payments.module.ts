@@ -20,6 +20,7 @@ import { MercadoPagoService } from './mercado-pago.service';
 import { MercadoPagoWebhookController } from './mercado-pago-webhook.controller';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
+import { PaymentClientLogsController } from './payment-client-logs.controller';
 import { PaymentLogService } from './payment-log.service';
 import { PurchaseEmailService } from './purchase-email.service';
 import { StoreController } from './store.controller';
@@ -40,6 +41,7 @@ import { TokenCipher } from './token-cipher';
   controllers: [
     StoreController,
     OrdersController,
+    PaymentClientLogsController,
     AdminAccessController,
     AdminBundlesController,
     AdminFinanceController,
