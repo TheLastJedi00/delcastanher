@@ -1,7 +1,8 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { createHmac } from 'node:crypto';
-import { MercadoPagoService } from './mercado-pago.service';
+import { MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
 import { toOrderStatus } from './payments.types';
 
 const ACCESS_TOKEN = 'APP_USR-token-de-teste';
@@ -69,10 +70,43 @@ const CARD_RESPONSE = {
   },
 };
 
-async function build(response: unknown = PIX_RESPONSE, ok = true) {
+/**
+ * Recusa do cartao como a Orders API a devolve: HTTP 402, com a order inteira
+ * em `data` e o motivo so na transacao (corpo real da fase 1 da Spec 028).
+ */
+const REJECTED_RESPONSE = {
+  errors: [
+    {
+      code: 'failed',
+      message: 'The following transactions failed',
+      details: ['PAY01M5G9SVWEC20D46BTBPNN7YXR: insufficient_amount'],
+    },
+  ],
+  data: {
+    id: 'ORDTST01M5G9SVW1Z528SJ0X9ENXF17M',
+    external_reference: 'ord-1',
+    status: 'failed',
+    status_detail: 'failed',
+    payer: { email: 'aluno@delcastanher.com', identification: { type: 'CPF', number: '19119119100' } },
+    transactions: {
+      payments: [
+        {
+          id: 'PAY01M5G9SVWEC20D46BTBPNN7YXR',
+          status: 'failed',
+          status_detail: 'insufficient_amount',
+          payment_method: { id: 'visa', type: 'credit_card', token: 'tok-secreto', installments: 1 },
+        },
+      ],
+    },
+  },
+};
+
+const CARD = { token: 'tok-secreto', paymentMethodId: 'visa', installments: 1 };
+
+async function build(response: unknown = PIX_RESPONSE, ok = true, status = ok ? 201 : 400) {
   const fetchMock = jest.fn().mockResolvedValue({
     ok,
-    status: ok ? 201 : 400,
+    status,
     json: async () => response,
     text: async () => JSON.stringify(response),
   });
@@ -395,6 +429,130 @@ describe('MercadoPagoService', () => {
       const { service } = await build({ message: 'nao encontrada' }, false);
 
       await expect(service.getOrder('ORD-inexistente', SELLER_TOKEN)).rejects.toBeDefined();
+    });
+  });
+
+  /**
+   * Spec 028, decisoes 1, 2 e 12: na Orders API a recusa do cartao e um 402
+   * com a order em `data`. Tratada como erro de rede, ela virava "nao foi
+   * possivel falar com o provedor" e o pedido ficava pendente sem order.
+   */
+  describe('createOrder — recusa e erro do gateway (Spec 028)', () => {
+    const input = () => ({
+      orderId: 'ord-1',
+      accessToken: SELLER_TOKEN,
+      amountCents: 19700,
+      method: 'CREDIT_CARD' as const,
+      payer: PAYER,
+      items: [ITEMS[0]],
+      card: CARD,
+    });
+
+    it('trata o 402 como order recusada, com o motivo da transacao', async () => {
+      const { service } = await build(REJECTED_RESPONSE, false, 402);
+
+      const order = await service.createOrder(input());
+
+      expect(order).toMatchObject({
+        id: 'ORDTST01M5G9SVW1Z528SJ0X9ENXF17M',
+        status: 'failed',
+        statusDetail: 'insufficient_amount',
+        paymentId: 'PAY01M5G9SVWEC20D46BTBPNN7YXR',
+      });
+      expect(toOrderStatus(order.status)).toBe('REJECTED');
+    });
+
+    it('trata como erro o 402 sem a order no corpo', async () => {
+      const { service } = await build({ errors: [{ code: 'failed' }] }, false, 402);
+
+      await expect(service.createOrder(input())).rejects.toMatchObject({ httpStatus: 402 });
+    });
+
+    it.each([400, 401, 409, 429, 500])(
+      'mantem o %i como erro do gateway, com status e corpo para o log',
+      async (status) => {
+        const { service } = await build({ errors: [{ code: 'property_value' }] }, false, status);
+
+        const error = await service.createOrder(input()).catch((caught: unknown) => caught);
+
+        expect(error).toBeInstanceOf(MercadoPagoGatewayError);
+        expect(error).toMatchObject({
+          httpStatus: status,
+          stage: 'create_order',
+          detail: { errors: [{ code: 'property_value' }] },
+        });
+        expect((error as MercadoPagoGatewayError).getStatus()).toBe(503);
+      },
+    );
+
+    it('trata a falha de rede como erro do gateway, sem status HTTP', async () => {
+      await build();
+      global.fetch = jest.fn().mockRejectedValue(new TypeError('fetch failed')) as unknown as typeof fetch;
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          MercadoPagoService,
+          { provide: ConfigService, useValue: { get: (key: string) => CONFIG[key] } },
+        ],
+      }).compile();
+
+      const error = await moduleRef
+        .get(MercadoPagoService)
+        .createOrder(input())
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(MercadoPagoGatewayError);
+      expect(error).toMatchObject({ httpStatus: null, message: expect.any(String) });
+    });
+
+    it('prefere o status_detail da transacao ao da order na consulta', async () => {
+      const { service } = await build(REJECTED_RESPONSE.data);
+
+      const order = await service.getOrder('ORDTST01M5G9SVW1Z528SJ0X9ENXF17M', SELLER_TOKEN);
+
+      expect(order.statusDetail).toBe('insufficient_amount');
+    });
+
+    it('usa o status_detail da order quando a transacao nao tem', async () => {
+      const { service } = await build({ id: 'ORD-1', status: 'canceled', status_detail: 'expired' });
+
+      const order = await service.getOrder('ORD-1', SELLER_TOKEN);
+
+      expect(order.statusDetail).toBe('expired');
+    });
+
+    it('nao grava token nem dados do pagador no log de erro', async () => {
+      const { service } = await build(
+        { ...REJECTED_RESPONSE, errors: [{ code: 'internal_error' }] },
+        false,
+        500,
+      );
+      const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      await service.createOrder(input()).catch(() => undefined);
+
+      const line = logged.mock.calls.map((call) => String(call[0])).join('\n');
+
+      expect(line).toContain('500');
+      expect(line).not.toContain('tok-secreto');
+      expect(line).not.toContain('aluno@delcastanher.com');
+      expect(line).not.toContain('19119119100');
+    });
+
+    it('registra o desfecho do cartao numa linha info, sem token', async () => {
+      const { service } = await build(CARD_RESPONSE);
+      const logged = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+
+      await service.createOrder({ ...input(), card: { ...CARD, paymentMethodId: 'master', installments: 3 } });
+
+      const line = logged.mock.calls.map((call) => String(call[0])).join('\n');
+
+      expect(line).toContain('ord-1');
+      expect(line).toContain('ORD01JC1KVZ0WJY8Y4WA7MZAD5S2T');
+      expect(line).toContain('processed');
+      expect(line).toContain('accredited');
+      expect(line).toContain('master');
+      expect(line).toContain('3x');
+      expect(line).not.toContain('tok-secreto');
     });
   });
 
