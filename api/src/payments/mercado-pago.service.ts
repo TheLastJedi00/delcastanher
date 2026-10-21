@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { mercadoPagoWebhookSecret, statementDescriptor } from '../config/payments.config';
 import { PaymentMethodKind } from '../generated/prisma/client';
+import { sanitizeDetail } from './payment-log.sanitize';
 import {
   CreateOrderPayload,
   DEVICE_ID_HEADER,
@@ -63,6 +64,26 @@ export interface WebhookSignatureInput {
   dataId: string | undefined;
 }
 
+/** Etapa da conversa com o gateway, como o log de pagamento a nomeia. */
+export type GatewayStage = 'create_order' | 'get_order';
+
+/**
+ * Falha do gateway que nao e desfecho de pagamento (Spec 028, decisao 5):
+ * erro HTTP que nao seja a recusa do cartao, ou falha de rede. Continua sendo
+ * um 503 para o comprador, e leva status e corpo para o log do pedido.
+ */
+export class MercadoPagoGatewayError extends ServiceUnavailableException {
+  constructor(
+    readonly stage: GatewayStage,
+    /** Nulo quando a requisicao nem chegou a ter resposta. */
+    readonly httpStatus: number | null,
+    /** Corpo da resposta, ja sem token nem dados do pagador. */
+    readonly detail: unknown,
+  ) {
+    super('Não foi possível falar com o provedor de pagamento. Tente de novo em instantes.');
+  }
+}
+
 /** Resposta da Orders API, no que esta API consome. */
 interface OrderResponse {
   id: string;
@@ -71,6 +92,8 @@ interface OrderResponse {
   transactions?: {
     payments?: {
       id?: string;
+      /** O motivo da recusa mora aqui, e nao no `status_detail` da order. */
+      status_detail?: string;
       payment_method?: {
         qr_code?: string;
         qr_code_base64?: string;
@@ -136,13 +159,23 @@ export class MercadoPagoService {
       headers[DEVICE_ID_HEADER] = input.deviceId;
     }
 
-    const response = await this.request('/orders', {
+    const response = await this.request('create_order', '/orders', {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
     });
+    const order = this.toOrder(response);
 
-    return this.toOrder(response);
+    // Spec 028, decisao 6: o desfecho de cada cartao fica na Vercel, para o
+    // proximo "nao consigo pagar" nao depender de reproduzir.
+    if (input.method === 'CREDIT_CARD') {
+      this.logger.log(
+        `Cartao: pedido ${input.orderId}, order ${order.id}, ${order.status}/${order.statusDetail ?? '-'}, ` +
+          `${input.card?.paymentMethodId ?? '-'} ${input.card?.installments ?? 1}x`,
+      );
+    }
+
+    return order;
   }
 
   /**
@@ -151,7 +184,7 @@ export class MercadoPagoService {
    * notificacao so diz **qual** id consultar.
    */
   async getOrder(mpOrderId: string, accessToken: string): Promise<MercadoPagoOrder> {
-    const response = await this.request(`/orders/${encodeURIComponent(mpOrderId)}`, {
+    const response = await this.request('get_order', `/orders/${encodeURIComponent(mpOrderId)}`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -293,7 +326,9 @@ export class MercadoPagoService {
     return {
       id: response.id,
       status: response.status,
-      statusDetail: response.status_detail ?? null,
+      // Spec 028, decisao 2: numa recusa a order vem `failed/failed`, e o
+      // motivo (`insufficient_amount`...) so existe na transacao.
+      statusDetail: payment?.status_detail ?? response.status_detail ?? null,
       paymentId: payment?.id ?? null,
       pix: method?.qr_code
         ? {
@@ -328,22 +363,46 @@ export class MercadoPagoService {
     return a.length === b.length && timingSafeEqual(a, b);
   }
 
-  private async request(path: string, init: RequestInit): Promise<OrderResponse> {
-    const response = await fetch(`${MERCADO_PAGO_API}${path}`, init);
+  private async request(stage: GatewayStage, path: string, init: RequestInit): Promise<OrderResponse> {
+    let response: Response;
 
-    if (!response.ok) {
-      const detail = await response.text();
+    try {
+      response = await fetch(`${MERCADO_PAGO_API}${path}`, init);
+    } catch (error) {
+      this.logger.error(`Mercado Pago sem resposta em ${path}: ${(error as Error).message}`);
 
-      // O corpo da falha entra no log porque a Orders API devolve a lista
-      // inteira de erros de validacao — e e ela que diz qual campo recusou.
-      // Nenhum dado de cartao passa por aqui: o que sobe e o token (decisao 8).
-      this.logger.error(`Mercado Pago respondeu ${response.status} em ${path}: ${detail}`);
-
-      throw new ServiceUnavailableException(
-        'Não foi possível falar com o provedor de pagamento. Tente de novo em instantes.',
-      );
+      throw new MercadoPagoGatewayError(stage, null, { message: (error as Error).message });
     }
 
-    return (await response.json()) as OrderResponse;
+    if (response.ok) {
+      return (await response.json()) as OrderResponse;
+    }
+
+    const text = await response.text();
+    const body = this.parse(text);
+
+    // Spec 028, decisao 1: a recusa do cartao vem como 402, com a order
+    // recusada em `data`. E desfecho de pagamento, nao falha do gateway.
+    if (response.status === 402 && body?.data?.id) {
+      return body.data;
+    }
+
+    // O corpo da falha entra no log porque a Orders API devolve a lista
+    // inteira de erros de validacao — e e ela que diz qual campo recusou. Sai
+    // sem o token do cartao e sem os dados do pagador (Spec 028, decisao 12).
+    const detail = sanitizeDetail(body ?? text);
+
+    this.logger.error(`Mercado Pago respondeu ${response.status} em ${path}: ${JSON.stringify(detail)}`);
+
+    throw new MercadoPagoGatewayError(stage, response.status, detail);
+  }
+
+  /** Corpo de erro como JSON, ou nulo quando nao e. */
+  private parse(text: string): { data?: OrderResponse } | null {
+    try {
+      return JSON.parse(text) as { data?: OrderResponse };
+    } catch {
+      return null;
+    }
   }
 }

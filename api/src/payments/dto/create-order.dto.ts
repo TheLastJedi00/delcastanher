@@ -9,6 +9,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -74,6 +75,24 @@ export class OrderCardDto {
   @Min(1, { message: 'Numero de parcelas invalido.' })
   @Max(MAX_INSTALLMENTS, { message: `Parcelamento maximo de ${MAX_INSTALLMENTS}x.` })
   installments!: number;
+}
+
+/** Etapas do navegador em que uma falha impede a cobranca (Spec 028, decisao 9). */
+export const CLIENT_ERROR_STAGES = ['sdk_load', 'secure_fields', 'tokenize'] as const;
+
+/**
+ * Falha do navegador que impediu gerar o token do cartao (Spec 028, decisao
+ * 9). Vai no lugar do `card`: o pedido nasce `FAILED`, sem chamar o Mercado
+ * Pago, e e assim que a tentativa aparece no painel.
+ */
+export class OrderClientErrorDto {
+  @IsIn(CLIENT_ERROR_STAGES, { message: 'Etapa do erro invalida.' })
+  stage!: (typeof CLIENT_ERROR_STAGES)[number];
+
+  @IsString({ message: 'Mensagem do erro ausente.' })
+  @IsNotEmpty({ message: 'Mensagem do erro ausente.' })
+  @MaxLength(300)
+  message!: string;
 }
 
 /** As 27 UFs, para a NF-e nao sair com uma sigla que a Sefaz recusa. */
@@ -220,4 +239,18 @@ export class CreateOrderDto {
   @IsString()
   @MaxLength(255)
   deviceId?: string;
+
+  /**
+   * Clique em pagar que gerou o pedido (Spec 028, decisao 9): liga o pedido
+   * aos logs do navegador da mesma tentativa.
+   */
+  @IsOptional()
+  @IsUUID('4', { message: 'Tentativa invalida.' })
+  attemptId?: string;
+
+  /** Falha do navegador no lugar do `card` (Spec 028, decisao 9). */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OrderClientErrorDto)
+  clientError?: OrderClientErrorDto;
 }

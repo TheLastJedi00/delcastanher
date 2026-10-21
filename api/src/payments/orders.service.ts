@@ -14,7 +14,7 @@ import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
 import { CreateOrderDto, MAX_INSTALLMENTS } from './dto/create-order.dto';
 import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-connection.service';
-import { MercadoPagoService } from './mercado-pago.service';
+import { CreateOrderInput, MercadoPagoService } from './mercado-pago.service';
 import { toOrderRecipient } from './order-recipient';
 import { PurchaseEmailService } from './purchase-email.service';
 import { MercadoPagoOrder, PixDetails, rejectionMessage, toOrderStatus } from './payments.types';
@@ -71,11 +71,24 @@ interface OrderRow {
 function allowedFrom(next: OrderStatus): OrderStatus[] {
   // Estorno e contestacao chegam depois da aprovacao — e sao a unica saida de
   // um pedido ja pago.
-  return next === 'REFUNDED' ? ['PENDING', 'PAID'] : ['PENDING'];
+  if (next === 'REFUNDED') {
+    return ['PENDING', 'PAID'];
+  }
+
+  // Spec 028, decisao 5: o Mercado Pago pode ter cobrado apesar de um erro de
+  // rede nosso. A aprovacao que chega depois vale, e o acesso nao fica preso.
+  return next === 'PAID' ? ['PENDING', 'FAILED'] : ['PENDING'];
 }
 
 /** Estados em que nao ha mais nada a perguntar ao gateway. */
-const TERMINAL: OrderStatus[] = ['PAID', 'REJECTED', 'CANCELLED', 'EXPIRED', 'REFUNDED'];
+const TERMINAL: OrderStatus[] = ['PAID', 'REJECTED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'FAILED'];
+
+/** O que o comprador le quando a cobranca nao chegou a desfecho (Spec 028). */
+const FAILED_MESSAGE =
+  'Não foi possível falar com o provedor de pagamento. Tente de novo em instantes ou pague com PIX.';
+
+/** O que o gateway precisa alem do pedido gravado. */
+type ChargeInput = Omit<CreateOrderInput, 'orderId' | 'accessToken' | 'amountCents' | 'method'>;
 
 /**
  * Pedido de compra de modulos (Spec 014).
@@ -130,6 +143,7 @@ export class OrdersService {
         method: dto.method,
         installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
         mpConnectionId: credential.connectionId,
+        attemptId: dto.attemptId ?? null,
         ...toOrderRecipient(dto.payer),
         items: {
           create: items.map((item) => ({
@@ -142,11 +156,7 @@ export class OrdersService {
       include: { items: true },
     })) as unknown as OrderRow;
 
-    const mpOrder = await this.gateway.createOrder({
-      orderId: order.id,
-      accessToken: credential.accessToken,
-      amountCents,
-      method: dto.method,
+    return this.charge({ ...order, amountCents, method: dto.method }, credential, dto, {
       payer: dto.payer,
       items: items.map((item) => ({
         moduleId: item.moduleId,
@@ -156,8 +166,50 @@ export class OrdersService {
       card: dto.card,
       deviceId: dto.deviceId,
     });
+  }
 
-    return this.apply({ ...order, amountCents, method: dto.method }, mpOrder);
+  /**
+   * Cobra o pedido ja gravado e aplica o desfecho (Spec 028, decisao 5).
+   *
+   * A recusa do cartao chega como order `failed` e vira `REJECTED` no
+   * `apply()`. Qualquer falha que impede o desfecho — do gateway, da rede ou
+   * do navegador (`clientError`) — vira `FAILED`, e nao um pendente que a
+   * proxima tentativa cancelaria sem deixar rastro.
+   */
+  private async charge(
+    order: OrderRow,
+    credential: ActiveCredential,
+    dto: CreateOrderDto,
+    input: ChargeInput,
+  ): Promise<OrderView> {
+    if (dto.clientError) {
+      return this.fail(order);
+    }
+
+    let mpOrder: MercadoPagoOrder;
+
+    try {
+      mpOrder = await this.gateway.createOrder({
+        ...input,
+        orderId: order.id,
+        accessToken: credential.accessToken,
+        amountCents: order.amountCents,
+        method: dto.method,
+      });
+    } catch (error) {
+      this.logger.error(`Pedido ${order.id} sem desfecho do gateway.`, error as Error);
+
+      return this.fail(order);
+    }
+
+    return this.apply(order, mpOrder);
+  }
+
+  /** Grava `FAILED` e devolve o pedido com a mensagem para o comprador. */
+  private async fail(order: OrderRow): Promise<OrderView> {
+    await this.transition(order, 'FAILED', null);
+
+    return this.toView({ ...order, status: 'FAILED' });
   }
 
   /**
@@ -180,14 +232,11 @@ export class OrdersService {
       installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
       mpConnectionId: credential.connectionId,
       recipient: toOrderRecipient(dto.payer),
+      attemptId: dto.attemptId ?? null,
     });
     const order = placed as unknown as OrderRow;
 
-    const mpOrder = await this.gateway.createOrder({
-      orderId: order.id,
-      accessToken: credential.accessToken,
-      amountCents: order.amountCents,
-      method: dto.method,
+    return this.charge(order, credential, dto, {
       payer: dto.payer,
       items: order.items.map((item) => ({
         moduleId: item.moduleId,
@@ -198,8 +247,6 @@ export class OrdersService {
       card: dto.card,
       deviceId: dto.deviceId,
     });
-
-    return this.apply(order, mpOrder);
   }
 
   /**
@@ -482,6 +529,16 @@ export class OrdersService {
       return;
     }
 
+    // Spec 028, decisao 9: o navegador que nao gerou o token manda o erro no
+    // lugar do cartao. Os dois juntos seriam contraditorios.
+    if (dto.clientError) {
+      if (dto.card) {
+        throw new BadRequestException('Envie o cartão ou o erro do navegador, nunca os dois.');
+      }
+
+      return;
+    }
+
     if (!dto.card?.token) {
       throw new BadRequestException('Dados do cartão ausentes.');
     }
@@ -508,7 +565,12 @@ export class OrdersService {
       pix: order.pix ?? null,
       expiresAt: order.expiresAt?.toISOString() ?? null,
       paidAt: order.paidAt?.toISOString() ?? null,
-      message: order.status === 'REJECTED' ? rejectionMessage(order.mpStatusDetail) : null,
+      message:
+        order.status === 'REJECTED'
+          ? rejectionMessage(order.mpStatusDetail)
+          : order.status === 'FAILED'
+            ? FAILED_MESSAGE
+            : null,
       mpOrderId: order.mpOrderId,
       mpPaymentId: order.mpPaymentId,
       bundle:
