@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { createHmac } from 'node:crypto';
 import { MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
-import { toOrderStatus } from './payments.types';
+import { rejectionMessage, toOrderStatus } from './payments.types';
 
 const ACCESS_TOKEN = 'APP_USR-token-de-teste';
 const WEBHOOK_SECRET = 'segredo-do-webhook';
@@ -706,5 +706,39 @@ describe('toOrderStatus', () => {
   it('trata status desconhecido como pendente, e nunca como pago', () => {
     expect(toOrderStatus('status_que_ainda_nao_existe')).toBe('PENDING');
     expect(toOrderStatus(null)).toBe('PENDING');
+  });
+});
+
+/**
+ * Spec 028, decisao 3: as chaves sao as da Orders API. As da API antiga
+ * (`bad_filled_security_code`, `bad_filled_date`) nunca chegam.
+ */
+describe('rejectionMessage', () => {
+  it.each([
+    ['bad_filled_card_data', 'Confira os dados do cartão'],
+    ['required_call_for_authorize', 'pede autorização'],
+    ['card_disabled', 'desabilitado'],
+    ['high_risk', 'Não foi possível concluir esta compra'],
+    ['insufficient_amount', 'limite suficiente'],
+    ['card_insufficient_amount', 'limite suficiente'],
+    ['invalid_installments', 'parcelas'],
+    ['max_attempts_exceeded', 'Muitas tentativas'],
+    ['rejected_by_issuer', 'banco emissor recusou'],
+    ['processing_error', 'falha no processamento'],
+    ['cc_rejected_3ds_challenge', 'autenticação do banco'],
+    ['3ds_challenge_expired', 'autenticação do banco'],
+  ])('tem mensagem propria para %s', (detail, fragment) => {
+    expect(rejectionMessage(detail)).toContain(fragment);
+  });
+
+  it('nao tem mais as chaves da API de Pagamentos', () => {
+    const generic = rejectionMessage('desconhecido');
+
+    expect(rejectionMessage('bad_filled_security_code')).toBe(generic);
+    expect(rejectionMessage('bad_filled_date')).toBe(generic);
+  });
+
+  it('cai na mensagem generica para motivo desconhecido ou nulo', () => {
+    expect(rejectionMessage(null)).toContain('Tente outro cartão ou pague com PIX');
   });
 });
