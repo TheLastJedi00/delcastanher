@@ -88,8 +88,8 @@ Ordem das fases:
 - [x] **Task 7.6:** Desfazer as mudanças locais de teste (`apiUrl` do `environment.development.ts`) e confirmar com `git status` que nada delas foi commitado.
 
 ## Fase 8: Pull Request
-- [ ] **Task 8.1:** Abrir o PR da release contra a `main`, com as decisões tomadas durante a execução no topo, o resultado da matriz da Task 7.4 e o link do preview usado. **Sem merge:** o PR fica aberto para o usuário revisar e fazer o merge.
-- [ ] **Task 8.2:** Deixar no corpo do PR a lista do que conferir em `www.delcastanher.srv.br` depois do merge, sem cobrar: tela de pagamento com cartão carregando os campos e a bandeira de um cartão real digitado sem pagar; painel com o filtro "Erro" e o modal abrindo num pedido antigo ("Nenhum log registrado"). Incluir a sugestão de um pagamento real com cartão, estornado depois pelo painel, como decisão do usuário.
+- [x] **Task 8.1:** Abrir o PR da release contra a `main`, com as decisões tomadas durante a execução no topo, o resultado da matriz da Task 7.4 e o link do preview usado. **Sem merge:** o PR fica aberto para o usuário revisar e fazer o merge.
+- [x] **Task 8.2:** Deixar no corpo do PR a lista do que conferir em `www.delcastanher.srv.br` depois do merge, sem cobrar: tela de pagamento com cartão carregando os campos e a bandeira de um cartão real digitado sem pagar; painel com o filtro "Erro" e o modal abrindo num pedido antigo ("Nenhum log registrado"). Incluir a sugestão de um pagamento real com cartão, estornado depois pelo painel, como decisão do usuário.
 
 ## Registro da execução
 
@@ -188,3 +188,7 @@ O pedido do `FUND` repete exatamente os 5 pedidos de produção: `CANCELLED` sem
   - **Elo débito:** a tela vende só "Cartão de crédito", e o pedido vai à Orders API com `type: credit_card`. Débito não é aceito hoje, e não entrou nesta spec;
   - **webhook do cartão:** não chega à API local. Fica para conferir nos logs de produção depois do merge.
 - **Dados de teste no banco de produção:** os pedidos sandbox do comprador `e2e-spec028-aluno` (4 `PAID`, 4 `REJECTED`, 2 `FAILED`, 1 `PENDING`, 2 `CANCELLED`) aparecem no financeiro, como os das specs anteriores. As duas contas `e2e-spec028-*` podem entrar no script da Spec 026 quando o usuário decidir limpar.
+
+### Fase 8 (21/10/2026)
+
+- PR #59 aberto contra a `main`, **sem merge**: https://github.com/TheLastJedi00/delcastanher/pull/59
