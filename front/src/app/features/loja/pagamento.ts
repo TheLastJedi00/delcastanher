@@ -10,7 +10,7 @@ import {
   signal,
   WritableSignal,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { EMPTY, distinctUntilChanged, map, switchMap, tap } from 'rxjs';
 import { Router } from '@angular/router';
@@ -25,7 +25,15 @@ import {
   MercadoPagoLoader,
   SecureField,
 } from '../../core/services/mercado-pago.service';
-import { PaymentMethodKind, StoreService, formatPrice } from '../../core/services/store.service';
+import {
+  ClientErrorStage,
+  ClientLogEntry,
+  CreateOrderPayload,
+  OrderView,
+  PaymentMethodKind,
+  StoreService,
+  formatPrice,
+} from '../../core/services/store.service';
 import { UserService } from '../../core/services/user.service';
 
 /** Os tres Secure Fields; o id do contêiner e o tipo do campo no SDK. */
@@ -90,17 +98,12 @@ function cpfValidator(control: AbstractControl<string>): ValidationErrors | null
  * corrigir, nao so que "nao foi possivel".
  */
 function cardTokenMessage(error: unknown): string | null {
-  const causes = Array.isArray(error)
-    ? error
-    : Array.isArray((error as { cause?: unknown })?.cause)
-      ? (error as { cause: unknown[] }).cause
-      : null;
+  const codes = cardTokenCodes(error);
 
-  if (!causes) {
+  if (!codes) {
     return null;
   }
 
-  const codes = causes.map(cause => String((cause as { code?: unknown })?.code ?? ''));
   const has = (...wanted: string[]) => codes.some(code => wanted.includes(code));
 
   if (has('205', 'E301')) {
@@ -124,6 +127,37 @@ function cardTokenMessage(error: unknown): string | null {
   }
 
   return 'Confira os dados do cartão: número, validade, código de segurança e nome.';
+}
+
+/** Codigos da recusa do `createCardToken`, ou nulo quando o erro nao e uma recusa. */
+function cardTokenCodes(error: unknown): string[] | null {
+  const causes = Array.isArray(error)
+    ? error
+    : Array.isArray((error as { cause?: unknown })?.cause)
+      ? (error as { cause: unknown[] }).cause
+      : null;
+
+  return causes ? causes.map(cause => String((cause as { code?: unknown })?.code ?? '')) : null;
+}
+
+/** Codigos de dado digitado errado: numero, validade, CVV, nome e CPF. */
+const TYPING_CODES = new Set([
+  '205', 'E301', '208', '209', '325', '326', 'E203', 'E205', '224', 'E302', '221', '316',
+  '212', '213', '214', '322', '323', '324',
+]);
+
+/**
+ * A recusa do token foi por dado digitado errado? Esse erro e do comprador, e
+ * so vai para o log. Qualquer outro impede a cobranca e vira pedido `FAILED`
+ * (Spec 028, decisao 9), para aparecer no painel.
+ */
+function isTypingError(error: unknown): boolean {
+  return cardTokenCodes(error)?.some(code => TYPING_CODES.has(code)) ?? false;
+}
+
+/** Reais do Mercado Pago (`73.04`) em centavos, para o `formatPrice`. */
+function toCents(reais: number): number {
+  return Math.round(reais * 100);
 }
 
 /**
@@ -437,8 +471,15 @@ function cardTokenMessage(error: unknown): string | null {
                     [loading]="submitting()"
                     [disabled]="form.invalid"
                     (click)="pay()">
-                    {{ method() === 'PIX' ? 'Gerar PIX de ' + total() : 'Pagar ' + total() }}
+                    {{ payLabel() }}
                   </ui-button>
+                  <!-- Spec 028, decisão 13: parcelado com juros, o total do
+                       cartão não é o do resumo, e é dito antes de pagar. -->
+                  @if (cardTotal(); as cardTotalLabel) {
+                    <p class="mt-2 text-center text-xs text-slate-500" data-testid="total-parcelado">
+                      Total no cartão, com os juros do parcelamento: {{ cardTotalLabel }}
+                    </p>
+                  }
                 }
               </div>
 
@@ -518,6 +559,11 @@ export class Pagamento implements OnInit {
   private readonly submittingState = signal(false);
   private readonly fieldsMounted = signal(false);
   private mounting = false;
+  /** Por que o formulario de cartao nao montou; vai no pedido `FAILED`. */
+  private mountFailure: { stage: ClientErrorStage; message: string } = {
+    stage: 'secure_fields',
+    message: 'Os campos do cartão não montaram.',
+  };
   /** O bloco do cartao entra no DOM no primeiro clique e nao sai mais. */
   private readonly cardOpenedState = signal(false);
   /** Campo do cartao com valor invalido, informado pelo `validityChange`. */
@@ -588,6 +634,45 @@ export class Pagamento implements OnInit {
     Validators.maxLength(80),
   ]);
   readonly installmentsControl = this.fb.nonNullable.control(1);
+  private readonly selectedInstallments = toSignal(this.installmentsControl.valueChanges, {
+    initialValue: this.installmentsControl.value,
+  });
+
+  /** Opcao de parcelamento escolhida, quando ha mais de uma parcela. */
+  private readonly installmentChoice = computed(() => {
+    const count = Number(this.selectedInstallments());
+
+    return this.methodState() === 'CREDIT_CARD' && count > 1
+      ? (this.installmentsState().find(option => option.installments === count) ?? null)
+      : null;
+  });
+
+  /** "Pagar 3x de R$ 73,04" no parcelado; o total do pedido em 1x e no PIX. */
+  readonly payLabel = computed(() => {
+    if (this.methodState() === 'PIX') {
+      return 'Gerar PIX de ' + this.total();
+    }
+
+    const choice = this.installmentChoice();
+
+    return choice
+      ? `Pagar ${choice.installments}x de ${formatPrice(toCents(choice.installmentAmount))}`
+      : 'Pagar ' + this.total();
+  });
+
+  /** Total com os juros do parcelamento, quando ele difere do pedido. */
+  readonly cardTotal = computed(() => {
+    const choice = this.installmentChoice();
+
+    return choice ? formatPrice(toCents(choice.totalAmount)) : null;
+  });
+
+  /**
+   * Tentativa de pagamento (Spec 028, decisao 9). Liga ao pedido os logs do
+   * navegador gravados antes dele existir, e renova depois de cada clique em
+   * pagar: a proxima tentativa e outra linha do tempo no painel.
+   */
+  private attemptId = crypto.randomUUID();
 
   ngOnInit(): void {
     // O perfil ja sabe nome e e-mail: pedir de novo o que a plataforma tem
@@ -743,7 +828,22 @@ export class Pagamento implements OnInit {
       return;
     }
 
-    if (this.methodState() === 'CREDIT_CARD' && !this.cardReady()) {
+    const card = this.methodState() === 'CREDIT_CARD';
+
+    // Spec 028, decisao 9: o formulario de cartao que nao montou nem na
+    // segunda tentativa e falha do SDK, e nao do comprador. Vira pedido
+    // `FAILED` para aparecer no painel.
+    if (card && !this.fieldsMounted() && !this.mounting) {
+      await this.mountCardFields();
+
+      if (!this.fieldsMounted()) {
+        await this.submitBrowserFailure(this.mountFailure);
+
+        return;
+      }
+    }
+
+    if (card && !this.cardReady()) {
       return;
     }
 
@@ -755,29 +855,96 @@ export class Pagamento implements OnInit {
         return;
       }
 
-      const payload = {
-        ...this.store.orderTarget(),
-        method: this.methodState(),
-        payer: this.payer(),
-        deviceId: this.mp.deviceId(),
-        ...(this.methodState() === 'CREDIT_CARD' ? { card: await this.tokenize() } : {}),
-      };
+      if (!card) {
+        await this.submit({});
 
-      const order = await new Promise<{ id: string }>((resolve, reject) => {
-        this.store.createOrder(payload).subscribe({ next: resolve, error: reject });
-      });
+        return;
+      }
 
-      this.store.clearSelection();
-      this.router.navigate(['/loja/pedido', order.id]);
+      let token: Awaited<ReturnType<Pagamento['tokenize']>>;
+
+      try {
+        token = await this.tokenize();
+      } catch (error) {
+        if (isTypingError(error)) {
+          this.log({
+            stage: 'tokenize',
+            level: 'WARNING',
+            message: 'Dado do cartão recusado pelo Mercado Pago.',
+            detail: { codes: cardTokenCodes(error) },
+          });
+          this.errorState.set(cardTokenMessage(error));
+
+          return;
+        }
+
+        const message = (error as Error)?.message || 'O Mercado Pago não gerou o token do cartão.';
+
+        this.log({ stage: 'tokenize', level: 'ERROR', message, detail: { codes: cardTokenCodes(error) } });
+        await this.submit({ clientError: { stage: 'tokenize', message } });
+
+        return;
+      }
+
+      await this.submit({ card: token });
     } catch (error) {
       this.errorState.set(
-        typeof error === 'string'
-          ? error
-          : (cardTokenMessage(error) ?? 'Não foi possível concluir o pagamento. Tente de novo.'),
+        typeof error === 'string' ? error : 'Não foi possível concluir o pagamento. Tente de novo.',
       );
     } finally {
       this.submittingState.set(false);
+      this.attemptId = crypto.randomUUID();
     }
+  }
+
+  /**
+   * Cria o pedido. Recusado ou com erro, o comprador fica nesta tela, com a
+   * mensagem e a selecao, pronto para outro cartao ou o PIX (Spec 028,
+   * decisao 4). Pago ou pendente, segue para a tela do pedido.
+   */
+  private async submit(extra: Pick<CreateOrderPayload, 'card' | 'clientError'>): Promise<void> {
+    const payload = {
+      ...this.store.orderTarget(),
+      method: this.methodState(),
+      payer: this.payer(),
+      deviceId: this.mp.deviceId(),
+      attemptId: this.attemptId,
+      ...extra,
+    };
+
+    const order = await new Promise<OrderView>((resolve, reject) => {
+      this.store.createOrder(payload).subscribe({ next: resolve, error: reject });
+    });
+
+    if (order.status === 'REJECTED' || order.status === 'FAILED') {
+      this.errorState.set(order.message ?? 'O pagamento não foi aprovado. Tente outro cartão ou pague com PIX.');
+
+      return;
+    }
+
+    this.store.clearSelection();
+    this.router.navigate(['/loja/pedido', order.id]);
+  }
+
+  /** O formulario de cartao nao montou: o pedido nasce `FAILED`, com o motivo. */
+  private async submitBrowserFailure(failure: { stage: ClientErrorStage; message: string }): Promise<void> {
+    this.submittingState.set(true);
+
+    try {
+      await this.submit({ clientError: failure });
+    } catch (error) {
+      this.errorState.set(
+        typeof error === 'string' ? error : 'Não foi possível concluir o pagamento. Tente o PIX.',
+      );
+    } finally {
+      this.submittingState.set(false);
+      this.attemptId = crypto.randomUUID();
+    }
+  }
+
+  /** Erro do navegador para os logs de pagamento, ligado a tentativa atual. */
+  private log(entry: Omit<ClientLogEntry, 'attemptId'>): void {
+    this.store.clientLog({ ...entry, attemptId: this.attemptId });
   }
 
   /**
@@ -902,8 +1069,17 @@ export class Pagamento implements OnInit {
 
     this.mounting = true;
 
+    let sdk: Awaited<ReturnType<MercadoPagoLoader['load']>>;
+
     try {
-      const sdk = await this.mp.load();
+      sdk = await this.mp.load();
+    } catch (error) {
+      this.failMount('sdk_load', (error as Error)?.message || 'O SDK do Mercado Pago não carregou.');
+
+      return;
+    }
+
+    try {
       const fields = {} as Record<CardField, SecureField>;
 
       for (const { type, placeholder, srLabel } of CARD_FIELDS) {
@@ -942,13 +1118,21 @@ export class Pagamento implements OnInit {
 
       this.fieldsMounted.set(true);
       this.errorState.set(null);
-    } catch {
-      this.errorState.set(
-        'Não foi possível carregar o formulário de cartão. Tente o PIX ou recarregue a página.',
-      );
-    } finally {
       this.mounting = false;
+    } catch (error) {
+      this.failMount('secure_fields', (error as Error)?.message || 'Os campos do cartão não montaram.');
     }
+  }
+
+  /**
+   * O formulario de cartao nao montou: avisa o comprador, guarda o motivo para
+   * o pedido `FAILED` do proximo clique em pagar e manda para os logs.
+   */
+  private failMount(stage: ClientErrorStage, message: string): void {
+    this.mounting = false;
+    this.mountFailure = { stage, message };
+    this.errorState.set('Não foi possível carregar o formulário de cartão. Tente o PIX ou recarregue a página.');
+    this.log({ stage, level: 'ERROR', message });
   }
 
   /**
@@ -974,8 +1158,15 @@ export class Pagamento implements OnInit {
 
     try {
       brand = await this.mp.paymentMethod(bin);
-    } catch {
+    } catch (error) {
       // Falha de rede: o `cardReady()` barra o envio e pede para conferir.
+      this.log({
+        stage: 'payment_method',
+        level: 'ERROR',
+        message: (error as Error)?.message || 'A busca da bandeira falhou.',
+        detail: { bin: bin.slice(0, 6) },
+      });
+
       return;
     }
 
@@ -986,6 +1177,14 @@ export class Pagamento implements OnInit {
 
     if (!brand) {
       this.cardUnsupportedState.set(true);
+      // Foi assim que o caso da Visa apareceu (Spec 025): BIN que o Mercado
+      // Pago nao conhece. So os 6 primeiros digitos, que identificam o banco.
+      this.log({
+        stage: 'payment_method',
+        level: 'WARNING',
+        message: 'O Mercado Pago não reconheceu a bandeira do cartão.',
+        detail: { bin: bin.slice(0, 6) },
+      });
 
       return;
     }
@@ -1008,8 +1207,14 @@ export class Pagamento implements OnInit {
         this.installmentsState.set(options);
         this.installmentsControl.setValue(options[0]?.installments ?? 1);
       }
-    } catch {
+    } catch (error) {
       // Sem parcelas, o pagamento segue em 1x.
+      this.log({
+        stage: 'installments',
+        level: 'ERROR',
+        message: (error as Error)?.message || 'A busca das parcelas falhou.',
+        detail: { bin: brand.bin.slice(0, 6), brand: brand.id },
+      });
     }
   }
 
