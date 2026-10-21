@@ -192,3 +192,7 @@ O pedido do `FUND` repete exatamente os 5 pedidos de produção: `CANCELLED` sem
 ### Fase 8 (21/10/2026)
 
 - PR #59 aberto contra a `main`, **sem merge**: https://github.com/TheLastJedi00/delcastanher/pull/59
+
+### Limpeza das contas de teste (21/10/2026)
+
+A pedido do usuário, as contas `e2e-spec028-aluno` e `e2e-spec028-admin` saíram do banco e do Firebase. Antes de apagar, o script conferiu os e-mails, que nenhum pedido era de conta real (todos na conexão sandbox) e que as 4 notas estavam em `ERROR` na homologação, sem número externo (nenhuma NFS-e emitida). Numa transação: 4 notas, 2 logs sem pedido e as 2 contas, com os 13 pedidos, os itens, os acessos e os logs pela cascata. Firebase: 2 contas apagadas, 0 falhas. Conferido depois: nenhuma conta, pedido ou log restante.
