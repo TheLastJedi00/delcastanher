@@ -1,8 +1,15 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { StoreService } from './store.service';
 
-/** URL do SDK oficial. Ele tambem captura o device id (checklist, item 10). */
+/** URL do SDK oficial. */
 const SDK_URL = 'https://sdk.mercadopago.com/js/v2';
+
+/**
+ * Script de seguranca que cria o `MP_DEVICE_SESSION_ID` (checklist, item 10).
+ * O SDK v2 nao o cria sozinho: na fase 1 da Spec 028 a variavel estava
+ * indefinida, e nenhuma order levou o device id ao antifraude (decisao 10).
+ */
+export const SECURITY_URL = 'https://www.mercadopago.com/v2/security.js';
 
 /** Opcao de parcelamento devolvida pelo Mercado Pago, ja formatada por ele. */
 export interface InstallmentOption {
@@ -159,8 +166,9 @@ export class MercadoPagoLoader {
    * Opcoes de parcelamento **do Mercado Pago**, com o texto dele.
    *
    * A tela nao calcula juros por conta propria: o valor da parcela e o total
-   * exibidos sao os que o gateway vai cobrar (decisao 9). O teto de 6 e da
-   * plataforma, e o servidor recusa acima disso.
+   * exibidos sao os que o gateway vai cobrar (decisao 9). O teto e o
+   * `maxInstallments` da plataforma (12, Spec 019), e o servidor recusa acima
+   * disso.
    */
   async installments(amountCents: number, bin: string, max: number): Promise<InstallmentOption[]> {
     const sdk = await this.load();
@@ -192,6 +200,11 @@ export class MercadoPagoLoader {
       throw new Error('Pagamento indisponível no momento.');
     }
 
+    // Sem esperar: o device id e um reforco do antifraude, e um bloqueador que
+    // derruba o `security.js` nao pode impedir o pagamento. A falha so vai
+    // para o log de pagamento (Spec 028, decisao 10).
+    this.loadSecurity();
+
     await this.injectScript();
 
     const factory = window.MercadoPago;
@@ -204,6 +217,29 @@ export class MercadoPagoLoader {
     this.readyState.set(true);
 
     return this.sdk;
+  }
+
+  /** Carrega o `security.js` uma vez, com `view="checkout"`. */
+  private loadSecurity(): void {
+    if (document.querySelector(`script[src="${SECURITY_URL}"]`)) {
+      return;
+    }
+
+    const script = document.createElement('script');
+
+    script.src = SECURITY_URL;
+    script.async = true;
+    script.setAttribute('view', 'checkout');
+    script.onerror = () => {
+      script.remove();
+      this.store.clientLog({
+        stage: 'sdk_load',
+        level: 'WARNING',
+        message: 'O script de segurança do Mercado Pago não carregou; o pagamento segue sem device id.',
+      });
+    };
+
+    document.head.appendChild(script);
   }
 
   private injectScript(): Promise<void> {
