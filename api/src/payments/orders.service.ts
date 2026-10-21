@@ -77,9 +77,11 @@ function allowedFrom(next: OrderStatus): OrderStatus[] {
     return ['PENDING', 'PAID'];
   }
 
-  // Spec 028, decisao 5: o Mercado Pago pode ter cobrado apesar de um erro de
-  // rede nosso. A aprovacao que chega depois vale, e o acesso nao fica preso.
-  return next === 'PAID' ? ['PENDING', 'FAILED'] : ['PENDING'];
+  // Spec 028, decisoes 5 e 14: dinheiro recebido e acesso. A aprovacao que
+  // chega depois vale para o pedido que o Mercado Pago cobrou apesar de um
+  // erro nosso (FAILED), para o cartao em analise substituido por outra
+  // tentativa (CANCELLED) e para o PIX pago no limite do prazo (EXPIRED).
+  return next === 'PAID' ? ['PENDING', 'FAILED', 'CANCELLED', 'EXPIRED'] : ['PENDING'];
 }
 
 /** Estados em que nao ha mais nada a perguntar ao gateway. */
@@ -255,7 +257,11 @@ export class OrdersService {
     stage: LogStage,
     changed: boolean,
   ): Promise<void> {
-    if (order.method !== 'CREDIT_CARD' || (stage !== 'create_order' && !changed)) {
+    // `changed` tambem e verdadeiro quando o pendente e regravado como
+    // pendente; o que interessa ao log e a mudanca de situacao.
+    const moved = changed && status !== order.status;
+
+    if (order.method !== 'CREDIT_CARD' || (stage !== 'create_order' && !moved)) {
       return Promise.resolve();
     }
 
