@@ -155,7 +155,11 @@ function build(options: BuildOptions = {}) {
       ),
     },
     order: {
-      create: jest.fn().mockResolvedValue(created),
+      // Devolve o que recebeu, como o banco: o `attemptId` gravado volta na linha.
+      create: jest.fn(async ({ data }: { data: { attemptId?: string | null } }) => ({
+        ...created,
+        attemptId: data.attemptId ?? null,
+      })),
       update: jest.fn().mockResolvedValue(created),
       updateMany: jest.fn().mockResolvedValue({ count: options.transitionCount ?? 1 }),
       findUnique: jest.fn().mockResolvedValue(options.storedOrder ?? created),
