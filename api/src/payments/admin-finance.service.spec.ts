@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AdminFinanceService } from './admin-finance.service';
 import { bucketKey } from './finance-period';
 import { GatewayFeesService } from './gateway-fees.service';
+import { PaymentLogService } from './payment-log.service';
 
 /** Pedido do cenario, no formato em que a tabela `orders` o guarda. */
 interface FakeOrder {
@@ -267,6 +268,7 @@ function build(scenario: Scenario = {}) {
       AdminFinanceService,
       { provide: PrismaService, useValue: prisma },
       { provide: GatewayFeesService, useValue: fees },
+      { provide: PaymentLogService, useValue: { forOrder: jest.fn() } },
     ],
   })
     .compile()
@@ -355,6 +357,24 @@ describe('AdminFinanceService — resumo', () => {
 
       expect(summary.totals.pendingOrders).toBe(1);
       expect(summary.totals.rejectedOrders).toBe(2);
+    });
+
+    // Spec 028, decisao 5: a compra que falhou por erro e contada a parte, e
+    // nunca entra na receita.
+    it('conta os pedidos com erro do periodo, fora da receita', async () => {
+      const { service } = await build({
+        orders: [
+          pago('a', { status: 'FAILED', paidAt: null }),
+          pago('b', { status: 'REJECTED', paidAt: null }),
+        ],
+        rates: [PIX_RATE],
+      });
+
+      const summary = await service.summary({ ...SETEMBRO, granularity: 'day' });
+
+      expect(summary.totals.failedOrders).toBe(1);
+      expect(summary.totals.rejectedOrders).toBe(1);
+      expect(summary.totals.grossCents).toBe(0);
     });
 
     it('calcula a taxa, o liquido e o ticket medio', async () => {
