@@ -139,6 +139,13 @@ O `REJECTION_MESSAGES` (`api/src/payments/payments.types.ts`) tem `bad_filled_se
 13. **O botão de pagar mostra o parcelado.**
     Com 3x (R$ 219,12 com juros), o botão dizia "Pagar R$ 197,00". Com mais de uma parcela escolhida, o botão passa a dizer "Pagar 3x de R$ 73,04", com o total do Mercado Pago (`totalAmount`) em texto abaixo. Em 1x, continua "Pagar R$ 197,00".
 
+14. **Dinheiro recebido é acesso, mesmo depois de o pedido sair de pendente.** *(Achado no teste da fase final.)*
+    O cartão em análise (`CONT`) ficou `CANCELLED` quando o comprador fez outra compra (Spec 014, decisão 11: um pendente por vez). Se o Mercado Pago o aprovasse depois, `allowedFrom('PAID')` só aceitava `PENDING`, o webhook era ignorado e o comprador pagava sem acesso. O mesmo valia para o PIX pago no último segundo e vencido no relógio (`EXPIRED`).
+    - `PAID` passa a sair de `PENDING`, `FAILED`, `CANCELLED` e `EXPIRED`. Recusa, cancelamento e vencimento continuam saindo só de `PENDING`.
+    - A regra do "um pendente por vez" não muda. O que muda é que cancelar o pendente na nossa tela não apaga um pagamento que o Mercado Pago aprovar depois.
+    - Dois pagamentos aprovados para a mesma coisa (o comprador pagou o PIX antigo e o novo) viram dois pedidos `PAID` no financeiro, e o estorno de um deles é decisão do gestor.
+    - No mesmo teste, a reconsulta do cartão em análise, de 5 em 5 segundos, gravava um log `INFO` a cada vez. O log depois da criação passou a sair só quando a situação do pedido muda.
+
 ## Ambiente de teste (fase 1 e fase final)
 
 > **Desvio da fase 1:** o preview da Vercel **não cobra em sandbox**. A conexão sandbox ativa foi cifrada pelo script `mp-vendedor-sandbox` com o `MP_TOKEN_ENCRYPTION_KEY` do `.env` local, e o preview usa outra chave (500 "Unsupported state or unable to authenticate data"). A fase 1 e a fase final rodam com a **API local** em `localhost:3000` (`MP_SANDBOX=true`, mesmo banco). Para o preview cobrar, alguém com acesso à chave da Vercel precisa recriar a conexão sandbox com ela. Isso fica fora desta spec.
