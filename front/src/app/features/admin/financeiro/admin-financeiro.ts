@@ -20,6 +20,7 @@ import { TimeSeriesChart, TimeSeriesPoint } from '../../../shared/ui/time-series
 import { AdminInvoicesService, InvoiceSettings } from '../../../core/services/admin-invoices.service';
 import { AdminContaRecebedora } from './admin-conta-recebedora';
 import { ConfirmacaoCompra } from './confirmacao-compra';
+import { LogsPagamento } from './logs-pagamento';
 import { NotaFiscal } from './nota-fiscal';
 
 /** Um dia em milissegundos. */
@@ -40,6 +41,8 @@ const STATUS_LABEL: Record<FinanceOrderStatus, string> = {
   CANCELLED: 'Cancelado',
   EXPIRED: 'Expirado',
   REFUNDED: 'Estornado',
+  // Spec 028, decisao 8: a compra que falhou por erro, e nao Cancelado.
+  FAILED: 'Erro',
 };
 
 const STATUS_VARIANT: Record<FinanceOrderStatus, 'teal' | 'success' | 'warning' | 'danger'> = {
@@ -49,6 +52,7 @@ const STATUS_VARIANT: Record<FinanceOrderStatus, 'teal' | 'success' | 'warning' 
   CANCELLED: 'teal',
   EXPIRED: 'teal',
   REFUNDED: 'danger',
+  FAILED: 'danger',
 };
 
 /** Rotulo do meio de pagamento. */
@@ -98,6 +102,7 @@ function fromDateInput(value: string, edge: 'start' | 'end'): string {
   imports: [
     AdminContaRecebedora,
     ConfirmacaoCompra,
+    LogsPagamento,
     NotaFiscal,
     Badge,
     Button,
@@ -116,6 +121,9 @@ export class AdminFinanceiro {
   private readonly fb = inject(FormBuilder);
 
   protected readonly finance = inject(AdminFinanceService);
+
+  /** Pedido com o modal "Logs do pagamento" aberto (Spec 028, decisao 8). */
+  readonly logsOrderId = signal<string | null>(null);
 
   /** `painel` e o relatorio; `taxas` e o historico de vigencias e o cadastro. */
   readonly view = signal<'painel' | 'taxas'>('painel');
