@@ -16,6 +16,7 @@ const RESUMO: FinanceSummary = {
     paidOrders: 2,
     pendingOrders: 1,
     rejectedOrders: 0,
+    failedOrders: 0,
     refundedOrders: 0,
     uncoveredOrders: 0,
     uncoveredFrom: null,

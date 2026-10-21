@@ -19,6 +19,7 @@ const RESUMO: FinanceSummary = {
     paidOrders: 2,
     pendingOrders: 0,
     rejectedOrders: 0,
+    failedOrders: 0,
     refundedOrders: 0,
     uncoveredOrders: 0,
     uncoveredFrom: null,
@@ -343,5 +344,95 @@ describe('AdminFinanceiro', () => {
 
       expect(el.querySelector('[data-testid="aviso-certificado"]')).toBeNull();
     });
+  });
+});
+
+/** Spec 028, decisao 8: "Erro" e o modal "Logs do pagamento". */
+describe('AdminFinanceiro — pedidos com erro e logs', () => {
+  const ORDER = {
+    status: 'FAILED',
+    amountCents: 19700,
+    installments: 1,
+    buyerName: 'Ana',
+    buyerEmail: 'ana@exemplo.com',
+    modules: ['Fundamentos'],
+    bundle: null,
+    mpOrderId: null,
+    mpPaymentId: null,
+    mpStatusDetail: null,
+    createdAt: '2026-09-10T12:00:00.000Z',
+    paidAt: null,
+    refundedAt: null,
+  };
+
+  function renderOrders() {
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AdminFinanceiro);
+
+    fixture.detectChanges();
+    http
+      .match(req => req.url === `${environment.apiUrl}/admin/finance/summary`)
+      .forEach(req => req.flush({ ...RESUMO, totals: { ...RESUMO.totals, failedOrders: 4 } }));
+    http.match(req => req.url === `${environment.apiUrl}/admin/finance/orders`).forEach(req =>
+      req.flush({
+        items: [
+          { ...ORDER, id: 'ord-cartao', method: 'CREDIT_CARD' },
+          { ...ORDER, id: 'ord-pix', method: 'PIX', status: 'CANCELLED' },
+        ],
+        total: 2,
+        page: 1,
+        pageSize: 20,
+      }),
+    );
+    fixture.detectChanges();
+
+    return { fixture, http, el: fixture.nativeElement as HTMLElement };
+  }
+
+  afterEach(() => {
+    TestBed.inject(AdminFinanceService).clear();
+  });
+
+  it('mostra FAILED como "Erro", e não como Cancelado', () => {
+    const { el } = renderOrders();
+    const row = Array.from(el.querySelectorAll('tbody tr')).find(tr =>
+      tr.textContent?.includes('ana@exemplo.com'),
+    );
+
+    expect(row?.textContent).toContain('Erro');
+    expect(row?.textContent).not.toContain('Cancelado');
+  });
+
+  it('tem "Erro" no filtro de situação e a contagem no resumo', () => {
+    const { el } = renderOrders();
+    const options = Array.from(el.querySelectorAll('#filtro-situacao-pedido option')).map(option =>
+      option.textContent?.trim(),
+    );
+
+    expect(options).toContain('Erro');
+
+    const term = Array.from(el.querySelectorAll('dt')).find(dt => dt.textContent?.includes('Pedidos com erro'));
+
+    expect(term?.nextElementSibling?.textContent?.trim()).toBe('4');
+  });
+
+  it('mostra "Ver logs" só no pedido de cartão, e abre o modal dele', () => {
+    const { fixture, http, el } = renderOrders();
+    const buttons = el.querySelectorAll('[data-testid="ver-logs"]');
+
+    expect(buttons.length).toBe(1);
+
+    (buttons[0].querySelector('button') ?? (buttons[0] as HTMLElement)).click();
+    fixture.detectChanges();
+
+    http.expectOne(`${environment.apiUrl}/admin/finance/orders/ord-cartao/logs`).flush([]);
+    fixture.detectChanges();
+
+    expect(el.querySelector('app-logs-pagamento')).not.toBeNull();
+    expect(el.textContent).toContain('Nenhum log registrado para este pedido.');
   });
 });

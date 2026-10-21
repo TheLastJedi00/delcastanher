@@ -386,6 +386,7 @@ export class AdminDashboard {
       CANCELLED: 'Cancelado',
       EXPIRED: 'Expirado',
       REFUNDED: 'Estornado',
+      FAILED: 'Erro',
     }[status];
   }
 

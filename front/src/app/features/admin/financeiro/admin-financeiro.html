@@ -338,6 +338,11 @@
             <dt class="text-slate-600">Pedidos recusados</dt>
             <dd class="font-semibold tabular-nums text-brand-navy">{{ totais.rejectedOrders }}</dd>
           </div>
+          <!-- Spec 028, decisao 5: falha por erro, ao lado dos recusados. -->
+          <div class="flex justify-between gap-4">
+            <dt class="text-slate-600">Pedidos com erro</dt>
+            <dd class="font-semibold tabular-nums text-brand-navy">{{ totais.failedOrders }}</dd>
+          </div>
 
           <!-- Decisao 8: estorno anterior a coluna de data nao tem mes. Ele
                aparece em linha propria, e nunca distribuido por chute. -->
@@ -476,6 +481,16 @@
                         (click)="copy(pagamento)">
                         {{ pagamento }}{{ copied() === pagamento ? ' ✓' : '' }}
                       </button>
+                    }
+                    <!-- Spec 028, decisão 8: o que aconteceu na tentativa de cartão. -->
+                    @if (pedido.method === 'CREDIT_CARD') {
+                      <ui-button
+                        variant="ghost"
+                        size="sm"
+                        data-testid="ver-logs"
+                        (click)="logsOrderId.set(pedido.id)">
+                        Ver logs
+                      </ui-button>
                     }
                   </div>
                 </td>
@@ -651,4 +666,9 @@
       </form>
     </ui-card>
   </div>
+}
+
+<!-- Spec 028, decisão 8: fora do @if das abas, para abrir sobre o painel. -->
+@if (logsOrderId(); as pedidoId) {
+  <app-logs-pagamento [orderId]="pedidoId" (closed)="logsOrderId.set(null)" />
 }
