@@ -183,10 +183,15 @@ async function main(): Promise<void> {
     }
 
     // Decisao 5: as cascatas do schema levam progresso, certificados,
-    // acessos, pedidos e itens. Tudo ou nada.
-    const [deletedOrders, deletedUsers] = await prisma.$transaction([
+    // acessos, pedidos e itens. Tudo ou nada. Os logs de pagamento do pedido
+    // vao pela cascata dele; os do navegador sem pedido (Spec 028, decisao 7)
+    // so tem o `userId`, e saem aqui.
+    const [deletedOrders, , deletedUsers] = await prisma.$transaction([
       prisma.order.deleteMany({
         where: { id: LOOSE_ORDER_ID, status: 'PENDING' },
+      }),
+      prisma.paymentLog.deleteMany({
+        where: { userId: { in: DB_UIDS }, orderId: null },
       }),
       prisma.user.deleteMany({ where: { id: { in: DB_UIDS } } }),
     ]);
