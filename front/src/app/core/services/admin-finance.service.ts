@@ -21,7 +21,26 @@ export type FinanceOrderStatus =
   | 'REJECTED'
   | 'CANCELLED'
   | 'EXPIRED'
-  | 'REFUNDED';
+  | 'REFUNDED'
+  /** A compra que falhou por erro (Spec 028, decisao 5). */
+  | 'FAILED';
+
+/** Uma linha do modal "Logs do pagamento" (Spec 028, decisao 8). */
+export interface PaymentLogLine {
+  id: string;
+  createdAt: string;
+  /** `API` e o servidor; `FRONT`, o navegador do comprador. */
+  source: 'API' | 'FRONT';
+  stage: string;
+  level: 'ERROR' | 'WARNING' | 'INFO';
+  httpStatus: number | null;
+  mpOrderId: string | null;
+  mpStatus: string | null;
+  mpStatusDetail: string | null;
+  message: string;
+  detail: unknown;
+  environment: string;
+}
 
 export interface FinancePeriod {
   from: string;
@@ -40,6 +59,8 @@ export interface FinanceTotals {
   paidOrders: number;
   pendingOrders: number;
   rejectedOrders: number;
+  /** Pedidos que falharam por erro no periodo (Spec 028). */
+  failedOrders: number;
   refundedOrders: number;
   uncoveredOrders: number;
   uncoveredFrom: string | null;
@@ -331,6 +352,13 @@ export class AdminFinanceService {
     this.ordersQueryState.update(current => ({ ...current, ...patch, page: patch.page ?? 1 }));
 
     return this.loadOrders();
+  }
+
+  /** Linha do tempo dos logs de pagamento de um pedido (Spec 028, decisao 8). */
+  orderLogs(orderId: string): Observable<PaymentLogLine[]> {
+    return this.http
+      .get<PaymentLogLine[]>(`${environment.apiUrl}/admin/finance/orders/${encodeURIComponent(orderId)}/logs`)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
   }
 
   /** Historico de vigencias de taxa, com autor e data. */

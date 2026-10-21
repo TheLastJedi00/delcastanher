@@ -87,7 +87,8 @@ export interface AdminAccessItem {
 /** Pedido do aluno, no que o suporte precisa (decisao 23). */
 export interface AdminOrderItem {
   id: string;
-  status: 'PENDING' | 'PAID' | 'REJECTED' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED';
+  /** `FAILED`: a compra que falhou por erro (Spec 028, decisao 5). */
+  status: 'PENDING' | 'PAID' | 'REJECTED' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED' | 'FAILED';
   amountCents: number;
   method: 'PIX' | 'CREDIT_CARD';
   installments: number;
