@@ -644,6 +644,7 @@ describe('OrdersService — pedido de pacote', () => {
       installments: 1,
       mpConnectionId: 'conn-1',
       recipient: RECIPIENT,
+      attemptId: null,
     });
     // O caminho de modulos avulsos nao participa: nem cria pedido nem cancela.
     expect(prisma.order.create).not.toHaveBeenCalled();
