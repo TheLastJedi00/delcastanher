@@ -10,15 +10,11 @@ Ordem das fases:
 5. Por fim, o teste ao vivo de novo no preview e o PR aberto contra a `main`, **sem merge**: o merge é do usuário.
 
 ## Fase 1: Reproduzir (sem código)
-- [ ] **Task 1.1:** Preparar o ambiente de teste ("Ambiente de teste" do `context.md`):
-  - publicar o preview da API a partir da `main` (`git archive` no scratchpad, com o `.vercel/project.json` da API), ou reaproveitar `https://delcastanher-ba5c5o4q2-leno.vercel.app` se a `main` não mudou na API;
-  - gerar o `proxy.conf` no scratchpad, com `/preview-api` apontando para o preview e o header `x-vercel-trusted-oidc-idp-token` lido do `VERCEL_OIDC_TOKEN`, sem imprimir o token;
-  - trocar o `apiUrl` do `environment.development.ts` para `http://localhost:4200/preview-api`, **sem commit**;
-  - subir `ng serve --proxy-config <proxy.conf>` em `localhost:4200` e abrir `vercel logs` do preview.
-- [ ] **Task 1.2:** Conferir no Chrome que o login, a loja e o `GET /store/payment-config` funcionam pelo proxy, com o aviso "Ambiente de teste" na tela de pagamento.
-- [ ] **Task 1.3:** Rodar a matriz da fase 1 com os cartões de teste. Para cada linha, registrar no fim deste arquivo: o que a tela mostrou, o status do pedido no banco (consulta só de leitura) e a linha do log da Vercel.
-- [ ] **Task 1.4:** Registrar no fim deste arquivo o corpo real da resposta `402` do Mercado Pago (sem dados do pagador) e onde estão nele o id da order, o `status` e o `status_detail` da transação. Se algo contradisser a "Causa provável" ou as decisões 1 a 3, ajustar o `context.md` antes da fase 3.
-- [ ] **Task 1.5:** Registrar o que mais apareceu fora da causa provável (`deviceId` ausente, parcelas, Elo débito, webhook), cada item com a decisão de corrigir nesta spec ou deixar de fora.
+- [x] **Task 1.1:** Preparar o ambiente de teste ("Ambiente de teste" do `context.md`). O proxy até o preview funcionou (login, loja, `payment-config`), mas o preview **não cobra**: ver "Fase 1" no registro. A fase 1 rodou com a API local (`localhost:3000`, `MP_SANDBOX=true`, banco de produção), com o `environment.development.ts` sem mudança.
+- [x] **Task 1.2:** Login, loja e pagamento conferidos no Chrome (pelo proxy e depois pela API local).
+- [x] **Task 1.3:** Matriz da fase 1 rodada nos casos que separam os caminhos: recusa (`FUND`), aprovado (`APRO`) e pendente (`CONT`, parcelado). `SECU`, `CALL`, `OTHE`, Amex e Elo passam pelo mesmo `402` e ficam para a matriz da fase final. Resultado no registro.
+- [x] **Task 1.4:** Corpo do `402` registrado. Confirma as decisões 1 e 2: a order vem inteira em `data`, e o motivo está só na transação.
+- [x] **Task 1.5:** Achados fora da causa provável registrados, com as decisões 10 a 13 no `context.md`.
 
 ## Fase 2: API - Schema
 - [ ] **Task 2.1:** No `schema.prisma`, adicionar `FAILED` ao `OrderStatus`, a coluna opcional `attemptId` em `Order` e o model `PaymentLog` (`@@map("payment_logs")`) com os campos, os enums `PaymentLogSource` e `PaymentLogLevel`, a FK opcional para `Order` com `onDelete: Cascade` e os índices `(orderId, createdAt)` e `(attemptId)` (decisões 5, 7 e 9).
@@ -43,6 +39,7 @@ Ordem das fases:
   - um novo pedido continua cancelando só os `PENDING`.
 - [ ] **Task 3.5:** Implementar no `OrdersService` e no `CreateOrderDto` (`attemptId` UUID opcional; `clientError` com `stage` e `message` curtos, exclusivo com `card`). Atualizar `TERMINAL` e `allowedFrom`.
 - [ ] **Task 3.6:** Linha `info` na Vercel para cada criação de order com cartão (decisão 6): pedido, order, `status`, `status_detail`, bandeira e parcelas, sem token. Cobrir com um spy do `Logger`.
+- [ ] **Task 3.7:** No spec do `MercadoPagoService`, cobrir que o corpo de erro que vai ao `logger.error` sai sem `token`, `payer.email` e `payer.identification` (decisão 12), e implementar reaproveitando a função de limpeza do `PaymentLogService` (Task 4.2), que passa a morar num arquivo próprio (`payment-log.sanitize.ts`) para os dois usarem.
 
 ## Fase 4: API - Logs e painel
 - [ ] **Task 4.1:** Escrever `payment-log.service.spec.ts` (decisão 7):
@@ -70,6 +67,9 @@ Ordem das fases:
 - [ ] **Task 5.4:** Em `pagamento.spec.ts`, cobrir a falha do navegador que impede a cobrança: SDK que não carrega e `createCardToken` com erro que não é de digitação → `POST /orders` com `clientError`; erro de digitação (`E301`, `E302`, `205`, `224` etc.) → só o log.
 - [ ] **Task 5.5:** Implementar 5.3 e 5.4: um método `clientLog()` no `StoreService` (ou num `PaymentLogClient` pequeno) que nunca lança, e a separação entre erro de digitação e erro do SDK reaproveitando os códigos do `cardTokenMessage()`.
 - [ ] **Task 5.6:** Corrigir o comentário "O teto de 6" do `installments()` no `mercado-pago.service.ts` do front: o teto vem do `maxInstallments` (12).
+- [ ] **Task 5.7:** Device id (decisão 10): no `MercadoPagoLoader`, carregar o `security.js` (`view="checkout"`) junto com o SDK, e o `deviceId()` passa a lê-lo. Falha do `security.js` não impede o pagamento, só vai para o log do navegador. Cobrir no spec do serviço.
+- [ ] **Task 5.8:** Tela do pedido com cartão pendente (decisão 11): título e texto próprios em `pedido.ts`, sem "Pague com PIX". Cobrir no spec da tela (criar `pedido.spec.ts` se não existir).
+- [ ] **Task 5.9:** Botão com o total parcelado (decisão 13): com uma parcela com juros escolhida, o botão diz "Pagar 3x de R$ 73,04" e o total com juros aparece abaixo. Cobrir no `pagamento.spec.ts`.
 
 ## Fase 6: Front - Painel
 - [ ] **Task 6.1:** Adicionar `FAILED` aos tipos de status (`admin-finance.service.ts`, `admin-users.service.ts`, `store.service.ts`) e o rótulo "Erro" (variante `danger`) no `admin-financeiro.ts` e no `admin-dashboard.ts`. Adicionar "Erro" ao filtro de status do financeiro.
@@ -82,7 +82,7 @@ Ordem das fases:
 ## Fase 7: Release e teste ao vivo
 - [ ] **Task 7.1:** Fazer o merge das branches de fase na `release/028-revisao-pagamento-cartao`.
 - [ ] **Task 7.2:** Com **autorização explícita** (decisão 7), rodar `npx prisma migrate deploy` contra produção e conferir, só lendo, que o enum, a coluna e a tabela existem. Tem de ser antes do teste: o preview grava no mesmo banco.
-- [ ] **Task 7.3:** Publicar o preview da API da branch de release (`git archive` da release no scratchpad) e repetir a preparação da Task 1.1 apontando o proxy para ele.
+- [ ] **Task 7.3:** Subir a API da release em `localhost:3000` e o front em `localhost:4200`, como na fase 1. O preview da Vercel não cobra em sandbox enquanto a conexão sandbox for cifrada com a chave local (registro da fase 1).
 - [ ] **Task 7.4:** Rodar a matriz inteira da fase final no Chrome, incluindo os itens "Só na fase final" (erro forçado do gateway, SDK bloqueado, recusa seguida de aprovação, conferência de que nenhuma linha de `payment_logs` tem token, cartão, CPF ou e-mail). Registrar o resultado de cada linha no fim deste arquivo.
 - [ ] **Task 7.5:** Conferir no painel, pelo preview, o "Erro" e o modal dos pedidos de teste da Task 7.4.
 - [ ] **Task 7.6:** Desfazer as mudanças locais de teste (`apiUrl` do `environment.development.ts`) e confirmar com `git status` que nada delas foi commitado.
@@ -92,3 +92,58 @@ Ordem das fases:
 - [ ] **Task 8.2:** Deixar no corpo do PR a lista do que conferir em `www.delcastanher.srv.br` depois do merge, sem cobrar: tela de pagamento com cartão carregando os campos e a bandeira de um cartão real digitado sem pagar; painel com o filtro "Erro" e o modal abrindo num pedido antigo ("Nenhum log registrado"). Incluir a sugestão de um pagamento real com cartão, estornado depois pelo painel, como decisão do usuário.
 
 ## Registro da execução
+
+### Fase 1 (21/10/2026)
+
+**Preview da Vercel.** O projeto `delcastanher-api` não tinha nenhum preview. O primeiro foi publicado pela CLI (`https://delcastanher-ba5c5o4q2-leno.vercel.app`), acessado pelo proxy do `ng serve` com o token OIDC de desenvolvimento. Dois ajustes no proxy: o `api/.env.local` local tem um `VERCEL_OIDC_TOKEN` vencido (de 11/09), e o token passou a vir de um `vercel env pull` novo; o cookie de refresh tem `path=/auth`, e o proxy reescreve para `/preview-api/auth`.
+
+No `POST /orders`, o preview respondeu **500** ("Internal server error" na tela):
+
+```
+Error: Unsupported state or unable to authenticate data
+    at TokenCipher.decrypt (token-cipher.ts:56)
+    at MercadoPagoConnectionService.activeCredential (mercado-pago-connection.service.ts:144)
+```
+
+A conexão sandbox ativa (`TESTUSER8605452672838458141`) foi gravada pelo script `mp-vendedor-sandbox` com o `MP_TOKEN_ENCRYPTION_KEY` do `.env` local, e o preview usa outra chave. O token decifra com a chave local e é `APP_USR-` (o formato certo para a Orders API). Sem ler a chave do preview (segredo), o preview não tem como cobrar. **A fase 1 seguiu com a API local**, mesmo código e mesmo banco.
+
+**Matriz (API local, sandbox, comprador `e2e-spec028-aluno@delcastanher.test`, Módulo 1 ou 2 a R$ 197,00):**
+
+| Caso | Tela | Pedido no banco | Log da API |
+|---|---|---|---|
+| Visa `FUND`, 1x | "Não foi possível falar com o provedor de pagamento. Tente de novo em instantes." | `PENDING`, sem `mpOrderId`; virou `CANCELLED` na tentativa seguinte | `Mercado Pago respondeu 402 em /orders` |
+| Visa `APRO`, 1x, logo depois, na mesma tela | "Pagamento aprovado", módulo liberado | `PAID`, `processed`/`accredited` | — |
+| Mastercard `CONT`, 3x | **"Pague com PIX para liberar"** / "Estamos processando seu pagamento" | `PENDING`, `processing`/`in_process` | — |
+
+O pedido do `FUND` repete exatamente os 5 pedidos de produção: `CANCELLED` sem `mpOrderId`.
+
+**Corpo do `402`** (pagador omitido):
+
+```json
+{
+  "errors": [{ "code": "failed", "message": "The following transactions failed",
+               "details": ["PAY01M5G9SVWEC20D46BTBPNN7YXR: insufficient_amount"] }],
+  "data": {
+    "id": "ORDTST01M5G9SVW1Z528SJ0X9ENXF17M",
+    "external_reference": "cmvip2km300004suahatepoe2",
+    "status": "failed", "status_detail": "failed",
+    "transactions": { "payments": [{
+      "id": "PAY01M5G9SVWEC20D46BTBPNN7YXR",
+      "status": "failed", "status_detail": "insufficient_amount",
+      "payment_method": { "id": "visa", "type": "credit_card", "token": "<omitido>", "installments": 1 }
+    }] }
+  }
+}
+```
+
+- A order inteira vem em `data`, no mesmo formato do `GET /v1/orders/:id`. A busca por `external_reference` da decisão 1 não é necessária.
+- O motivo está só em `transactions.payments[0].status_detail` (decisão 2).
+- O corpo traz o `token` do cartão, e o `logger.error` de hoje o grava cru no log da Vercel (decisão 12).
+
+**Outros achados:**
+
+- **Device id ausente.** `window.MP_DEVICE_SESSION_ID` é `undefined` na tela de pagamento: o SDK v2 não o cria. A documentação do Mercado Pago pede o `security.js` com `view="checkout"`. Sem ele, o header `X-meli-session-id` nunca vai, e o antifraude decide sem o aparelho → decisão 10.
+- **Cartão pendente com texto de PIX.** O `@case ('PENDING')` de `pedido.ts` diz "Pague com PIX para liberar" para qualquer pendente → decisão 11.
+- **Botão sem o total parcelado.** Com 3x (R$ 219,12 com juros), o botão continua "Pagar R$ 197,00" → decisão 13.
+- **Parcelas e bandeira** funcionaram com Visa e Mastercard (`4235…` e `5480…`).
+- **Webhook** não testável com a API local; fica para depois do merge, pelos logs de produção.

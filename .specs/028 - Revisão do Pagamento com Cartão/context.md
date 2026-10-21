@@ -25,7 +25,9 @@ Há relatos de que não dá para pagar com cartão de crédito. Não há detalhe
 - Os logs da Vercel não guardam mais os dias desses pedidos. A resposta exata do Mercado Pago só aparece reproduzindo. É isso que a decisão 7 resolve daqui em diante.
 - A Task 9.6 da Spec 014 ("tentar cartão recusado e conferir a mensagem") nunca foi marcada. O caminho de recusa nunca foi testado.
 
-## Causa provável (confirmar na fase 1)
+## Causa (confirmada na fase 1, em 21/10/2026)
+
+Reproduzida com o Visa de teste e o nome `FUND`: a tela disse "Não foi possível falar com o provedor de pagamento", o Mercado Pago respondeu `402` com a order recusada (`insufficient_amount` na transação), e o pedido ficou `PENDING` sem `mpOrderId` até a tentativa seguinte o cancelar. O corpo do `402` está no registro do `tasks.md`.
 
 ### 1. Cartão recusado vira "não foi possível falar com o provedor"
 Na Orders API, um pagamento recusado **não** volta com 200 e `status: failed`. A documentação do Mercado Pago (tabela de erros da criação de order):
@@ -66,9 +68,8 @@ O `REJECTION_MESSAGES` (`api/src/payments/payments.types.ts`) tem `bad_filled_se
 ## Decisões técnicas desta spec
 
 1. **`402` na criação da order é desfecho, não erro.**
-   O `MercadoPagoService.createOrder()` passa a tratar o `402` como uma order recusada: lê a order do corpo e devolve o `MercadoPagoOrder` com `status: failed`, para o `OrdersService.apply()` gravar `REJECTED`, `mpOrderId` e o motivo, como faz com qualquer desfecho.
-   - O formato exato do corpo (order na raiz, em `data`, ou só `errors`) é confirmado na fase 1 e registrado no `tasks.md` antes da suíte ser escrita.
-   - Se o corpo não trouxer o id da order, a API busca a order pelo `external_reference` (`GET /v1/orders?external_reference=<id do pedido>`), que é o nosso id.
+   O `MercadoPagoService.createOrder()` passa a tratar o `402` como uma order recusada: lê a order de `data` (o mesmo formato do `GET /v1/orders/:id`, confirmado na fase 1) e devolve o `MercadoPagoOrder` com `status: failed`, para o `OrdersService.apply()` gravar `REJECTED`, `mpOrderId` e o motivo, como faz com qualquer desfecho.
+   - Um `402` sem `data.id` é tratado como erro (`FAILED`, decisão 5): sem a order, não há o que gravar como recusa.
    - **Por que no gateway e não no `OrdersService`:** é o único lugar que conhece o protocolo HTTP do Mercado Pago (Spec 014, decisão 7). O `OrdersService` continua recebendo uma order, aprovada ou recusada, sem saber de status HTTP.
 
 2. **O motivo da recusa vem da transação.**
@@ -121,7 +122,25 @@ O `REJECTION_MESSAGES` (`api/src/payments/payments.types.ts`) tem `bad_filled_se
    - **O que o front manda:** falha ao carregar o SDK, Secure Fields sem iframe, erro de rede ao buscar a bandeira ou as parcelas, e recusa do `createCardToken`. Bandeira não reconhecida também vai, como `warning`, porque foi assim que o caso da Visa apareceu na Spec 025.
    - **Falha do navegador que impede a cobrança:** se o SDK não carrega ou o `createCardToken` falha por erro que não é dado digitado errado, o front chama `POST /orders` com `method: CREDIT_CARD`, o `attemptId` e `clientError` no lugar de `card`. A API cria o pedido já `FAILED`, sem chamar o Mercado Pago, e é assim que ele aparece no painel. Erro de digitação (número, validade, CVV, nome, CPF) só vai para o log: não é falha do sistema, e encheria o painel de "Erro".
 
+10. **Device id pelo `security.js`.**
+    A fase 1 mostrou `window.MP_DEVICE_SESSION_ID` indefinido: o SDK v2 não cria o device id, e o `X-meli-session-id` nunca foi enviado. Sem ele, o antifraude decide sem conhecer o aparelho, e um comprador legítimo tem mais chance de cair em `high_risk`.
+    - O `MercadoPagoLoader` carrega `https://www.mercadopago.com/v2/security.js` com `view="checkout"` junto com o SDK, só na etapa de pagamento (mesmo critério de script de terceiro da Spec 009, decisão 5).
+    - Uma falha do `security.js` (bloqueador) não impede o pagamento: o pedido vai sem device id, como hoje, e a falha vai para o log do navegador (decisão 9).
+
+11. **Cartão pendente tem tela própria.**
+    Um cartão em análise (`processing`/`in_process`, nome `CONT` no teste) caía em "Pague com PIX para liberar". O `@case ('PENDING')` de `/loja/pedido/:id` passa a separar o meio:
+    - **Cartão:** "Pagamento em análise". Texto: o Mercado Pago está analisando o pagamento, o acesso é liberado assim que ele for aprovado, e o aluno recebe o e-mail de confirmação. Sem QR e sem prazo de 30 minutos.
+    - **PIX:** como hoje.
+
+12. **O log da Vercel não grava o token do cartão.**
+    O corpo do `402` traz `transactions.payments[].payment_method.token`, e o `logger.error` de hoje o grava inteiro. O token é de uso único, mas não deve ficar em log. A mesma limpeza do `payment_logs` (decisão 7) vale para o `logger.error` do `MercadoPagoService`: sem `token`, `payer.email` e `payer.identification`.
+
+13. **O botão de pagar mostra o parcelado.**
+    Com 3x (R$ 219,12 com juros), o botão dizia "Pagar R$ 197,00". Com mais de uma parcela escolhida, o botão passa a dizer "Pagar 3x de R$ 73,04", com o total do Mercado Pago (`totalAmount`) em texto abaixo. Em 1x, continua "Pagar R$ 197,00".
+
 ## Ambiente de teste (fase 1 e fase final)
+
+> **Desvio da fase 1:** o preview da Vercel **não cobra em sandbox**. A conexão sandbox ativa foi cifrada pelo script `mp-vendedor-sandbox` com o `MP_TOKEN_ENCRYPTION_KEY` do `.env` local, e o preview usa outra chave (500 "Unsupported state or unable to authenticate data"). A fase 1 e a fase final rodam com a **API local** em `localhost:3000` (`MP_SANDBOX=true`, mesmo banco). Para o preview cobrar, alguém com acesso à chave da Vercel precisa recriar a conexão sandbox com ela. Isso fica fora desta spec.
 
 - **API:** preview da Vercel do projeto `delcastanher-api`. O projeto **não gera preview a partir do Git** (só existe deploy de produção na lista). O preview é publicado pela CLI a partir de uma cópia limpa da branch (`git archive HEAD api` no scratchpad, com o `.vercel/project.json` da API): da raiz do repositório, o `vercel deploy` sobe o `node_modules` e passa do limite de 100 MB.
   - Primeiro preview, com o código de produção, publicado em 21/10/2026: `https://delcastanher-ba5c5o4q2-leno.vercel.app`.
@@ -180,5 +199,8 @@ Na fase 1, cada linha registra no `tasks.md` o que a tela mostrou, o status do p
 - Um erro de verdade do Mercado Pago, da rede ou do SDK no navegador deixa o pedido `FAILED`, e não `PENDING` nem `CANCELLED`.
 - Todo erro de pagamento, do servidor e do navegador, fica em `payment_logs`, no Neon, sem dado de cartão nem do pagador, e uma falha ao gravar o log não muda o pagamento.
 - O painel mostra "Erro" para `FAILED`, e o modal "Logs do pagamento" mostra a linha do tempo da tentativa.
-- Visa, Mastercard e Amex de teste aprovam em 1x e parcelado no preview, com acesso liberado e e-mail de compra.
+- Visa, Mastercard e Amex de teste aprovam em 1x e parcelado na API local em sandbox, com acesso liberado e e-mail de compra.
+- O `X-meli-session-id` vai em toda order com o device id do `security.js`.
+- O cartão pendente mostra "Pagamento em análise", e não o texto do PIX.
+- Nenhum log, da Vercel ou do banco, tem o token do cartão.
 - A matriz da fase final está toda marcada no `tasks.md`.
