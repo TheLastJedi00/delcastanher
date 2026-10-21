@@ -1306,3 +1306,65 @@ describe('OrdersService — logs de pagamento (Spec 028)', () => {
     );
   });
 });
+
+/**
+ * Spec 028, decisao 14: dinheiro recebido e acesso. O cartao em analise que
+ * virou CANCELLED por outra tentativa, ou o PIX que venceu no relogio, podem
+ * ser aprovados depois pelo Mercado Pago.
+ */
+describe('OrdersService — aprovacao que chega depois (Spec 028)', () => {
+  it.each(['CANCELLED', 'EXPIRED', 'FAILED'])(
+    'aceita a aprovacao do webhook para um pedido %s, e concede o acesso',
+    async (status) => {
+      const { service, prisma, access } = await build({
+        storedOrder: {
+          id: 'ord-1',
+          userId: ALUNO.uid,
+          status,
+          method: 'CREDIT_CARD',
+          mpOrderId: 'ORD-2',
+          items: [{ moduleId: 'mod-1', priceCents: 19900, titleSnapshot: 'Fundamentos' }],
+        },
+        gatewayOrder: APPROVED_ORDER,
+      });
+
+      await service.applyFromGateway('ORD-2');
+
+      expect(prisma.order.updateMany.mock.calls.at(-1)?.[0].where.status.in).toEqual(
+        expect.arrayContaining(['PENDING', status]),
+      );
+      expect(access.grant).toHaveBeenCalled();
+    },
+  );
+
+  it('recusa e cancelamento continuam saindo so de pendente', async () => {
+    const { service, prisma } = await build({
+      storedOrder: { id: 'ord-1', userId: ALUNO.uid, status: 'PENDING', mpOrderId: 'ORD-3', items: [] },
+      gatewayOrder: REJECTED_ORDER,
+    });
+
+    await service.applyFromGateway('ORD-3');
+
+    expect(prisma.order.updateMany.mock.calls.at(-1)?.[0].where.status.in).toEqual(['PENDING']);
+  });
+
+  // Fase final da Spec 028: a reconsulta do cartao em analise, de 5 em 5
+  // segundos, gravava um INFO a cada vez.
+  it('nao grava log na reconsulta que nao muda o pedido', async () => {
+    const { service, paymentLog } = await build({
+      storedOrder: {
+        id: 'ord-1',
+        userId: ALUNO.uid,
+        status: 'PENDING',
+        method: 'CREDIT_CARD',
+        mpOrderId: 'ORD-9',
+        items: [],
+      },
+      gatewayOrder: { id: 'ORD-9', status: 'processing', statusDetail: 'in_process', paymentId: 'PAY-9', pix: null },
+    });
+
+    await service.findOne(ALUNO, 'ord-1');
+
+    expect(paymentLog.record).not.toHaveBeenCalled();
+  });
+});
