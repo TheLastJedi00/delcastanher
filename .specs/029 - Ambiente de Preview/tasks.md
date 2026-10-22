@@ -78,3 +78,5 @@ As respostas às perguntas estão no `context.md` (22/10/2026).
 - A conta de teste `e2e-spec029-aluno` foi apagada do Firebase e da branch `preview`.
 
 **Pendente com o usuário:** um pagamento com cartão de teste no preview (`APRO` e `FUND`), que também confirma que a API decifra a conexão sandbox com a chave nova.
+
+**Push só de documentação** (`f550bad`): na branch `preview` a API publicou (`delcastanher-lo4a4jxye`, Ready, `api-preview` → 200); o mesmo commit na `release/029` foi pulado pela regra ("Canceled by Ignored Build Step").
