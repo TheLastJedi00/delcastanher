@@ -409,6 +409,10 @@ model Order {
   /// aos logs do navegador da mesma tentativa, gravados antes de ele existir.
   attemptId String?
 
+  /// Pagamento do modulo de teste (Spec 030): R$ 1,00, sem itens, sem acesso
+  /// e sem nota fiscal, e fora da receita no financeiro.
+  testPayment Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -614,6 +618,20 @@ enum PaymentMethodKind {
   CREDIT_CARD
 
   @@map("payment_method_kind")
+}
+
+/// Modulo de teste de pagamento (Spec 030), ligado pelo admin no financeiro.
+/// Uma linha so (`id = 'default'`). Ligado, `accessKey` e a chave do link
+/// secreto; desligar apaga a chave, e religar gera outra.
+model PaymentTestSettings {
+  id          String    @id @default("default")
+  enabled     Boolean   @default(false)
+  accessKey   String?
+  enabledAt   DateTime?
+  enabledById String?
+  updatedAt   DateTime  @updatedAt
+
+  @@map("payment_test_settings")
 }
 
 /// Evento de pagamento guardado para o painel (Spec 028, decisao 7). Os logs
