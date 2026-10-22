@@ -82,3 +82,11 @@ As respostas às perguntas estão no `context.md` (22/10/2026).
 **Push só de documentação** (`f550bad`): na branch `preview` a API publicou (`delcastanher-lo4a4jxye`, Ready, `api-preview` → 200); o mesmo commit na `release/029` foi pulado pela regra ("Canceled by Ignored Build Step").
 
 **PR #60** aberto contra a `main`, sem merge: https://github.com/TheLastJedi00/delcastanher/pull/60
+
+### Primeiro pagamento do usuário no preview (22/10/2026)
+
+- Tela: "O pagamento não foi aprovado. Tente outro cartão ou pague com PIX." Pedido `REJECTED`, order `ORDTST01M5HRMW5JK97T3YD03WYF1C1V`, `status_detail` **`invalid_card_token`**.
+- A order chegou ao Mercado Pago em sandbox, então a API de preview decifrou a conexão do vendedor de teste com a chave nova (Task 4.3 confirmada).
+- Causa: o token do cartão foi gerado no navegador com a `MP_PUBLIC_KEY` do Preview, que não é da mesma aplicação do token da conexão (o risco anotado na decisão 5). A Task 4.2 só tinha conferido o `sandbox: true`.
+- Correção: a `MP_PUBLIC_KEY` do Preview passou a ser a do `.env` local, a mesma que aprovou cartões com essa conexão na Spec 028. Ela é pública (vai para o navegador). Redeploy da API de preview (`delcastanher-jbx2gz2xj`).
+- `invalid_card_token` não está na tabela de mensagens de recusa e caiu na genérica. Como é erro de configuração, e não do comprador, fica como sugestão para uma próxima spec tratá-lo como `FAILED`.
