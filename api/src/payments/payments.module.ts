@@ -8,6 +8,7 @@ import { AdminAccessService } from './admin-access.service';
 import { AdminBundlesController } from './admin-bundles.controller';
 import { AdminFinanceController } from './admin-finance.controller';
 import { AdminPurchaseEmailController } from './admin-purchase-email.controller';
+import { AdminTestPaymentController } from './admin-test-payment.controller';
 import { AdminFinanceService } from './admin-finance.service';
 import { AdminMercadoPagoController } from './admin-mercado-pago.controller';
 import { BundlesService } from './bundles.service';
@@ -22,8 +23,10 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { PaymentClientLogsController } from './payment-client-logs.controller';
 import { PaymentLogService } from './payment-log.service';
+import { PaymentTestService } from './payment-test.service';
 import { PurchaseEmailService } from './purchase-email.service';
 import { StoreController } from './store.controller';
+import { StoreTestProductController } from './store-test-product.controller';
 import { StoreService } from './store.service';
 import { TokenCipher } from './token-cipher';
 
@@ -40,6 +43,7 @@ import { TokenCipher } from './token-cipher';
   imports: [PrismaModule, AuthModule, InvoicesModule],
   controllers: [
     StoreController,
+    StoreTestProductController,
     OrdersController,
     PaymentClientLogsController,
     AdminAccessController,
@@ -47,6 +51,7 @@ import { TokenCipher } from './token-cipher';
     AdminFinanceController,
     AdminMercadoPagoController,
     AdminPurchaseEmailController,
+    AdminTestPaymentController,
     MercadoPagoWebhookController,
     MercadoPagoOAuthController,
     InternalMercadoPagoController,
@@ -63,6 +68,7 @@ import { TokenCipher } from './token-cipher';
     MercadoPagoService,
     OrdersService,
     PaymentLogService,
+    PaymentTestService,
     PurchaseEmailService,
     StoreService,
     TokenCipher,

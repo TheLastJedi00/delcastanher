@@ -1,4 +1,4 @@
-import { purchaseConfirmationEmail, PurchaseEmailInput } from './purchase-email';
+import { purchaseConfirmationEmail, PurchaseEmailInput, testPaymentEmail } from './purchase-email';
 
 const BASE: PurchaseEmailInput = {
   buyerName: 'Ana Souza',
@@ -89,5 +89,29 @@ describe('purchaseConfirmationEmail', () => {
     const email = purchaseConfirmationEmail({ ...BASE, accessUntil: null });
 
     expect(email.text).not.toContain('Seu acesso vale até');
+  });
+});
+
+/** Spec 030, resposta 2: o e-mail curto do modulo de teste. */
+describe('testPaymentEmail', () => {
+  const email = testPaymentEmail({
+    buyerName: 'Ana Souza',
+    orderId: 'ord-t',
+    amountCents: 100,
+    method: 'CARD',
+    installments: 1,
+  });
+
+  it('diz que e um pagamento de teste, com valor, meio e pedido', () => {
+    expect(email.subject).toBe('Pagamento de teste aprovado');
+    expect(email.text).toContain('Olá, Ana!');
+    expect(email.text).toMatch(/Valor: R\$\s1,00 no cartão, à vista\./);
+    expect(email.text).toContain('Pedido: ord-t');
+  });
+
+  it('avisa que nada foi liberado e como devolver o valor', () => {
+    expect(email.text).toContain('Nenhum módulo foi liberado.');
+    expect(email.text).toContain('estorne pelo Mercado Pago');
+    expect(email.text).not.toContain('acesso');
   });
 });

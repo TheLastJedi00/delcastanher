@@ -139,3 +139,17 @@ describe('CreateOrderDto — tentativa e erro do navegador', () => {
     expect(errors.some((message) => message.includes('300'))).toBe(true);
   });
 });
+
+/** Spec 030: o pedido do modulo de teste. */
+describe('CreateOrderDto — modulo de teste', () => {
+  it('aceita so a chave do teste', async () => {
+    expect(await errorsOf({ testKey: 'k'.repeat(43) })).toEqual([]);
+  });
+
+  it.each([
+    ['com modulos', { testKey: 'k'.repeat(43), moduleIds: ['mod-1'] }],
+    ['com pacote', { testKey: 'k'.repeat(43), bundleSlug: 'imersao-rh-lancamento' }],
+  ])('recusa a chave %s', async (_case, payload) => {
+    expect((await errorsOf(payload)).length).toBeGreaterThan(0);
+  });
+});

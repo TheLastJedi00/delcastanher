@@ -175,3 +175,28 @@ describe('PurchaseEmailService (Spec 024, decisao D6)', () => {
     });
   });
 });
+
+/** Spec 030, resposta 2: o pedido de teste recebe o e-mail curto. */
+describe('PurchaseEmailService — pedido de teste', () => {
+  it('manda "Pagamento de teste aprovado", e nao a confirmacao de compra', async () => {
+    const { service, mail } = await build({
+      order: orderRow({ testPayment: true, amountCents: 100, items: [], accesses: [] }),
+    });
+
+    await service.onOrderPaid('ord-1');
+
+    expect(mail.send).toHaveBeenCalledTimes(1);
+    expect(mail.send.mock.calls[0][0].subject).toBe('Pagamento de teste aprovado');
+  });
+
+  it('respeita a mesma trava: pedido ja reivindicado nao manda de novo', async () => {
+    const { service, mail } = await build({
+      order: orderRow({ testPayment: true, amountCents: 100, items: [], accesses: [] }),
+      claimed: false,
+    });
+
+    await service.onOrderPaid('ord-1');
+
+    expect(mail.send).not.toHaveBeenCalled();
+  });
+});

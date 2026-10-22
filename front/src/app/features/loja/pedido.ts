@@ -38,38 +38,51 @@ const POLL_MS = 5000;
       @if (order(); as pedido) {
         @switch (pedido.status) {
           @case ('PAID') {
-            <ui-card padding="lg">
-              <h1 class="text-3xl font-semibold text-state-success">Pagamento aprovado</h1>
-              <p class="mt-3 text-slate-700">
-                Tudo certo! Os módulos abaixo já estão liberados na sua área do aluno.
-              </p>
+            @if (pedido.testPayment) {
+              <!-- Spec 030: o módulo de teste não libera nada. -->
+              <ui-card padding="lg" data-testid="teste-aprovado">
+                <h1 class="text-3xl font-semibold text-state-success">Pagamento de teste aprovado</h1>
+                <p class="mt-3 text-slate-700">
+                  Nenhum módulo foi liberado. Para devolver o valor, estorne pelo Mercado Pago.
+                </p>
+                <div class="mt-6">
+                  <a routerLink="/admin"><ui-button variant="primary">Voltar ao painel</ui-button></a>
+                </div>
+              </ui-card>
+            } @else {
+              <ui-card padding="lg">
+                <h1 class="text-3xl font-semibold text-state-success">Pagamento aprovado</h1>
+                <p class="mt-3 text-slate-700">
+                  Tudo certo! Os módulos abaixo já estão liberados na sua área do aluno.
+                </p>
 
-              <ul class="mt-5 space-y-2">
-                <!-- Spec 019: o pacote é um item para o aluno, e não doze. -->
-                @if (pedido.bundle; as pack) {
-                  <li class="flex justify-between gap-3 text-sm">
-                    <span class="text-slate-700">{{ pack.title }} · {{ pack.tierName }}</span>
-                    <span class="text-slate-500">12 módulos, acesso por 6 meses</span>
-                  </li>
-                } @else {
-                  @for (item of pedido.items; track item.moduleId) {
+                <ul class="mt-5 space-y-2">
+                  <!-- Spec 019: o pacote é um item para o aluno, e não doze. -->
+                  @if (pedido.bundle; as pack) {
                     <li class="flex justify-between gap-3 text-sm">
-                      <span class="text-slate-700">{{ item.title }}</span>
-                      <span class="text-slate-500">acesso por 6 meses</span>
+                      <span class="text-slate-700">{{ pack.title }} · {{ pack.tierName }}</span>
+                      <span class="text-slate-500">12 módulos, acesso por 6 meses</span>
                     </li>
+                  } @else {
+                    @for (item of pedido.items; track item.moduleId) {
+                      <li class="flex justify-between gap-3 text-sm">
+                        <span class="text-slate-700">{{ item.title }}</span>
+                        <span class="text-slate-500">acesso por 6 meses</span>
+                      </li>
+                    }
                   }
-                }
-              </ul>
+                </ul>
 
-              <div class="mt-6 flex flex-wrap gap-3">
-                <a routerLink="/ava">
-                  <ui-button variant="primary">Ir para a área do aluno</ui-button>
-                </a>
-                <a routerLink="/loja">
-                  <ui-button variant="outline">Ver outros módulos</ui-button>
-                </a>
-              </div>
-            </ui-card>
+                <div class="mt-6 flex flex-wrap gap-3">
+                  <a routerLink="/ava">
+                    <ui-button variant="primary">Ir para a área do aluno</ui-button>
+                  </a>
+                  <a routerLink="/loja">
+                    <ui-button variant="outline">Ver outros módulos</ui-button>
+                  </a>
+                </div>
+              </ui-card>
+            }
           }
 
           @case ('PENDING') {

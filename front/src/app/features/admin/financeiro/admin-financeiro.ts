@@ -21,6 +21,7 @@ import { AdminInvoicesService, InvoiceSettings } from '../../../core/services/ad
 import { AdminContaRecebedora } from './admin-conta-recebedora';
 import { ConfirmacaoCompra } from './confirmacao-compra';
 import { LogsPagamento } from './logs-pagamento';
+import { PagamentoTeste } from './pagamento-teste';
 import { NotaFiscal } from './nota-fiscal';
 
 /** Um dia em milissegundos. */
@@ -104,6 +105,7 @@ function fromDateInput(value: string, edge: 'start' | 'end'): string {
     ConfirmacaoCompra,
     LogsPagamento,
     NotaFiscal,
+    PagamentoTeste,
     Badge,
     Button,
     Card,

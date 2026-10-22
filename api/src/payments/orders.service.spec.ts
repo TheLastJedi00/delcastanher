@@ -10,6 +10,7 @@ import { MercadoPagoConnectionService } from './mercado-pago-connection.service'
 import { MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
 import { OrdersService } from './orders.service';
 import { PaymentLogService } from './payment-log.service';
+import { PaymentTestService } from './payment-test.service';
 
 const ALUNO: AuthUser = {
   uid: 'uid-aluno',
@@ -156,10 +157,15 @@ function build(options: BuildOptions = {}) {
     },
     order: {
       // Devolve o que recebeu, como o banco: o `attemptId` gravado volta na linha.
-      create: jest.fn(async ({ data }: { data: { attemptId?: string | null } }) => ({
-        ...created,
-        attemptId: data.attemptId ?? null,
-      })),
+      create: jest.fn(
+        async ({ data }: { data: { attemptId?: string | null; testPayment?: boolean; items?: unknown } }) => ({
+          ...created,
+          attemptId: data.attemptId ?? null,
+          testPayment: data.testPayment ?? false,
+          // Sem `items.create` (pedido de teste, Spec 030), o pedido nasce sem itens.
+          items: data.items ? created.items : [],
+        }),
+      ),
       update: jest.fn().mockResolvedValue(created),
       updateMany: jest.fn().mockResolvedValue({ count: options.transitionCount ?? 1 }),
       findUnique: jest.fn().mockResolvedValue(options.storedOrder ?? created),
@@ -194,6 +200,13 @@ function build(options: BuildOptions = {}) {
   // Spec 028, decisao 7: o log de pagamento nunca lanca; o double so registra.
   const paymentLog = { record: jest.fn().mockResolvedValue(undefined) };
 
+  // Spec 030: o modulo de teste so vale com a chave `chave-certa`.
+  const paymentTest = {
+    resolve: jest.fn(async (key: string) =>
+      key === 'chave-certa' ? { title: 'Módulo de teste', summary: 'x', priceCents: 100 } : null,
+    ),
+  };
+
   const bundles = {
     placeOrder: jest.fn().mockResolvedValue(options.placed ?? PLACED),
   };
@@ -220,6 +233,7 @@ function build(options: BuildOptions = {}) {
       { provide: InvoicesService, useValue: invoices },
       { provide: PurchaseEmailService, useValue: purchaseEmail },
       { provide: PaymentLogService, useValue: paymentLog },
+      { provide: PaymentTestService, useValue: paymentTest },
     ],
   })
     .compile()
@@ -233,6 +247,7 @@ function build(options: BuildOptions = {}) {
       invoices,
       purchaseEmail,
       paymentLog,
+      paymentTest,
     }));
 }
 
@@ -1366,5 +1381,74 @@ describe('OrdersService — aprovacao que chega depois (Spec 028)', () => {
     await service.findOne(ALUNO, 'ord-1');
 
     expect(paymentLog.record).not.toHaveBeenCalled();
+  });
+});
+
+/** Spec 030, decisoes 4, 5 e 6, e as respostas 1 e 3. */
+describe('OrdersService — modulo de teste', () => {
+  const ADMIN: AuthUser = { ...ALUNO, uid: 'uid-admin', role: 'admin' };
+
+  function testOrder(extra: Record<string, unknown> = {}) {
+    return {
+      testKey: 'chave-certa',
+      method: 'CREDIT_CARD' as const,
+      payer: PAYER,
+      card: { token: 'tok', paymentMethodId: 'visa', installments: 1 },
+      ...extra,
+    };
+  }
+
+  it('grava o pedido de teste de R$ 1,00, sem itens, e cobra um item de teste', async () => {
+    const { service, prisma, gateway } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    await service.create(ADMIN, testOrder());
+
+    expect(prisma.order.create.mock.calls[0][0].data).toMatchObject({
+      userId: 'uid-admin',
+      amountCents: 100,
+      testPayment: true,
+    });
+    expect(prisma.order.create.mock.calls[0][0].data.items).toBeUndefined();
+    expect(gateway.createOrder.mock.calls[0][0]).toMatchObject({ amountCents: 100, testPayment: true, items: [] });
+  });
+
+  it('aprovado vira PAID sem liberar acesso', async () => {
+    const { service, access } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    const view = await service.create(ADMIN, testOrder());
+
+    expect(view).toMatchObject({ status: 'PAID', testPayment: true });
+    expect(access.grant).not.toHaveBeenCalled();
+  });
+
+  it('aceita PIX', async () => {
+    const { service, gateway } = await build();
+
+    const view = await service.create(ADMIN, testOrder({ method: 'PIX', card: undefined }));
+
+    expect(gateway.createOrder.mock.calls[0][0].method).toBe('PIX');
+    expect(view.pix?.qrCode).toBe('copia-e-cola');
+  });
+
+  it.each([
+    ['chave errada', ADMIN, testOrder({ testKey: 'errada' })],
+    ['aluno com a chave certa', ALUNO, testOrder()],
+  ])('responde 404 com %s, sem gravar pedido', async (_case, user, dto) => {
+    const { service, prisma, gateway } = await build();
+
+    await expect(service.create(user, dto)).rejects.toMatchObject({ status: 404 });
+    expect(prisma.order.create).not.toHaveBeenCalled();
+    expect(gateway.createOrder).not.toHaveBeenCalled();
+  });
+
+  it('cancela os pendentes do comprador, como os outros pedidos', async () => {
+    const { service, prisma } = await build({ gatewayOrder: APPROVED_ORDER });
+
+    await service.create(ADMIN, testOrder());
+
+    expect(prisma.order.updateMany.mock.calls[0][0]).toEqual({
+      where: { userId: 'uid-admin', status: 'PENDING' },
+      data: { status: 'CANCELLED' },
+    });
   });
 });

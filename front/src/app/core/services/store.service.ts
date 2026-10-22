@@ -56,7 +56,16 @@ export interface StoreOffer {
  */
 export type StoreSelection =
   | { kind: 'modules'; ids: string[] }
-  | { kind: 'bundle'; slug: string };
+  | { kind: 'bundle'; slug: string }
+  /** Modulo de teste pelo link secreto (Spec 030). */
+  | { kind: 'test'; key: string };
+
+/** O modulo de teste, como a pagina do link secreto o recebe (Spec 030). */
+export interface TestProduct {
+  title: string;
+  summary: string;
+  priceCents: number;
+}
 
 /** Chave publica e ambiente, vindos da API e nao do build (decisao 16). */
 export interface PaymentConfig {
@@ -104,6 +113,8 @@ export interface OrderView {
   mpPaymentId: string | null;
   /** Pacote e lote do pedido de pacote (Spec 019); nulo no avulso. */
   bundle: { title: string; tierName: string } | null;
+  /** Pedido do modulo de teste (Spec 030): nenhum modulo liberado. */
+  testPayment?: boolean;
 }
 
 /** Dados do comprador. Nenhum campo de cartao aqui (decisao 8). */
@@ -143,6 +154,8 @@ export interface CreateOrderPayload {
   deviceId?: string;
   /** Clique em pagar; liga o pedido aos logs do navegador (Spec 028, decisao 9). */
   attemptId?: string;
+  /** Chave do link secreto do modulo de teste (Spec 030). */
+  testKey?: string;
   /** Falha do navegador no lugar do `card`: o pedido nasce `FAILED`. */
   clientError?: { stage: ClientErrorStage; message: string };
 }
@@ -204,6 +217,11 @@ export class StoreService {
   private readonly offerState = signal<StoreOffer | null>(null);
   /** Slug do pacote escolhido. Exclusivo com `selectedState` (Spec 019). */
   private readonly bundleState = signal<string | null>(null);
+  /** Modulo de teste escolhido pelo link secreto (Spec 030). Exclusivo com os outros. */
+  private readonly testState = signal<{ key: string; product: TestProduct } | null>(null);
+
+  /** O modulo de teste escolhido, com a chave do link. */
+  readonly selectedTest = this.testState.asReadonly();
 
   readonly catalog = this.catalogState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
@@ -225,6 +243,12 @@ export class StoreService {
 
   /** A escolha como o pedido a envia: pacote ou modulos (decisao 12). */
   readonly selection = computed<StoreSelection>(() => {
+    const test = this.testState();
+
+    if (test) {
+      return { kind: 'test', key: test.key };
+    }
+
     const slug = this.bundleState();
 
     return slug ? { kind: 'bundle', slug } : { kind: 'modules', ids: this.selectedIds() };
@@ -246,6 +270,12 @@ export class StoreService {
    * do pacote — de verdade e o servidor.
    */
   readonly totalCents = computed(() => {
+    const test = this.testState();
+
+    if (test) {
+      return test.product.priceCents;
+    }
+
     if (this.bundleState()) {
       return this.selectedBundle()?.tier?.priceCents ?? 0;
     }
@@ -253,7 +283,9 @@ export class StoreService {
     return this.selectedModules().reduce((total, module) => total + (module.priceCents ?? 0), 0);
   });
 
-  readonly hasSelection = computed(() => this.bundleState() !== null || this.selectedState().size > 0);
+  readonly hasSelection = computed(
+    () => this.testState() !== null || this.bundleState() !== null || this.selectedState().size > 0,
+  );
 
   /** O que o aluno ja tem, para o AVA e a loja concordarem. */
   readonly unlockedIds = computed(() =>
@@ -320,6 +352,7 @@ export class StoreService {
 
   /** Marca ou desmarca um modulo avulso. Marcar desfaz a escolha do pacote. */
   toggle(moduleId: string): void {
+    this.testState.set(null);
     this.bundleState.set(null);
     this.selectedState.update(current => {
       const next = new Set(current);
@@ -336,12 +369,14 @@ export class StoreService {
 
   /** Pre-seleciona um modulo — o caminho de "comprar" vindo da trilha trancada. */
   select(moduleId: string): void {
+    this.testState.set(null);
     this.bundleState.set(null);
     this.selectedState.update(current => new Set(current).add(moduleId));
   }
 
   /** Escolhe o pacote e desmarca os avulsos: o pedido e um ou outro. */
   selectBundle(slug: string): void {
+    this.testState.set(null);
     this.selectedState.set(new Set());
     this.bundleState.set(slug);
   }
@@ -355,9 +390,30 @@ export class StoreService {
     }
   }
 
-  /** Alvo do pedido como a API o recebe: o pacote ou os ids dos modulos. */
-  orderTarget(): Pick<CreateOrderPayload, 'moduleIds' | 'bundleSlug'> {
+  /**
+   * Escolhe o modulo de teste pelo link secreto (Spec 030) e desfaz o resto:
+   * o pedido de teste e comprado sozinho.
+   */
+  selectTest(key: string, product: TestProduct): void {
+    this.selectedState.set(new Set());
+    this.bundleState.set(null);
+    this.testState.set({ key, product });
+  }
+
+  /** O modulo de teste pela chave do link. So admin; o resto responde 404. */
+  loadTestProduct(key: string): Observable<TestProduct> {
+    return this.http
+      .get<TestProduct>(`${environment.apiUrl}/store/test-product/${encodeURIComponent(key)}`)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => error.status)));
+  }
+
+  /** Alvo do pedido como a API o recebe: o pacote, os ids dos modulos ou a chave do teste. */
+  orderTarget(): Pick<CreateOrderPayload, 'moduleIds' | 'bundleSlug' | 'testKey'> {
     const selection = this.selection();
+
+    if (selection.kind === 'test') {
+      return { testKey: selection.key };
+    }
 
     return selection.kind === 'bundle' ? { bundleSlug: selection.slug } : { moduleIds: selection.ids };
   }
@@ -369,6 +425,7 @@ export class StoreService {
   clearSelection(): void {
     this.selectedState.set(new Set());
     this.bundleState.set(null);
+    this.testState.set(null);
   }
 
   /** Cria o pedido e cobra. O valor nao vai no corpo (decisao 2). */

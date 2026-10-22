@@ -25,6 +25,14 @@ export type FinanceOrderStatus =
   /** A compra que falhou por erro (Spec 028, decisao 5). */
   | 'FAILED';
 
+/** Modulo de teste de pagamento (Spec 030). `accessKey` so vem com ele ligado. */
+export interface TestPaymentStatus {
+  enabled: boolean;
+  priceCents: number;
+  accessKey: string | null;
+  enabledAt: string | null;
+}
+
 /** Uma linha do modal "Logs do pagamento" (Spec 028, decisao 8). */
 export interface PaymentLogLine {
   id: string;
@@ -154,6 +162,8 @@ export interface FinanceOrderItem {
   invoice?: InvoiceSummary | null;
   /** Quando saiu o e-mail "Compra confirmada" (Spec 024, D6); nulo = nao saiu. */
   confirmationEmailedAt?: string | null;
+  /** Pagamento do modulo de teste (Spec 030): fora da receita. */
+  testPayment?: boolean;
 }
 
 export interface FinanceOrderListResult {
@@ -352,6 +362,20 @@ export class AdminFinanceService {
     this.ordersQueryState.update(current => ({ ...current, ...patch, page: patch.page ?? 1 }));
 
     return this.loadOrders();
+  }
+
+  /** Estado do modulo de teste de pagamento (Spec 030). */
+  testPayment(): Observable<TestPaymentStatus> {
+    return this.http
+      .get<TestPaymentStatus>(`${environment.apiUrl}/admin/finance/test-payment`)
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
+  }
+
+  /** Liga ou desliga o modulo de teste. Ligar gera a chave do link secreto. */
+  setTestPayment(enabled: boolean): Observable<TestPaymentStatus> {
+    return this.http
+      .put<TestPaymentStatus>(`${environment.apiUrl}/admin/finance/test-payment`, { enabled })
+      .pipe(catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))));
   }
 
   /** Linha do tempo dos logs de pagamento de um pedido (Spec 028, decisao 8). */

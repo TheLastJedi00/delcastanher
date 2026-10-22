@@ -16,6 +16,7 @@ import { CreateOrderDto, MAX_INSTALLMENTS } from './dto/create-order.dto';
 import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-connection.service';
 import { CreateOrderInput, MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
 import { PaymentLogService } from './payment-log.service';
+import { PaymentTestService, TEST_PAYMENT_CENTS } from './payment-test.service';
 import { toOrderRecipient } from './order-recipient';
 import { PurchaseEmailService } from './purchase-email.service';
 import { MercadoPagoOrder, PixDetails, rejectionMessage, toOrderStatus } from './payments.types';
@@ -44,6 +45,8 @@ export interface OrderView {
   mpPaymentId: string | null;
   /** Pacote e lote do pedido de pacote (Spec 019); nulo no avulso. */
   bundle: { title: string; tierName: string } | null;
+  /** Pedido do modulo de teste (Spec 030): R$ 1,00, sem modulo liberado. */
+  testPayment: boolean;
 }
 
 /** Linha do pedido com os itens, como o Prisma a devolve. */
@@ -66,6 +69,7 @@ interface OrderRow {
   tierNameSnapshot?: string | null;
   mpConnectionId?: string | null;
   attemptId?: string | null;
+  testPayment?: boolean;
   items: { moduleId: string; priceCents: number; titleSnapshot: string }[];
 }
 
@@ -121,10 +125,15 @@ export class OrdersService {
     private readonly invoices: InvoicesService,
     private readonly purchaseEmail: PurchaseEmailService,
     private readonly paymentLog: PaymentLogService,
+    private readonly paymentTest: PaymentTestService,
   ) {}
 
   /** Cria o pedido, cobra e devolve o desfecho — ou o QR, no caso do PIX. */
   async create(user: AuthUser, dto: CreateOrderDto): Promise<OrderView> {
+    if (dto.testKey !== undefined) {
+      return this.createTestOrder(user, dto);
+    }
+
     if (dto.bundleSlug) {
       return this.createBundleOrder(user, dto);
     }
@@ -282,6 +291,52 @@ export class OrdersService {
     await this.transition(order, 'FAILED', null);
 
     return this.toView({ ...order, status: 'FAILED' });
+  }
+
+  /**
+   * Pedido do modulo de teste (Spec 030, decisoes 4 a 6).
+   *
+   * So admin, e com a chave do link ligada (resposta 1); qualquer outro caso
+   * responde o mesmo 404 da pagina, sem gravar nada. O valor e o do servidor,
+   * e o pedido nao tem itens: a aprovacao nao libera modulo nenhum.
+   */
+  private async createTestOrder(user: AuthUser, dto: CreateOrderDto): Promise<OrderView> {
+    const product = user.role === 'admin' ? await this.paymentTest.resolve(dto.testKey as string) : null;
+
+    if (!product) {
+      throw new NotFoundException('Página não encontrada.');
+    }
+
+    this.validatePayment(dto);
+
+    const credential = await this.sellerCredential();
+
+    await this.prisma.order.updateMany({
+      where: { userId: user.uid, status: 'PENDING' },
+      data: { status: 'CANCELLED' },
+    });
+
+    const order = (await this.prisma.order.create({
+      data: {
+        userId: user.uid,
+        amountCents: TEST_PAYMENT_CENTS,
+        method: dto.method,
+        installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
+        mpConnectionId: credential.connectionId,
+        attemptId: dto.attemptId ?? null,
+        testPayment: true,
+        ...toOrderRecipient(dto.payer),
+      },
+      include: { items: true },
+    })) as unknown as OrderRow;
+
+    return this.charge({ ...order, amountCents: TEST_PAYMENT_CENTS, method: dto.method }, credential, dto, {
+      payer: dto.payer,
+      items: [],
+      testPayment: true,
+      card: dto.card,
+      deviceId: dto.deviceId,
+    });
   }
 
   /**
@@ -666,6 +721,7 @@ export class OrdersService {
         order.bundleTitleSnapshot && order.tierNameSnapshot
           ? { title: order.bundleTitleSnapshot, tierName: order.tierNameSnapshot }
           : null,
+      testPayment: order.testPayment ?? false,
     };
   }
 }
