@@ -42,6 +42,17 @@ Ter um ambiente de preview completo e isolado de produção: o front em `https:/
 - **E-mail no preview.** Continua desligado.
 - **Mudar a proteção de deploy da Vercel.** O domínio próprio já fica de fora dela.
 
+## Mudanças decididas na execução (22/10/2026)
+
+O plano abaixo partiu de duas suposições que o primeiro deploy desmentiu:
+
+- **A proteção da Vercel cobre os domínios de preview.** O `all_except_custom_domains` só libera os domínios próprios de **produção**. `preview.` e `api-preview.delcastanher.srv.br` pediam o login da Vercel. Por decisão do usuário, a Vercel Authentication foi **desligada só no projeto da API**. O front de preview continua visível só para quem está logado na Vercel; a API de preview é pública, com banco isolado e Mercado Pago em sandbox.
+- **A integração do Neon injeta o banco de preview.** A integração `neon-rose-engine` cria uma branch do Neon por branch do Git e a injeta no deploy, por cima das variáveis do projeto. O branch `preview` do Git já tinha a sua desde 16/09 (branch `preview` do Neon, cópia de antes do lançamento: 7 contas de teste e do usuário, nenhum pedido). O primeiro deploy aplicou as migrations nela. Ficou assim:
+  - **o banco de preview é a branch `preview` do Neon**, e as variáveis de banco de Preview também apontam para ela, para valerem com ou sem a injeção. A branch `ambiente-preview`, criada só com o esquema (resposta 1), ficou sem uso e foi apagada;
+  - **a API só publica da `main` e da branch `preview`** (`commandForIgnoringBuildStep`). Sem isso, com o deploy em todo push (resposta 2), cada branch nova do Git ganharia um preview da API e uma cópia do banco de produção, agora com dados reais. É o que o usuário esperava: "só vai para preview a branch preview". Isso substitui a decisão 3, e o "pular quando a pasta não mudou" continua desligado.
+- **Conexão sandbox copiada, e não recriada pelo script.** O `mp-vendedor-sandbox` nunca entrou na `main`. A conexão sandbox ativa da produção foi decifrada com a chave local e cifrada de novo com a chave do Preview na branch `preview` do Neon (ida e volta conferida antes de gravar).
+- **`STORAGE_CORS_ORIGINS` não vai para a Vercel:** só o script `storage:cors` a usa. A origem de preview foi somada direto no bucket.
+
 ## Decisões técnicas desta spec
 
 1. **Nenhum preview do front chama a API de produção.**
