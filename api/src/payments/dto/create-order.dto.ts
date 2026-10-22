@@ -41,13 +41,19 @@ class OrderTargetConstraint implements ValidatorConstraintInterface {
     const dto = args.object as CreateOrderDto;
     const hasBundle = dto.bundleSlug !== undefined && dto.bundleSlug !== null;
     const hasModules = Array.isArray(dto.moduleIds) && dto.moduleIds.length > 0;
+    // Spec 030: o modulo de teste e um terceiro alvo, exclusivo com os outros.
+    const hasTest = dto.testKey !== undefined && dto.testKey !== null;
 
-    return hasBundle !== hasModules;
+    return [hasBundle, hasModules, hasTest].filter(Boolean).length === 1;
   }
 
   defaultMessage(args: ValidationArguments): string {
     const dto = args.object as CreateOrderDto;
     const hasBundle = dto.bundleSlug !== undefined && dto.bundleSlug !== null;
+
+    if (dto.testKey !== undefined && dto.testKey !== null) {
+      return 'O modulo de teste e comprado sozinho.';
+    }
 
     return hasBundle
       ? 'Escolha o pacote ou os modulos, nunca os dois.'
@@ -193,14 +199,27 @@ export class OrderPayerDto {
  * comprador escolher quanto pagar.
  */
 export class CreateOrderDto {
-  // So fica de fora quando o pedido e de pacote e nao traz modulos: sem
-  // `moduleIds` e sem `bundleSlug`, a restricao roda e recusa.
-  @ValidateIf((dto: CreateOrderDto) => dto.moduleIds !== undefined || dto.bundleSlug === undefined)
+  // So fica de fora quando o pedido traz exatamente um entre pacote e chave
+  // do teste (Spec 030), e nenhum modulo. Sem nenhum alvo, a restricao roda e
+  // recusa.
+  @ValidateIf(
+    (dto: CreateOrderDto) =>
+      dto.moduleIds !== undefined || (dto.bundleSlug === undefined) === (dto.testKey === undefined),
+  )
   @Validate(OrderTargetConstraint)
   @IsString({ each: true, message: 'Cada modulo precisa ser um id.' })
   @ArrayMaxSize(50, { message: 'Modulos demais em um unico pedido.' })
   @ArrayUnique({ message: 'Modulo repetido no pedido.' })
   moduleIds?: string[];
+
+  /**
+   * Chave do link secreto do modulo de teste (Spec 030). Exclusiva com
+   * `moduleIds` e `bundleSlug`; o valor e o do servidor (R$ 1,00).
+   */
+  @IsOptional()
+  @IsString({ message: 'Chave do teste invalida.' })
+  @MaxLength(64)
+  testKey?: string;
 
   /** Pacote pelo slug (Spec 019). Exclusivo com `moduleIds`. */
   @IsOptional()
