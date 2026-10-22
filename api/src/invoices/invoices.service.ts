@@ -229,11 +229,15 @@ export class InvoicesService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { status: true, invoice: true },
+      select: { status: true, invoice: true, testPayment: true },
     });
 
     if (!order) {
       throw new NotFoundException('Pedido nao encontrado.');
+    }
+
+    if (order.testPayment) {
+      throw new ConflictException('Pedido de teste nao tem nota fiscal.');
     }
 
     if (order.status !== 'PAID') {
@@ -396,10 +400,12 @@ export class InvoicesService {
   private async createPending(orderId: string): Promise<InvoiceRow | null> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { amountCents: true },
+      select: { amountCents: true, testPayment: true },
     });
 
-    if (!order) {
+    // Spec 030, decisao 6: o modulo de teste nunca tem nota. Em producao ela
+    // seria uma NFS-e real de R$ 1,00, a cancelar depois.
+    if (!order || order.testPayment) {
       return null;
     }
 

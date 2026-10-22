@@ -775,3 +775,22 @@ describe('InvoicesService', () => {
     expect(logged).not.toContain('chave-homologacao');
   });
 });
+
+/** Spec 030, decisao 6: o pedido do modulo de teste nunca tem nota fiscal. */
+describe('InvoicesService — pedido de teste', () => {
+  it('nao cria nota na aprovacao de um pedido de teste', async () => {
+    const { service, gateway, prisma } = await build({ orders: [order({ testPayment: true, amountCents: 100 })] });
+
+    await service.onOrderPaid('ord-1');
+
+    expect(prisma.invoice.create).not.toHaveBeenCalled();
+    expect(gateway.emit).not.toHaveBeenCalled();
+  });
+
+  it('recusa a emissao manual de um pedido de teste', async () => {
+    const { service, gateway } = await build({ orders: [order({ testPayment: true, amountCents: 100 })] });
+
+    await expect(service.reissue('ord-1')).rejects.toMatchObject({ status: 409 });
+    expect(gateway.emit).not.toHaveBeenCalled();
+  });
+});

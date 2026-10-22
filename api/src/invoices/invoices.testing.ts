@@ -47,6 +47,8 @@ export interface FakeOrder {
   payerState: string | null;
   items: { moduleId: string; titleSnapshot: string; priceCents: number }[];
   user: { email: string; name: string | null };
+  /** Pedido do modulo de teste (Spec 030): nunca tem nota. */
+  testPayment?: boolean;
 }
 
 type Where = Record<string, unknown>;

@@ -17,6 +17,9 @@ import {
 /** Janela aceita entre o timestamp assinado e o relogio desta API. */
 const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
 
+/** Titulo do item e da order do pagamento de teste (Spec 030). */
+const TEST_ITEM_TITLE = 'Pagamento de teste — Imersão RH Estratégico';
+
 /** Limite da Orders API: acima disso ela responde `maximum_items`. */
 const MAX_ORDER_ITEMS = 10;
 
@@ -53,6 +56,8 @@ export interface CreateOrderInput {
    * vendido, e a Orders API recusa mais de 10 itens por order.
    */
   bundle?: { id: string; title: string };
+  /** Pedido do modulo de teste (Spec 030): um item de teste, sem modulo. */
+  testPayment?: boolean;
   card?: { token: string; paymentMethodId: string; installments: number };
   /** `MP_DEVICE_SESSION_ID` capturado pelo SDK no navegador. */
   deviceId?: string | null;
@@ -228,8 +233,9 @@ export class MercadoPagoService {
 
   private buildPayload(input: CreateOrderInput): CreateOrderPayload {
     const isPix = input.method === 'PIX';
-    const description =
-      input.items.length === 1
+    const description = input.testPayment
+      ? TEST_ITEM_TITLE
+      : input.items.length === 1
         ? input.items[0].title
         : `${input.items.length} módulos da Imersão RH Estratégico`;
 
@@ -277,6 +283,20 @@ export class MercadoPagoService {
    */
   private toItems(input: CreateOrderInput): OrderItemPayload[] {
     const count = input.items.length;
+
+    // Spec 030, decisao 5: o pedido de teste nao tem modulo, mas o antifraude
+    // e o extrato precisam de um item que diga o que foi cobrado.
+    if (input.testPayment) {
+      return [
+        {
+          title: TEST_ITEM_TITLE,
+          description: 'Pagamento de teste da plataforma. Não libera nenhum módulo.',
+          quantity: 1,
+          unit_price: toAmount(input.amountCents),
+          external_code: 'test-payment',
+        },
+      ];
+    }
 
     if (input.bundle) {
       return [

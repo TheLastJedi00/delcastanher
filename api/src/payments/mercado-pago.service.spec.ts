@@ -742,3 +742,35 @@ describe('rejectionMessage', () => {
     expect(rejectionMessage(null)).toContain('Tente outro cartão ou pague com PIX');
   });
 });
+
+/** Spec 030, decisao 5: o pedido do modulo de teste no Mercado Pago. */
+describe('MercadoPagoService — pedido de teste', () => {
+  it('manda um item de teste de R$ 1,00 e a descricao de teste', async () => {
+    const { service, fetchMock } = await build(CARD_RESPONSE);
+
+    await service.createOrder({
+      orderId: 'ord-t',
+      accessToken: SELLER_TOKEN,
+      amountCents: 100,
+      method: 'CREDIT_CARD',
+      payer: PAYER,
+      items: [],
+      testPayment: true,
+      card: CARD,
+    });
+
+    const body = bodyOf(fetchMock);
+
+    expect(body.description).toBe('Pagamento de teste — Imersão RH Estratégico');
+    expect(body.total_amount).toBe('1.00');
+    expect(body.items).toEqual([
+      {
+        title: 'Pagamento de teste — Imersão RH Estratégico',
+        description: 'Pagamento de teste da plataforma. Não libera nenhum módulo.',
+        quantity: 1,
+        unit_price: '1.00',
+        external_code: 'test-payment',
+      },
+    ]);
+  });
+});
