@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { frontendUrl } from '../config/mail.config';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { purchaseConfirmationEmail } from './purchase-email';
+import { purchaseConfirmationEmail, testPaymentEmail } from './purchase-email';
 
 /** O que o e-mail le do pedido. */
 const ORDER_SELECT = {
@@ -22,6 +22,7 @@ const ORDER_SELECT = {
   bundleTitleSnapshot: true,
   tierNameSnapshot: true,
   confirmationEmailedAt: true,
+  testPayment: true,
   user: { select: { email: true, name: true } },
   items: { select: { titleSnapshot: true } },
   accesses: { select: { expiresAt: true } },
@@ -36,6 +37,7 @@ interface PurchaseOrderRow {
   payerName: string | null;
   bundleTitleSnapshot: string | null;
   tierNameSnapshot: string | null;
+  testPayment?: boolean;
   user: { email: string; name: string | null };
   items: { titleSnapshot: string }[];
   accesses: { expiresAt: Date }[];
@@ -131,8 +133,21 @@ export class PurchaseEmailService {
   }
 
   private async send(order: PurchaseOrderRow, idempotencyKey: string): Promise<void> {
+    const email = order.testPayment ? this.testEmail(order) : this.purchaseEmail(order);
+
+    await this.mail.send({
+      to: order.user.email,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+      idempotencyKey,
+    });
+  }
+
+  private purchaseEmail(order: PurchaseOrderRow) {
     const expirations = order.accesses.map((access) => access.expiresAt.getTime());
-    const email = purchaseConfirmationEmail({
+
+    return purchaseConfirmationEmail({
       buyerName: order.payerName ?? order.user.name,
       items: order.items.map((item) => item.titleSnapshot),
       bundle:
@@ -145,13 +160,16 @@ export class PurchaseEmailService {
       accessUntil: expirations.length ? new Date(Math.min(...expirations)) : null,
       platformUrl: `${frontendUrl(this.config)}/ava`,
     });
+  }
 
-    await this.mail.send({
-      to: order.user.email,
-      subject: email.subject,
-      html: email.html,
-      text: email.text,
-      idempotencyKey,
+  /** Spec 030, resposta 2: o modulo de teste ganha o e-mail curto. */
+  private testEmail(order: PurchaseOrderRow) {
+    return testPaymentEmail({
+      buyerName: order.payerName ?? order.user.name,
+      orderId: order.id,
+      amountCents: order.amountCents,
+      method: order.method,
+      installments: order.installments,
     });
   }
 }

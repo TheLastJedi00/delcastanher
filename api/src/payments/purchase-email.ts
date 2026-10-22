@@ -79,3 +79,34 @@ export function purchaseConfirmationEmail(input: PurchaseEmailInput): PurchaseEm
     text: content.text,
   };
 }
+
+/** O que o e-mail do pagamento de teste precisa saber do pedido. */
+export interface TestPaymentEmailInput {
+  buyerName: string | null;
+  orderId: string;
+  amountCents: number;
+  method: 'PIX' | 'CARD';
+  installments: number;
+}
+
+/**
+ * E-mail "Pagamento de teste aprovado" (Spec 030, resposta 2). Curto de
+ * proposito: o pedido de teste nao libera modulo nem acesso, e o e-mail de
+ * compra falaria nos dois.
+ */
+export function testPaymentEmail(input: TestPaymentEmailInput): PurchaseEmail {
+  const firstName = (input.buyerName ?? '').trim().split(/\s+/)[0];
+  const method = paymentLabel({ method: input.method, installments: input.installments } as PurchaseEmailInput);
+
+  const body = [
+    firstName ? `Olá, ${firstName}!` : 'Olá!',
+    'O pagamento de teste na Delcastanher foi aprovado.',
+    `Valor: ${money(input.amountCents)} ${method}.`,
+    `Pedido: ${input.orderId}`,
+    'Nenhum módulo foi liberado. Para devolver o valor, estorne pelo Mercado Pago.',
+  ].join('\n\n');
+
+  const content = renderEmail({ body, preheader: 'O pagamento de teste foi aprovado' });
+
+  return { subject: 'Pagamento de teste aprovado', html: content.html, text: content.text };
+}
