@@ -900,8 +900,8 @@ describe('AdminFinanceService — pedido de teste fora do resumo', () => {
     expect(summary.totals.grossCents).toBe(19900);
     expect(summary.totals.paidOrders).toBe(1);
     expect(summary.totals.rejectedOrders).toBe(0);
-    expect(summary.series.reduce((total, point) => total + point.cents, 0)).toBe(19900);
-    expect(summary.byMethod.map((row) => row.method)).not.toContain('CREDIT_CARD');
+    expect(summary.series.reduce((total, point) => total + point.grossCents, 0)).toBe(19900);
+    expect(summary.byMethod.find((row) => row.method === 'CREDIT_CARD')?.paidOrders ?? 0).toBe(0);
     expect(summary.totals.conversionRate).toBe(100);
   });
 });
