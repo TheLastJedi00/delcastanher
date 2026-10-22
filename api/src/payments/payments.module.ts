@@ -22,6 +22,7 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { PaymentClientLogsController } from './payment-client-logs.controller';
 import { PaymentLogService } from './payment-log.service';
+import { PaymentTestService } from './payment-test.service';
 import { PurchaseEmailService } from './purchase-email.service';
 import { StoreController } from './store.controller';
 import { StoreService } from './store.service';
@@ -63,6 +64,7 @@ import { TokenCipher } from './token-cipher';
     MercadoPagoService,
     OrdersService,
     PaymentLogService,
+    PaymentTestService,
     PurchaseEmailService,
     StoreService,
     TokenCipher,
