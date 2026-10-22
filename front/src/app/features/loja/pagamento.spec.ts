@@ -911,3 +911,36 @@ describe('Pagamento — botão com o parcelado', () => {
     expect(setup.el.querySelector('[data-testid="total-parcelado"]')).toBeNull();
   });
 });
+
+/** Spec 030: o resumo e o pedido do modulo de teste na tela de pagamento. */
+describe('Pagamento — modulo de teste', () => {
+  it('mostra o modulo de teste no resumo e manda a chave no pedido', async () => {
+    const fake = fakeSdk();
+
+
+    const setup = renderCard(fake);
+    const store = TestBed.inject(StoreService);
+
+    store.selectTest('k'.repeat(43), { title: 'Módulo de teste', summary: 'x', priceCents: 100 });
+    setup.fixture.detectChanges();
+
+    const resumo = setup.el.querySelector('[data-testid="resumo-teste"]')?.textContent ?? '';
+
+    expect(resumo.replace(/\s+/g, ' ')).toContain('Módulo de teste');
+    expect(resumo.replace(/\s+/g, ' ')).toContain('R$ 1,00');
+    expect(setup.el.textContent).toContain('Não libera nenhum módulo');
+
+    await setup.chooseCard();
+    await fake.handlers['cardNumber:binChange']({ bin: '54808328' });
+    const paying = setup.component.pay();
+    await new Promise(resolve => setTimeout(resolve));
+
+    const order = setup.backend.expectOne(req => req.method === 'POST' && req.url.endsWith('/orders'));
+
+    expect(order.request.body.testKey).toBe('k'.repeat(43));
+    expect(order.request.body.moduleIds).toBeUndefined();
+
+    order.flush({ id: 'ord-t', status: 'PAID', testPayment: true });
+    await paying;
+  });
+});

@@ -491,7 +491,16 @@ function toCents(reais: number): number {
             <h2 class="text-lg font-semibold text-brand-navy">Resumo do pedido</h2>
 
             <ul class="mt-3 space-y-2">
-              @if (bundle(); as pack) {
+              @if (test(); as teste) {
+                <!-- Spec 030: o módulo de teste é comprado sozinho. -->
+                <li class="flex justify-between gap-3 text-sm" data-testid="resumo-teste">
+                  <span class="text-slate-700">
+                    {{ teste.product.title }}
+                    <span class="block text-xs text-slate-500">Pagamento de teste</span>
+                  </span>
+                  <span class="text-slate-900 font-medium shrink-0">{{ total() }}</span>
+                </li>
+              } @else if (bundle(); as pack) {
                 <li class="flex justify-between gap-3 text-sm">
                   <span class="text-slate-700">
                     {{ pack.title }}
@@ -517,7 +526,9 @@ function toCents(reais: number): number {
             </div>
 
             <p class="mt-3 text-xs text-slate-500">
-              @if (bundle()) {
+              @if (test()) {
+                Não libera nenhum módulo. O valor pode ser estornado pelo Mercado Pago.
+              } @else if (bundle()) {
                 Os 12 módulos liberam 6 meses de acesso a partir da confirmação do pagamento.
               } @else {
                 Cada módulo libera 6 meses de acesso a partir da confirmação do pagamento.
@@ -588,6 +599,8 @@ export class Pagamento implements OnInit {
 
   readonly selected = this.store.selectedModules;
   readonly bundle = this.store.selectedBundle;
+  /** Modulo de teste pelo link secreto (Spec 030). */
+  readonly test = this.store.selectedTest;
   readonly hasSelection = this.store.hasSelection;
   readonly priceChange = this.priceChangeState.asReadonly();
   readonly method = this.methodState.asReadonly();

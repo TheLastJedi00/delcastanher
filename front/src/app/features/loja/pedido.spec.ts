@@ -67,3 +67,14 @@ describe('Pedido', () => {
     expect(el.textContent).toContain('Nenhum valor foi cobrado.');
   });
 });
+
+/** Spec 030, decisao 8: o pedido aprovado do modulo de teste. */
+describe('Pedido — modulo de teste', () => {
+  it('diz que nenhum modulo foi liberado e como estornar', () => {
+    const el = render({ status: 'PAID', method: 'CREDIT_CARD', testPayment: true, amountCents: 100 });
+
+    expect(el.querySelector('[data-testid="teste-aprovado"]')?.textContent).toContain('Pagamento de teste aprovado');
+    expect(el.textContent).toContain('Nenhum módulo foi liberado');
+    expect(el.textContent).not.toContain('já estão liberados');
+  });
+});
