@@ -16,6 +16,8 @@ interface FakeOrder {
   paidAt?: Date | null;
   refundedAt?: Date | null;
   items?: { moduleId: string; priceCents: number }[];
+  /** Pedido do modulo de teste (Spec 030). */
+  testPayment?: boolean;
 }
 
 /** Acesso do cenario, no formato em que `module_access` o guarda. */
@@ -80,7 +82,13 @@ function matches(value: unknown, condition: unknown): boolean {
 
 function orderMatches(order: FakeOrder, where: Record<string, unknown> = {}): boolean {
   return Object.entries(where).every(([field, condition]) =>
-    matches((order as unknown as Record<string, unknown>)[field] ?? null, condition),
+    matches(
+      // Como no banco, `testPayment` nasce falso (Spec 030).
+      field === 'testPayment'
+        ? (order.testPayment ?? false)
+        : ((order as unknown as Record<string, unknown>)[field] ?? null),
+      condition,
+    ),
   );
 }
 
@@ -241,6 +249,11 @@ function fakePrisma(scenario: Scenario) {
           continue;
         }
 
+        // Spec 030: a consulta real filtra o modulo de teste no WHERE.
+        if (order.testPayment && sql.includes('"testPayment" = false')) {
+          continue;
+        }
+
         const key = bucketKey(at, granularity);
         const bucket = buckets.get(key) ?? { cents: 0, orders: 0 };
         bucket.cents += order.amountCents;
@@ -305,6 +318,7 @@ function pago(id: string, overrides: Partial<FakeOrder> = {}): FakeOrder {
     createdAt: new Date('2026-09-10T12:00:00Z'),
     paidAt: new Date('2026-09-10T12:00:00Z'),
     refundedAt: null,
+    testPayment: false,
     items: [{ moduleId: 'mod-1', priceCents: 19900 }],
     ...overrides,
   };
@@ -864,5 +878,30 @@ describe('AdminFinanceService — resumo', () => {
 
       expect((prisma.order as unknown as Record<string, unknown>).findMany).toBeUndefined();
     });
+  });
+});
+
+/** Spec 030, decisao 7: o modulo de teste fica fora da receita e dos indicadores. */
+describe('AdminFinanceService — pedido de teste fora do resumo', () => {
+  const SETEMBRO_030 = { from: '2026-09-01', to: '2026-09-30' };
+
+  it('nao conta o pedido de teste no bruto, nos pagos, na serie, no meio de pagamento nem na conversao', async () => {
+    const { service } = await build({
+      orders: [
+        pago('real'),
+        pago('teste', { testPayment: true, amountCents: 100, method: 'CREDIT_CARD', items: [], userId: 'user-admin' }),
+        pago('teste-recusado', { testPayment: true, status: 'REJECTED', paidAt: null, items: [], userId: 'user-admin' }),
+      ],
+      rates: [PIX_RATE],
+    });
+
+    const summary = await service.summary({ ...SETEMBRO_030, granularity: 'day' });
+
+    expect(summary.totals.grossCents).toBe(19900);
+    expect(summary.totals.paidOrders).toBe(1);
+    expect(summary.totals.rejectedOrders).toBe(0);
+    expect(summary.series.reduce((total, point) => total + point.grossCents, 0)).toBe(19900);
+    expect(summary.byMethod.find((row) => row.method === 'CREDIT_CARD')?.paidOrders ?? 0).toBe(0);
+    expect(summary.totals.conversionRate).toBe(100);
   });
 });

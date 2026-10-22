@@ -188,6 +188,8 @@ export interface FinanceOrderItem {
   invoice: InvoiceSummary | null;
   /** Quando saiu o e-mail "Compra confirmada" (Spec 024, D6); nulo = nao saiu. */
   confirmationEmailedAt: Date | null;
+  /** Pagamento do modulo de teste (Spec 030): fora da receita. */
+  testPayment: boolean;
 }
 
 export interface FinanceOrderListResult {

@@ -398,3 +398,27 @@ describe('AdminFinanceService — nota fiscal', () => {
     expect(semNota.split(';')[col('Situacao da nota')]).toBe('');
   });
 });
+
+/** Spec 030, decisao 7: o pedido de teste na lista e no CSV. */
+describe('AdminFinanceService — pedido de teste na lista', () => {
+  const TESTE = { ...PEDIDO, id: 'ord-t', amountCents: 100, installments: 1, items: [], testPayment: true };
+
+  it('marca o pedido de teste e mostra "Módulo de teste" nos modulos', async () => {
+    const { service } = await build([TESTE, PEDIDO], 2);
+
+    const result = await service.listOrders(query());
+
+    expect(result.items[0]).toMatchObject({ testPayment: true, modules: ['Módulo de teste'] });
+    expect(result.items[1]).toMatchObject({ testPayment: false, modules: ['Fundamentos', 'Pratica'] });
+  });
+
+  it('o CSV traz a coluna Teste', async () => {
+    const { service } = await build([TESTE, PEDIDO], 2);
+
+    const [header, teste, real] = (await service.exportOrdersCsv(query())).replace('﻿', '').split('\n');
+
+    expect(header.split(';').at(-1)).toBe('Teste');
+    expect(teste.split(';').at(-1)).toBe('sim');
+    expect(real.split(';').at(-1)).toBe('não');
+  });
+});
