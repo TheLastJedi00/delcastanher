@@ -60,10 +60,10 @@ As respostas às perguntas estão no `context.md` (22/10/2026): só admin, com e
 - [x] **Task 6.4:** Rodar `ng test` e `ng build` do front.
 
 ## Fase 7: Preview e produção
-- [ ] **Task 7.1:** Fazer o merge das branches de fase na `release/030-modulo-de-teste-de-pagamento` e empurrá-la para a branch `preview` (Spec 029). As migrations entram na branch `preview` do Neon pelo build.
+- [x] **Task 7.1:** Fazer o merge das branches de fase na `release/030-modulo-de-teste-de-pagamento` e empurrá-la para a branch `preview` (Spec 029). As migrations entram na branch `preview` do Neon pelo build.
 - [ ] **Task 7.2:** No preview, com uma conta de admin de teste: ligar o teste no Financeiro, conferir o link, desligar e conferir que o link antigo dá "não encontrado", religar.
 - [ ] **Task 7.3:** Pedir ao usuário o pagamento no link do preview, logado como admin: cartão de teste `APRO` e `FUND`, e um PIX. Conferir na branch `preview` do Neon: pedido `testPayment`, `PAID` e `REJECTED`, sem acesso e sem nota; no Financeiro do preview, etiqueta "Teste" e fora da receita.
-- [ ] **Task 7.4:** Abrir o PR da release contra a `main`, com as decisões tomadas no topo. **Sem merge**: o merge é do usuário.
+- [x] **Task 7.4:** Abrir o PR da release contra a `main`, com as decisões tomadas no topo. **Sem merge**: o merge é do usuário.
 - [ ] **Task 7.5:** Depois do merge, com **autorização explícita**, rodar `npx prisma migrate deploy` em produção e conferir só lendo.
 - [ ] **Task 7.6:** Em produção: o usuário liga o teste, paga R$ 1,00 com cartão real (e, se quiser, com PIX), confere o e-mail "Pagamento de teste aprovado" e estorna pelo Mercado Pago. Conferir pedido `PAID` e depois `REFUNDED`, fora da receita, sem nota fiscal, e os logs no modal. Se o Mercado Pago recusar por valor mínimo, aplicar a decisão 9.
 
