@@ -38,6 +38,9 @@ const METHODS: PaymentMethodKind[] = ['PIX', 'CREDIT_CARD'];
  */
 const CSV_SEPARATOR = ';';
 
+/** Como o pedido do modulo de teste aparece na coluna de modulos (Spec 030). */
+const TEST_MODULE_TITLE = 'Módulo de teste';
+
 /**
  * Colunas da planilha. Sao exatamente as da listagem: a exportacao nao e uma
  * porta para dado que a tela nao mostra, e nao existe coluna de cartao nem de
@@ -65,6 +68,8 @@ const CSV_HEADER = [
   'Situacao da nota',
   'NFS-e',
   'Codigo de verificacao',
+  // Spec 030: o pagamento do modulo de teste.
+  'Teste',
 ];
 
 /**
@@ -120,6 +125,7 @@ interface OrderRow {
   paidAt: Date | null;
   refundedAt: Date | null;
   confirmationEmailedAt?: Date | null;
+  testPayment?: boolean;
   user: { name: string | null; email: string };
   items: { titleSnapshot: string }[];
   bundleTitleSnapshot?: string | null;
@@ -331,6 +337,7 @@ export class AdminFinanceService {
         item.invoice?.status ?? '',
         item.invoice?.number ?? '',
         item.invoice?.accessKey ?? '',
+        item.testPayment ? 'sim' : 'não',
       ]
         .map(csvField)
         .join(CSV_SEPARATOR);
@@ -402,7 +409,10 @@ export class AdminFinanceService {
       installments: row.installments,
       buyerName: row.user?.name ?? null,
       buyerEmail: row.user?.email ?? '',
-      modules: (row.items ?? []).map((item) => item.titleSnapshot),
+      // Spec 030: o pedido de teste nao tem itens, e a coluna diz o que foi pago.
+      modules: row.testPayment
+        ? [TEST_MODULE_TITLE]
+        : (row.items ?? []).map((item) => item.titleSnapshot),
       bundle:
         row.bundleTitleSnapshot && row.tierNameSnapshot
           ? { title: row.bundleTitleSnapshot, tierName: row.tierNameSnapshot }
@@ -415,6 +425,7 @@ export class AdminFinanceService {
       refundedAt: row.refundedAt,
       invoice: row.invoice ? toInvoiceSummary(row.invoice) : null,
       confirmationEmailedAt: row.confirmationEmailedAt ?? null,
+      testPayment: row.testPayment ?? false,
     };
   }
 
@@ -423,42 +434,66 @@ export class AdminFinanceService {
     const [paid, refunded, undated, pendingOrders, rejectedOrders, failedOrders, attempts, buyers] =
       await Promise.all([
         this.prisma.order.aggregate({
-          where: { status: 'PAID', paidAt: { gte: period.from, lt: period.to } },
+          where: {
+            testPayment: false,
+            status: 'PAID',
+            paidAt: { gte: period.from, lt: period.to },
+          },
           _sum: { amountCents: true },
           _count: { _all: true },
         }),
         this.prisma.order.aggregate({
-          where: { status: 'REFUNDED', refundedAt: { gte: period.from, lt: period.to } },
+          where: {
+            testPayment: false,
+            status: 'REFUNDED',
+            refundedAt: { gte: period.from, lt: period.to },
+          },
           _sum: { amountCents: true },
           _count: { _all: true },
         }),
         // Decisao 8: estorno anterior a coluna nao tem mes. Ele tem contador
         // proprio e nao e distribuido em periodo nenhum.
         this.prisma.order.aggregate({
-          where: { status: 'REFUNDED', refundedAt: null },
+          where: { testPayment: false, status: 'REFUNDED', refundedAt: null },
           _sum: { amountCents: true },
           _count: { _all: true },
         }),
         this.prisma.order.count({
-          where: { status: 'PENDING', createdAt: { gte: period.from, lt: period.to } },
+          where: {
+            testPayment: false,
+            status: 'PENDING',
+            createdAt: { gte: period.from, lt: period.to },
+          },
         }),
         this.prisma.order.count({
-          where: { status: 'REJECTED', createdAt: { gte: period.from, lt: period.to } },
+          where: {
+            testPayment: false,
+            status: 'REJECTED',
+            createdAt: { gte: period.from, lt: period.to },
+          },
         }),
         // Spec 028, decisao 5: ao lado dos recusados, e nunca na receita.
         this.prisma.order.count({
-          where: { status: 'FAILED', createdAt: { gte: period.from, lt: period.to } },
+          where: {
+            testPayment: false,
+            status: 'FAILED',
+            createdAt: { gte: period.from, lt: period.to },
+          },
         }),
         // Decisao 10: conversao por **pessoa**. Quem abre o PIX, desiste e
         // volta no cartao gera um CANCELLED e um PAID — e "pagos / criados"
         // leria essa pessoa como meia venda perdida.
         this.prisma.order.groupBy({
           by: ['userId'],
-          where: { createdAt: { gte: period.from, lt: period.to } },
+          where: { testPayment: false, createdAt: { gte: period.from, lt: period.to } },
         }),
         this.prisma.order.groupBy({
           by: ['userId'],
-          where: { createdAt: { gte: period.from, lt: period.to }, status: 'PAID' },
+          where: {
+            testPayment: false,
+            createdAt: { gte: period.from, lt: period.to },
+            status: 'PAID',
+          },
         }),
       ]);
 
@@ -516,6 +551,7 @@ export class AdminFinanceService {
           const groups = await this.prisma.order.groupBy({
             by: ['amountCents'],
             where: {
+              testPayment: false,
               status: 'PAID',
               method,
               paidAt: { gte: segment.from, lt: segment.to },
@@ -534,7 +570,12 @@ export class AdminFinanceService {
         }
 
         const count = await this.prisma.order.count({
-          where: { status: 'PAID', method, paidAt: { gte: segment.from, lt: segment.to } },
+          where: {
+            testPayment: false,
+            status: 'PAID',
+            method,
+            paidAt: { gte: segment.from, lt: segment.to },
+          },
         });
 
         if (count === 0) {
@@ -616,7 +657,7 @@ export class AdminFinanceService {
   ): Promise<FinanceMethodBreakdown[]> {
     const groups = await this.prisma.order.groupBy({
       by: ['method'],
-      where: { status: 'PAID', paidAt: { gte: period.from, lt: period.to } },
+      where: { testPayment: false, status: 'PAID', paidAt: { gte: period.from, lt: period.to } },
       _sum: { amountCents: true },
       _count: { _all: true },
     });
@@ -643,7 +684,9 @@ export class AdminFinanceService {
   private async modulesOf(period: ResolvedPeriod): Promise<FinanceModuleBreakdown[]> {
     const groups = await this.prisma.orderItem.groupBy({
       by: ['moduleId'],
-      where: { order: { status: 'PAID', paidAt: { gte: period.from, lt: period.to } } },
+      where: {
+        order: { testPayment: false, status: 'PAID', paidAt: { gte: period.from, lt: period.to } },
+      },
       _sum: { priceCents: true },
       _count: { _all: true },
     });
@@ -734,7 +777,8 @@ export class AdminFinanceService {
                COALESCE(SUM("amountCents"), 0)::int AS cents,
                COUNT(*)::int AS orders
         FROM "orders"
-        WHERE "status" = 'PAID' AND "paidAt" >= ${period.from} AND "paidAt" < ${period.to}
+        WHERE "testPayment" = false
+          AND "status" = 'PAID' AND "paidAt" >= ${period.from} AND "paidAt" < ${period.to}
         GROUP BY 1
         ORDER BY 1
       `,
@@ -749,7 +793,7 @@ export class AdminFinanceService {
                COALESCE(SUM("amountCents"), 0)::int AS cents,
                COUNT(*)::int AS orders
         FROM "orders"
-        WHERE "status" = 'REFUNDED'
+        WHERE "testPayment" = false AND "status" = 'REFUNDED'
           AND "refundedAt" >= ${period.from} AND "refundedAt" < ${period.to}
         GROUP BY 1
         ORDER BY 1
@@ -812,15 +856,19 @@ export class AdminFinanceService {
 
     const [paid, anyOrder, current] = await Promise.all([
       this.prisma.order.aggregate({
-        where: { status: 'PAID', paidAt: { gte: previous.from, lt: previous.to } },
+        where: {
+          testPayment: false,
+          status: 'PAID',
+          paidAt: { gte: previous.from, lt: previous.to },
+        },
         _sum: { amountCents: true },
         _count: { _all: true },
       }),
       this.prisma.order.count({
-        where: { createdAt: { gte: previous.from, lt: previous.to } },
+        where: { testPayment: false, createdAt: { gte: previous.from, lt: previous.to } },
       }),
       this.prisma.order.aggregate({
-        where: { status: 'PAID', paidAt: { gte: period.from, lt: period.to } },
+        where: { testPayment: false, status: 'PAID', paidAt: { gte: period.from, lt: period.to } },
         _sum: { amountCents: true },
       }),
     ]);
