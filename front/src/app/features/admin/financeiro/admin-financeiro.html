@@ -453,7 +453,13 @@
                   }
                 </td>
                 <td class="px-6 py-3">
-                  <ui-badge [variant]="statusVariant(pedido.status)" [label]="statusLabel(pedido.status)" />
+                  <div class="flex flex-wrap gap-1">
+                    <ui-badge [variant]="statusVariant(pedido.status)" [label]="statusLabel(pedido.status)" />
+                    <!-- Spec 030: o módulo de teste, fora da receita. -->
+                    @if (pedido.testPayment) {
+                      <ui-badge variant="warning" label="Teste" data-testid="etiqueta-teste" />
+                    }
+                  </div>
                 </td>
                 <td class="px-6 py-3 text-slate-700">
                   {{ methodLabel(pedido.method) }}

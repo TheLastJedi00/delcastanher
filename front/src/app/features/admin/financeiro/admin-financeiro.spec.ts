@@ -436,3 +436,59 @@ describe('AdminFinanceiro — pedidos com erro e logs', () => {
     expect(el.textContent).toContain('Nenhum log registrado para este pedido.');
   });
 });
+
+/** Spec 030, decisao 7: o pedido do modulo de teste na tabela. */
+describe('AdminFinanceiro — pedido de teste', () => {
+  afterEach(() => {
+    TestBed.inject(AdminFinanceService).clear();
+  });
+
+  it('mostra a etiqueta Teste só no pedido de teste, com "Módulo de teste" nos módulos', () => {
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AdminFinanceiro);
+    const linha = {
+      status: 'PAID',
+      amountCents: 100,
+      method: 'CREDIT_CARD',
+      installments: 1,
+      buyerName: 'Admin',
+      buyerEmail: 'admin@exemplo.com',
+      bundle: null,
+      mpOrderId: null,
+      mpPaymentId: null,
+      mpStatusDetail: null,
+      createdAt: '2026-09-10T12:00:00.000Z',
+      paidAt: '2026-09-10T12:00:00.000Z',
+      refundedAt: null,
+    };
+
+    fixture.detectChanges();
+    http
+      .match(req => req.url === `${environment.apiUrl}/admin/finance/summary`)
+      .forEach(req => req.flush(RESUMO));
+    http.match(req => req.url === `${environment.apiUrl}/admin/finance/orders`).forEach(req =>
+      req.flush({
+        items: [
+          { ...linha, id: 'ord-t', modules: ['Módulo de teste'], testPayment: true },
+          { ...linha, id: 'ord-r', amountCents: 19700, modules: ['Fundamentos'], testPayment: false },
+        ],
+        total: 2,
+        page: 1,
+        pageSize: 20,
+      }),
+    );
+    fixture.detectChanges();
+
+    const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('tbody tr')).filter(tr =>
+      tr.textContent?.includes('admin@exemplo.com'),
+    );
+
+    expect(rows[0].querySelector('[data-testid="etiqueta-teste"]')).not.toBeNull();
+    expect(rows[0].textContent).toContain('Módulo de teste');
+    expect(rows[1].querySelector('[data-testid="etiqueta-teste"]')).toBeNull();
+  });
+});
