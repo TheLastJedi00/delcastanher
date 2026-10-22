@@ -26,6 +26,7 @@ import { PaymentLogService } from './payment-log.service';
 import { PaymentTestService } from './payment-test.service';
 import { PurchaseEmailService } from './purchase-email.service';
 import { StoreController } from './store.controller';
+import { StoreTestProductController } from './store-test-product.controller';
 import { StoreService } from './store.service';
 import { TokenCipher } from './token-cipher';
 
@@ -42,6 +43,7 @@ import { TokenCipher } from './token-cipher';
   imports: [PrismaModule, AuthModule, InvoicesModule],
   controllers: [
     StoreController,
+    StoreTestProductController,
     OrdersController,
     PaymentClientLogsController,
     AdminAccessController,
