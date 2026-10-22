@@ -8,6 +8,7 @@ import { AdminAccessService } from './admin-access.service';
 import { AdminBundlesController } from './admin-bundles.controller';
 import { AdminFinanceController } from './admin-finance.controller';
 import { AdminPurchaseEmailController } from './admin-purchase-email.controller';
+import { AdminTestPaymentController } from './admin-test-payment.controller';
 import { AdminFinanceService } from './admin-finance.service';
 import { AdminMercadoPagoController } from './admin-mercado-pago.controller';
 import { BundlesService } from './bundles.service';
@@ -48,6 +49,7 @@ import { TokenCipher } from './token-cipher';
     AdminFinanceController,
     AdminMercadoPagoController,
     AdminPurchaseEmailController,
+    AdminTestPaymentController,
     MercadoPagoWebhookController,
     MercadoPagoOAuthController,
     InternalMercadoPagoController,
