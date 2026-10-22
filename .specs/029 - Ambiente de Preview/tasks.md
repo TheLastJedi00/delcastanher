@@ -50,7 +50,7 @@ As respostas às perguntas estão no `context.md` (22/10/2026).
 ## Fase 6: Roteiro e PR
 - [x] **Task 6.1:** Escrever o roteiro de uso do preview (decisão 8) no `README.md` da raiz: como empurrar uma release para a branch `preview`, o que acontece com o banco, e o que não roda no preview (e-mail, webhook, crons).
 - [x] **Task 6.2:** Atualizar a memória do projeto: `preview-api-sandbox` e `banco-unico-producao` deixam de valer como estão.
-- [ ] **Task 6.3:** Abrir o PR da release contra a `main`, com as decisões tomadas durante a execução no topo. **Sem merge:** o merge é do usuário.
+- [x] **Task 6.3:** Abrir o PR da release contra a `main`, com as decisões tomadas durante a execução no topo. **Sem merge:** o merge é do usuário.
 
 ## Registro da execução
 
@@ -80,3 +80,5 @@ As respostas às perguntas estão no `context.md` (22/10/2026).
 **Pendente com o usuário:** um pagamento com cartão de teste no preview (`APRO` e `FUND`), que também confirma que a API decifra a conexão sandbox com a chave nova.
 
 **Push só de documentação** (`f550bad`): na branch `preview` a API publicou (`delcastanher-lo4a4jxye`, Ready, `api-preview` → 200); o mesmo commit na `release/029` foi pulado pela regra ("Canceled by Ignored Build Step").
+
+**PR #60** aberto contra a `main`, sem merge: https://github.com/TheLastJedi00/delcastanher/pull/60
