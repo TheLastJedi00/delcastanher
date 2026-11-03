@@ -19,21 +19,50 @@ const FISCAL_ENV = {
 
 /** Spec 024.2, decisoes N2, N4, N7 e N9 (sobre a Spec 023, A1, A6, A7 e A10). */
 describe('invoice.config', () => {
-  // Decisao N4: uma variavel esquecida nunca emite nota real.
-  it('sem NFSE_ENV, o ambiente e homologacao', () => {
-    expect(nfseEnvironment(config({}))).toBe('homologacao');
-    expect(nfseEnvironment(config({ NFSE_ENV: 'qualquer' }))).toBe('homologacao');
-    expect(nfseEnvironment(config({ NFSE_ENV: 'producao' }))).toBe('producao');
+  // Spec 031, decisao 1: quem decide se a nota e real e a chave, e ela so vale
+  // no deploy de producao.
+  describe('emissao so no deploy de producao (Spec 031)', () => {
+    it('liga so com VERCEL_ENV=production e a chave da Notaas', () => {
+      expect(invoicesEnabled(config({ VERCEL_ENV: 'production', NOTAAS_API_KEY: 'k' }))).toBe(true);
+    });
+
+    it.each([{ VERCEL_ENV: 'preview' }, { VERCEL_ENV: 'development' }, {}])(
+      'com a chave e %p, fica desligada',
+      (env) => {
+        expect(invoicesEnabled(config({ ...env, NOTAAS_API_KEY: 'k' }))).toBe(false);
+      },
+    );
+
+    it('em producao sem a chave, fica desligada', () => {
+      expect(invoicesEnabled(config({ VERCEL_ENV: 'production' }))).toBe(false);
+    });
   });
 
-  // Decisao N9: a variavel da NF-e nao vale mais.
-  it('ignora o NFE_ENV antigo', () => {
-    expect(nfseEnvironment(config({ NFE_ENV: 'producao' }))).toBe('homologacao');
-  });
+  // Spec 031, decisao 2: o ambiente vem do deploy, e o NFSE_ENV nao vale mais.
+  describe('ambiente da nota (Spec 031)', () => {
+    it('e producao quando a emissao esta ligada', () => {
+      expect(nfseEnvironment(config({ VERCEL_ENV: 'production', NOTAAS_API_KEY: 'k' }))).toBe('producao');
+    });
 
-  it('a emissao so liga com a chave da Notaas', () => {
-    expect(invoicesEnabled(config({}))).toBe(false);
-    expect(invoicesEnabled(config({ NOTAAS_API_KEY: 'k' }))).toBe(true);
+    it('e homologacao quando a emissao esta desligada', () => {
+      expect(nfseEnvironment(config({}))).toBe('homologacao');
+      expect(nfseEnvironment(config({ VERCEL_ENV: 'preview', NOTAAS_API_KEY: 'k' }))).toBe('homologacao');
+    });
+
+    it('ignora o NFSE_ENV, inclusive NFSE_ENV=producao no preview', () => {
+      expect(
+        nfseEnvironment(config({ VERCEL_ENV: 'preview', NOTAAS_API_KEY: 'k', NFSE_ENV: 'producao' })),
+      ).toBe('homologacao');
+      expect(nfseEnvironment(config({ NFSE_ENV: 'producao' }))).toBe('homologacao');
+      expect(
+        nfseEnvironment(config({ VERCEL_ENV: 'production', NOTAAS_API_KEY: 'k', NFSE_ENV: 'homologacao' })),
+      ).toBe('producao');
+    });
+
+    // Decisao N9 da Spec 024.2: a variavel da NF-e tambem nao vale.
+    it('ignora o NFE_ENV antigo', () => {
+      expect(nfseEnvironment(config({ NFE_ENV: 'producao' }))).toBe('homologacao');
+    });
   });
 
   it('le os dados fiscais obrigatorios, sem codigo fixo', () => {
