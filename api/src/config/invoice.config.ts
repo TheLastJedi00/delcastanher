@@ -37,19 +37,31 @@ export interface FiscalConfig {
 }
 
 /**
- * Ambiente fiscal esperado (decisao N4). Qualquer valor que nao seja
- * `producao` e homologacao: uma variavel esquecida nunca emite nota real.
+ * Se o processo roda no deploy de producao da Vercel. Ausente (ambiente local)
+ * ou qualquer outro valor (`preview`, `development`) conta como fora dela.
  */
-export function nfseEnvironment(config: ConfigService): NfseEnvironment {
-  return optionalEnv(config, 'NFSE_ENV') === 'producao' ? 'producao' : 'homologacao';
+export function isProductionDeploy(config: ConfigService): boolean {
+  return optionalEnv(config, 'VERCEL_ENV') === 'production';
 }
 
 /**
- * Se a emissao esta ligada. Sem a chave da Notaas — no preview e em
- * desenvolvimento, por exemplo — nenhuma nota e criada, e a venda segue igual.
+ * Se a emissao esta ligada (Spec 031, decisao 1): so no deploy de producao
+ * **e** com a chave da Notaas. A Notaas nao recebe o ambiente no corpo da
+ * emissao — quem decide se a nota e real e a chave —, entao uma chave no
+ * preview ou no `.env` local emitiria nota real. Fora da producao a chave e
+ * ignorada, nenhuma nota e criada, e a venda segue igual.
  */
 export function invoicesEnabled(config: ConfigService): boolean {
-  return !!optionalEnv(config, 'NOTAAS_API_KEY');
+  return isProductionDeploy(config) && !!optionalEnv(config, 'NOTAAS_API_KEY');
+}
+
+/**
+ * Ambiente da nota (Spec 031, decisao 2): vem do deploy, e nao de uma variavel
+ * solta. `producao` com a emissao ligada; `homologacao` so rotula linhas
+ * antigas e o painel com a emissao desligada. O `NFSE_ENV` nao e mais lido.
+ */
+export function nfseEnvironment(config: ConfigService): NfseEnvironment {
+  return invoicesEnabled(config) ? 'producao' : 'homologacao';
 }
 
 /** Chave da API do projeto da Notaas. */
