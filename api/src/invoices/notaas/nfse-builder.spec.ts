@@ -7,7 +7,7 @@ const FISCAL: FiscalConfig = {
   aliquotaIss: 2,
   descricao: 'Treinamento educacional on-line Imersão RH Estratégico',
   tribIssqn: null,
-  nbs: null,
+  nbs: '118064000',
   informacoesComplementares: null,
   ibscbs: null,
 };
@@ -90,17 +90,19 @@ describe('buildNfse', () => {
     expect(buildNfse(ORDER, FISCAL).servico).toEqual({
       codigo: '080201',
       descricao: 'Treinamento educacional on-line Imersão RH Estratégico: Fundamentos; Pratica.',
+      nbs: '118064000',
     });
   });
 
-  it('inclui NBS e informacoes complementares quando definidos', () => {
-    const { servico } = buildNfse(ORDER, {
-      ...FISCAL,
-      nbs: '122051900',
-      informacoesComplementares: 'Acesso por 6 meses.',
-    });
+  // Spec 031, decisao 7: o NBS sai em toda nota.
+  it('o NBS sai sempre', () => {
+    expect(buildNfse(ORDER, FISCAL).servico.nbs).toBe('118064000');
+  });
 
-    expect(servico).toMatchObject({ nbs: '122051900', informacoesComplementares: 'Acesso por 6 meses.' });
+  it('inclui informacoes complementares quando definidas', () => {
+    const { servico } = buildNfse(ORDER, { ...FISCAL, informacoesComplementares: 'Acesso por 6 meses.' });
+
+    expect(servico).toMatchObject({ informacoesComplementares: 'Acesso por 6 meses.' });
   });
 
   it('valores: total do pedido e aliquota de ISS, sem tribISSQN por padrao', () => {

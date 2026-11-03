@@ -15,6 +15,7 @@ const FISCAL_ENV = {
   NFSE_CODIGO_SERVICO: '080201',
   NFSE_ALIQUOTA_ISS: '2',
   NFSE_DESCRICAO: 'Treinamento educacional on-line Imersão RH Estratégico',
+  NFSE_NBS: '118064000',
 };
 
 /** Spec 024.2, decisoes N2, N4, N7 e N9 (sobre a Spec 023, A1, A6, A7 e A10). */
@@ -71,7 +72,7 @@ describe('invoice.config', () => {
       aliquotaIss: 2,
       descricao: 'Treinamento educacional on-line Imersão RH Estratégico',
       tribIssqn: null,
-      nbs: null,
+      nbs: '118064000',
       informacoesComplementares: null,
       ibscbs: null,
     });
@@ -83,7 +84,6 @@ describe('invoice.config', () => {
         ...FISCAL_ENV,
         NFSE_ALIQUOTA_ISS: '2.5',
         NFSE_TRIB_ISSQN: '1',
-        NFSE_NBS: '122051900',
         NFSE_INFORMACOES_COMPLEMENTARES: 'Acesso por 6 meses.',
       }),
     );
@@ -91,7 +91,6 @@ describe('invoice.config', () => {
     expect(fiscal).toMatchObject({
       aliquotaIss: 2.5,
       tribIssqn: 1,
-      nbs: '122051900',
       informacoesComplementares: 'Acesso por 6 meses.',
     });
   });
@@ -106,6 +105,14 @@ describe('invoice.config', () => {
       expect(() => fiscalConfig(config(partial))).toThrow(name);
     }
   });
+
+  // Spec 031, decisao 7: o NBS 1.1806.40.00 da contadora, sem pontos.
+  it.each(['1.1806.40.00', '11806400', '1180640000', 'abcdefghi'])(
+    'o NBS tem 9 digitos, sem pontos: %s e recusado',
+    (nbs) => {
+      expect(() => fiscalConfig(config({ ...FISCAL_ENV, NFSE_NBS: nbs }))).toThrow('NFSE_NBS');
+    },
+  );
 
   it('o codigo de servico tem 6 digitos', () => {
     expect(() => fiscalConfig(config({ ...FISCAL_ENV, NFSE_CODIGO_SERVICO: '8.02' }))).toThrow(

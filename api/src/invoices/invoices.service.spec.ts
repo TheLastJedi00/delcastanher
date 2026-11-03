@@ -17,6 +17,7 @@ const ENV: Record<string, string> = {
   NFSE_CODIGO_SERVICO: '080201',
   NFSE_ALIQUOTA_ISS: '2',
   NFSE_DESCRICAO: 'Treinamento educacional on-line Imersão RH Estratégico',
+  NFSE_NBS: '118064000',
 };
 
 function order(overrides: Partial<FakeOrder> = {}): FakeOrder {
@@ -205,6 +206,25 @@ describe('InvoicesService', () => {
 
       expect(gateway.emit).not.toHaveBeenCalled();
       expect(invoices[0]).toMatchObject({ status: 'ERROR', lastError: 'NFSE_CODIGO_SERVICO nao configurada.' });
+    });
+
+    // Spec 031, decisao 7: nenhuma nota sai sem NBS.
+    it('sem NFSE_NBS, vira ERROR sem chamar a Notaas', async () => {
+      const { NFSE_NBS: _nbs, ...semNbs } = ENV;
+      const { service, gateway, invoices } = await build({ env: semNbs });
+
+      await service.onOrderPaid('ord-1');
+
+      expect(gateway.emit).not.toHaveBeenCalled();
+      expect(invoices[0]).toMatchObject({ status: 'ERROR', lastError: 'NFSE_NBS nao configurada.' });
+    });
+
+    it('o NBS vai no corpo da emissao', async () => {
+      const { service, gateway } = await build();
+
+      await service.onOrderPaid('ord-1');
+
+      expect(gateway.emit.mock.calls[0][0].servico.nbs).toBe('118064000');
     });
 
     it('sem NOTAAS_API_KEY, nao cria nota nenhuma', async () => {
