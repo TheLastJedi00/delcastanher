@@ -31,7 +31,8 @@ export interface FiscalConfig {
   descricao: string;
   /** 1 tributavel, 2 imune, 3 exportacao, 4 nao incidencia; nulo usa o projeto. */
   tribIssqn: number | null;
-  nbs: string | null;
+  /** NBS, 9 digitos sem pontos: obrigatorio desde a Spec 031 (decisao 7). */
+  nbs: string;
   informacoesComplementares: string | null;
   ibscbs: IbsCbsConfig | null;
 }
@@ -132,10 +133,21 @@ function ibscbs(config: ConfigService): IbsCbsConfig | null {
   return Object.keys(group).length ? group : null;
 }
 
+function nbs(config: ConfigService): string {
+  const value = requiredEnv(config, 'NFSE_NBS');
+
+  if (!/^\d{9}$/.test(value)) {
+    throw invalid('NFSE_NBS', 'NBS de 9 digitos, sem pontos, como 118064000');
+  }
+
+  return value;
+}
+
 /**
- * Os dados fiscais da contadora (Task 1.1). Codigo do servico, aliquota e
- * descricao sao obrigatorios **aqui**, embora a Notaas aceite omitir o
- * codigo: assim nenhuma nota sai antes de a contadora definir (decisao N2).
+ * Os dados fiscais da contadora (Task 1.1). Codigo do servico, aliquota,
+ * descricao e NBS sao obrigatorios **aqui**, embora a Notaas aceite omitir o
+ * codigo e o NBS: assim nenhuma nota sai sem o que a contadora definiu
+ * (decisao N2; NBS pela Spec 031, decisao 7).
  */
 export function fiscalConfig(config: ConfigService): FiscalConfig {
   const codigoServico = requiredEnv(config, 'NFSE_CODIGO_SERVICO');
@@ -149,7 +161,7 @@ export function fiscalConfig(config: ConfigService): FiscalConfig {
     aliquotaIss: aliquotaIss(config),
     descricao: requiredEnv(config, 'NFSE_DESCRICAO'),
     tribIssqn: tribIssqn(config),
-    nbs: optionalEnv(config, 'NFSE_NBS'),
+    nbs: nbs(config),
     informacoesComplementares: optionalEnv(config, 'NFSE_INFORMACOES_COMPLEMENTARES'),
     ibscbs: ibscbs(config),
   };

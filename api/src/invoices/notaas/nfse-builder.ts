@@ -39,7 +39,7 @@ export interface NfseBody {
   servico: {
     codigo: string;
     descricao: string;
-    nbs?: string;
+    nbs: string;
     informacoesComplementares?: string;
   };
   valores: {
@@ -128,7 +128,7 @@ export function buildNfse(order: NfseOrder, fiscal: FiscalConfig): NfseBody {
     servico: {
       codigo: fiscal.codigoServico,
       descricao: modules ? `${fiscal.descricao}: ${modules}.` : fiscal.descricao,
-      ...(fiscal.nbs ? { nbs: fiscal.nbs } : {}),
+      nbs: fiscal.nbs,
       ...(fiscal.informacoesComplementares
         ? { informacoesComplementares: fiscal.informacoesComplementares }
         : {}),

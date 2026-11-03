@@ -63,7 +63,7 @@ A Spec 023 (Parte A) seguiu o contador de 2026-09-29: NF-e de livro digital, com
 | `tomador.email` | **não vai**: o e-mail da nota é nosso (Spec 023, A8), e a Notaas mandaria um segundo |
 | `servico.descricao` | `NFSE_DESCRICAO` seguida dos títulos dos módulos do pedido |
 | `servico.codigo` | `NFSE_CODIGO_SERVICO` (cTribNac, 6 dígitos) |
-| `servico.nbs` | `NFSE_NBS`, quando definido |
+| `servico.nbs` | `NFSE_NBS`, sempre (obrigatório desde a Spec 031, decisão 7) |
 | `servico.informacoesComplementares` | `NFSE_INFORMACOES_COMPLEMENTARES`, quando definido |
 | `valores.total` | valor do pedido, em reais com duas casas |
 | `valores.aliquotaIss` | `NFSE_ALIQUOTA_ISS` |
@@ -116,12 +116,12 @@ A documentação usa os dois nomes para número e data (`numeroNfe`/`nNFSe` e `e
 
 | Variável | Tipo | Obrigatória | O que é |
 |---|---|---|---|
-| `NFSE_ENV` | config | não | `producao` só em Production; o resto é homologação |
+| `NFSE_ENV` | config | — | **não é mais lida** (Spec 031, decisão 2): o ambiente vem do deploy |
 | `NFSE_CODIGO_SERVICO` | fiscal | sim | cTribNac, 6 dígitos (ex.: `080201`, a confirmar) |
 | `NFSE_ALIQUOTA_ISS` | fiscal | sim | alíquota de ISS em % (ex.: `2`) |
 | `NFSE_DESCRICAO` | fiscal | sim | início da descrição do serviço |
 | `NFSE_TRIB_ISSQN` | fiscal | não | 1 tributável, 2 imune, 3 exportação, 4 não incidência |
-| `NFSE_NBS` | fiscal | não | NBS, 9 dígitos |
+| `NFSE_NBS` | fiscal | sim | NBS, 9 dígitos sem pontos: `118064000` (1.1806.40.00), desde a Spec 031 |
 | `NFSE_INFORMACOES_COMPLEMENTARES` | fiscal | não | texto livre no DANFSe |
 | `NFSE_IBSCBS_CST`, `NFSE_IBSCBS_CCLASSTRIB` e `NFSE_IBSCBS_INDOP` | fiscal | não | grupo IBS/CBS |
 | `NFSE_CANCEL_WINDOW_HOURS` | config | não | padrão 24 |
