@@ -5,12 +5,15 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { optionalEnv } from '../config/media.config';
 import {
   certificateExpiresAt,
   fiscalConfig,
   invoicesEnabled,
+  isProductionDeploy,
   nfseCancelWindowHours,
   nfseEnvironment,
   NfseEnvironment,
@@ -92,7 +95,7 @@ function translate(status: ProviderInvoice['status']): InvoiceStatus {
  *    cron so dizem qual nota reconsultar.
  */
 @Injectable()
-export class InvoicesService {
+export class InvoicesService implements OnModuleInit {
   private readonly logger = new Logger(InvoicesService.name);
 
   constructor(
@@ -102,6 +105,34 @@ export class InvoicesService {
     private readonly mail: MailService,
     private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Uma linha no boot diz se a emissao esta ligada, e por que nao (Spec 031,
+   * decisao 4). A chave nunca aparece: so se ela existe.
+   */
+  onModuleInit(): void {
+    const hasKey = !!optionalEnv(this.config, 'NOTAAS_API_KEY');
+
+    if (invoicesEnabled(this.config)) {
+      this.logger.log('Emissão de NFS-e ligada (produção).');
+
+      return;
+    }
+
+    if (isProductionDeploy(this.config)) {
+      this.logger.log('Emissão de NFS-e desligada (sem NOTAAS_API_KEY).');
+
+      return;
+    }
+
+    this.logger.log(
+      `Emissão de NFS-e desligada (VERCEL_ENV=${optionalEnv(this.config, 'VERCEL_ENV') ?? 'ausente'}).`,
+    );
+
+    if (hasKey) {
+      this.logger.warn('NOTAAS_API_KEY configurada fora da produção: ignorada. Remova a variável deste ambiente.');
+    }
+  }
 
   /**
    * Pedido aprovado: cria a nota e emite (decisao A4). Chamado pelo
