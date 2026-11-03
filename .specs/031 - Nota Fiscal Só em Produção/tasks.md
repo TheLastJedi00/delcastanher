@@ -64,5 +64,5 @@ Ordem das fases:
 **Fase 3 (Preview e produção):**
 - 3.1: release empurrada para a `preview`; deploy da API `delcastanher-id88sd8pz`, com o alias `api-preview.delcastanher.srv.br`.
 - 3.2: no log do boot do preview, "Emissão de NFS-e desligada (VERCEL_ENV=preview)." e o `warn` da chave ignorada (a chave aleatória da Fase 0 ainda está lá). No Financeiro do preview, as duas linhas de R$ 989 mostram "Emissão desligada neste ambiente"; a nota do incidente segue "Processando · Homologação", sem o "Atualizar".
-- 3.4: `NFSE_NBS=118064000` criado em Production (03/11, 11:49). A Vercel gravou a variável como **sensível**, então o valor não pode ser lido de volta; ele foi enviado sem quebra de linha. O código em produção hoje ainda trata o NBS como opcional, então ele já entra na próxima venda, antes do merge.
+- 3.4: `NFSE_NBS=118064000` criado em Production (03/11, 11:49). A Vercel gravou a variável como **sensível**, então o valor não pode ser lido de volta; ele foi enviado sem quebra de linha. Ela só vale a partir do próximo deploy de produção, que vem com o merge; como a variável já existe, esse deploy não deixa nenhuma venda cair em `ERROR` por falta de NBS.
 
