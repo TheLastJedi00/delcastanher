@@ -31,25 +31,38 @@ export interface FiscalConfig {
   descricao: string;
   /** 1 tributavel, 2 imune, 3 exportacao, 4 nao incidencia; nulo usa o projeto. */
   tribIssqn: number | null;
-  nbs: string | null;
+  /** NBS, 9 digitos sem pontos: obrigatorio desde a Spec 031 (decisao 7). */
+  nbs: string;
   informacoesComplementares: string | null;
   ibscbs: IbsCbsConfig | null;
 }
 
 /**
- * Ambiente fiscal esperado (decisao N4). Qualquer valor que nao seja
- * `producao` e homologacao: uma variavel esquecida nunca emite nota real.
+ * Se o processo roda no deploy de producao da Vercel. Ausente (ambiente local)
+ * ou qualquer outro valor (`preview`, `development`) conta como fora dela.
  */
-export function nfseEnvironment(config: ConfigService): NfseEnvironment {
-  return optionalEnv(config, 'NFSE_ENV') === 'producao' ? 'producao' : 'homologacao';
+export function isProductionDeploy(config: ConfigService): boolean {
+  return optionalEnv(config, 'VERCEL_ENV') === 'production';
 }
 
 /**
- * Se a emissao esta ligada. Sem a chave da Notaas — no preview e em
- * desenvolvimento, por exemplo — nenhuma nota e criada, e a venda segue igual.
+ * Se a emissao esta ligada (Spec 031, decisao 1): so no deploy de producao
+ * **e** com a chave da Notaas. A Notaas nao recebe o ambiente no corpo da
+ * emissao — quem decide se a nota e real e a chave —, entao uma chave no
+ * preview ou no `.env` local emitiria nota real. Fora da producao a chave e
+ * ignorada, nenhuma nota e criada, e a venda segue igual.
  */
 export function invoicesEnabled(config: ConfigService): boolean {
-  return !!optionalEnv(config, 'NOTAAS_API_KEY');
+  return isProductionDeploy(config) && !!optionalEnv(config, 'NOTAAS_API_KEY');
+}
+
+/**
+ * Ambiente da nota (Spec 031, decisao 2): vem do deploy, e nao de uma variavel
+ * solta. `producao` com a emissao ligada; `homologacao` so rotula linhas
+ * antigas e o painel com a emissao desligada. O `NFSE_ENV` nao e mais lido.
+ */
+export function nfseEnvironment(config: ConfigService): NfseEnvironment {
+  return invoicesEnabled(config) ? 'producao' : 'homologacao';
 }
 
 /** Chave da API do projeto da Notaas. */
@@ -120,10 +133,21 @@ function ibscbs(config: ConfigService): IbsCbsConfig | null {
   return Object.keys(group).length ? group : null;
 }
 
+function nbs(config: ConfigService): string {
+  const value = requiredEnv(config, 'NFSE_NBS');
+
+  if (!/^\d{9}$/.test(value)) {
+    throw invalid('NFSE_NBS', 'NBS de 9 digitos, sem pontos, como 118064000');
+  }
+
+  return value;
+}
+
 /**
- * Os dados fiscais da contadora (Task 1.1). Codigo do servico, aliquota e
- * descricao sao obrigatorios **aqui**, embora a Notaas aceite omitir o
- * codigo: assim nenhuma nota sai antes de a contadora definir (decisao N2).
+ * Os dados fiscais da contadora (Task 1.1). Codigo do servico, aliquota,
+ * descricao e NBS sao obrigatorios **aqui**, embora a Notaas aceite omitir o
+ * codigo e o NBS: assim nenhuma nota sai sem o que a contadora definiu
+ * (decisao N2; NBS pela Spec 031, decisao 7).
  */
 export function fiscalConfig(config: ConfigService): FiscalConfig {
   const codigoServico = requiredEnv(config, 'NFSE_CODIGO_SERVICO');
@@ -137,7 +161,7 @@ export function fiscalConfig(config: ConfigService): FiscalConfig {
     aliquotaIss: aliquotaIss(config),
     descricao: requiredEnv(config, 'NFSE_DESCRICAO'),
     tribIssqn: tribIssqn(config),
-    nbs: optionalEnv(config, 'NFSE_NBS'),
+    nbs: nbs(config),
     informacoesComplementares: optionalEnv(config, 'NFSE_INFORMACOES_COMPLEMENTARES'),
     ibscbs: ibscbs(config),
   };

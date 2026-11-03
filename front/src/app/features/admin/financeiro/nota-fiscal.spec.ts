@@ -197,6 +197,46 @@ describe('NotaFiscal', () => {
     expect(labels()).toEqual([]);
   });
 
+  /** Spec 031, decisao 5: fora da producao, a emissao fica desligada. */
+  describe('emissão desligada neste ambiente', () => {
+    const DISABLED: InvoiceSettings = { ...SETTINGS, enabled: false, environment: 'homologacao' };
+    const aviso = () => el().querySelector('[data-testid="emissao-desligada"]');
+
+    it('pedido pago sem nota mostra o aviso, e não "Sem nota" nem "Emitir nota"', () => {
+      render(null, 'PAID', DISABLED);
+
+      expect(aviso()?.textContent).toContain('Emissão desligada neste ambiente');
+      expect(text()).not.toContain('Sem nota');
+      expect(labels()).toEqual([]);
+    });
+
+    it('não leva o selo "Homologação" sem uma nota de homologação', () => {
+      render(null, 'PAID', DISABLED);
+
+      expect(el().querySelector('[data-testid="selo-homologacao"]')).toBeNull();
+    });
+
+    it('nota de produção: o aviso aparece e só ficam as ações que não chamam a Notaas', () => {
+      render(nota(), 'PAID', DISABLED);
+
+      expect(aviso()).not.toBeNull();
+      expect(el().querySelector('[data-testid="selo-homologacao"]')).toBeNull();
+      expect(labels()).toEqual(['Baixar PDF', 'Reenviar e-mail']);
+    });
+
+    it('linha antiga de homologação continua com o selo', () => {
+      render(nota({ environment: 'homologacao' }), 'PAID', DISABLED);
+
+      expect(el().querySelector('[data-testid="selo-homologacao"]')).not.toBeNull();
+    });
+
+    it('com a emissão ligada, não há aviso', () => {
+      render(null);
+
+      expect(aviso()).toBeNull();
+    });
+  });
+
   it('mostra a recusa da API', () => {
     render(nota());
 

@@ -67,8 +67,13 @@ type Dialog = 'reissue-unknown' | 'link' | 'cancel' | null;
             {{ nota.lastError }}
           </p>
         }
-      } @else {
+      } @else if (!disabled()) {
         <span class="text-xs text-slate-400">Sem nota</span>
+      }
+
+      <!-- Spec 031, decisao 5: fora da producao, nenhuma acao chama a Notaas. -->
+      @if (disabled()) {
+        <span class="text-xs text-slate-400" data-testid="emissao-desligada">Emissão desligada neste ambiente</span>
       }
 
       <div class="flex flex-wrap gap-1">
@@ -164,6 +169,12 @@ export class NotaFiscal {
 
   readonly status = computed(() => STATUS[this.invoice()?.status ?? 'PENDING']);
 
+  /** A emissao vale so no deploy de producao (Spec 031). Sem config, desligada. */
+  readonly enabled = computed(() => this.settings()?.enabled ?? false);
+
+  /** O aviso so sai com a config carregada: enquanto ela vem, nada pisca. */
+  readonly disabled = computed(() => this.settings()?.enabled === false);
+
   readonly showsError = computed(() =>
     ['ERROR', 'DENIED', 'UNKNOWN', 'CANCEL_ERROR'].includes(this.invoice()?.status ?? ''),
   );
@@ -171,7 +182,7 @@ export class NotaFiscal {
   /** O que esta situacao permite (decisao A9). */
   readonly actions = computed(() => {
     const nota = this.invoice();
-    const enabled = this.settings()?.enabled ?? false;
+    const enabled = this.enabled();
     const list: { id: string; label: string }[] = [];
 
     if (!nota) {
