@@ -33,8 +33,8 @@ Ordem das fases:
 - [x] **Task 1.8:** Rodar `npm test` e `npm run build` da API.
 
 ## Fase 2: Front - Painel de notas
-- [ ] **Task 2.1:** No componente de nota fiscal do Financeiro (`nota-fiscal.ts`), com `enabled: false` vindo do `GET /admin/invoices/config`: mostrar "Emissão desligada neste ambiente" e esconder as ações que chamam a Notaas. O selo "Homologação" continua só nas linhas com `environment = homologacao`. Spec do componente.
-- [ ] **Task 2.2:** Rodar `ng test` e `ng build` do front.
+- [x] **Task 2.1:** No componente de nota fiscal do Financeiro (`nota-fiscal.ts`), com `enabled: false` vindo do `GET /admin/invoices/config`: mostrar "Emissão desligada neste ambiente" e esconder as ações que chamam a Notaas. O selo "Homologação" continua só nas linhas com `environment = homologacao`. Spec do componente.
+- [x] **Task 2.2:** Rodar `ng test` e `ng build` do front.
 
 ## Fase 3: Preview e produção
 - [ ] **Task 3.1:** Fazer o merge das branches de fase na `release/031-nota-fiscal-so-em-producao` e empurrá-la para a branch `preview` (Spec 029).
@@ -59,3 +59,4 @@ Ordem das fases:
 - Os testes do `InvoicesService` passaram a rodar como produção (`VERCEL_ENV=production`, ambiente `producao`). O aviso de homologação no e-mail ficou coberto pelo reenvio de uma linha antiga.
 - `npm test`: 90 suítes, 1329 testes. `npm run build` ok.
 
+**Fase 2 (Front), branch `feat/031-front-painel-de-notas`:** no `nota-fiscal.ts`, com `enabled: false`, a linha mostra "Emissão desligada neste ambiente" no lugar de "Sem nota", e só ficam "Baixar PDF" e "Reenviar e-mail", que não chamam a Notaas. O selo "Homologação" continua só nas linhas com `environment = homologacao`. O aviso só aparece com a config carregada, para não piscar enquanto ela chega. `ng test`: 735 testes; `ng build` ok.
