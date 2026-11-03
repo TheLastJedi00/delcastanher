@@ -37,10 +37,10 @@ Ordem das fases:
 - [x] **Task 2.2:** Rodar `ng test` e `ng build` do front.
 
 ## Fase 3: Preview e produção
-- [ ] **Task 3.1:** Fazer o merge das branches de fase na `release/031-nota-fiscal-so-em-producao` e empurrá-la para a branch `preview` (Spec 029).
-- [ ] **Task 3.2:** No preview, conferir no log do boot a linha "Emissão de NFS-e desligada (VERCEL_ENV=preview)." e, no Financeiro, "Emissão desligada neste ambiente".
+- [x] **Task 3.1:** Fazer o merge das branches de fase na `release/031-nota-fiscal-so-em-producao` e empurrá-la para a branch `preview` (Spec 029).
+- [x] **Task 3.2:** No preview, conferir no log do boot a linha "Emissão de NFS-e desligada (VERCEL_ENV=preview)." e, no Financeiro, "Emissão desligada neste ambiente".
 - [ ] **Task 3.3:** Pedir ao usuário uma compra com cartão de teste (`APRO`) no preview. Conferir na branch `preview` do Neon que o pedido ficou `PAID` **sem** linha em `invoices`, e pedir ao usuário que confira o portal da NFS-e: nenhuma nota nova.
-- [ ] **Task 3.4:** Subir `NFSE_NBS=118064000` em **Production** da `delcastanher-api`, antes do merge (decisão 7), e conferir pela listagem da Vercel.
+- [x] **Task 3.4:** Subir `NFSE_NBS=118064000` em **Production** da `delcastanher-api`, antes do merge (decisão 7), e conferir pela listagem da Vercel.
 - [ ] **Task 3.5:** Abrir o PR da release contra a `main`, com as decisões no topo. **Sem merge**: o merge é do usuário.
 - [ ] **Task 3.6:** **Usuário:** remover a `NFSE_ENV` de Production na Vercel, depois do merge (decisão 2). Conferir no log do boot de produção a linha "Emissão de NFS-e ligada (produção)." e, na próxima venda real, a nota autorizada com `environment = producao` e o NBS 1.1806.40.00 no DANFSe.
 
@@ -60,3 +60,9 @@ Ordem das fases:
 - `npm test`: 90 suítes, 1329 testes. `npm run build` ok.
 
 **Fase 2 (Front), branch `feat/031-front-painel-de-notas`:** no `nota-fiscal.ts`, com `enabled: false`, a linha mostra "Emissão desligada neste ambiente" no lugar de "Sem nota", e só ficam "Baixar PDF" e "Reenviar e-mail", que não chamam a Notaas. O selo "Homologação" continua só nas linhas com `environment = homologacao`. O aviso só aparece com a config carregada, para não piscar enquanto ela chega. `ng test`: 735 testes; `ng build` ok.
+
+**Fase 3 (Preview e produção):**
+- 3.1: release empurrada para a `preview`; deploy da API `delcastanher-id88sd8pz`, com o alias `api-preview.delcastanher.srv.br`.
+- 3.2: no log do boot do preview, "Emissão de NFS-e desligada (VERCEL_ENV=preview)." e o `warn` da chave ignorada (a chave aleatória da Fase 0 ainda está lá). No Financeiro do preview, as duas linhas de R$ 989 mostram "Emissão desligada neste ambiente"; a nota do incidente segue "Processando · Homologação", sem o "Atualizar".
+- 3.4: `NFSE_NBS=118064000` criado em Production (03/11, 11:49). A Vercel gravou a variável como **sensível**, então o valor não pode ser lido de volta; ele foi enviado sem quebra de linha. O código em produção hoje ainda trata o NBS como opcional, então ele já entra na próxima venda, antes do merge.
+
