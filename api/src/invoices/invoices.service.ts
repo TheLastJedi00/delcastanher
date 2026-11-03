@@ -30,6 +30,9 @@ export const REFUND_CANCEL_REASON = 'Venda desfeita: pagamento estornado ao comp
 /** Motivo do cancelamento pelo painel, a saida para uma duplicata (decisao A2). */
 export const ADMIN_CANCEL_REASON = 'Nota cancelada pelo painel: emitida em duplicidade ou por engano';
 
+/** Resposta das acoes que chamam a Notaas fora da producao (Spec 031, decisao 1). */
+export const INVOICES_DISABLED_MESSAGE = 'Emissão de nota fiscal desligada neste ambiente.';
+
 /** O cron so trata o que esta parado ha mais de 1 hora (decisao A5). */
 const STALE_MS = 60 * 60 * 1000;
 
@@ -127,6 +130,11 @@ export class InvoicesService {
    */
   async onOrderRefunded(orderId: string): Promise<void> {
     try {
+      // Spec 031, decisao 1: fora da producao, nem o cancelamento sai.
+      if (!invoicesEnabled(this.config)) {
+        return;
+      }
+
       const invoice = await this.prisma.invoice.findUnique({ where: { orderId } });
 
       if (invoice?.status === 'AUTHORIZED') {
@@ -143,6 +151,13 @@ export class InvoicesService {
    * banco mas nao a chave da API (decisao A6).
    */
   async syncByProviderId(providerInvoiceId: string): Promise<void> {
+    // Spec 031, decisao 1: fora da producao, nenhuma consulta a Notaas.
+    if (!invoicesEnabled(this.config)) {
+      this.logger.warn(`Aviso da Notaas ignorado: emissao desligada neste ambiente (${providerInvoiceId}).`);
+
+      return;
+    }
+
     const invoice = await this.prisma.invoice.findUnique({ where: { providerInvoiceId } });
 
     if (!invoice || invoice.environment !== this.environment()) {
@@ -754,7 +769,7 @@ export class InvoicesService {
 
   private requireEnabled(): void {
     if (!invoicesEnabled(this.config)) {
-      throw new ConflictException('Emissao de nota fiscal desligada: NOTAAS_API_KEY nao configurada.');
+      throw new ConflictException(INVOICES_DISABLED_MESSAGE);
     }
   }
 
