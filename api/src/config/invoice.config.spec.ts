@@ -26,7 +26,7 @@ describe('invoice.config', () => {
       expect(invoicesEnabled(config({ VERCEL_ENV: 'production', NOTAAS_API_KEY: 'k' }))).toBe(true);
     });
 
-    it.each([{ VERCEL_ENV: 'preview' }, { VERCEL_ENV: 'development' }, {}])(
+    it.each<Record<string, string>>([{ VERCEL_ENV: 'preview' }, { VERCEL_ENV: 'development' }, {}])(
       'com a chave e %p, fica desligada',
       (env) => {
         expect(invoicesEnabled(config({ ...env, NOTAAS_API_KEY: 'k' }))).toBe(false);

@@ -12,7 +12,8 @@ import { FakeOrder, fakeInvoiceDb } from './invoices.testing';
 const KEY = '42024042258216042000144000000000000126104238271855';
 
 const ENV: Record<string, string> = {
-  NOTAAS_API_KEY: 'chave-homologacao',
+  VERCEL_ENV: 'production',
+  NOTAAS_API_KEY: 'chave-notaas',
   NFSE_CODIGO_SERVICO: '080201',
   NFSE_ALIQUOTA_ISS: '2',
   NFSE_DESCRICAO: 'Treinamento educacional on-line Imersão RH Estratégico',
@@ -45,7 +46,7 @@ function issued(overrides: Partial<ProviderInvoice> = {}): ProviderInvoice {
   return {
     providerInvoiceId: 'nts-1',
     status: 'issued',
-    environment: 'homologacao',
+    environment: 'producao',
     number: '42',
     series: null,
     accessKey: KEY,
@@ -125,7 +126,7 @@ describe('InvoicesService', () => {
       expect(invoices[0]).toMatchObject({
         status: 'PROCESSING',
         providerInvoiceId: 'nts-1',
-        environment: 'homologacao',
+        environment: 'producao',
         amountCents: 19900,
       });
       expect(prisma.invoice.create).toHaveBeenCalledTimes(1);
@@ -225,8 +226,9 @@ describe('InvoicesService', () => {
       await expect(service.onOrderPaid('ord-1')).resolves.toBeUndefined();
     });
 
-    it('com NFSE_ENV=producao, a nota nasce em producao', async () => {
-      const { service, invoices } = await build({ env: { ...ENV, NFSE_ENV: 'producao' } });
+    // Spec 031, decisao 2: o NFSE_ENV nao e mais lido.
+    it('em producao a nota nasce em producao, mesmo com NFSE_ENV=homologacao', async () => {
+      const { service, invoices } = await build({ env: { ...ENV, NFSE_ENV: 'homologacao' } });
 
       await service.onOrderPaid('ord-1');
 
@@ -265,18 +267,18 @@ describe('InvoicesService', () => {
       await service.syncByProviderId('nts-1');
 
       expect(storage.saveFile).toHaveBeenCalledWith(
-        `invoices/homologacao/${KEY}.xml`,
+        `invoices/producao/${KEY}.xml`,
         Buffer.from('<NFSe/>'),
         'application/xml',
       );
       expect(storage.saveFile).toHaveBeenCalledWith(
-        `invoices/homologacao/${KEY}.pdf`,
+        `invoices/producao/${KEY}.pdf`,
         Buffer.from('%PDF'),
         'application/pdf',
       );
       expect(invoices[0]).toMatchObject({
-        xmlPath: `invoices/homologacao/${KEY}.xml`,
-        pdfPath: `invoices/homologacao/${KEY}.pdf`,
+        xmlPath: `invoices/producao/${KEY}.xml`,
+        pdfPath: `invoices/producao/${KEY}.pdf`,
       });
       expect(invoices[0].emailedAt).toBeInstanceOf(Date);
 
@@ -315,13 +317,25 @@ describe('InvoicesService', () => {
       expect(message.html).not.toContain('descadastro');
     });
 
-    it('a nota de homologacao avisa no assunto e no corpo que nao tem valor fiscal', async () => {
+    it('a nota de producao nao leva o aviso de homologacao', async () => {
       const { service, mail } = await emitted();
 
       await service.syncByProviderId('nts-1');
 
-      expect(mail.send.mock.calls[0][0].subject).toContain('[HOMOLOGAÇÃO]');
-      expect(mail.send.mock.calls[0][0].text).toContain('sem valor fiscal');
+      expect(mail.send.mock.calls[0][0].subject).not.toContain('[HOMOLOGAÇÃO]');
+      expect(mail.send.mock.calls[0][0].text).not.toContain('sem valor fiscal');
+    });
+
+    // Linha antiga de homologacao (Spec 024.2): o reenvio ainda avisa.
+    it('a nota de homologacao avisa no assunto e no corpo que nao tem valor fiscal', async () => {
+      const { service, mail, invoices } = await emitted();
+
+      await service.syncByProviderId('nts-1');
+      invoices[0].environment = 'homologacao';
+      await service.resendEmail('ord-1');
+
+      expect(mail.send.mock.calls[1][0].subject).toContain('[HOMOLOGAÇÃO]');
+      expect(mail.send.mock.calls[1][0].text).toContain('sem valor fiscal');
     });
 
     it('falha no e-mail desfaz a reivindicacao, para o cron tentar de novo', async () => {
@@ -376,7 +390,7 @@ describe('InvoicesService', () => {
     it('ambiente que nao bate com o da nota vira ERROR, e nada e guardado nem enviado', async () => {
       const { service, gateway, invoices, mail } = await emitted();
 
-      gateway.status.mockResolvedValue(issued({ environment: 'producao' }));
+      gateway.status.mockResolvedValue(issued({ environment: 'homologacao' }));
 
       await service.syncByProviderId('nts-1');
 
@@ -405,7 +419,7 @@ describe('InvoicesService', () => {
       await service.syncByProviderId('nts-1');
 
       expect(invoices[0].accessKey).toBe(OTHER);
-      expect(invoices[0].xmlPath).toBe(`invoices/homologacao/${OTHER}.xml`);
+      expect(invoices[0].xmlPath).toBe(`invoices/producao/${OTHER}.xml`);
     });
 
     it('id desconhecido e ignorado sem consultar', async () => {
@@ -419,7 +433,7 @@ describe('InvoicesService', () => {
     it('nota de outro ambiente e ignorada', async () => {
       const { service, gateway, invoices } = await emitted();
 
-      invoices[0].environment = 'producao';
+      invoices[0].environment = 'homologacao';
 
       await service.syncByProviderId('nts-1');
 
@@ -459,7 +473,7 @@ describe('InvoicesService', () => {
       expect(invoices[0].cancelledAt).toBeInstanceOf(Date);
       expect(gateway.downloadXml).toHaveBeenCalledWith('nts-1', 'cancel');
       expect(storage.saveFile).toHaveBeenCalledWith(
-        `invoices/homologacao/${KEY}-cancelamento.xml`,
+        `invoices/producao/${KEY}-cancelamento.xml`,
         expect.any(Buffer),
         'application/xml',
       );
@@ -601,7 +615,7 @@ describe('InvoicesService', () => {
       const { service, gateway, invoices, age } = await build();
 
       await service.onOrderPaid('ord-1');
-      invoices[0].environment = 'producao';
+      invoices[0].environment = 'homologacao';
       age(invoices[0].id, 2 * HOUR);
 
       await service.reconcile();
@@ -623,7 +637,7 @@ describe('InvoicesService', () => {
 
       expect(service.settings()).toMatchObject({
         enabled: true,
-        environment: 'homologacao',
+        environment: 'producao',
         certificateExpiresAt: null,
         certificateWarning: false,
       });
@@ -740,7 +754,7 @@ describe('InvoicesService', () => {
       await service.onOrderPaid('ord-1');
       await service.syncByProviderId('nts-1');
 
-      expect((await service.pdfUrl('ord-1')).url).toBe(`https://assinada/invoices/homologacao/${KEY}.pdf`);
+      expect((await service.pdfUrl('ord-1')).url).toBe(`https://assinada/invoices/producao/${KEY}.pdf`);
     });
 
     it('atualizar situacao reconsulta na hora', async () => {
@@ -772,7 +786,7 @@ describe('InvoicesService', () => {
     const logged = spies.flatMap((spy) => spy.mock.calls.flat()).map(String).join(' ');
 
     expect(logged).not.toContain('19119119100');
-    expect(logged).not.toContain('chave-homologacao');
+    expect(logged).not.toContain('chave-notaas');
   });
 });
 
@@ -792,5 +806,111 @@ describe('InvoicesService — pedido de teste', () => {
 
     await expect(service.reissue('ord-1')).rejects.toMatchObject({ status: 409 });
     expect(gateway.emit).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Spec 031, decisao 1: fora do deploy de producao, nenhuma chamada a Notaas
+ * sai, mesmo com a chave configurada por engano.
+ */
+describe('InvoicesService — emissao desligada fora da producao', () => {
+  const DISABLED = 'Emissão de nota fiscal desligada neste ambiente.';
+  const PREVIEW = { ...ENV, VERCEL_ENV: 'preview' };
+  const { VERCEL_ENV: _vercel, ...LOCAL } = ENV;
+
+  /** Uma linha antiga, de quando a emissao ainda ligava fora da producao. */
+  function seed(invoices: { push: (row: never) => number }, status: string) {
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+    invoices.push({
+      id: 'inv-antiga',
+      orderId: 'ord-1',
+      status,
+      environment: 'homologacao',
+      amountCents: 19900,
+      providerInvoiceId: 'nts-antiga',
+      number: null,
+      series: null,
+      accessKey: KEY,
+      protocol: null,
+      xmlPath: null,
+      pdfPath: null,
+      cancelXmlPath: null,
+      lastError: null,
+      issuedAt: new Date(),
+      cancelledAt: null,
+      emailedAt: null,
+      createdAt: old,
+      updatedAt: old,
+    } as never);
+  }
+
+  it.each([
+    ['preview', PREVIEW],
+    ['local, sem VERCEL_ENV', LOCAL],
+  ])('%s com a chave: o pedido aprovado nao cria nota nem chama a Notaas', async (_name, env) => {
+    const { service, gateway, invoices } = await build({ env });
+
+    await service.onOrderPaid('ord-1');
+
+    expect(invoices).toHaveLength(0);
+    expect(gateway.emit).not.toHaveBeenCalled();
+  });
+
+  it('o cron nao chama a Notaas', async () => {
+    const { service, gateway, invoices } = await build({ env: PREVIEW });
+
+    seed(invoices as never, 'PROCESSING');
+
+    await service.reconcile();
+
+    expect(gateway.status).not.toHaveBeenCalled();
+    expect(gateway.emit).not.toHaveBeenCalled();
+  });
+
+  it('o aviso do webhook nao reconsulta', async () => {
+    const { service, gateway, invoices } = await build({ env: PREVIEW });
+
+    seed(invoices as never, 'PROCESSING');
+
+    await service.syncByProviderId('nts-antiga');
+
+    expect(gateway.status).not.toHaveBeenCalled();
+  });
+
+  it('o estorno nao pede cancelamento', async () => {
+    const { service, gateway, invoices } = await build({ env: PREVIEW });
+
+    seed(invoices as never, 'AUTHORIZED');
+
+    await service.onOrderRefunded('ord-1');
+
+    expect(gateway.cancel).not.toHaveBeenCalled();
+    expect(invoices[0].status).toBe('AUTHORIZED');
+  });
+
+  it('emitir de novo, vincular, cancelar e atualizar respondem 409', async () => {
+    const { service, gateway, invoices } = await build({ env: PREVIEW });
+
+    seed(invoices as never, 'AUTHORIZED');
+
+    for (const action of [
+      () => service.reissue('ord-1'),
+      () => service.link('ord-1', 'nts-x'),
+      () => service.cancel('ord-1'),
+      () => service.sync('ord-1'),
+    ]) {
+      await expect(action()).rejects.toMatchObject({ status: 409, message: DISABLED });
+    }
+
+    expect(gateway.emit).not.toHaveBeenCalled();
+    expect(gateway.status).not.toHaveBeenCalled();
+    expect(gateway.cancel).not.toHaveBeenCalled();
+  });
+
+  it('o painel recebe a emissao desligada, com o rotulo de homologacao', async () => {
+    const { service } = await build({ env: PREVIEW });
+
+    expect(service.settings()).toMatchObject({ enabled: false, environment: 'homologacao' });
   });
 });
