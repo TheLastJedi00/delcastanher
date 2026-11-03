@@ -15,22 +15,22 @@ Ordem das fases:
 - [ ] **Task 0.4:** **Usuário:** perguntar à contadora se as notas já emitidas sem NBS (as 5 de produção e a do preview) precisam de nota substituta. Registrar a resposta na decisão 7.
 
 ## Fase 1: API - Emissão só em produção
-- [ ] **Task 1.1:** Em `invoice.config.spec.ts` (decisões 1 e 2):
+- [x] **Task 1.1:** Em `invoice.config.spec.ts` (decisões 1 e 2):
   - `invoicesEnabled` é `true` só com `VERCEL_ENV=production` **e** `NOTAAS_API_KEY`;
   - `false` com a chave e `VERCEL_ENV` igual a `preview`, `development` ou ausente;
   - `false` em produção sem a chave;
   - `nfseEnvironment` é `producao` quando a emissão está ligada e `homologacao` quando não está, e ignora o `NFSE_ENV` (inclusive `NFSE_ENV=producao` no preview).
-- [ ] **Task 1.2:** Implementar no `invoice.config.ts` e corrigir o comentário do `invoicesEnabled`.
-- [ ] **Task 1.3:** Em `invoices.service.spec.ts`:
+- [x] **Task 1.2:** Implementar no `invoice.config.ts` e corrigir o comentário do `invoicesEnabled`.
+- [x] **Task 1.3:** Em `invoices.service.spec.ts`:
   - com `VERCEL_ENV=preview` e a chave, `onOrderPaid` não cria nota e o gateway não é chamado;
   - `reconcile` não chama o gateway;
   - `reissue` e o cancelamento respondem 409 com "Emissão de nota fiscal desligada neste ambiente.";
   - com `VERCEL_ENV=production`, o fluxo atual continua igual, com `environment = producao`.
-- [ ] **Task 1.4:** Ajustar o `InvoicesService`: a mensagem do `requireEnabled` e o uso de `invoicesEnabled` em todo caminho que chama a Notaas (emitir, cancelar e sincronizar pelo painel).
-- [ ] **Task 1.5:** Spec do log de boot (decisão 4): uma linha de "ligada" ou "desligada (VERCEL_ENV=…)", e o `warn` quando houver chave fora da produção. A chave nunca aparece no log. Implementar no `onModuleInit` do `InvoicesService`.
-- [ ] **Task 1.6:** NBS obrigatório (decisão 7). Em `invoice.config.spec.ts`: sem `NFSE_NBS` → erro com o nome da variável; com `1.1806.40.00` (com pontos), 8 ou 10 dígitos → erro de formato; com `118064000` → `nbs: '118064000'`. Em `nfse-builder.spec.ts`: o `servico.nbs` sai sempre. Em `invoices.service.spec.ts`: sem `NFSE_NBS`, a nota vai para `ERROR` e a Notaas não é chamada.
-- [ ] **Task 1.7:** Implementar no `fiscalConfig()` (`requiredEnv` e `^\d{9}$`), no tipo `FiscalConfig` e no `nfse-builder`. Atualizar o `api/.env.example` (`NFSE_NBS` entre os obrigatórios, com `118064000`) e a tabela de variáveis da Spec 024.2.
-- [ ] **Task 1.8:** Rodar `npm test` e `npm run build` da API.
+- [x] **Task 1.4:** Ajustar o `InvoicesService`: a mensagem do `requireEnabled` e o uso de `invoicesEnabled` em todo caminho que chama a Notaas (emitir, cancelar e sincronizar pelo painel).
+- [x] **Task 1.5:** Spec do log de boot (decisão 4): uma linha de "ligada" ou "desligada (VERCEL_ENV=…)", e o `warn` quando houver chave fora da produção. A chave nunca aparece no log. Implementar no `onModuleInit` do `InvoicesService`.
+- [x] **Task 1.6:** NBS obrigatório (decisão 7). Em `invoice.config.spec.ts`: sem `NFSE_NBS` → erro com o nome da variável; com `1.1806.40.00` (com pontos), 8 ou 10 dígitos → erro de formato; com `118064000` → `nbs: '118064000'`. Em `nfse-builder.spec.ts`: o `servico.nbs` sai sempre. Em `invoices.service.spec.ts`: sem `NFSE_NBS`, a nota vai para `ERROR` e a Notaas não é chamada.
+- [x] **Task 1.7:** Implementar no `fiscalConfig()` (`requiredEnv` e `^\d{9}$`), no tipo `FiscalConfig` e no `nfse-builder`. Atualizar o `api/.env.example` (`NFSE_NBS` entre os obrigatórios, com `118064000`) e a tabela de variáveis da Spec 024.2.
+- [x] **Task 1.8:** Rodar `npm test` e `npm run build` da API.
 
 ## Fase 2: Front - Painel de notas
 - [ ] **Task 2.1:** No componente de nota fiscal do Financeiro (`nota-fiscal.ts`), com `enabled: false` vindo do `GET /admin/invoices/config`: mostrar "Emissão desligada neste ambiente" e esconder as ações que chamam a Notaas. O selo "Homologação" continua só nas linhas com `environment = homologacao`. Spec do componente.
@@ -45,3 +45,17 @@ Ordem das fases:
 - [ ] **Task 3.6:** **Usuário:** remover a `NFSE_ENV` de Production na Vercel, depois do merge (decisão 2). Conferir no log do boot de produção a linha "Emissão de NFS-e ligada (produção)." e, na próxima venda real, a nota autorizada com `environment = producao` e o NBS 1.1806.40.00 no DANFSe.
 
 ## Registro da execução
+
+### Execução (03/11/2026)
+
+**Fase 0 (Contenção):** 0.1 e 0.2 feitas de outro jeito, por decisão do usuário (ver as próprias tasks): a chave e o segredo do webhook do Preview foram trocados por valores aleatórios, e a chave do `api/.env` ficou comentada. 0.3 e 0.4 seguem com o usuário e a contadora.
+
+**Fase 1 (API), branch `feat/031-api-emissao-so-em-producao`:**
+- `invoicesEnabled()` exige `VERCEL_ENV=production` **e** `NOTAAS_API_KEY` (novo `isProductionDeploy()`), e `nfseEnvironment()` vem dele: o `NFSE_ENV` não é mais lido.
+- Com a emissão desligada, além do `onOrderPaid`, do cron e das ações do painel, também o **estorno** (`onOrderRefunded`) e o **aviso do webhook** (`syncByProviderId`) deixam de chamar a Notaas. A spec só citava emissão e cancelamento pelo painel; o estorno cancela pela Notaas, e o webhook reconsulta, então os dois entraram na mesma regra (decisão 1: "nenhuma chamada à Notaas sai").
+- As ações do painel respondem 409 com "Emissão de nota fiscal desligada neste ambiente." (`INVOICES_DISABLED_MESSAGE`).
+- Log do boot no `onModuleInit`: "ligada (produção)", "desligada (VERCEL_ENV=…)" ou, em produção sem chave, "desligada (sem NOTAAS_API_KEY)", e o `warn` com chave fora da produção.
+- `NFSE_NBS` obrigatório, com `^\d{9}$`; o `nfse-builder` manda `servico.nbs` sempre. `.env.example` com `NFSE_NBS=118064000` e sem `NFSE_ENV`; tabela de variáveis da Spec 024.2 atualizada.
+- Os testes do `InvoicesService` passaram a rodar como produção (`VERCEL_ENV=production`, ambiente `producao`). O aviso de homologação no e-mail ficou coberto pelo reenvio de uma linha antiga.
+- `npm test`: 90 suítes, 1329 testes. `npm run build` ok.
+
