@@ -914,3 +914,60 @@ describe('InvoicesService — emissao desligada fora da producao', () => {
     expect(service.settings()).toMatchObject({ enabled: false, environment: 'homologacao' });
   });
 });
+
+/** Spec 031, decisao 4: uma linha no boot diz se a emissao esta ligada. */
+describe('InvoicesService — log do boot', () => {
+  function boot(env: Record<string, string>) {
+    const log = jest.spyOn(Logger.prototype, 'log');
+    const warn = jest.spyOn(Logger.prototype, 'warn');
+
+    log.mockClear();
+    warn.mockClear();
+
+    return build({ env }).then(({ service }) => {
+      service.onModuleInit();
+
+      return {
+        logs: log.mock.calls.map((call) => String(call[0])),
+        warns: warn.mock.calls.map((call) => String(call[0])),
+      };
+    });
+  }
+
+  it('em producao com a chave: ligada, sem aviso', async () => {
+    const { logs, warns } = await boot(ENV);
+
+    expect(logs).toContain('Emissão de NFS-e ligada (produção).');
+    expect(warns).toEqual([]);
+  });
+
+  it('no preview com a chave: desligada, e avisa que a chave foi ignorada', async () => {
+    const { logs, warns } = await boot({ ...ENV, VERCEL_ENV: 'preview' });
+
+    expect(logs).toContain('Emissão de NFS-e desligada (VERCEL_ENV=preview).');
+    expect(warns).toContain(
+      'NOTAAS_API_KEY configurada fora da produção: ignorada. Remova a variável deste ambiente.',
+    );
+  });
+
+  it('local, sem VERCEL_ENV e sem a chave: desligada, sem aviso', async () => {
+    const { VERCEL_ENV: _vercel, NOTAAS_API_KEY: _key, ...env } = ENV;
+    const { logs, warns } = await boot(env);
+
+    expect(logs).toContain('Emissão de NFS-e desligada (VERCEL_ENV=ausente).');
+    expect(warns).toEqual([]);
+  });
+
+  it('em producao sem a chave: desligada, dizendo o motivo', async () => {
+    const { NOTAAS_API_KEY: _key, ...env } = ENV;
+    const { logs } = await boot(env);
+
+    expect(logs).toContain('Emissão de NFS-e desligada (sem NOTAAS_API_KEY).');
+  });
+
+  it('a chave nunca aparece no log', async () => {
+    const { logs, warns } = await boot({ ...ENV, VERCEL_ENV: 'preview' });
+
+    expect([...logs, ...warns].join(' ')).not.toContain('chave-notaas');
+  });
+});
