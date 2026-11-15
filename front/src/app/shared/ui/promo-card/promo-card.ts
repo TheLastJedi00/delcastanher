@@ -8,6 +8,7 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { NgOptimizedImage } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { formatBrasiliaShort } from '../../../core/services/brasilia-time';
 import { ConsentService } from '../../../core/services/consent.service';
@@ -25,7 +26,10 @@ const DISMISS_KEY = 'promo-card-dismissed:';
  * Friday):** preto puro, com o teal da marca em neon e o dourado do banner
  * como acento — titulo condensado com contorno dourado e brilho teal, a
  * porcentagem num selo estourado, a contagem em blocos com borda neon e o
- * botao em pilula dourada. Na ultima hora, o neon vira vermelho. O unico
+ * botao em pilula dourada. Na ultima hora, o neon vira vermelho. A foto da
+ * Lidiane e a `nova_mentora.jpeg` recortada, com o fundo cinza levado ao
+ * preto (so os pixels escuros e neutros; rosto, cabelo e roupa intactos), e
+ * a borda dela esfuma no preto do card. O unico
  * movimento alem da entrada e o piscar lento das faiscas, desligado com
  * `prefers-reduced-motion`.
  *
@@ -47,7 +51,7 @@ const DISMISS_KEY = 'promo-card-dismissed:';
 @Component({
   selector: 'ui-promo-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [NgOptimizedImage, RouterLink],
   styles: `
     :host {
       --glow: 40 195 217;
@@ -86,10 +90,8 @@ const DISMISS_KEY = 'promo-card-dismissed:';
         radial-gradient(1.6px 1.6px at 8% 22%, var(--gold) 60%, #0000 61%),
         radial-gradient(1.2px 1.2px at 22% 78%, rgb(var(--glow)) 60%, #0000 61%),
         radial-gradient(2px 2px at 38% 12%, var(--gold-light) 60%, #0000 61%),
-        radial-gradient(1.2px 1.2px at 55% 88%, var(--gold) 60%, #0000 61%),
         radial-gradient(1.6px 1.6px at 67% 30%, rgb(var(--glow)) 60%, #0000 61%),
         radial-gradient(2px 2px at 92% 14%, var(--gold) 60%, #0000 61%),
-        radial-gradient(1.2px 1.2px at 96% 82%, rgb(var(--glow)) 60%, #0000 61%),
         radial-gradient(circle at 88% 8%, rgb(var(--glow) / 0.3), #0000 46%),
         radial-gradient(circle at 0% 100%, rgb(36 71 121 / 0.6), #0000 52%);
     }
@@ -227,8 +229,23 @@ const DISMISS_KEY = 'promo-card-dismissed:';
       outline-offset: 3px;
     }
 
+    /* A foto esfuma no preto do card pela esquerda e por baixo. */
+    .promo__photo {
+      -webkit-mask-image: linear-gradient(to right, #0000, #000 38%), linear-gradient(to top, #0000, #000 32%);
+      mask-image: linear-gradient(to right, #0000, #000 38%), linear-gradient(to top, #0000, #000 32%);
+      -webkit-mask-composite: source-in;
+      mask-composite: intersect;
+    }
+
+    /* Na faixa em linha a foto fica no meio: esfuma em volta toda. */
+    .promo__photo--soft {
+      -webkit-mask-image: radial-gradient(ellipse 48% 60% at 50% 38%, #000 42%, #0000 100%);
+      mask-image: radial-gradient(ellipse 48% 60% at 50% 38%, #000 42%, #0000 100%);
+    }
+
     .promo__close {
-      color: rgb(255 255 255 / 0.75);
+      color: rgb(255 255 255 / 0.8);
+      background: rgb(0 0 0 / 0.45);
     }
 
     .promo__close:hover {
@@ -258,17 +275,27 @@ const DISMISS_KEY = 'promo-card-dismissed:';
             <p class="sr-only">{{ summary() }}</p>
 
             <div aria-hidden="true">
-              <div class="flex items-center gap-3 pr-6">
-                <p class="promo__title min-w-0 flex-1 text-[2.6rem]">{{ promo.name }}</p>
-                <div class="promo__burst w-24">
-                  <span class="promo__burst-core"></span>
-                  <span class="promo__burst-text">
-                    <span class="text-[1.7rem]">{{ promo.percentOff }}%</span>
-                    <span class="text-sm">off</span>
-                  </span>
+              <div class="flex items-end gap-2">
+                <div class="min-w-0 flex-1 pb-1">
+                  <p class="promo__title text-[2.6rem]">{{ promo.name }}</p>
+                  <p class="promo__sub mt-2 text-sm">Em toda a loja, até {{ deadline() }}</p>
+                </div>
+                <div class="relative -mr-5 -mt-5 w-36 shrink-0" data-testid="promo-foto">
+                  <img
+                    class="promo__photo block h-auto w-full"
+                    ngSrc="assets/mentora-black-friday.jpg"
+                    width="480"
+                    height="538"
+                    alt="" />
+                  <div class="promo__burst absolute -left-5 bottom-1 w-[5.5rem]">
+                    <span class="promo__burst-core"></span>
+                    <span class="promo__burst-text">
+                      <span class="text-2xl">{{ promo.percentOff }}%</span>
+                      <span class="text-xs">off</span>
+                    </span>
+                  </div>
                 </div>
               </div>
-              <p class="promo__sub mt-2 text-sm">Em toda a loja, até {{ deadline() }}</p>
 
               @if (remaining(); as left) {
                 <div class="mt-4 grid grid-cols-4 gap-1.5" data-testid="contagem">
@@ -310,8 +337,18 @@ const DISMISS_KEY = 'promo-card-dismissed:';
             </div>
           </div>
 
+          <!-- No celular a faixa e estreita: a foto entra a partir do md. -->
+          <img
+            class="promo__photo--soft -my-6 hidden h-[10rem] w-auto self-end md:ml-auto md:block"
+            ngSrc="assets/mentora-black-friday.jpg"
+            width="480"
+            height="538"
+            alt=""
+            aria-hidden="true"
+            data-testid="promo-foto" />
+
           @if (remaining(); as left) {
-            <div class="mt-4 md:ml-auto md:mt-0" aria-hidden="true">
+            <div class="mt-4 md:mt-0" aria-hidden="true">
               <div class="grid grid-cols-4 gap-1.5 md:w-72" data-testid="contagem">
                 @for (unit of units(); track unit.label) {
                   <div class="promo__unit px-1 py-1.5">
