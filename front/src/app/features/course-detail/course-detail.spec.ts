@@ -245,12 +245,13 @@ describe('CourseDetail', () => {
   describe('investimento', () => {
     const OFFER: StoreOffer = {
       modules: [],
+      promotion: null,
       bundle: {
         slug: 'imersao-rh-lancamento',
         title: 'Imersão RH Estratégico — Pacote completo',
         modules: [],
         modulesTotalCents: 237200,
-        tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, capacity: null, remaining: null },
+        tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, listPriceCents: 98900, capacity: null, remaining: null },
         nextTier: null,
       },
     };
@@ -296,7 +297,7 @@ describe('CourseDetail', () => {
         ...OFFER,
         bundle: {
           ...OFFER.bundle!,
-          tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
+          tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, listPriceCents: 59000, capacity: 20, remaining: 7 },
           nextTier: { name: '2º Lote', priceCents: 79700 },
         },
       });
@@ -325,9 +326,9 @@ describe('CourseDetail', () => {
       responderOferta({
         ...OFFER,
         modules: [
-          { order: 1, title: 'Fundamentos', priceCents: 19700 },
-          { order: 2, title: 'Diagnóstico', priceCents: 14900 },
-          { order: 3, title: 'Em breve', priceCents: null },
+          { order: 1, title: 'Fundamentos', priceCents: 19700 , listPriceCents: 19700},
+          { order: 2, title: 'Diagnóstico', priceCents: 14900 , listPriceCents: 14900},
+          { order: 3, title: 'Em breve', priceCents: null , listPriceCents: null},
         ],
       });
 

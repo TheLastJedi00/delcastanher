@@ -14,6 +14,7 @@ function module(order: number, priceCents = 19700): StoreModuleItem {
     summary: 'Resumo.',
     lessonCount: 1,
     priceCents,
+    listPriceCents: priceCents,
     purchasable: true,
     access: { unlocked: false, expiresAt: null },
   };
@@ -24,12 +25,13 @@ const CATALOG = [module(1), module(2), module(3, 29700), module(4), module(5), m
 /** Preco unico da Spec 027. */
 const OFFER: StoreOffer = {
   modules: [],
+  promotion: null,
   bundle: {
     slug: 'imersao-rh-lancamento',
     title: 'Imersão RH Estratégico — Pacote completo',
     modules: [],
     modulesTotalCents: 256400,
-    tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, capacity: null, remaining: null },
+    tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, listPriceCents: 98900, capacity: null, remaining: null },
     nextTier: null,
   },
 };

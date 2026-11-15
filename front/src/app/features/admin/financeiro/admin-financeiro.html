@@ -20,6 +20,9 @@
   <!-- Spec 030: o módulo de teste de R$ 1,00 e o link secreto dele. -->
   <app-pagamento-teste class="mb-6 block" />
 
+  <!-- Spec 032: campanha de desconto (Black Friday), com início e fim. -->
+  <app-campanha-desconto class="mb-6 block" />
+
   <!-- Spec 023, decisao A10: o vencimento do certificado A1 derruba toda
        emissao de NFS-e. O aviso aparece 30 dias antes. -->
   @if (invoiceSettings()?.certificateWarning) {
@@ -333,6 +336,15 @@
               {{ formatCents(totais.refundedCents) }} · {{ totais.refundedOrders }}
             </dd>
           </div>
+          <!-- Spec 032, decisao 10: o bruto ja e o cobrado; isto e o que deixou de entrar. -->
+          @if (totais.promotionOrders > 0) {
+            <div class="flex justify-between gap-4" data-testid="descontos-concedidos">
+              <dt class="text-slate-600">Descontos concedidos</dt>
+              <dd class="font-semibold tabular-nums text-brand-navy">
+                {{ formatCents(totais.discountCents) }} · {{ totais.promotionOrders }}
+              </dd>
+            </div>
+          }
           <div class="flex justify-between gap-4">
             <dt class="text-slate-600">Pedidos pendentes</dt>
             <dd class="font-semibold tabular-nums text-brand-navy">{{ totais.pendingOrders }}</dd>
@@ -458,6 +470,13 @@
                     <!-- Spec 030: o módulo de teste, fora da receita. -->
                     @if (pedido.testPayment) {
                       <ui-badge variant="warning" label="Teste" data-testid="etiqueta-teste" />
+                    }
+                    <!-- Spec 032: o pedido entrou com o desconto da campanha. -->
+                    @if (pedido.promotion; as promo) {
+                      <ui-badge
+                        variant="teal"
+                        [label]="promo.name + ' −' + promo.percentOff + '%'"
+                        data-testid="etiqueta-campanha" />
                     }
                   </div>
                 </td>

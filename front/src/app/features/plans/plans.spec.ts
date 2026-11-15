@@ -15,18 +15,20 @@ const MODULES = PRICES.map((priceCents, index) => ({
   order: index + 1,
   title: `Módulo ${index + 1}`,
   priceCents,
+  listPriceCents: priceCents,
 }));
 
 /** Oferta com o preco unico da Spec 027. */
 function offer(): StoreOffer {
   return {
     modules: MODULES,
+    promotion: null,
     bundle: {
       slug: 'imersao-rh-lancamento',
       title: 'Imersão RH Estratégico — Pacote completo',
       modules: MODULES,
       modulesTotalCents: 256400,
-      tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, capacity: null, remaining: null },
+      tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, listPriceCents: 98900, capacity: null, remaining: null },
       nextTier: null,
     },
   };
@@ -40,7 +42,7 @@ function launchOffer(): StoreOffer {
     ...current,
     bundle: {
       ...current.bundle!,
-      tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
+      tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, listPriceCents: 59000, capacity: 20, remaining: 7 },
       nextTier: { name: '2º Lote', priceCents: 79700 },
     },
   };

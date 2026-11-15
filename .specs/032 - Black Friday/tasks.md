@@ -32,9 +32,9 @@ Ordem das fases:
 - [x] **Task 1.11:** Rodar `npm test` e `npm run build` da API.
 
 ## Fase 2: Front - Painel do Financeiro
-- [ ] **Task 2.1:** `PromotionsService` no front (`core/services`), com os tipos da Fase 1. `formatPrice` reaproveitado.
-- [ ] **Task 2.2:** Componente `campanha-desconto.ts` em `features/admin/financeiro/` (decisão 10): estados sem campanha, agendada, no ar e histórico; formulário reativo com validações; prévia vinda da API; "Encerrar agora" com confirmação dentro do card. Datas em `America/Sao_Paulo`. Spec do componente.
-- [ ] **Task 2.3:** Encaixar o card no `admin-financeiro.html`, abaixo do `<app-pagamento-teste>`. No resumo do período, a linha "Descontos concedidos"; na lista de pedidos, o selo da campanha. Ajustar a spec do financeiro.
+- [x] **Task 2.1:** `PromotionsService` no front (`core/services`), com os tipos da Fase 1. `formatPrice` reaproveitado.
+- [x] **Task 2.2:** Componente `campanha-desconto.ts` em `features/admin/financeiro/` (decisão 10): estados sem campanha, agendada, no ar e histórico; formulário reativo com validações; prévia vinda da API; "Encerrar agora" com confirmação dentro do card. Datas em `America/Sao_Paulo`. Spec do componente.
+- [x] **Task 2.3:** Encaixar o card no `admin-financeiro.html`, abaixo do `<app-pagamento-teste>`. No resumo do período, a linha "Descontos concedidos"; na lista de pedidos, o selo da campanha. Ajustar a spec do financeiro.
 
 ## Fase 3: Front - Preço riscado
 - [ ] **Task 3.1:** Componente `ui-sale-price` em `shared/ui/` (decisão 8): `~~de~~` + preço novo + selo "−30%" + "Oferta válida até 27/11 às 23h59", com texto para leitor de tela. Sem campanha, mostra só o preço. Spec.
@@ -81,3 +81,14 @@ Ordem das fases:
 - **1.9:** `OrderView.promotion` (`{ name, percentOff, listAmountCents }`, helper `orderPromotionView`, usado também no financeiro). O e-mail é texto escapado, sem risco: a linha fica "Valor: R$ 692,30 no PIX, com 30% de desconto da Black Friday (de R$ 989,00)."
 - **1.10:** o `nfse-builder` já usava `amountCents`; só entrou o teste.
 - **1.11:** `npm test`: 93 suítes, 1406 testes. `npm run build` ok. Lint (`--fix`) nos arquivos novos de produção; os erros que sobram nos specs HTTP são os mesmos `any` do supertest dos specs que já existiam.
+
+### Fase 2 (Front, painel), 15/11/2026, branch `feat/032-front-painel-campanha`
+
+- **2.1:** `AdminPromotionsService` e `brasilia-time.ts` (campo `datetime-local` ↔ ISO com `-03:00`, e os textos "27/11 às 23h59"). O deslocamento é fixo, porque o Brasil não tem horário de verão desde 2019; a formatação usa o fuso pelo nome. Os tipos da loja ganharam `listPriceCents`, `PublicPromotion` e `OrderPromotion`, e os fixtures dos specs foram ajustados (`listPriceCents`, `promotion: null`).
+- **2.2:** `campanha-desconto.ts`. Diferente do esboço da decisão 10:
+  - **"Criar campanha" fica sempre disponível**, e não só sem campanha: dá para agendar a próxima com outra no ar. A API recusa a sobreposição com 409, e o card mostra a mensagem.
+  - **Campanha no ar mostra "Termina em …" sem contagem por segundo.** O relógio vivo é da Fase 4 (vitrine); no painel, a data basta.
+  - A prévia recalcula com 300 ms de espera depois da última tecla na porcentagem.
+- **2.3:** card abaixo do "Pagamento de teste"; linha "Descontos concedidos" no bloco "Estornos e pedidos", só com pedido da campanha no período; selo "Black Friday −30%" na lista de pedidos.
+- `ng test`: 750 testes. `ng build` ok.
+- **Teste no navegador fica para o preview (Fase 6):** o `api/.env` local aponta para o banco de produção (memória `banco-unico-producao`), e a migration ainda não rodou em banco nenhum. Subir a API local para criar campanha de teste mexeria na loja de produção.

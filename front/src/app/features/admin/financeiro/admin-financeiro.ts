@@ -19,6 +19,7 @@ import { StatCard } from '../../../shared/ui/stat-card/stat-card';
 import { TimeSeriesChart, TimeSeriesPoint } from '../../../shared/ui/time-series-chart/time-series-chart';
 import { AdminInvoicesService, InvoiceSettings } from '../../../core/services/admin-invoices.service';
 import { AdminContaRecebedora } from './admin-conta-recebedora';
+import { CampanhaDesconto } from './campanha-desconto';
 import { ConfirmacaoCompra } from './confirmacao-compra';
 import { LogsPagamento } from './logs-pagamento';
 import { PagamentoTeste } from './pagamento-teste';
@@ -102,6 +103,7 @@ function fromDateInput(value: string, edge: 'start' | 'end'): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AdminContaRecebedora,
+    CampanhaDesconto,
     ConfirmacaoCompra,
     LogsPagamento,
     NotaFiscal,

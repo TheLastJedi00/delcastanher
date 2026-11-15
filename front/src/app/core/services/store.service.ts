@@ -10,8 +10,13 @@ export interface StoreModuleItem {
   title: string;
   summary: string;
   lessonCount: number;
-  /** Nulo = "a definir": o modulo aparece como "em breve" (Spec 014, decisao 1). */
+  /**
+   * Nulo = "a definir": o modulo aparece como "em breve" (Spec 014, decisao 1).
+   * Em campanha, ja com o desconto (Spec 032, decisao 4).
+   */
   priceCents: number | null;
+  /** Preco cheio, o riscado em campanha; igual a `priceCents` fora dela. */
+  listPriceCents: number | null;
   purchasable: boolean;
   access: { unlocked: boolean; expiresAt: string | null };
 }
@@ -20,7 +25,10 @@ export interface StoreModuleItem {
 export interface OfferModule {
   order: number;
   title: string;
+  /** Com o desconto da campanha, quando houver (Spec 032, decisao 4). */
   priceCents: number | null;
+  /** Preco cheio; igual a `priceCents` fora de campanha. */
+  listPriceCents: number | null;
 }
 
 /** Lote vigente, com as vagas que sobram. `remaining` nulo = sem limite. */
@@ -28,7 +36,10 @@ export interface OfferTier {
   id: string;
   order: number;
   name: string;
+  /** Com o desconto da campanha, quando houver (Spec 032, decisao 4). */
   priceCents: number;
+  /** Preco cheio do lote; igual a `priceCents` fora de campanha. */
+  listPriceCents: number;
   capacity: number | null;
   remaining: number | null;
 }
@@ -48,6 +59,27 @@ export interface BundleOffer {
 export interface StoreOffer {
   modules: OfferModule[];
   bundle: BundleOffer | null;
+  /** Campanha no ar, ou nula (Spec 032). */
+  promotion: PublicPromotion | null;
+}
+
+/**
+ * Campanha como a vitrine a anuncia (Spec 032, decisao 7). `serverNow` e o
+ * relogio do servidor no instante da resposta: a contagem regressiva usa a
+ * diferenca entre os dois, e nao o relogio do aparelho, que pode estar errado.
+ */
+export interface PublicPromotion {
+  name: string;
+  percentOff: number;
+  endsAt: string;
+  serverNow: string;
+}
+
+/** Campanha de um pedido, para o valor cheio riscado (Spec 032, decisao 12). */
+export interface OrderPromotion {
+  name: string;
+  percentOff: number;
+  listAmountCents: number;
 }
 
 /**

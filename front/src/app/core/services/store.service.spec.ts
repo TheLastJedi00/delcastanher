@@ -22,6 +22,7 @@ const CATALOG: StoreModuleItem[] = [
     summary: 'Base do RH estratégico',
     lessonCount: 4,
     priceCents: 19900,
+    listPriceCents: 19900,
     purchasable: true,
     access: { unlocked: false, expiresAt: null },
   },
@@ -32,6 +33,7 @@ const CATALOG: StoreModuleItem[] = [
     summary: 'Casos reais',
     lessonCount: 5,
     priceCents: 24900,
+    listPriceCents: 24900,
     purchasable: true,
     access: { unlocked: false, expiresAt: null },
   },
@@ -42,6 +44,7 @@ const CATALOG: StoreModuleItem[] = [
     summary: 'Em preparação',
     lessonCount: 0,
     priceCents: null,
+    listPriceCents: null,
     purchasable: false,
     access: { unlocked: false, expiresAt: null },
   },
@@ -50,12 +53,13 @@ const CATALOG: StoreModuleItem[] = [
 /** Oferta com o Pacote de Lancamento no Fundador (Spec 019). */
 const OFFER: StoreOffer = {
   modules: [],
+  promotion: null,
   bundle: {
     slug: 'imersao-rh-lancamento',
     title: 'Pacote de Lançamento — Imersão RH Estratégico',
     modules: [],
     modulesTotalCents: 256400,
-    tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
+    tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, listPriceCents: 59000, capacity: 20, remaining: 7 },
     nextTier: { name: '2º Lote', priceCents: 79700 },
   },
 };
