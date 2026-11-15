@@ -413,6 +413,16 @@ model Order {
   /// e sem nota fiscal, e fora da receita no financeiro.
   testPayment Boolean @default(false)
 
+  /// Campanha de desconto em que o pedido entrou (Spec 032, decisao 5). Nulo
+  /// fora de campanha. Os snapshots seguem a regra do `tierNameSnapshot`: o
+  /// recibo diz "Black Friday -30%" mesmo se a campanha for renomeada.
+  promotionId             String?
+  promotionNameSnapshot   String?
+  discountPercentSnapshot Int?
+  /// Valor cheio do pedido, sem o desconto. `amountCents` continua sendo o
+  /// cobrado; o desconto concedido e `listAmountCents - amountCents`.
+  listAmountCents         Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -427,6 +437,8 @@ model Order {
   /// `Restrict`: conexao que ja vendeu nao e apagavel, porque e ela que diz
   /// com que token consultar o pedido. Desconectar e marcar, nao apagar.
   mpConnection MercadoPagoConnection? @relation(fields: [mpConnectionId], references: [id], onDelete: Restrict)
+  /// `Restrict`: campanha que vendeu nao e apagavel (Spec 032, decisao 5).
+  promotion    Promotion?             @relation(fields: [promotionId], references: [id], onDelete: Restrict)
   /// Nota fiscal do pedido (Spec 023): uma por pedido, criada na aprovacao.
   invoice      Invoice?
 
@@ -1027,4 +1039,30 @@ enum CampaignStatus {
   PARTIAL
 
   @@map("campaign_status")
+}
+
+/// Campanha de desconto, como a Black Friday (Spec 032).
+///
+/// **Nao existe coluna "ativa".** A vigente e a que tem `startsAt <= agora <
+/// endsAt` e `endedEarlyAt` nulo (decisao 1): derivada, ela comeca e acaba no
+/// instante certo, sem cron e sem alguem virar a chave. No maximo uma vigente,
+/// e os periodos nao se cruzam (decisao 2).
+model Promotion {
+  id           String    @id @default(cuid())
+  name         String
+  /// Porcentagem inteira, de 1 a 90, sobre todos os produtos da loja.
+  percentOff   Int
+  startsAt     DateTime
+  endsAt       DateTime
+  /// Preenchido quando o admin encerra antes da hora.
+  endedEarlyAt DateTime?
+  createdById  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([startsAt, endsAt])
+  @@map("promotions")
 }
