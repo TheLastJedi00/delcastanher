@@ -24,6 +24,7 @@ import { OrdersService } from './orders.service';
 import { PaymentClientLogsController } from './payment-client-logs.controller';
 import { PaymentLogService } from './payment-log.service';
 import { PaymentTestService } from './payment-test.service';
+import { PromotionsService } from './promotions.service';
 import { PurchaseEmailService } from './purchase-email.service';
 import { StoreController } from './store.controller';
 import { StoreTestProductController } from './store-test-product.controller';
@@ -69,6 +70,7 @@ import { TokenCipher } from './token-cipher';
     OrdersService,
     PaymentLogService,
     PaymentTestService,
+    PromotionsService,
     PurchaseEmailService,
     StoreService,
     TokenCipher,

@@ -178,6 +178,7 @@ describe('BundlesService.offer (Spec 019, decisoes 4 e 10)', () => {
       order: 1,
       name: 'Lote Fundador',
       priceCents: 59000,
+      listPriceCents: 59000,
       capacity: 20,
       remaining: 7,
     });
@@ -220,7 +221,27 @@ describe('BundlesService.offer (Spec 019, decisoes 4 e 10)', () => {
 
     const offer = await service.offer(NOW);
 
-    expect(Object.keys(offer?.modules[0] ?? {}).sort()).toEqual(['order', 'priceCents', 'title']);
+    expect(Object.keys(offer?.modules[0] ?? {}).sort()).toEqual(['listPriceCents', 'order', 'priceCents', 'title']);
+  });
+
+  /** Spec 032, decisao 4. */
+  it('sem campanha, o preco cheio e igual ao cobrado', async () => {
+    const { service } = await buildOffer(bundleRow());
+
+    const offer = await service.offer(NOW);
+
+    expect(offer?.tier).toMatchObject({ priceCents: 59000, listPriceCents: 59000 });
+    expect(offer?.modules[0]).toMatchObject({ priceCents: 19700, listPriceCents: 19700 });
+  });
+
+  it('com campanha, o lote e os modulos saem com desconto, e a ancora continua a soma cheia', async () => {
+    const { service } = await buildOffer(bundleRow());
+
+    const offer = await service.offer(NOW, 30);
+
+    expect(offer?.tier).toMatchObject({ priceCents: 41300, listPriceCents: 59000 });
+    expect(offer?.modules[0]).toEqual({ order: 1, title: 'Módulo 1', priceCents: 13790, listPriceCents: 19700 });
+    expect(offer?.modulesTotalCents).toBe(256400);
   });
 });
 
