@@ -417,8 +417,46 @@ describe('AdminFinanceService — pedido de teste na lista', () => {
 
     const [header, teste, real] = (await service.exportOrdersCsv(query())).replace('﻿', '').split('\n');
 
-    expect(header.split(';').at(-1)).toBe('Teste');
-    expect(teste.split(';').at(-1)).toBe('sim');
-    expect(real.split(';').at(-1)).toBe('não');
+    const col = header.split(';').indexOf('Teste');
+
+    expect(col).toBeGreaterThan(-1);
+    expect(teste.split(';')[col]).toBe('sim');
+    expect(real.split(';')[col]).toBe('não');
+  });
+});
+
+/** Spec 032, decisao 10: o selo da campanha na lista e no CSV. */
+describe('AdminFinanceService — pedidos da campanha', () => {
+  const NA_CAMPANHA = {
+    ...PEDIDO,
+    id: 'ord-bf',
+    amountCents: 27860,
+    listAmountCents: 39800,
+    promotionId: 'promo-1',
+    promotionNameSnapshot: 'Black Friday',
+    discountPercentSnapshot: 30,
+  };
+
+  it('a linha traz a campanha com o valor cheio; sem campanha, nulo', async () => {
+    const { service } = await build([NA_CAMPANHA, PEDIDO], 2);
+
+    const result = await service.listOrders(query());
+
+    expect(result.items[0].promotion).toEqual({ name: 'Black Friday', percentOff: 30, listAmountCents: 39800 });
+    expect(result.items[0].amountCents).toBe(27860);
+    expect(result.items[1].promotion).toBeNull();
+  });
+
+  it('o CSV ganha as colunas da campanha e do valor cheio', async () => {
+    const { service } = await build([NA_CAMPANHA, PEDIDO], 2);
+
+    const [cabecalho, campanha, sem] = (await service.exportOrdersCsv(query())).replace('\ufeff', '').split('\n');
+    const colunas = cabecalho.split(';');
+    const col = (name: string) => colunas.indexOf(name);
+
+    expect(campanha.split(';')[col('Campanha')]).toBe('Black Friday -30%');
+    expect(campanha.split(';')[col('Valor cheio (R$)')]).toBe('398,00');
+    expect(sem.split(';')[col('Campanha')]).toBe('');
+    expect(sem.split(';')[col('Valor cheio (R$)')]).toBe('');
   });
 });

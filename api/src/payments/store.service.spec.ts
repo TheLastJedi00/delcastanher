@@ -3,6 +3,7 @@ import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessService } from './access.service';
 import { BundlesService } from './bundles.service';
+import { PromotionsService } from './promotions.service';
 import { StoreService } from './store.service';
 
 const ALUNO: AuthUser = {
@@ -42,8 +43,20 @@ const MODULES = [
   },
 ];
 
-async function build() {
+/** Black Friday no ar: 30% ate 01/12, 00h00 de Brasilia. */
+const BLACK_FRIDAY = {
+  id: 'promo-1',
+  name: 'Black Friday',
+  percentOff: 30,
+  startsAt: new Date('2026-11-27T03:00:00Z'),
+  endsAt: new Date('2026-12-01T03:00:00Z'),
+  endedEarlyAt: null as Date | null,
+};
+
+async function build(promotion: typeof BLACK_FRIDAY | null = null) {
   const prisma = { module: { findMany: jest.fn().mockResolvedValue(MODULES) } };
+  const bundles = { offer: jest.fn().mockResolvedValue(null) };
+  const promotions = { current: jest.fn().mockResolvedValue(promotion) };
   const access = {
     activeMap: jest.fn().mockResolvedValue(new Map([['mod-1', EXPIRES]])),
   };
@@ -53,11 +66,12 @@ async function build() {
       StoreService,
       { provide: PrismaService, useValue: prisma },
       { provide: AccessService, useValue: access },
-      { provide: BundlesService, useValue: { offer: jest.fn().mockResolvedValue(null) } },
+      { provide: BundlesService, useValue: bundles },
+      { provide: PromotionsService, useValue: promotions },
     ],
   }).compile();
 
-  return { service: moduleRef.get(StoreService), prisma, access };
+  return { service: moduleRef.get(StoreService), prisma, access, bundles, promotions };
 }
 
 describe('StoreService', () => {
@@ -124,5 +138,53 @@ describe('StoreService', () => {
     await service.catalog(ALUNO);
 
     expect(access.activeMap).toHaveBeenCalledTimes(1);
+  });
+
+  /** Spec 032, decisoes 4 e 7. */
+  describe('com campanha de desconto', () => {
+    const NOW = new Date('2026-11-28T15:00:00Z');
+
+    it('o catalogo traz o preco com desconto e o cheio', async () => {
+      const { service } = await build(BLACK_FRIDAY);
+
+      const catalog = await service.catalog(ALUNO, NOW);
+
+      expect(catalog[1]).toMatchObject({ priceCents: 13930, listPriceCents: 19900 });
+      expect(catalog[2]).toMatchObject({ priceCents: null, listPriceCents: null });
+    });
+
+    it('a oferta publica traz a campanha com o relogio do servidor, e passa a porcentagem ao pacote', async () => {
+      const { service, bundles } = await build(BLACK_FRIDAY);
+
+      const offer = await service.offer(NOW);
+
+      expect(offer.promotion).toEqual({
+        name: 'Black Friday',
+        percentOff: 30,
+        endsAt: '2026-12-01T03:00:00.000Z',
+        serverNow: '2026-11-28T15:00:00.000Z',
+      });
+      expect(bundles.offer).toHaveBeenCalledWith(NOW, 30);
+      expect(offer.modules[1]).toEqual({ order: 2, title: 'Pratica', priceCents: 13930, listPriceCents: 19900 });
+    });
+
+    it('a campanha encerrada antes da hora anuncia o fim de fato', async () => {
+      const ended = { ...BLACK_FRIDAY, endedEarlyAt: new Date('2026-11-29T00:00:00Z') };
+      const { service } = await build(ended);
+
+      expect((await service.offer(NOW)).promotion?.endsAt).toBe('2026-11-29T00:00:00.000Z');
+    });
+
+    it('sem campanha, o preco cheio e igual ao cobrado e a campanha e nula', async () => {
+      const { service, bundles } = await build(null);
+
+      const offer = await service.offer(NOW);
+      const catalog = await service.catalog(ALUNO, NOW);
+
+      expect(offer.promotion).toBeNull();
+      expect(bundles.offer).toHaveBeenCalledWith(NOW, null);
+      expect(offer.modules[1]).toMatchObject({ priceCents: 19900, listPriceCents: 19900 });
+      expect(catalog[1]).toMatchObject({ priceCents: 19900, listPriceCents: 19900 });
+    });
   });
 });

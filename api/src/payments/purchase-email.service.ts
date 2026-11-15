@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { frontendUrl } from '../config/mail.config';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { orderPromotionView } from './promotion';
 import { purchaseConfirmationEmail, testPaymentEmail } from './purchase-email';
 
 /** O que o e-mail le do pedido. */
@@ -23,6 +24,9 @@ const ORDER_SELECT = {
   tierNameSnapshot: true,
   confirmationEmailedAt: true,
   testPayment: true,
+  promotionNameSnapshot: true,
+  discountPercentSnapshot: true,
+  listAmountCents: true,
   user: { select: { email: true, name: true } },
   items: { select: { titleSnapshot: true } },
   accesses: { select: { expiresAt: true } },
@@ -38,6 +42,9 @@ interface PurchaseOrderRow {
   bundleTitleSnapshot: string | null;
   tierNameSnapshot: string | null;
   testPayment?: boolean;
+  promotionNameSnapshot?: string | null;
+  discountPercentSnapshot?: number | null;
+  listAmountCents?: number | null;
   user: { email: string; name: string | null };
   items: { titleSnapshot: string }[];
   accesses: { expiresAt: Date }[];
@@ -155,6 +162,7 @@ export class PurchaseEmailService {
           ? { title: order.bundleTitleSnapshot, tierName: order.tierNameSnapshot }
           : null,
       amountCents: order.amountCents,
+      promotion: orderPromotionView(order),
       method: order.method,
       installments: order.installments,
       accessUntil: expirations.length ? new Date(Math.min(...expirations)) : null,

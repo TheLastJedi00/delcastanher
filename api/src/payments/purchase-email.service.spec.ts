@@ -200,3 +200,26 @@ describe('PurchaseEmailService — pedido de teste', () => {
     expect(mail.send).not.toHaveBeenCalled();
   });
 });
+
+/** Spec 032, decisao 12. */
+describe('PurchaseEmailService — campanha de desconto', () => {
+  it('le os snapshots da campanha do pedido e os leva ao e-mail', async () => {
+    const { service, prisma, mail } = await build({
+      order: orderRow({
+        amountCents: 69230,
+        promotionNameSnapshot: 'Black Friday',
+        discountPercentSnapshot: 30,
+        listAmountCents: 98900,
+      }),
+    });
+
+    await service.onOrderPaid('order-1');
+
+    expect(prisma.order.findUnique.mock.calls[0][0].select).toMatchObject({
+      promotionNameSnapshot: true,
+      discountPercentSnapshot: true,
+      listAmountCents: true,
+    });
+    expect(mail.send.mock.calls[0][0].text).toContain('30% de desconto da Black Friday');
+  });
+});

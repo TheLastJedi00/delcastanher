@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessService } from './access.service';
-import { BundleOffer, BundlesService, OfferModule } from './bundles.service';
+import { BundleOffer, BundlesService, OfferModule, discountedModule } from './bundles.service';
+import { applyDiscount, effectiveEnd } from './promotion';
+import { PromotionsService } from './promotions.service';
 
 /**
  * Modulo na vitrine.
@@ -17,8 +19,13 @@ export interface StoreModuleItem {
   title: string;
   summary: string;
   lessonCount: number;
-  /** Nulo = "a definir": o modulo aparece como "em breve" (decisao 1). */
+  /**
+   * Nulo = "a definir": o modulo aparece como "em breve" (decisao 1). Em
+   * campanha, ja com o desconto (Spec 032, decisao 4).
+   */
   priceCents: number | null;
+  /** Preco cheio; igual a `priceCents` fora de campanha. */
+  listPriceCents: number | null;
   /** Falso para modulo sem preco e para o que o aluno ja tem ativo. */
   purchasable: boolean;
   access: { unlocked: boolean; expiresAt: string | null };
@@ -31,6 +38,20 @@ export interface StoreModuleItem {
 export interface StoreOffer {
   modules: OfferModule[];
   bundle: BundleOffer | null;
+  /** Campanha no ar, ou nula (Spec 032). */
+  promotion: PublicPromotion | null;
+}
+
+/**
+ * Campanha como a vitrine a anuncia (Spec 032, decisao 7). `serverNow` vai
+ * junto para a contagem regressiva corrigir o relogio do aparelho, que pode
+ * estar errado. `endsAt` e o fim de fato: o antecipado, quando houver.
+ */
+export interface PublicPromotion {
+  name: string;
+  percentOff: number;
+  endsAt: string;
+  serverNow: string;
 }
 
 /**
@@ -45,6 +66,7 @@ export class StoreService {
     private readonly prisma: PrismaService,
     private readonly access: AccessService,
     private readonly bundles: BundlesService,
+    private readonly promotions: PromotionsService,
   ) {}
 
   /**
@@ -54,21 +76,42 @@ export class StoreService {
    * do dia do deploy — por isso a pagina le isto no navegador. Quem decide o
    * lote cobrado e o `POST /orders`, e nao esta leitura.
    */
-  async offer(): Promise<StoreOffer> {
+  async offer(now: Date = new Date()): Promise<StoreOffer> {
+    const promotion = await this.promotions.current(now);
+
+    return {
+      ...(await this.prices(promotion?.percentOff ?? null, now)),
+      promotion: promotion
+        ? {
+            name: promotion.name,
+            percentOff: promotion.percentOff,
+            endsAt: effectiveEnd(promotion).toISOString(),
+            serverNow: now.toISOString(),
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Os precos da vitrine com uma porcentagem qualquer: a previa do painel
+   * (Spec 032, decisao 10). E o mesmo caminho da oferta publica, para a conta
+   * do painel e a da loja nunca divergirem.
+   */
+  async prices(percentOff: number | null, now: Date = new Date()): Promise<Omit<StoreOffer, 'promotion'>> {
     const [modules, bundle] = await Promise.all([
       this.prisma.module.findMany({
         orderBy: { order: 'asc' },
         select: { order: true, title: true, priceCents: true },
       }),
-      this.bundles.offer(),
+      this.bundles.offer(now, percentOff),
     ]);
 
-    return { modules, bundle };
+    return { modules: modules.map((module) => discountedModule(module, percentOff)), bundle };
   }
 
   /** Catalogo na ordem da trilha, com o estado de acesso do solicitante. */
-  async catalog(user: AuthUser): Promise<StoreModuleItem[]> {
-    const [modules, active] = await Promise.all([
+  async catalog(user: AuthUser, now: Date = new Date()): Promise<StoreModuleItem[]> {
+    const [modules, active, promotion] = await Promise.all([
       this.prisma.module.findMany({
         orderBy: { order: 'asc' },
         select: {
@@ -82,7 +125,9 @@ export class StoreService {
       }),
       // Uma consulta para o catalogo inteiro (decisao 4).
       this.access.activeMap(user.uid),
+      this.promotions.current(now),
     ]);
+    const percentOff = promotion?.percentOff ?? null;
 
     return modules.map((module) => {
       const expiresAt = active.get(module.id) ?? null;
@@ -93,7 +138,8 @@ export class StoreService {
         title: module.title,
         summary: module.summary,
         lessonCount: module._count?.lessons ?? 0,
-        priceCents: module.priceCents,
+        priceCents: module.priceCents === null ? null : applyDiscount(module.priceCents, percentOff),
+        listPriceCents: module.priceCents,
         // Modulo ja ativo nao volta a vitrine enquanto valer: e o mesmo 409 que
         // o pedido devolveria, dito antes do clique.
         purchasable: module.priceCents !== null && expiresAt === null,

@@ -1,4 +1,5 @@
 import { renderEmail } from '../mail/email-content';
+import type { OrderPromotionView } from './promotion';
 
 /** O que o e-mail "Compra confirmada" precisa saber do pedido. */
 export interface PurchaseEmailInput {
@@ -8,6 +9,8 @@ export interface PurchaseEmailInput {
   /** Pacote e lote (Spec 019); nulo no pedido avulso. */
   bundle: { title: string; tierName: string } | null;
   amountCents: number;
+  /** Campanha do pedido (Spec 032, decisao 12); nula fora dela. */
+  promotion: OrderPromotionView | null;
   method: 'PIX' | 'CARD';
   installments: number;
   /** Primeiro acesso do pedido a vencer; nulo se nenhum foi registrado. */
@@ -42,6 +45,16 @@ function paymentLabel(input: PurchaseEmailInput): string {
   return input.installments > 1 ? `no cartão, em ${input.installments}x` : 'no cartão, à vista';
 }
 
+/**
+ * O desconto da campanha (Spec 032, decisao 12). O e-mail e texto escapado,
+ * sem risco: o valor cheio vai escrito, "de R$ 989,00".
+ */
+function discountLabel(promotion: OrderPromotionView | null): string {
+  return promotion
+    ? `, com ${promotion.percentOff}% de desconto da ${promotion.name} (de ${money(promotion.listAmountCents)})`
+    : '';
+}
+
 /** O pacote aparece como uma linha so, e nao como 12 titulos (Spec 019, decisao 14). */
 function purchasedLines(input: PurchaseEmailInput): string[] {
   if (input.bundle) {
@@ -65,7 +78,7 @@ export function purchaseConfirmationEmail(input: PurchaseEmailInput): PurchaseEm
     firstName ? `Olá, ${firstName}!` : 'Olá!',
     'Sua compra na Delcastanher foi confirmada. Seu acesso já está liberado.',
     ['O que você comprou:', ...purchasedLines(input)].join('\n'),
-    `Valor: ${money(input.amountCents)} ${paymentLabel(input)}.`,
+    `Valor: ${money(input.amountCents)} ${paymentLabel(input)}${discountLabel(input.promotion)}.`,
     ...(input.accessUntil ? [`Seu acesso vale até ${DATE.format(input.accessUntil)}.`] : []),
     `Para começar, entre na plataforma: ${input.platformUrl}`,
     'Se você não reconhece esta compra ou precisa de ajuda, fale com a gente pelo WhatsApp: https://wa.me/5547992908953',

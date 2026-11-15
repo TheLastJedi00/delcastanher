@@ -12,6 +12,7 @@ import { MercadoPagoWebhookController } from './mercado-pago-webhook.controller'
 import { OrdersService } from './orders.service';
 import { PaymentLogService } from './payment-log.service';
 import { PaymentTestService } from './payment-test.service';
+import { PromotionsService } from './promotions.service';
 
 /**
  * Spec 023, decisao A4: com o `OrdersService` de verdade por tras, uma Notaas
@@ -74,6 +75,7 @@ describe('POST /webhooks/mercadopago — com a nota fiscal falhando', () => {
         },
         { provide: PaymentLogService, useValue: { record: jest.fn().mockResolvedValue(undefined) } },
         { provide: PaymentTestService, useValue: { resolve: jest.fn() } },
+        { provide: PromotionsService, useValue: { current: jest.fn().mockResolvedValue(null) } },
       ],
     }).compile();
 

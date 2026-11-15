@@ -61,6 +61,14 @@ export interface FinanceTotals {
   conversionRate: number;
   buyers: number;
   attempts: number;
+  /**
+   * Desconto concedido no periodo (Spec 032, decisao 10): valor cheio menos o
+   * cobrado dos pedidos `PAID` da campanha, por `paidAt` — a mesma base do
+   * bruto. O bruto ja e o cobrado: o desconto nao sai dele de novo.
+   */
+  discountCents: number;
+  /** Pedidos pagos com campanha no periodo. */
+  promotionOrders: number;
 }
 
 /** Quebra por meio de pagamento. */
@@ -190,6 +198,11 @@ export interface FinanceOrderItem {
   confirmationEmailedAt: Date | null;
   /** Pagamento do modulo de teste (Spec 030): fora da receita. */
   testPayment: boolean;
+  /**
+   * Campanha em que o pedido entrou (Spec 032), para o selo "Black Friday
+   * -30%"; nulo fora de campanha. `amountCents` continua sendo o cobrado.
+   */
+  promotion: { name: string; percentOff: number; listAmountCents: number } | null;
 }
 
 export interface FinanceOrderListResult {
