@@ -141,4 +141,5 @@ A pedido do usuário, o card ganhou a foto da Lidiane: `front/public/assets/ment
 - **Em linha:** a foto fica entre o título e a contagem, com degradê elíptico, **só a partir do `md`**: no celular a faixa é estreita demais.
 - Para caber no limite de 4 kB de CSS do componente, duas das nove faíscas do fundo saíram.
 - Conferido no `ng serve` local em 360 px e em 1100 px. `ng test`: 783 testes; `ng build` ok.
+- **Correção (pedido do usuário):** a primeira versão escurecia **todo** pixel escuro e neutro da foto, e as sombras do rosto (um dos olhos, atrás dos óculos) iam ao preto. A versão nova só escurece o **fundo de verdade**: a região de cinza do fundo ligada às bordas da foto (preenchimento a partir das bordas), com 3 px de transição no contorno. Sombras do rosto ficam cercadas por pele, cabelo e óculos e não são alcançadas; pixels escuros com tom quente (raiz do cabelo) ficam fora; abaixo dos ombros só entra o tom exato do fundo, e o blazer, mais escuro, fica intacto. Rosto, olhos, cabelo, colar e roupa estão idênticos ao original.
 
