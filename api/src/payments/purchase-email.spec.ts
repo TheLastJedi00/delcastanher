@@ -5,6 +5,7 @@ const BASE: PurchaseEmailInput = {
   items: ['Módulo 1: Fundamentos do RH', 'Módulo 2: Diagnóstico'],
   bundle: null,
   amountCents: 39800,
+  promotion: null,
   method: 'PIX',
   installments: 1,
   accessUntil: new Date('2027-04-05T15:00:00.000Z'),
@@ -47,6 +48,21 @@ describe('purchaseConfirmationEmail', () => {
     expect(
       money(purchaseConfirmationEmail({ ...BASE, method: 'CARD', installments: 6 }).text),
     ).toContain('R$ 398,00 no cartão, em 6x');
+  });
+
+  /** Spec 032, decisao 12: o e-mail e texto, entao o risco vira "de R$ ...". */
+  it('com campanha, diz o desconto e o valor cheio ao lado do cobrado', () => {
+    const text = purchaseConfirmationEmail({
+      ...BASE,
+      amountCents: 69230,
+      promotion: { name: 'Black Friday', percentOff: 30, listAmountCents: 98900 },
+    }).text.replace(/\u00a0/g, ' ');
+
+    expect(text).toContain('Valor: R$ 692,30 no PIX, com 30% de desconto da Black Friday (de R$ 989,00).');
+  });
+
+  it('sem campanha, a linha do valor nao fala de desconto', () => {
+    expect(purchaseConfirmationEmail(BASE).text).not.toContain('desconto');
   });
 
   it('diz ate quando o acesso vale, na data de Sao Paulo', () => {

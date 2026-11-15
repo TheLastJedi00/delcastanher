@@ -3,6 +3,7 @@ import { PaymentMethodKind } from '../generated/prisma/client';
 import { INVOICE_SUMMARY_SELECT, InvoiceSummaryRow, toInvoiceSummary } from '../invoices/invoice-view';
 import { PrismaService } from '../prisma/prisma.service';
 import { percentageOf } from '../progress/completion';
+import { orderPromotionView } from './promotion';
 import {
   FinanceComparison,
   FinanceCourtesyBreakdown,
@@ -434,14 +435,7 @@ export class AdminFinanceService {
       invoice: row.invoice ? toInvoiceSummary(row.invoice) : null,
       confirmationEmailedAt: row.confirmationEmailedAt ?? null,
       testPayment: row.testPayment ?? false,
-      promotion:
-        row.promotionNameSnapshot && row.discountPercentSnapshot != null && row.listAmountCents != null
-          ? {
-              name: row.promotionNameSnapshot,
-              percentOff: row.discountPercentSnapshot,
-              listAmountCents: row.listAmountCents,
-            }
-          : null,
+      promotion: orderPromotionView(row),
     };
   }
 

@@ -17,7 +17,14 @@ import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-c
 import { CreateOrderInput, MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
 import { PaymentLogService } from './payment-log.service';
 import { PaymentTestService, TEST_PAYMENT_CENTS } from './payment-test.service';
-import { AppliedPromotion, applyDiscount, assertExpectedAmount, orderPromotionColumns } from './promotion';
+import {
+  AppliedPromotion,
+  OrderPromotionView,
+  applyDiscount,
+  assertExpectedAmount,
+  orderPromotionColumns,
+  orderPromotionView,
+} from './promotion';
 import { PromotionsService } from './promotions.service';
 import { toOrderRecipient } from './order-recipient';
 import { PurchaseEmailService } from './purchase-email.service';
@@ -49,6 +56,8 @@ export interface OrderView {
   bundle: { title: string; tierName: string } | null;
   /** Pedido do modulo de teste (Spec 030): R$ 1,00, sem modulo liberado. */
   testPayment: boolean;
+  /** Campanha do pedido, para o valor cheio riscado (Spec 032, decisao 12). */
+  promotion: OrderPromotionView | null;
 }
 
 /** Linha do pedido com os itens, como o Prisma a devolve. */
@@ -72,6 +81,9 @@ interface OrderRow {
   mpConnectionId?: string | null;
   attemptId?: string | null;
   testPayment?: boolean;
+  promotionNameSnapshot?: string | null;
+  discountPercentSnapshot?: number | null;
+  listAmountCents?: number | null;
   items: { moduleId: string; priceCents: number; titleSnapshot: string }[];
 }
 
@@ -750,6 +762,7 @@ export class OrdersService {
           ? { title: order.bundleTitleSnapshot, tierName: order.tierNameSnapshot }
           : null,
       testPayment: order.testPayment ?? false,
+      promotion: orderPromotionView(order),
     };
   }
 }

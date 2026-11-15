@@ -1574,3 +1574,29 @@ describe('OrdersService — preco mudou entre a tela e o clique', () => {
     expect(gateway.createOrder).toHaveBeenCalled();
   });
 });
+
+/** Spec 032, decisao 12: a tela do pedido mostra o cheio riscado. */
+describe('OrdersService — campanha na tela do pedido', () => {
+  it('o pedido da campanha devolve a campanha com o valor cheio', async () => {
+    const { service } = await build({
+      storedOrder: {
+        ...PLACED.order,
+        status: 'PAID',
+        amountCents: 41300,
+        listAmountCents: 59000,
+        promotionNameSnapshot: 'Black Friday',
+        discountPercentSnapshot: 30,
+      },
+    });
+
+    const view = await service.findOne(ALUNO, 'ord-b');
+
+    expect(view.promotion).toEqual({ name: 'Black Friday', percentOff: 30, listAmountCents: 59000 });
+  });
+
+  it('pedido sem campanha devolve a campanha nula', async () => {
+    const { service } = await build({ storedOrder: { ...PLACED.order, status: 'PAID' } });
+
+    expect((await service.findOne(ALUNO, 'ord-b')).promotion).toBeNull();
+  });
+});

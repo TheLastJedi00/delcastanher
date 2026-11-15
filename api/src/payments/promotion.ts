@@ -102,6 +102,24 @@ export function orderPromotionColumns(
     : { promotionId: null, promotionNameSnapshot: null, discountPercentSnapshot: null, listAmountCents: null };
 }
 
+/** A campanha de um pedido, como recibo, e-mail e financeiro a mostram. */
+export interface OrderPromotionView {
+  name: string;
+  percentOff: number;
+  listAmountCents: number;
+}
+
+/** Le os snapshots da campanha do pedido; nulo fora de campanha (decisao 12). */
+export function orderPromotionView(row: {
+  promotionNameSnapshot?: string | null;
+  discountPercentSnapshot?: number | null;
+  listAmountCents?: number | null;
+}): OrderPromotionView | null {
+  return row.promotionNameSnapshot && row.discountPercentSnapshot != null && row.listAmountCents != null
+    ? { name: row.promotionNameSnapshot, percentOff: row.discountPercentSnapshot, listAmountCents: row.listAmountCents }
+    : null;
+}
+
 /** Os dois periodos se cruzam? Encostados nao cruzam (decisao 2). */
 export function overlaps(a: PromotionPeriod, b: PromotionPeriod): boolean {
   return a.startsAt < effectiveEnd(b) && b.startsAt < effectiveEnd(a);
