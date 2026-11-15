@@ -40,7 +40,7 @@ const OFFER: StoreOffer = {
 let current: RouterTestingHarness;
 
 /** Abre a loja pela URL e responde catalogo, oferta e perfil. */
-async function open(url = '/loja') {
+async function open(url = '/loja', data: { catalog?: StoreModuleItem[]; offer?: StoreOffer } = {}) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([{ path: 'loja', component: Loja }]),
@@ -54,8 +54,8 @@ async function open(url = '/loja') {
   await harness.navigateByUrl(url);
 
   const http = TestBed.inject(HttpTestingController);
-  http.expectOne(req => req.url.endsWith('/store/catalog')).flush(CATALOG);
-  http.expectOne(req => req.url.endsWith('/store/offer')).flush(OFFER);
+  http.expectOne(req => req.url.endsWith('/store/catalog')).flush(data.catalog ?? CATALOG);
+  http.expectOne(req => req.url.endsWith('/store/offer')).flush(data.offer ?? OFFER);
   http.match(req => req.url.endsWith('/users/me')).forEach(req => req.flush(null));
 
   await harness.fixture.whenStable();
@@ -146,5 +146,55 @@ describe('Loja', () => {
     harness.detectChanges();
 
     expect(store.selection().kind).toBe('bundle');
+  });
+
+  /** Spec 032, decisao 8: o preco riscado na loja. */
+  describe('com campanha de desconto', () => {
+    const BLACK_FRIDAY = {
+      name: 'Black Friday',
+      percentOff: 30,
+      endsAt: '2026-12-01T02:59:00.000Z',
+      serverNow: '2026-11-28T12:00:00.000Z',
+    };
+    const OFFER_BF: StoreOffer = {
+      ...OFFER,
+      promotion: BLACK_FRIDAY,
+      bundle: {
+        ...(OFFER.bundle as NonNullable<StoreOffer['bundle']>),
+        tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 69230, listPriceCents: 98900, capacity: null, remaining: null },
+      },
+    };
+    const CATALOG_BF = CATALOG.map(item => ({
+      ...item,
+      priceCents: Math.round(((item.listPriceCents as number) * 70) / 100),
+    }));
+    const text = (element: HTMLElement) => (element.textContent ?? '').replace(/\s+/g, ' ').replace(/ /g, ' ');
+
+    it('pacote com o cheio riscado no lugar da ancora, e o prazo', async () => {
+      const { element } = await open('/loja', { catalog: CATALOG_BF, offer: OFFER_BF });
+
+      expect(text(element)).not.toContain('Valor dos módulos separadamente');
+      expect(text(element)).toContain('R$ 692,30');
+      expect(text(element)).toContain('Oferta válida até 30/11 às 23h59');
+    });
+
+    it('cada modulo avulso mostra o cheio riscado e o novo', async () => {
+      const { element } = await open('/loja', { catalog: CATALOG_BF, offer: OFFER_BF });
+      const card = element.querySelector('#mod-mod-1')?.closest('ui-card') as HTMLElement;
+
+      expect(card.querySelector('s')?.textContent?.replace(/ /g, ' ')).toBe('R$ 197,00');
+      expect(text(card)).toContain('R$ 137,90');
+    });
+
+    it('o total do resumo vem riscado com o cheio', async () => {
+      const { element } = await open('/loja', { catalog: CATALOG_BF, offer: OFFER_BF });
+
+      check(element, 'mod-mod-1');
+      check(element, 'mod-mod-2');
+      const total = element.querySelector('[data-testid="total-resumo"]') as HTMLElement;
+
+      expect(total.querySelector('s')?.textContent?.replace(/ /g, ' ')).toBe('R$ 394,00');
+      expect(text(total)).toContain('R$ 275,80');
+    });
   });
 });
