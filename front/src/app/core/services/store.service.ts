@@ -147,6 +147,8 @@ export interface OrderView {
   bundle: { title: string; tierName: string } | null;
   /** Pedido do modulo de teste (Spec 030): nenhum modulo liberado. */
   testPayment?: boolean;
+  /** Campanha do pedido (Spec 032, decisao 12); nula fora dela. */
+  promotion?: OrderPromotion | null;
 }
 
 /** Dados do comprador. Nenhum campo de cartao aqui (decisao 8). */
