@@ -65,6 +65,8 @@ module.exports = {
         // para um simbolo de marca; 2.5s mantem a leitura da forma.
         'spin-slow': 'spin 2.5s linear infinite',
         'gradient-shift': 'gradientShift 8s ease-in-out infinite',
+        // Spec 032, decisao 9: o card da campanha entra pulando, uma vez so.
+        'promo-bounce-in': 'promoBounceIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both',
       },
       keyframes: {
         fadeIn: {
@@ -102,6 +104,12 @@ module.exports = {
         pulseSoft: {
           '0%, 100%': { opacity: '0.6' },
           '50%': { opacity: '1' },
+        },
+        promoBounceIn: {
+          '0%': { opacity: '0', transform: 'translateY(110%) scale(0.92)' },
+          '55%': { opacity: '1', transform: 'translateY(-10%) scale(1.02)' },
+          '75%': { transform: 'translateY(4%) scale(0.99)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
         },
         gradientShift: {
           '0%, 100%': { backgroundPosition: '0% 50%' },
