@@ -119,3 +119,16 @@ Ordem das fases:
 
 - **5.1:** os 4 parágrafos e os 4 cards do print, com os negritos e o itálico. O tipo `MentorStat` ganhou `kind: 'number' | 'text'` e `label` opcional. A grade é 2×2 em toda largura. No celular, a legenda dos cards tem espaçamento entre letras menor (0.06em), porque "DESENVOLVIMENTO" com 0.15em encostava na borda do card em 360 px. Conferido em 360 px e no desktop.
 - **5.2:** `ng test`: 783 testes. `ng build` ok.
+
+### Ajuste do card (15/11/2026, branch `feat/032-front-cards-neon`)
+
+O usuário mandou um banner de referência e pediu impacto: preto com as cores da marca e aspecto neon. O card foi redesenhado só em CSS (estilos do componente, sem imagem):
+- fundo preto, com faíscas douradas e teal e dois brilhos suaves (teal e navy da marca);
+- o nome da campanha em **Anton** (fonte condensada, carregada no `index.html`), teal com contorno dourado e brilho neon;
+- a porcentagem num **selo estourado** dourado (`clip-path`), com "30% OFF" em degradê dourado;
+- contagem em blocos pretos com borda neon; botão em pílula dourada "Quero minha oferta" (texto do banner);
+- última hora: só a variável `--glow` muda, e todo o neon vira vermelho;
+- o único movimento além da entrada é o piscar lento das faíscas, desligado com `prefers-reduced-motion`.
+
+A foto do banner não entrou: o card é pequeno e a mentora já está na página. O selo mostra a porcentagem real da campanha, e não o "até 50%" do banner. Conferido no `ng serve` local, em 360 px e no desktop, nos estados normal e de última hora. CSS do componente dentro do limite de 4 kB; `ng test`: 783 testes; `ng build` ok.
+
