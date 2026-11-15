@@ -21,10 +21,18 @@ const DISMISS_KEY = 'promo-card-dismissed:';
  * Card da campanha de desconto, com a porcentagem e a contagem regressiva
  * (Spec 032, decisao 9).
  *
+ * **Visual (pedido do usuario em 15/11/2026, a partir do banner da Black
+ * Friday):** preto puro, com o teal da marca em neon e o dourado do banner
+ * como acento — titulo condensado com contorno dourado e brilho teal, a
+ * porcentagem num selo estourado, a contagem em blocos com borda neon e o
+ * botao em pilula dourada. Na ultima hora, o neon vira vermelho. O unico
+ * movimento alem da entrada e o piscar lento das faiscas, desligado com
+ * `prefers-reduced-motion`.
+ *
  * - **`floating`:** entra pulando no canto inferior, alguns segundos depois
  *   de a pagina abrir — e so com o banner de cookies fechado, que ocupa o
- *   mesmo rodape. Fechado, nao volta na mesma sessao (`sessionStorage`,
- *   com try/catch: sem storage, ele so volta a aparecer).
+ *   mesmo rodape. Fechado, nao volta na mesma sessao (`sessionStorage`, com
+ *   try/catch: sem storage, ele so volta a aparecer).
  * - **`inline`:** na secao de preco, sem fechar.
  *
  * Le a campanha do `StoreService` — a mesma oferta que a pagina ja carrega.
@@ -32,26 +40,213 @@ const DISMISS_KEY = 'promo-card-dismissed:';
  * (a landing). A contagem usa o relogio do servidor (decisao 7) e so roda no
  * navegador; no fim, o card some, e o `StoreService` rele a oferta.
  *
- * Leitor de tela: uma frase estatica com a oferta e o prazo. A contagem e
- * escondida dele (`aria-hidden`), e nunca anunciada a cada segundo.
+ * Leitor de tela: uma frase estatica com a oferta e o prazo. Titulo, selo e
+ * contagem sao escondidos dele (`aria-hidden`), e nada e anunciado a cada
+ * segundo.
  */
 @Component({
   selector: 'ui-promo-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink],
+  styles: `
+    :host {
+      --glow: 40 195 217;
+      --gold: #f5c451;
+      --gold-light: #ffe9a8;
+      --gold-deep: #c8901e;
+      display: block;
+    }
+
+    .promo {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      border-radius: 1.5rem;
+      background: #000;
+      color: #fff;
+      box-shadow:
+        0 0 0 1px rgb(var(--glow) / 0.5),
+        0 0 24px rgb(var(--glow) / 0.3),
+        0 18px 48px rgb(0 0 0 / 0.45);
+    }
+
+    /* Ultima hora: o neon vira vermelho (so a cor do brilho muda). */
+    .promo--urgent {
+      --glow: 255 77 109;
+    }
+
+    /* Brilhos da marca e faiscas: so CSS, nada de imagem. */
+    .promo::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        radial-gradient(1.6px 1.6px at 8% 22%, var(--gold) 60%, #0000 61%),
+        radial-gradient(1.2px 1.2px at 22% 78%, rgb(var(--glow)) 60%, #0000 61%),
+        radial-gradient(2px 2px at 38% 12%, var(--gold-light) 60%, #0000 61%),
+        radial-gradient(1.2px 1.2px at 55% 88%, var(--gold) 60%, #0000 61%),
+        radial-gradient(1.6px 1.6px at 67% 30%, rgb(var(--glow)) 60%, #0000 61%),
+        radial-gradient(2px 2px at 92% 14%, var(--gold) 60%, #0000 61%),
+        radial-gradient(1.2px 1.2px at 96% 82%, rgb(var(--glow)) 60%, #0000 61%),
+        radial-gradient(circle at 88% 8%, rgb(var(--glow) / 0.3), #0000 46%),
+        radial-gradient(circle at 0% 100%, rgb(36 71 121 / 0.6), #0000 52%);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .promo::before {
+        animation: twinkle 3.2s ease-in-out infinite alternate;
+      }
+    }
+
+    @keyframes twinkle {
+      from {
+        opacity: 0.65;
+      }
+    }
+
+    .promo__title,
+    .promo__burst-text,
+    .promo__cta {
+      font-family: 'Anton', 'Plus Jakarta Sans', system-ui, sans-serif;
+      text-transform: uppercase;
+    }
+
+    .promo__title {
+      letter-spacing: 0.02em;
+      line-height: 0.92;
+      color: rgb(var(--glow));
+      -webkit-text-stroke: 1px var(--gold);
+      text-shadow:
+        0 0 2px rgb(255 255 255 / 0.5),
+        0 0 10px rgb(var(--glow) / 0.9),
+        0 0 26px rgb(var(--glow) / 0.6);
+    }
+
+    .promo__sub {
+      color: rgb(255 255 255 / 0.78);
+    }
+
+    /* Selo estourado: a estrela dourada por fora, outra menor por dentro. */
+    .promo__burst {
+      --burst: polygon(
+        50% 0, 58% 9.8%, 69.1% 3.8%, 72.8% 15.9%, 85.4% 14.6%, 84.1% 27.2%, 96.2% 30.9%, 90.2% 42%,
+        100% 50%, 90.2% 58%, 96.2% 69.1%, 84.1% 72.8%, 85.4% 85.4%, 72.8% 84.1%, 69.1% 96.2%, 58% 90.2%,
+        50% 100%, 42% 90.2%, 30.9% 96.2%, 27.2% 84.1%, 14.6% 85.4%, 15.9% 72.8%, 3.8% 69.1%, 9.8% 58%,
+        0 50%, 9.8% 42%, 3.8% 30.9%, 15.9% 27.2%, 14.6% 14.6%, 27.2% 15.9%, 30.9% 3.8%, 42% 9.8%
+      );
+      flex: none;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      clip-path: var(--burst);
+      background: linear-gradient(140deg, var(--gold-light), var(--gold) 45%, var(--gold-deep));
+    }
+
+    .promo__burst > * {
+      grid-area: 1 / 1;
+    }
+
+    .promo__burst-core {
+      width: 88%;
+      height: 88%;
+      clip-path: var(--burst);
+      background: radial-gradient(circle at 50% 40%, #2d5a9a, #0b1730 70%);
+    }
+
+    .promo__burst-text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 0.95;
+    }
+
+    /* O degrade recortado no texto vai em cada linha: no contêiner flex ele some. */
+    .promo__burst-text > span {
+      background: linear-gradient(180deg, var(--gold-light), var(--gold) 55%, var(--gold-deep));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 0 6px rgb(245 196 81 / 0.45));
+    }
+
+    .promo__unit {
+      border-radius: 0.75rem;
+      border: 1px solid rgb(var(--glow) / 0.55);
+      background: rgb(255 255 255 / 0.04);
+      box-shadow:
+        inset 0 0 12px rgb(var(--glow) / 0.15),
+        0 0 10px rgb(var(--glow) / 0.22);
+      text-align: center;
+    }
+
+    .promo__digit {
+      display: block;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.15;
+      text-shadow: 0 0 8px rgb(var(--glow) / 0.8);
+    }
+
+    .promo__unit-label {
+      display: block;
+      font-size: 11px;
+      color: rgb(255 255 255 / 0.65);
+    }
+
+    .promo__urgent-note {
+      color: rgb(var(--glow));
+    }
+
+    .promo__cta {
+      display: block;
+      border-radius: 9999px;
+      border: 1.5px solid var(--gold);
+      background: linear-gradient(#151515, #000);
+      padding: 0.6rem 1rem;
+      text-align: center;
+      font-size: 1.05rem;
+      letter-spacing: 0.05em;
+      color: var(--gold);
+      text-shadow: 0 0 8px rgb(245 196 81 / 0.6);
+      box-shadow:
+        0 0 12px rgb(245 196 81 / 0.45),
+        inset 0 0 10px rgb(245 196 81 / 0.15);
+    }
+
+    .promo__cta:hover {
+      background: var(--gold);
+      color: #000;
+      text-shadow: none;
+    }
+
+    .promo__cta:focus-visible,
+    .promo__close:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 3px;
+    }
+
+    .promo__close {
+      color: rgb(255 255 255 / 0.75);
+    }
+
+    .promo__close:hover {
+      color: #fff;
+      background: rgb(255 255 255 / 0.1);
+    }
+  `,
   template: `
     @if (visible(); as promo) {
       @if (variant() === 'floating') {
         <aside
-          class="fixed inset-x-4 bottom-4 z-40 animate-promo-bounce-in motion-reduce:animate-fade-in sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-80"
+          class="fixed inset-x-4 bottom-4 z-40 animate-promo-bounce-in motion-reduce:animate-fade-in sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[21rem]"
           aria-label="Oferta da campanha"
           data-testid="promo-flutuante">
-          <div
-            class="relative overflow-hidden rounded-3xl bg-gradient-to-br p-5 text-white shadow-glass-lg ring-1 ring-white/10"
-            [class]="tone()">
+          <div class="promo p-5" [class.promo--urgent]="urgent()" data-testid="promo-caixa">
             <button
               type="button"
-              class="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              class="promo__close absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full transition-colors"
               aria-label="Fechar a oferta"
               data-testid="fechar-promo"
               (click)="dismiss()">
@@ -63,46 +258,55 @@ const DISMISS_KEY = 'promo-card-dismissed:';
             <p class="sr-only">{{ summary() }}</p>
 
             <div aria-hidden="true">
-              <p class="pr-8 text-sm font-semibold" [class]="nameTone()">{{ promo.name }}</p>
-              <p class="mt-1 text-5xl font-extrabold leading-none tracking-tight tabular-nums">−{{ promo.percentOff }}%</p>
-              <p class="mt-1 text-sm text-white/80">de desconto em toda a loja</p>
+              <div class="flex items-center gap-3 pr-6">
+                <p class="promo__title min-w-0 flex-1 text-[2.6rem]">{{ promo.name }}</p>
+                <div class="promo__burst w-24">
+                  <span class="promo__burst-core"></span>
+                  <span class="promo__burst-text">
+                    <span class="text-[1.7rem]">{{ promo.percentOff }}%</span>
+                    <span class="text-sm">off</span>
+                  </span>
+                </div>
+              </div>
+              <p class="promo__sub mt-2 text-sm">Em toda a loja, até {{ deadline() }}</p>
 
               @if (remaining(); as left) {
                 <div class="mt-4 grid grid-cols-4 gap-1.5" data-testid="contagem">
                   @for (unit of units(); track unit.label) {
-                    <div class="rounded-xl bg-white/10 px-1 py-1.5 text-center">
-                      <span class="block text-xl font-bold leading-tight tabular-nums">{{ unit.value }}</span>
-                      <span class="block text-[11px] text-white/70">{{ unit.label }}</span>
+                    <div class="promo__unit px-1 py-1.5">
+                      <span class="promo__digit text-xl">{{ unit.value }}</span>
+                      <span class="promo__unit-label">{{ unit.label }}</span>
                     </div>
                   }
                 </div>
                 @if (left.lastHour) {
-                  <p class="mt-2 text-xs font-semibold">Acaba em menos de 1 hora</p>
+                  <p class="promo__urgent-note mt-2 text-xs font-semibold">Acaba em menos de 1 hora</p>
                 }
               }
             </div>
 
-            <a
-              [routerLink]="link()"
-              [fragment]="fragment() ?? undefined"
-              class="mt-4 block rounded-xl bg-white px-4 py-2.5 text-center text-sm font-bold text-brand-navy transition-colors hover:bg-brand-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand-navy">
-              Ver a oferta
-            </a>
+            <a class="promo__cta mt-4" [routerLink]="link()" [fragment]="fragment() ?? undefined">Quero minha oferta</a>
           </div>
         </aside>
       } @else {
         <section
-          class="overflow-hidden rounded-3xl bg-gradient-to-br p-5 text-white shadow-glass md:flex md:items-center md:gap-8 md:p-6"
-          [class]="tone()"
+          class="promo p-5 md:flex md:items-center md:gap-6 md:p-6"
+          [class.promo--urgent]="urgent()"
           aria-label="Oferta da campanha"
           data-testid="promo-em-linha">
           <p class="sr-only">{{ summary() }}</p>
 
-          <div class="flex items-end gap-4" aria-hidden="true">
-            <p class="text-5xl font-extrabold leading-none tracking-tight tabular-nums md:text-6xl">−{{ promo.percentOff }}%</p>
-            <div class="pb-1">
-              <p class="text-sm font-semibold" [class]="nameTone()">{{ promo.name }}</p>
-              <p class="text-sm text-white/85">em toda a loja, até {{ deadline() }}</p>
+          <div class="flex items-center gap-4" aria-hidden="true">
+            <div class="promo__burst w-24 md:w-28">
+              <span class="promo__burst-core"></span>
+              <span class="promo__burst-text">
+                <span class="text-[1.7rem] md:text-[2rem]">{{ promo.percentOff }}%</span>
+                <span class="text-sm">off</span>
+              </span>
+            </div>
+            <div class="min-w-0">
+              <p class="promo__title text-4xl md:text-5xl">{{ promo.name }}</p>
+              <p class="promo__sub mt-1 text-sm">Em toda a loja, até {{ deadline() }}</p>
             </div>
           </div>
 
@@ -110,14 +314,14 @@ const DISMISS_KEY = 'promo-card-dismissed:';
             <div class="mt-4 md:ml-auto md:mt-0" aria-hidden="true">
               <div class="grid grid-cols-4 gap-1.5 md:w-72" data-testid="contagem">
                 @for (unit of units(); track unit.label) {
-                  <div class="rounded-xl bg-white/10 px-1 py-1.5 text-center">
-                    <span class="block text-2xl font-bold leading-tight tabular-nums">{{ unit.value }}</span>
-                    <span class="block text-[11px] text-white/70">{{ unit.label }}</span>
+                  <div class="promo__unit px-1 py-1.5">
+                    <span class="promo__digit text-2xl">{{ unit.value }}</span>
+                    <span class="promo__unit-label">{{ unit.label }}</span>
                   </div>
                 }
               </div>
               @if (left.lastHour) {
-                <p class="mt-2 text-xs font-semibold md:text-right">Acaba em menos de 1 hora</p>
+                <p class="promo__urgent-note mt-2 text-xs font-semibold md:text-right">Acaba em menos de 1 hora</p>
               }
             </div>
           }
@@ -131,7 +335,7 @@ export class PromoCard {
   private readonly consent = inject(ConsentService);
 
   readonly variant = input<'floating' | 'inline'>('inline');
-  /** Destino do "Ver a oferta" (so no flutuante). */
+  /** Destino do "Quero minha oferta" (so no flutuante). */
   readonly link = input<string[]>(['/planos']);
   readonly fragment = input<string | null>('pacote');
   /** Espera antes de o flutuante entrar, para nao competir com a primeira dobra. */
@@ -201,13 +405,8 @@ export class PromoCard {
       : [];
   });
 
-  /** Ultima hora: o card sai do navy para o vermelho da urgencia. */
-  protected readonly tone = computed(() =>
-    this.remaining()?.lastHour ? 'from-[#7F1D1D] to-state-danger' : 'from-brand-navy to-brand-navy-light',
-  );
-
-  /** O azul-claro do nome some no vermelho: na ultima hora, branco. */
-  protected readonly nameTone = computed(() => (this.remaining()?.lastHour ? 'text-white' : 'text-brand-teal-light'));
+  /** Ultima hora: o neon vira vermelho. */
+  protected readonly urgent = computed(() => this.remaining()?.lastHour ?? false);
 
   constructor() {
     const destroyRef = inject(DestroyRef);

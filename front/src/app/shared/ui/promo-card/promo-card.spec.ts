@@ -80,7 +80,8 @@ describe('PromoCard', () => {
     fixture.detectChanges();
 
     expect(el.querySelector('[data-testid="promo-em-linha"]')).not.toBeNull();
-    expect(text()).toContain('−30%');
+    expect(text()).toContain('30%');
+    expect(text()).toContain('Black Friday');
     expect(text()).toContain('até 29/11 às 23h59');
     expect(el.querySelector('.sr-only')?.textContent).toContain(
       'Oferta de Black Friday: 30% de desconto em toda a loja até 29/11 às 23h59.',
@@ -128,7 +129,7 @@ describe('PromoCard', () => {
     fixture.detectChanges();
 
     expect(text()).toContain('Acaba em menos de 1 hora');
-    expect(el.querySelector('[data-testid="promo-em-linha"]')?.className).toContain('to-state-danger');
+    expect(el.querySelector('[data-testid="promo-em-linha"]')?.classList).toContain('promo--urgent');
 
     fixture.destroy();
     discardPeriodicTasks();
