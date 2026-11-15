@@ -144,3 +144,12 @@ A pedido do usuário, o card ganhou a foto da Lidiane: `front/public/assets/ment
 - **Correção (pedido do usuário):** a primeira versão escurecia **todo** pixel escuro e neutro da foto, e as sombras do rosto (um dos olhos, atrás dos óculos) iam ao preto. A versão nova só escurece o **fundo de verdade**: a região de cinza do fundo ligada às bordas da foto (preenchimento a partir das bordas), com 3 px de transição no contorno. Sombras do rosto ficam cercadas por pele, cabelo e óculos e não são alcançadas; pixels escuros com tom quente (raiz do cabelo) ficam fora; abaixo dos ombros só entra o tom exato do fundo, e o blazer, mais escuro, fica intacto. Rosto, olhos, cabelo, colar e roupa estão idênticos ao original.
 - **Foto final (15/11/2026):** o usuário mandou a foto da Lidiane de braços cruzados, já com o fundo transparente (PNG 788×1211). Ela substitui a edição acima: só recortada da cabeça até os braços e reduzida para 420×480, e convertida para **WebP com transparência** pelo canvas do Chrome (29 KB, contra 288 KB do PNG). Arquivo: `front/public/assets/mentora-black-friday.webp`; o `.jpg` editado saiu. Como o fundo já é transparente, o esfumado elíptico da faixa em linha saiu, e a foto só esfuma embaixo e de leve à esquerda.
 
+### Card minimizado (15/11/2026, branch `feat/032-front-card-minimizado`)
+
+A pedido do usuário, fechar o card flutuante agora **minimiza** em vez de sumir:
+- o card vira o selo dourado da porcentagem no canto inferior direito, com brilho, que dá uma sacudida curta a cada 4,5 s (`animate-promo-wiggle` no `tailwind.config.js`); com `prefers-reduced-motion`, fica parado;
+- clicar no selo reabre o card inteiro;
+- o estado vale na sessão, por campanha (`promo-card-minimized:<endsAt>` no `sessionStorage`), e passa da landing para o `/planos`, que usa o mesmo componente;
+- acessibilidade: o "x" virou "Minimizar a oferta" (`aria-expanded="true"`), o selo é um botão "Abrir a oferta. …" (`aria-expanded="false"`), e o foco vai para o selo ao minimizar.
+- `ng test`: 784 testes; `ng build` ok. Conferido no navegador: minimiza, recebe o foco e sacode.
+

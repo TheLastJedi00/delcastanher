@@ -2,11 +2,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   afterNextRender,
   computed,
   inject,
   input,
   signal,
+  viewChild,
 } from '@angular/core';
 import { NgOptimizedImage } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -15,8 +17,8 @@ import { ConsentService } from '../../../core/services/consent.service';
 import { countdown } from '../../../core/services/countdown';
 import { StoreService } from '../../../core/services/store.service';
 
-/** Prefixo da chave do "fechou o card" na sessao, por campanha. */
-const DISMISS_KEY = 'promo-card-dismissed:';
+/** Prefixo da chave do "minimizou o card" na sessao, por campanha. */
+const MINIMIZED_KEY = 'promo-card-minimized:';
 
 /**
  * Card da campanha de desconto, com a porcentagem e a contagem regressiva
@@ -34,8 +36,11 @@ const DISMISS_KEY = 'promo-card-dismissed:';
  *
  * - **`floating`:** entra pulando no canto inferior, alguns segundos depois
  *   de a pagina abrir — e so com o banner de cookies fechado, que ocupa o
- *   mesmo rodape. Fechado, nao volta na mesma sessao (`sessionStorage`, com
- *   try/catch: sem storage, ele so volta a aparecer).
+ *   mesmo rodape. O "x" **minimiza** (pedido do usuario em 15/11/2026): o
+ *   card vira o selo da porcentagem no canto, que da uma sacudida curta a
+ *   cada 4,5 s (parado com `prefers-reduced-motion`) e reabre o card no
+ *   clique. O estado vale na sessao, por campanha (`sessionStorage`, com
+ *   try/catch: sem storage, o card so volta aberto).
  * - **`inline`:** na secao de preco, sem fechar.
  *
  * Le a campanha do `StoreService` — a mesma oferta que a pagina ja carrega.
@@ -248,7 +253,26 @@ const DISMISS_KEY = 'promo-card-dismissed:';
   `,
   template: `
     @if (visible(); as promo) {
-      @if (variant() === 'floating') {
+      @if (variant() === 'floating' && minimized()) {
+        <button
+          #selo
+          type="button"
+          class="fixed bottom-4 right-4 z-40 animate-promo-bounce-in rounded-full motion-reduce:animate-fade-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:bottom-6 sm:right-6"
+          [attr.aria-label]="'Abrir a oferta. ' + summary()"
+          aria-expanded="false"
+          data-testid="promo-minimizada"
+          (click)="expand()">
+          <span class="block drop-shadow-[0_0_14px_rgba(245,196,81,0.65)] motion-safe:animate-promo-wiggle">
+            <span class="promo__burst w-[5.5rem]" [class.promo--urgent]="urgent()">
+              <span class="promo__burst-core"></span>
+              <span class="promo__burst-text">
+                <span class="text-2xl">{{ promo.percentOff }}%</span>
+                <span class="text-xs">off</span>
+              </span>
+            </span>
+          </span>
+        </button>
+      } @else if (variant() === 'floating') {
         <aside
           class="fixed inset-x-4 bottom-4 z-40 animate-promo-bounce-in motion-reduce:animate-fade-in sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[21rem]"
           aria-label="Oferta da campanha"
@@ -257,9 +281,10 @@ const DISMISS_KEY = 'promo-card-dismissed:';
             <button
               type="button"
               class="promo__close absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full transition-colors"
-              aria-label="Fechar a oferta"
+              aria-label="Minimizar a oferta"
+              aria-expanded="true"
               data-testid="fechar-promo"
-              (click)="dismiss()">
+              (click)="minimize()">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                 <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" />
               </svg>
@@ -383,8 +408,16 @@ export class PromoCard {
   private readonly started = signal(false);
   /** O flutuante ja passou da espera. */
   private readonly delayPassed = signal(false);
-  /** Fechado nesta tela. */
-  private readonly closed = signal(false);
+  /** Escolha feita nesta tela; nula segue a da sessao. */
+  private readonly minimizedHere = signal<boolean | null>(null);
+  private readonly selo = viewChild<ElementRef<HTMLButtonElement>>('selo');
+
+  /** Minimizado: nesta tela, ou antes na mesma sessao (por campanha). */
+  protected readonly minimized = computed(() => {
+    const promotion = this.promotion();
+
+    return this.minimizedHere() ?? (promotion ? wasMinimized(promotion.endsAt) : false);
+  });
 
   protected readonly visible = computed(() => {
     const promotion = this.promotion();
@@ -403,8 +436,7 @@ export class PromoCard {
       return null;
     }
 
-    // Lido por campanha, e so quando ela chega: a oferta pode vir depois da espera.
-    return this.delayPassed() && !this.closed() && !wasDismissed(promotion.endsAt) ? promotion : null;
+    return this.delayPassed() ? promotion : null;
   });
 
   protected readonly deadline = computed(() => {
@@ -458,21 +490,38 @@ export class PromoCard {
     });
   }
 
-  protected dismiss(): void {
-    this.closed.set(true);
+  /** O "x": vira o selo no canto, e o foco vai para ele. */
+  protected minimize(): void {
+    this.remember(true);
+    setTimeout(() => this.selo()?.nativeElement.focus());
+  }
+
+  /** Clique no selo: o card volta inteiro. */
+  protected expand(): void {
+    this.remember(false);
+  }
+
+  private remember(minimized: boolean): void {
+    this.minimizedHere.set(minimized);
 
     try {
-      sessionStorage.setItem(`${DISMISS_KEY}${this.promotion()?.endsAt ?? ''}`, '1');
+      const key = `${MINIMIZED_KEY}${this.promotion()?.endsAt ?? ''}`;
+
+      if (minimized) {
+        sessionStorage.setItem(key, '1');
+      } else {
+        sessionStorage.removeItem(key);
+      }
     } catch {
-      // Sem storage (aba privada, bloqueio): o card so volta a aparecer.
+      // Sem storage (aba privada, bloqueio): vale so nesta tela.
     }
   }
 }
 
-/** Fechado nesta sessao? Por campanha: fechar a Black Friday nao esconde a proxima. */
-function wasDismissed(endsAt: string): boolean {
+/** Minimizado nesta sessao? Por campanha: a proxima campanha comeca aberta. */
+function wasMinimized(endsAt: string): boolean {
   try {
-    return sessionStorage.getItem(`${DISMISS_KEY}${endsAt}`) === '1';
+    return sessionStorage.getItem(`${MINIMIZED_KEY}${endsAt}`) === '1';
   } catch {
     return false;
   }
