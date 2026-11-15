@@ -21,10 +21,12 @@ import { UserService } from '../../core/services/user.service';
  * exclusiva: o pacote **ou** modulos avulsos, porque o pedido e um ou outro
  * (decisao 12).
  */
+import { PromoCard } from '../../shared/ui/promo-card/promo-card';
+
 @Component({
   selector: 'app-loja',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageContainer, Card, Button, Badge, BundlePrice, SalePrice],
+  imports: [PageContainer, Card, Button, Badge, BundlePrice, SalePrice, PromoCard],
   template: `
     <ui-page-container>
       <header class="mb-8">
@@ -34,6 +36,10 @@ import { UserService } from '../../core/services/user.service';
           do pagamento. Leve o pacote com os 12 módulos, ou só os temas de que você precisa agora.
         </p>
       </header>
+
+      <!-- Spec 032, decisão 9: só em linha. O flutuante cobriria o resumo
+           fixo e o botão de pagar, à direita. -->
+      <ui-promo-card class="mb-8 block" />
 
       @if (loading() && catalog().length === 0) {
         <p class="text-slate-500" role="status">Carregando os módulos…</p>

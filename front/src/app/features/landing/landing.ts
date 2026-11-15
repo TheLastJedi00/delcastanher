@@ -49,6 +49,7 @@ interface Pillar {
   description: string;
   icon: string;
 }
+import { PromoCard } from '../../shared/ui/promo-card/promo-card';
 
 @Component({
   selector: 'app-landing',
@@ -66,6 +67,7 @@ interface Pillar {
     SectionHeader,
     AnimateOnScroll,
     YoutubeFacade,
+    PromoCard,
   ],
   templateUrl: './landing.html',
 })

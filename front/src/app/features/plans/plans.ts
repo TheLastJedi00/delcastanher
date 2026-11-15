@@ -25,11 +25,14 @@ type OfferState = 'loading' | 'ready' | 'error';
  * oferta e lida no navegador, depois da primeira renderizacao, e ate la a area
  * de preco e um esqueleto do mesmo tamanho (decisao 10).
  */
+import { PromoCard } from '../../shared/ui/promo-card/promo-card';
+
 @Component({
   selector: 'app-plans',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     SalePrice,
+    PromoCard,
     RouterLink,
     NavHeader,
     Footer,
