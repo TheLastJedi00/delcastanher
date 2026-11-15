@@ -170,33 +170,59 @@ describe('PromoCard', () => {
   }));
 
   describe('flutuante', () => {
-    it('entra depois da espera, e fechado nao volta na sessao', fakeAsync(() => {
+    it('entra depois da espera; o x minimiza para o selo, que reabre o card', fakeAsync(() => {
+      const { offer, create } = setup();
+
+      offer(promotion(2 * 24 * HOUR));
+      const { el, fixture } = create({ variant: 'floating' });
+      const card = () => el.querySelector('[data-testid="promo-flutuante"]') as HTMLElement | null;
+      const selo = () => el.querySelector('[data-testid="promo-minimizada"]') as HTMLButtonElement | null;
+      tick(0);
+      fixture.detectChanges();
+      expect(card()).toBeNull();
+
+      tick(2500);
+      fixture.detectChanges();
+      expect(card()?.className).toContain('animate-promo-bounce-in');
+      expect(card()?.className).toContain('motion-reduce:animate-fade-in');
+
+      (el.querySelector('[data-testid="fechar-promo"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      tick(0);
+
+      expect(card()).toBeNull();
+      expect(selo()).not.toBeNull();
+      expect(selo()?.textContent?.replace(/\s+/g, '')).toContain('30%off');
+      expect(selo()?.getAttribute('aria-label')).toContain('Abrir a oferta.');
+      expect(selo()?.querySelector('.motion-safe\\:animate-promo-wiggle')).not.toBeNull();
+      expect(document.activeElement).toBe(selo());
+
+      selo()?.click();
+      fixture.detectChanges();
+      expect(card()).not.toBeNull();
+      expect(selo()).toBeNull();
+
+      fixture.destroy();
+      discardPeriodicTasks();
+    }));
+
+    it('minimizado vale para a proxima pagina da sessao', fakeAsync(() => {
       const { offer, create } = setup();
 
       offer(promotion(2 * 24 * HOUR));
       const first = create({ variant: 'floating' });
-      tick(0);
-      first.fixture.detectChanges();
-      expect(first.el.querySelector('[data-testid="promo-flutuante"]')).toBeNull();
-
       tick(2500);
       first.fixture.detectChanges();
-      const card = first.el.querySelector('[data-testid="promo-flutuante"]') as HTMLElement;
-
-      expect(card).not.toBeNull();
-      expect(card.className).toContain('animate-promo-bounce-in');
-      expect(card.className).toContain('motion-reduce:animate-fade-in');
-
       (first.el.querySelector('[data-testid="fechar-promo"]') as HTMLButtonElement).click();
       first.fixture.detectChanges();
-      expect(first.el.querySelector('[data-testid="promo-flutuante"]')).toBeNull();
+      tick(0);
       first.fixture.destroy();
 
-      // Outra pagina na mesma sessao: nao volta.
       const second = create({ variant: 'floating' });
-      tick(3000);
+      tick(2500);
       second.fixture.detectChanges();
       expect(second.el.querySelector('[data-testid="promo-flutuante"]')).toBeNull();
+      expect(second.el.querySelector('[data-testid="promo-minimizada"]')).not.toBeNull();
 
       second.fixture.destroy();
       discardPeriodicTasks();

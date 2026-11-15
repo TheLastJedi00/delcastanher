@@ -67,6 +67,8 @@ module.exports = {
         'gradient-shift': 'gradientShift 8s ease-in-out infinite',
         // Spec 032, decisao 9: o card da campanha entra pulando, uma vez so.
         'promo-bounce-in': 'promoBounceIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        // Selo da campanha minimizado: uma sacudida curta a cada 4,5 s.
+        'promo-wiggle': 'promoWiggle 4.5s ease-in-out 1.5s infinite',
       },
       keyframes: {
         fadeIn: {
@@ -104,6 +106,13 @@ module.exports = {
         pulseSoft: {
           '0%, 100%': { opacity: '0.6' },
           '50%': { opacity: '1' },
+        },
+        promoWiggle: {
+          '0%, 22%, 100%': { transform: 'rotate(0) scale(1)' },
+          '4%': { transform: 'rotate(-14deg) scale(1.08)' },
+          '8%': { transform: 'rotate(11deg) scale(1.08)' },
+          '12%': { transform: 'rotate(-8deg) scale(1.04)' },
+          '16%': { transform: 'rotate(5deg)' },
         },
         promoBounceIn: {
           '0%': { opacity: '0', transform: 'translateY(110%) scale(0.92)' },
