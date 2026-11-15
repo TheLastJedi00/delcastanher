@@ -27,9 +27,8 @@ const DISMISS_KEY = 'promo-card-dismissed:';
  * como acento — titulo condensado com contorno dourado e brilho teal, a
  * porcentagem num selo estourado, a contagem em blocos com borda neon e o
  * botao em pilula dourada. Na ultima hora, o neon vira vermelho. A foto da
- * Lidiane e a `nova_mentora.jpeg` recortada, com o fundo cinza levado ao
- * preto (so os pixels escuros e neutros; rosto, cabelo e roupa intactos), e
- * a borda dela esfuma no preto do card. O unico
+ * Lidiane veio do usuario ja com o fundo transparente (WebP com alfa, so
+ * recortada e reduzida); a parte de baixo esfuma no preto do card. O unico
  * movimento alem da entrada e o piscar lento das faiscas, desligado com
  * `prefers-reduced-motion`.
  *
@@ -231,16 +230,10 @@ const DISMISS_KEY = 'promo-card-dismissed:';
 
     /* A foto esfuma no preto do card pela esquerda e por baixo. */
     .promo__photo {
-      -webkit-mask-image: linear-gradient(to right, #0000, #000 38%), linear-gradient(to top, #0000, #000 32%);
-      mask-image: linear-gradient(to right, #0000, #000 38%), linear-gradient(to top, #0000, #000 32%);
+      -webkit-mask-image: linear-gradient(to right, #0000, #000 18%), linear-gradient(to top, #0000, #000 30%);
+      mask-image: linear-gradient(to right, #0000, #000 18%), linear-gradient(to top, #0000, #000 30%);
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
-    }
-
-    /* Na faixa em linha a foto fica no meio: esfuma em volta toda. */
-    .promo__photo--soft {
-      -webkit-mask-image: radial-gradient(ellipse 48% 60% at 50% 38%, #000 42%, #0000 100%);
-      mask-image: radial-gradient(ellipse 48% 60% at 50% 38%, #000 42%, #0000 100%);
     }
 
     .promo__close {
@@ -283,9 +276,9 @@ const DISMISS_KEY = 'promo-card-dismissed:';
                 <div class="relative -mr-5 -mt-5 w-36 shrink-0" data-testid="promo-foto">
                   <img
                     class="promo__photo block h-auto w-full"
-                    ngSrc="assets/mentora-black-friday.jpg"
-                    width="480"
-                    height="538"
+                    ngSrc="assets/mentora-black-friday.webp"
+                    width="420"
+                    height="480"
                     alt="" />
                   <div class="promo__burst absolute -left-5 bottom-1 w-[5.5rem]">
                     <span class="promo__burst-core"></span>
@@ -339,10 +332,10 @@ const DISMISS_KEY = 'promo-card-dismissed:';
 
           <!-- No celular a faixa e estreita: a foto entra a partir do md. -->
           <img
-            class="promo__photo--soft -my-6 hidden h-[10rem] w-auto self-end md:ml-auto md:block"
-            ngSrc="assets/mentora-black-friday.jpg"
-            width="480"
-            height="538"
+            class="promo__photo -my-6 hidden h-[10rem] w-auto self-end md:ml-auto md:block"
+            ngSrc="assets/mentora-black-friday.webp"
+            width="420"
+            height="480"
             alt=""
             aria-hidden="true"
             data-testid="promo-foto" />
