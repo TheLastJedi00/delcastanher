@@ -19,17 +19,17 @@ Ordem das fases:
 - [x] **Task 0.3:** **Usuário:** definir os textos da mentora. **Feito em 15/11/2026:** print em `libs/`, transcrito na seção "Textos da mentora" do `context.md`.
 
 ## Fase 1: API - Campanha e desconto
-- [ ] **Task 1.1:** Migration `<timestamp>_campanha_de_desconto`: modelo `Promotion` (decisão 1) e, em `Order`, `promotionId` (FK `Restrict`), `promotionNameSnapshot`, `discountPercentSnapshot` e `listAmountCents`, todos nulos (decisão 5). Índice em `Promotion(startsAt, endsAt)`. Rodar primeiro na branch `preview` do Neon.
-- [ ] **Task 1.2:** Spec de `promotion.ts` (funções puras): `applyDiscount` (arredondamento, 1% e 90%, R$ 989,00 com 30% = 69230), `isRunning(promotion, now)` (antes do início, no início exato, no fim exato, depois do fim, encerrada antes da hora) e `overlaps`. Implementar.
-- [ ] **Task 1.3:** Spec do `PromotionsService`: `current(now)`; criar (valida 1–90, fim depois do início, início não no passado, 409 na sobreposição); editar (futura: tudo; vigente: só `endsAt` e `name`, 409 ao mudar `percentOff`/`startsAt`; encerrada: 409); apagar (só futura); encerrar agora (`endedEarlyAt`). Implementar.
-- [ ] **Task 1.4:** Controller do admin `admin/promotions` (listar com totais, criar, editar, apagar, encerrar, `preview?percentOff=`), protegido como os outros do financeiro. Spec HTTP.
-- [ ] **Task 1.5:** Spec da oferta pública: `GET /store/offer` e o catálogo devolvem `priceCents` com desconto, `listPriceCents`, e `promotion: { name, percentOff, endsAt, serverNow } | null` (decisões 4 e 7). Fora da campanha, `listPriceCents = priceCents` e `promotion = null`. Implementar no `StoreService` e no `BundlesService.offer`.
-- [ ] **Task 1.6:** Spec do pedido no `OrdersService`/`BundlesService.placeOrder`: pacote e avulsos com desconto, rateio sobre o valor com desconto (soma dos itens = `amountCents`), snapshots gravados; fora da campanha, colunas nulas; pagamento de teste nunca recebe desconto. Implementar.
-- [ ] **Task 1.7:** Spec do `expectedAmountCents` (decisão 6): igual → segue; diferente → 409 "O preço mudou. Confira o novo valor antes de pagar." sem chamar o Mercado Pago; ausente → segue (compatível com o front antigo durante o deploy). Implementar no DTO e no `OrdersService`.
-- [ ] **Task 1.8:** Spec do financeiro (`AdminFinanceService`): "Descontos concedidos" no resumo do período (soma de `listAmountCents - amountCents` dos pagos) e `promotion` em cada pedido da lista. Estornado sai da conta, como na receita. Implementar.
-- [ ] **Task 1.9:** Recibo e e-mail (decisão 12): a view do pedido devolve `listAmountCents` e a campanha; o e-mail "Compra confirmada" mostra o valor cheio riscado. Ajustar as specs do `purchase-email`.
-- [ ] **Task 1.10:** NFS-e: spec garantindo que a nota de um pedido com desconto sai com o valor cobrado, sem desconto incondicional (decisão 11). O `nfse-builder` não muda.
-- [ ] **Task 1.11:** Rodar `npm test` e `npm run build` da API.
+- [x] **Task 1.1:** Migration `<timestamp>_campanha_de_desconto`: modelo `Promotion` (decisão 1) e, em `Order`, `promotionId` (FK `Restrict`), `promotionNameSnapshot`, `discountPercentSnapshot` e `listAmountCents`, todos nulos (decisão 5). Índice em `Promotion(startsAt, endsAt)`. Rodar primeiro na branch `preview` do Neon.
+- [x] **Task 1.2:** Spec de `promotion.ts` (funções puras): `applyDiscount` (arredondamento, 1% e 90%, R$ 989,00 com 30% = 69230), `isRunning(promotion, now)` (antes do início, no início exato, no fim exato, depois do fim, encerrada antes da hora) e `overlaps`. Implementar.
+- [x] **Task 1.3:** Spec do `PromotionsService`: `current(now)`; criar (valida 1–90, fim depois do início, início não no passado, 409 na sobreposição); editar (futura: tudo; vigente: só `endsAt` e `name`, 409 ao mudar `percentOff`/`startsAt`; encerrada: 409); apagar (só futura); encerrar agora (`endedEarlyAt`). Implementar.
+- [x] **Task 1.4:** Controller do admin `admin/promotions` (listar com totais, criar, editar, apagar, encerrar, `preview?percentOff=`), protegido como os outros do financeiro. Spec HTTP.
+- [x] **Task 1.5:** Spec da oferta pública: `GET /store/offer` e o catálogo devolvem `priceCents` com desconto, `listPriceCents`, e `promotion: { name, percentOff, endsAt, serverNow } | null` (decisões 4 e 7). Fora da campanha, `listPriceCents = priceCents` e `promotion = null`. Implementar no `StoreService` e no `BundlesService.offer`.
+- [x] **Task 1.6:** Spec do pedido no `OrdersService`/`BundlesService.placeOrder`: pacote e avulsos com desconto, rateio sobre o valor com desconto (soma dos itens = `amountCents`), snapshots gravados; fora da campanha, colunas nulas; pagamento de teste nunca recebe desconto. Implementar.
+- [x] **Task 1.7:** Spec do `expectedAmountCents` (decisão 6): igual → segue; diferente → 409 "O preço mudou. Confira o novo valor antes de pagar." sem chamar o Mercado Pago; ausente → segue (compatível com o front antigo durante o deploy). Implementar no DTO e no `OrdersService`.
+- [x] **Task 1.8:** Spec do financeiro (`AdminFinanceService`): "Descontos concedidos" no resumo do período (soma de `listAmountCents - amountCents` dos pagos) e `promotion` em cada pedido da lista. Estornado sai da conta, como na receita. Implementar.
+- [x] **Task 1.9:** Recibo e e-mail (decisão 12): a view do pedido devolve `listAmountCents` e a campanha; o e-mail "Compra confirmada" mostra o valor cheio riscado. Ajustar as specs do `purchase-email`.
+- [x] **Task 1.10:** NFS-e: spec garantindo que a nota de um pedido com desconto sai com o valor cobrado, sem desconto incondicional (decisão 11). O `nfse-builder` não muda.
+- [x] **Task 1.11:** Rodar `npm test` e `npm run build` da API.
 
 ## Fase 2: Front - Painel do Financeiro
 - [ ] **Task 2.1:** `PromotionsService` no front (`core/services`), com os tipos da Fase 1. `formatPrice` reaproveitado.
@@ -62,3 +62,22 @@ Ordem das fases:
 - [ ] **Task 6.4:** Testar o 409 do `expectedAmountCents`: abrir o pagamento, encerrar a campanha pelo painel e clicar em pagar.
 - [ ] **Task 6.5:** Apagar a campanha de teste do preview (ou deixá-la encerrada) e abrir o PR da release contra a `main`, com as decisões no topo. **Sem merge**: o merge é do usuário.
 - [ ] **Task 6.6:** **Usuário:** depois do merge, cadastrar a campanha real da Black Friday no Financeiro de produção e conferir na loja, antes do início, que nada mudou ainda.
+
+## Registro da execução
+
+### Fase 1 (API), 15/11/2026, branch `feat/032-api-campanha`
+
+- **1.1:** migration `20261115120000_campanha_de_desconto`. A SQL bate com o `prisma migrate diff` entre o schema da `main` e o novo. Ela ainda não rodou em banco nenhum: roda no Neon `preview` pelo `vercel-build` quando a release subir para o preview (Task 6.1).
+- **1.2:** `promotion.ts` com `applyDiscount`, `isRunning`, `effectiveEnd` e `overlaps`. O período é meio-aberto `[início, fim)`: no instante do fim a campanha já acabou, e campanhas encostadas não se cruzam.
+- **1.3:** `PromotionsService`. Duas decisões que a spec não fixava:
+  - **Início "agora":** o painel trabalha em minutos. Um início até **5 minutos** no passado é gravado como o instante da criação; antes disso, 400.
+  - **Corrida entre dois admins:** criar e editar rodam numa transação com `pg_advisory_xact_lock`, para a checagem de sobreposição não deixar passar duas campanhas salvas ao mesmo tempo.
+- **1.4 e 1.5 (feitas na ordem 1.5 → 1.4):** a prévia do painel (`GET /admin/promotions/preview?percentOff=`) usa `StoreService.prices`, o mesmo caminho da oferta pública. Assim a conta do painel e a da loja nunca divergem.
+  - `GET /store/offer` devolve `promotion: { name, percentOff, endsAt, serverNow }`; `endsAt` já é o fim de fato (o antecipado, quando houver). Lote e módulos trazem `priceCents` (com desconto) e `listPriceCents` (cheio); a âncora `modulesTotalCents` segue a soma cheia.
+  - **Cache de 30 s da oferta:** continua. O início e o fim podem aparecer até 30 s depois na vitrine, mas o preço cobrado é sempre o do `POST /orders`, e o 409 da 1.7 protege o comprador. Na Fase 3, o front esconde a campanha pelo `endsAt` corrigido, sem esperar a resposta nova.
+- **1.6:** avulso com desconto **por item** (o total é a soma); pacote com desconto no lote e rateio sobre o valor com desconto. As 4 colunas da campanha são nulas fora dela (helper `orderPromotionColumns`). O pagamento de teste nem lê a campanha.
+- **1.7:** `expectedAmountCents` opcional. Diferente do calculado → 409 com `code: 'PRICE_CHANGED'` e `amountCents` (o valor novo), para o front distinguir dos outros 409 do pedido e mostrar o preço sem outra consulta. No avulso, a conferência vem antes de cancelar o pendente; no pacote, dentro da transação (o throw desfaz o cancelamento).
+- **1.8:** o resumo ganha `discountCents` e `promotionOrders` (pagos da campanha por `paidAt`, sem estornado nem teste, a mesma base do bruto). A linha do pedido traz `promotion`. O CSV ganhou as colunas **Campanha** ("Black Friday -30%") e **Valor cheio (R$)**, no fim; o teste da coluna "Teste" passou a procurá-la pelo nome.
+- **1.9:** `OrderView.promotion` (`{ name, percentOff, listAmountCents }`, helper `orderPromotionView`, usado também no financeiro). O e-mail é texto escapado, sem risco: a linha fica "Valor: R$ 692,30 no PIX, com 30% de desconto da Black Friday (de R$ 989,00)."
+- **1.10:** o `nfse-builder` já usava `amountCents`; só entrou o teste.
+- **1.11:** `npm test`: 93 suítes, 1406 testes. `npm run build` ok. Lint (`--fix`) nos arquivos novos de produção; os erros que sobram nos specs HTTP são os mesmos `any` do supertest dos specs que já existiam.
