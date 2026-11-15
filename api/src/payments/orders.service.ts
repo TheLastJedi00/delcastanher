@@ -17,7 +17,7 @@ import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-c
 import { CreateOrderInput, MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
 import { PaymentLogService } from './payment-log.service';
 import { PaymentTestService, TEST_PAYMENT_CENTS } from './payment-test.service';
-import { AppliedPromotion, applyDiscount, orderPromotionColumns } from './promotion';
+import { AppliedPromotion, applyDiscount, assertExpectedAmount, orderPromotionColumns } from './promotion';
 import { PromotionsService } from './promotions.service';
 import { toOrderRecipient } from './order-recipient';
 import { PurchaseEmailService } from './purchase-email.service';
@@ -167,6 +167,9 @@ export class OrdersService {
     }));
     const listAmountCents = listed.reduce((total, item) => total + item.priceCents, 0);
     const amountCents = items.reduce((total, item) => total + item.priceCents, 0);
+
+    // Decisao 6: antes de cancelar o pendente ou gravar qualquer coisa.
+    assertExpectedAmount(dto.expectedAmountCents, amountCents);
 
     // Decisao 11: um pendente por vez. Dois PIX abertos para os mesmos modulos
     // sao duas cobrancas possiveis da mesma coisa.
@@ -384,6 +387,7 @@ export class OrdersService {
       recipient: toOrderRecipient(dto.payer),
       attemptId: dto.attemptId ?? null,
       promotion: await this.currentPromotion(),
+      expectedAmountCents: dto.expectedAmountCents,
     });
     const order = placed as unknown as OrderRow;
 

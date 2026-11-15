@@ -426,6 +426,34 @@ describe('BundlesService.placeOrder (Spec 019, decisoes 5 e 6)', () => {
     });
   });
 
+  /** Spec 032, decisao 6. */
+  it('valor esperado diferente do calculado responde 409 e nao grava o pedido', async () => {
+    const { service, tx } = await buildPlace();
+
+    await expect(
+      service.placeOrder(
+        { ...PLACE, expectedAmountCents: 41300 },
+        NOW,
+      ),
+    ).rejects.toMatchObject({ status: 409, response: { code: 'PRICE_CHANGED', amountCents: 59000 } });
+    expect(tx.order.create).not.toHaveBeenCalled();
+  });
+
+  it('valor esperado igual ao calculado grava normalmente', async () => {
+    const { service, tx } = await buildPlace();
+
+    await service.placeOrder(
+      {
+        ...PLACE,
+        expectedAmountCents: 41300,
+        promotion: { id: 'promo-1', name: 'Black Friday', percentOff: 30 },
+      },
+      NOW,
+    );
+
+    expect(tx.order.create).toHaveBeenCalled();
+  });
+
   it('com o Fundador esgotado, o pedido entra no 2º Lote', async () => {
     const { service, tx } = await buildPlace({ groups: [{ bundleTierId: 't1', _count: { _all: 20 } }] });
 

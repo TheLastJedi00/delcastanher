@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { OrderStatus, PaymentMethodKind, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { OrderRecipient } from './order-recipient';
-import { AppliedPromotion, applyDiscount, orderPromotionColumns } from './promotion';
+import { AppliedPromotion, applyDiscount, assertExpectedAmount, orderPromotionColumns } from './promotion';
 
 /** Lote como as regras desta spec o leem. */
 export interface TierRow {
@@ -184,6 +184,8 @@ export interface PlaceBundleOrderInput {
   attemptId?: string | null;
   /** Campanha vigente, lida pelo `OrdersService` (Spec 032, decisao 4). */
   promotion?: AppliedPromotion | null;
+  /** Valor que a tela mostrou (Spec 032, decisao 6). */
+  expectedAmountCents?: number;
 }
 
 /** Linha gravada do pedido de pacote, com os itens rateados. */
@@ -278,6 +280,10 @@ export class BundlesService {
       // soma dos itens continuar sendo o cobrado.
       const promotion = input.promotion ?? null;
       const amountCents = applyDiscount(tier.priceCents, promotion?.percentOff ?? null);
+
+      // Dentro da transacao: o throw desfaz tambem o cancelamento do pendente.
+      assertExpectedAmount(input.expectedAmountCents, amountCents);
+
       const parts = allocateByWeight(
         amountCents,
         modules.map((module) => module.priceCents ?? 0),

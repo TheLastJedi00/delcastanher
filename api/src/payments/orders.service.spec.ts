@@ -1521,3 +1521,56 @@ describe('OrdersService — campanha de desconto', () => {
     expect(promotions.current).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Spec 032, decisao 6: o valor que a tela mostrou so serve para recusar. Se a
+ * campanha acabou (ou comecou) entre a tela e o clique, nada e cobrado.
+ */
+describe('OrdersService — preco mudou entre a tela e o clique', () => {
+  const BLACK_FRIDAY = { id: 'promo-1', name: 'Black Friday', percentOff: 30 };
+
+  it('avulso com o valor esperado igual segue e cobra', async () => {
+    const { service, gateway } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(ALUNO, { ...pixOrder(), expectedAmountCents: 27860 });
+
+    expect(gateway.createOrder).toHaveBeenCalled();
+  });
+
+  it('avulso com o valor esperado diferente responde 409 com o valor novo, sem gravar nem cobrar', async () => {
+    const { service, prisma, gateway } = await build();
+
+    await expect(service.create(ALUNO, { ...pixOrder(), expectedAmountCents: 27860 })).rejects.toMatchObject({
+      status: 409,
+      response: {
+        code: 'PRICE_CHANGED',
+        amountCents: 39800,
+        message: 'O preço mudou. Confira o novo valor antes de pagar.',
+      },
+    });
+    expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    expect(prisma.order.create).not.toHaveBeenCalled();
+    expect(gateway.createOrder).not.toHaveBeenCalled();
+  });
+
+  it('pacote: o valor esperado vai ao BundlesService, que confere dentro da transacao', async () => {
+    const { service, bundles } = await build();
+
+    await service.create(ALUNO, {
+      bundleSlug: 'imersao-rh-lancamento',
+      method: 'PIX',
+      payer: PAYER,
+      expectedAmountCents: 59000,
+    });
+
+    expect(bundles.placeOrder.mock.calls[0][0].expectedAmountCents).toBe(59000);
+  });
+
+  it('sem o campo (front antigo durante o deploy), segue como antes', async () => {
+    const { service, gateway } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(ALUNO, pixOrder());
+
+    expect(gateway.createOrder).toHaveBeenCalled();
+  });
+});

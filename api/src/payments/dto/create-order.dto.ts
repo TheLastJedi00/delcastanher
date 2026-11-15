@@ -267,6 +267,16 @@ export class CreateOrderDto {
   @IsUUID('4', { message: 'Tentativa invalida.' })
   attemptId?: string;
 
+  /**
+   * Valor que a tela de pagamento mostrou, em centavos (Spec 032, decisao 6).
+   * So serve para recusar com 409 quando o preco mudou; quem define o valor
+   * cobrado continua sendo o servidor.
+   */
+  @IsOptional()
+  @IsInt({ message: 'Valor esperado invalido.' })
+  @Min(0, { message: 'Valor esperado invalido.' })
+  expectedAmountCents?: number;
+
   /** Falha do navegador no lugar do `card` (Spec 028, decisao 9). */
   @IsOptional()
   @ValidateNested()

@@ -1,3 +1,5 @@
+import { ConflictException } from '@nestjs/common';
+
 /** Teto da porcentagem de desconto (Spec 032, decisao 1). */
 export const MAX_PERCENT_OFF = 90;
 
@@ -41,6 +43,29 @@ export function effectiveEnd(period: PromotionPeriod): Date {
  */
 export function isRunning(period: PromotionPeriod, now: Date): boolean {
   return period.startsAt <= now && now < effectiveEnd(period);
+}
+
+/**
+ * Recusa o pedido cujo valor nao e o que a tela mostrou (decisao 6): a
+ * campanha acabou, ou comecou, entre a tela de pagamento e o clique. O
+ * servidor continua dono do preco — o valor esperado so serve para recusar,
+ * nunca para definir. Ausente (front anterior a esta spec), nao confere.
+ *
+ * O 409 leva `code` e o valor novo, para a tela distinguir este caso dos
+ * outros 409 do pedido e mostrar o preco certo sem outra consulta.
+ */
+export function assertExpectedAmount(expectedAmountCents: number | undefined, amountCents: number): void {
+  if (expectedAmountCents === undefined || expectedAmountCents === amountCents) {
+    return;
+  }
+
+  throw new ConflictException({
+    statusCode: 409,
+    error: 'Conflict',
+    code: 'PRICE_CHANGED',
+    message: 'O preço mudou. Confira o novo valor antes de pagar.',
+    amountCents,
+  });
 }
 
 /** O que o pedido precisa saber da campanha vigente. */
