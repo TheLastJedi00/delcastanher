@@ -78,18 +78,9 @@ export class StoreService {
    */
   async offer(now: Date = new Date()): Promise<StoreOffer> {
     const promotion = await this.promotions.current(now);
-    const percentOff = promotion?.percentOff ?? null;
-    const [modules, bundle] = await Promise.all([
-      this.prisma.module.findMany({
-        orderBy: { order: 'asc' },
-        select: { order: true, title: true, priceCents: true },
-      }),
-      this.bundles.offer(now, percentOff),
-    ]);
 
     return {
-      modules: modules.map((module) => discountedModule(module, percentOff)),
-      bundle,
+      ...(await this.prices(promotion?.percentOff ?? null, now)),
       promotion: promotion
         ? {
             name: promotion.name,
@@ -99,6 +90,23 @@ export class StoreService {
           }
         : null,
     };
+  }
+
+  /**
+   * Os precos da vitrine com uma porcentagem qualquer: a previa do painel
+   * (Spec 032, decisao 10). E o mesmo caminho da oferta publica, para a conta
+   * do painel e a da loja nunca divergirem.
+   */
+  async prices(percentOff: number | null, now: Date = new Date()): Promise<Omit<StoreOffer, 'promotion'>> {
+    const [modules, bundle] = await Promise.all([
+      this.prisma.module.findMany({
+        orderBy: { order: 'asc' },
+        select: { order: true, title: true, priceCents: true },
+      }),
+      this.bundles.offer(now, percentOff),
+    ]);
+
+    return { modules: modules.map((module) => discountedModule(module, percentOff)), bundle };
   }
 
   /** Catalogo na ordem da trilha, com o estado de acesso do solicitante. */
