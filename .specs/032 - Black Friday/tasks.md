@@ -37,12 +37,12 @@ Ordem das fases:
 - [x] **Task 2.3:** Encaixar o card no `admin-financeiro.html`, abaixo do `<app-pagamento-teste>`. No resumo do período, a linha "Descontos concedidos"; na lista de pedidos, o selo da campanha. Ajustar a spec do financeiro.
 
 ## Fase 3: Front - Preço riscado
-- [ ] **Task 3.1:** Componente `ui-sale-price` em `shared/ui/` (decisão 8): `~~de~~` + preço novo + selo "−30%" + "Oferta válida até 27/11 às 23h59", com texto para leitor de tela. Sem campanha, mostra só o preço. Spec.
-- [ ] **Task 3.2:** `ui-bundle-price`: em campanha, troca a âncora "Valor dos módulos separadamente" pelo preço cheio riscado (decisão 8). Spec.
-- [ ] **Task 3.3:** Loja (`loja.ts`), `/planos` (`plans.html`) e página do curso: usar o `ui-sale-price` nos módulos e no pacote; resumo do carrinho com o total cheio riscado e o total com desconto.
-- [ ] **Task 3.4:** Pagamento (`pagamento.ts`): enviar `expectedAmountCents`; no 409, recarregar a oferta e mostrar "O preço mudou" com o valor novo, sem perder o que o comprador preencheu. Spec.
-- [ ] **Task 3.5:** Pedido (`pedido.ts`): valor cheio riscado e "Black Friday −30%" quando o pedido tem campanha.
-- [ ] **Task 3.6:** Quando a contagem chega a zero na loja, recarregar a oferta (decisão 7). Spec com relógio falso.
+- [x] **Task 3.1:** Componente `ui-sale-price` em `shared/ui/` (decisão 8): `~~de~~` + preço novo + selo "−30%" + "Oferta válida até 27/11 às 23h59", com texto para leitor de tela. Sem campanha, mostra só o preço. Spec.
+- [x] **Task 3.2:** `ui-bundle-price`: em campanha, troca a âncora "Valor dos módulos separadamente" pelo preço cheio riscado (decisão 8). Spec.
+- [x] **Task 3.3:** Loja (`loja.ts`), `/planos` (`plans.html`) e página do curso: usar o `ui-sale-price` nos módulos e no pacote; resumo do carrinho com o total cheio riscado e o total com desconto.
+- [x] **Task 3.4:** Pagamento (`pagamento.ts`): enviar `expectedAmountCents`; no 409, recarregar a oferta e mostrar "O preço mudou" com o valor novo, sem perder o que o comprador preencheu. Spec.
+- [x] **Task 3.5:** Pedido (`pedido.ts`): valor cheio riscado e "Black Friday −30%" quando o pedido tem campanha.
+- [x] **Task 3.6:** Quando a contagem chega a zero na loja, recarregar a oferta (decisão 7). Spec com relógio falso.
 
 ## Fase 4: Front - Cards com contagem regressiva
 - [ ] **Task 4.1:** Desenho do card com a skill `frontend-design`, na identidade da landing (glass card, gradiente da marca, cor de urgência na última hora).
@@ -92,3 +92,13 @@ Ordem das fases:
 - **2.3:** card abaixo do "Pagamento de teste"; linha "Descontos concedidos" no bloco "Estornos e pedidos", só com pedido da campanha no período; selo "Black Friday −30%" na lista de pedidos.
 - `ng test`: 750 testes. `ng build` ok.
 - **Teste no navegador fica para o preview (Fase 6):** o `api/.env` local aponta para o banco de produção (memória `banco-unico-producao`), e a migration ainda não rodou em banco nenhum. Subir a API local para criar campanha de teste mexeria na loja de produção.
+
+### Fase 3 (Front, preço riscado), 15/11/2026, branch `feat/032-front-preco-riscado`
+
+- **3.1:** `ui-sale-price` (`shared/ui/sale-price`). O riscado é sempre o `listPriceCents` da API. O leitor de tela recebe "Preço anterior: R$ 989,00. Preço com desconto: R$ 692,30, 30% de desconto.", e a parte visual fica com `aria-hidden`.
+- **3.2:** `ui-bundle-price` com `promotion`. Em campanha, a âncora "Valor dos módulos separadamente" sai e o riscado é o preço cheio do pacote.
+- **3.3:** `StoreService.promotion` e `listTotalCents`. O prazo ("Oferta válida até …") aparece **no pacote e no total do resumo**, e não em cada módulo avulso: doze vezes a mesma data só poluiria a lista.
+- **3.4:** o pagamento manda `expectedAmountCents` (exceto o teste de R$ 1,00). O 409 `PRICE_CHANGED` vira `PriceChangedError`. A tela relê a oferta **sem cache** (`loadOffer({ fresh: true })`, um `t=` na URL que passa pelo cache de 30 s) e o catálogo, mostra o valor novo e refaz as parcelas, sem sair da tela nem apagar o formulário. O aviso que já existia para o pacote ("O preço do pacote mudou…") virou geral: "O preço mudou enquanto você escolhia. Agora o total sai por …". O resumo do pagamento ganhou o total cheio riscado.
+- **3.5:** no pedido, o rodapé traz o cheio riscado e "Black Friday −30%". Na aprovação, aparece "Você economizou R$ 296,70 com a Black Friday.".
+- **3.6:** o `StoreService` agenda a releitura para `endsAt − serverNow + 1 s` (os dois do servidor, sem depender do relógio do aparelho), só no navegador, e guarda `clockOffsetMs` para a contagem da Fase 4. Uma oferta nova cancela o agendamento anterior.
+- `ng test`: 768 testes. `ng build` ok.
