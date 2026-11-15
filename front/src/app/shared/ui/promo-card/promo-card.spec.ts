@@ -1,7 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed, discardPeriodicTasks, fakeAsync, tick } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { ConsentService } from '../../../core/services/consent.service';
 import { StoreService } from '../../../core/services/store.service';
 import { PromoCard } from './promo-card';
 
@@ -18,10 +20,16 @@ function promotion(msLeft: number) {
   };
 }
 
-function setup() {
+function setup(banner = signal(false)) {
   TestBed.configureTestingModule({
     imports: [PromoCard],
-    providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    providers: [
+      provideRouter([]),
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      // Banner de cookies ja decidido: o flutuante nao espera por ele.
+      { provide: ConsentService, useValue: { bannerVisible: banner } },
+    ],
   });
 
   const store = TestBed.inject(StoreService);
@@ -190,6 +198,23 @@ describe('PromoCard', () => {
       expect(second.el.querySelector('[data-testid="promo-flutuante"]')).toBeNull();
 
       second.fixture.destroy();
+      discardPeriodicTasks();
+    }));
+
+    it('espera o banner de cookies fechar, que ocupa o mesmo rodape', fakeAsync(() => {
+      const banner = signal(true);
+      const { offer, create } = setup(banner);
+      offer(promotion(2 * 24 * HOUR));
+      const { el, fixture } = create({ variant: 'floating' });
+      tick(2500);
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="promo-flutuante"]')).toBeNull();
+
+      banner.set(false);
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="promo-flutuante"]')).not.toBeNull();
+
+      fixture.destroy();
       discardPeriodicTasks();
     }));
 
