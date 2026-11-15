@@ -135,4 +135,49 @@ describe('Landing', () => {
       expect(trilha.textContent).not.toContain('aula');
     });
   });
+
+  /** Spec 032: textos da mentora definidos pelo usuario em 15/11/2026. */
+  describe('secao Quem sera sua Mentora', () => {
+    const bio = () => (el.querySelector('[data-testid="mentora-bio"]')?.textContent ?? '').replace(/\s+/g, ' ');
+
+    it('traz os quatro paragrafos novos', () => {
+      expect(el.querySelectorAll('[data-testid="mentora-bio"] p').length).toBe(4);
+      expect(bio()).toContain('atua de forma multissetorial nos segmentos de Indústria, Tecnologia e Setor Público');
+      expect(bio()).toContain('é CEO da Delcastanher Serviços Administrativos e Treinamentos');
+      expect(bio()).toContain('também integra uma publicação em formato de revista');
+      expect(bio()).toContain('Sua atuação conecta estratégia, pessoas e resultados');
+    });
+
+    it('mantem os negritos e o livro em italico', () => {
+      const strong = Array.from(el.querySelectorAll('[data-testid="mentora-bio"] strong')).map(node =>
+        (node.textContent ?? '').replace(/\s+/g, ' ').trim(),
+      );
+
+      expect(strong).toEqual([
+        'mais de 20 anos de experiência',
+        'Delcastanher Serviços Administrativos e Treinamentos',
+        'imersões, programas e experiências de desenvolvimento em Liderança e Recursos Humanos',
+      ]);
+      expect(el.querySelector('[data-testid="mentora-bio"] i')?.textContent).toContain(
+        'Trajetória e Cotidiano dos Líderes do Brasil',
+      );
+    });
+
+    it('os quatro cards do print, em 2x2, sem Empresas nem Setores', () => {
+      const cards = Array.from(el.querySelectorAll('[data-testid="mentora-cards"] ui-glass-card')).map(node =>
+        Array.from(node.querySelectorAll('p'))
+          .map(p => (p.textContent ?? '').trim())
+          .join(' '),
+      );
+
+      expect(cards).toEqual([
+        '+20 Anos de experiência',
+        'Mentora e Instrutora',
+        '01 Livro como coautora',
+        'RH & Liderança Imersões e desenvolvimento',
+      ]);
+      expect(el.querySelector('[data-testid="mentora-cards"]')?.className).not.toContain('md:grid-cols-4');
+      expect(cards.join(' ')).not.toMatch(/Empresas|Setores/);
+    });
+  });
 });
