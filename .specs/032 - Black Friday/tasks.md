@@ -45,15 +45,15 @@ Ordem das fases:
 - [x] **Task 3.6:** Quando a contagem chega a zero na loja, recarregar a oferta (decisão 7). Spec com relógio falso.
 
 ## Fase 4: Front - Cards com contagem regressiva
-- [ ] **Task 4.1:** Desenho do card com a skill `frontend-design`, na identidade da landing (glass card, gradiente da marca, cor de urgência na última hora).
-- [ ] **Task 4.2:** Signal de contagem regressiva (`countdown(endsAt, serverNow)`), só no navegador, com intervalo limpo no `DestroyRef`. Spec com relógio falso: dias/horas/minutos/segundos, defasagem do relógio do aparelho, chegada ao zero.
-- [ ] **Task 4.3:** `ui-promo-card` (decisão 9): variante flutuante (entrada com salto, fechar, `sessionStorage` com try/catch, `prefers-reduced-motion`) e variante em linha. SSR: no servidor, só o card em linha com a data, sem contagem. Spec.
-- [ ] **Task 4.4:** Encaixar o card flutuante na landing, no `/planos` e na loja (não no pagamento nem no pedido), e o card em linha no preço do `/planos` e no topo da loja.
+- [x] **Task 4.1:** Desenho do card com a skill `frontend-design`, na identidade da landing (glass card, gradiente da marca, cor de urgência na última hora).
+- [x] **Task 4.2:** Signal de contagem regressiva (`countdown(endsAt, serverNow)`), só no navegador, com intervalo limpo no `DestroyRef`. Spec com relógio falso: dias/horas/minutos/segundos, defasagem do relógio do aparelho, chegada ao zero.
+- [x] **Task 4.3:** `ui-promo-card` (decisão 9): variante flutuante (entrada com salto, fechar, `sessionStorage` com try/catch, `prefers-reduced-motion`) e variante em linha. SSR: no servidor, só o card em linha com a data, sem contagem. Spec.
+- [x] **Task 4.4:** Encaixar o card flutuante na landing, no `/planos` e na loja (não no pagamento nem no pedido), e o card em linha no preço do `/planos` e no topo da loja.
 - [ ] **Task 4.5:** Conferir no navegador, com uma campanha de teste no preview: desktop e celular (360 px), sem cobrir CTA, sem rolagem horizontal, sem erro de hidratação no console.
 
 ## Fase 5: Front - Quem será sua Mentora
-- [ ] **Task 5.1:** Aplicar na seção `#mentora` os textos da seção "Textos da mentora" do `context.md`: os 4 parágrafos no `landing.html`, com os negritos e o itálico; os 4 cards novos em `stats` (`landing.ts`), com `kind: 'number' | 'text'` e `label` opcional; a grade em 2×2 também no desktop. Ajustar `landing.spec.ts` e `landing.presentation.spec.ts`. Conferir no navegador em 360 px e no desktop, comparando com o print de `libs/`.
-- [ ] **Task 5.2:** Rodar `ng test` e `ng build` do front.
+- [x] **Task 5.1:** Aplicar na seção `#mentora` os textos da seção "Textos da mentora" do `context.md`: os 4 parágrafos no `landing.html`, com os negritos e o itálico; os 4 cards novos em `stats` (`landing.ts`), com `kind: 'number' | 'text'` e `label` opcional; a grade em 2×2 também no desktop. Ajustar `landing.spec.ts` e `landing.presentation.spec.ts`. Conferir no navegador em 360 px e no desktop, comparando com o print de `libs/`.
+- [x] **Task 5.2:** Rodar `ng test` e `ng build` do front.
 
 ## Fase 6: Preview e produção
 - [ ] **Task 6.1:** Merge das branches de fase na `release/032-black-friday` e push para a branch `preview` (Spec 029). A migration roda na branch `preview` do Neon.
@@ -102,3 +102,20 @@ Ordem das fases:
 - **3.5:** no pedido, o rodapé traz o cheio riscado e "Black Friday −30%". Na aprovação, aparece "Você economizou R$ 296,70 com a Black Friday.".
 - **3.6:** o `StoreService` agenda a releitura para `endsAt − serverNow + 1 s` (os dois do servidor, sem depender do relógio do aparelho), só no navegador, e guarda `clockOffsetMs` para a contagem da Fase 4. Uma oferta nova cancela o agendamento anterior.
 - `ng test`: 768 testes. `ng build` ok.
+
+### Fase 4 (Front, cards), 15/11/2026, branch `feat/032-front-cards-contagem`
+
+- **4.1 (desenho):** o card é escuro, no gradiente navy da marca, sobre o site claro. O destaque é a porcentagem grande com a contagem em quatro blocos de algarismos tabulares, sem animação nos dígitos. Há um único movimento (`promo-bounce-in`, no `tailwind.config.js`), que vira fade com `prefers-reduced-motion`. Na última hora, o fundo fica vermelho e aparece "Acaba em menos de 1 hora". Não há rótulo em caixa alta; o texto é "Black Friday", "−30%", "de desconto em toda a loja" e "Ver a oferta".
+- **4.2:** `countdown(endsAt, offsetMs)` (`core/services/countdown.ts`): só no navegador (nulo no SSR) e com o intervalo limpo no `DestroyRef`.
+- **4.3:** `ui-promo-card` (`shared/ui/promo-card`), `floating` ou `inline`. "Fechou nesta sessão" é guardado **por campanha** (a chave leva o `endsAt`) e lido quando a campanha chega, porque a oferta pode chegar depois da espera de 2,5 s. No fim da contagem o card some.
+- **4.4:** flutuante na landing (com `load`, porque a landing não lê a oferta) e no `/planos`; em linha acima do pacote no `/planos` e no topo da loja. **Diferente da decisão 9: na loja não há flutuante.** O resumo fixo com o botão "Ir para o pagamento" fica no canto direito, onde o flutuante entraria, e a mesma decisão diz que ele não cobre CTA nem resumo.
+- **4.5 (parcial, antes do preview):** conferido no `ng serve` local (porta 4300), em 360 px e 1280 px, com uma campanha simulada só no navegador (`ng.getComponent`, sem API). Saíram dois ajustes:
+  - no celular, o flutuante e o banner de cookies se sobrepunham no rodapé; agora **o card espera a decisão de cookies** (`ConsentService.bannerVisible`) e entra depois dela;
+  - na última hora, o nome "Black Friday" passava de azul-claro para branco, por contraste.
+  Sem rolagem horizontal nas duas larguras. Falta a conferência com campanha de verdade no preview (Task 6.2).
+- **Teste instável que já existia:** numa rodada da suíte inteira, os 12 testes do `/planos` falharam com uma requisição `GET /legal/policy-version` aberta, vinda do `ConsentService` porque algum teste deixa um consentimento no `localStorage`. Depende da ordem aleatória do Jasmine: isolado, passa; as duas rodadas seguintes passaram 779/779. Não é desta spec e ficou anotado.
+
+### Fase 5 (Front, mentora), 15/11/2026, branch `feat/032-front-mentora`
+
+- **5.1:** os 4 parágrafos e os 4 cards do print, com os negritos e o itálico. O tipo `MentorStat` ganhou `kind: 'number' | 'text'` e `label` opcional. A grade é 2×2 em toda largura. No celular, a legenda dos cards tem espaçamento entre letras menor (0.06em), porque "DESENVOLVIMENTO" com 0.15em encostava na borda do card em 360 px. Conferido em 360 px e no desktop.
+- **5.2:** `ng test`: 783 testes. `ng build` ok.
