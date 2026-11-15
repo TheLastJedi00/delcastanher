@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { formatBrasiliaShort } from '../../../core/services/brasilia-time';
+import { ConsentService } from '../../../core/services/consent.service';
 import { countdown } from '../../../core/services/countdown';
 import { StoreService } from '../../../core/services/store.service';
 
@@ -21,7 +22,8 @@ const DISMISS_KEY = 'promo-card-dismissed:';
  * (Spec 032, decisao 9).
  *
  * - **`floating`:** entra pulando no canto inferior, alguns segundos depois
- *   de a pagina abrir. Fechado, nao volta na mesma sessao (`sessionStorage`,
+ *   de a pagina abrir — e so com o banner de cookies fechado, que ocupa o
+ *   mesmo rodape. Fechado, nao volta na mesma sessao (`sessionStorage`,
  *   com try/catch: sem storage, ele so volta a aparecer).
  * - **`inline`:** na secao de preco, sem fechar.
  *
@@ -61,7 +63,7 @@ const DISMISS_KEY = 'promo-card-dismissed:';
             <p class="sr-only">{{ summary() }}</p>
 
             <div aria-hidden="true">
-              <p class="pr-8 text-sm font-semibold text-brand-teal-light">{{ promo.name }}</p>
+              <p class="pr-8 text-sm font-semibold" [class]="nameTone()">{{ promo.name }}</p>
               <p class="mt-1 text-5xl font-extrabold leading-none tracking-tight tabular-nums">−{{ promo.percentOff }}%</p>
               <p class="mt-1 text-sm text-white/80">de desconto em toda a loja</p>
 
@@ -99,7 +101,7 @@ const DISMISS_KEY = 'promo-card-dismissed:';
           <div class="flex items-end gap-4" aria-hidden="true">
             <p class="text-5xl font-extrabold leading-none tracking-tight tabular-nums md:text-6xl">−{{ promo.percentOff }}%</p>
             <div class="pb-1">
-              <p class="text-sm font-semibold text-brand-teal-light">{{ promo.name }}</p>
+              <p class="text-sm font-semibold" [class]="nameTone()">{{ promo.name }}</p>
               <p class="text-sm text-white/85">em toda a loja, até {{ deadline() }}</p>
             </div>
           </div>
@@ -126,6 +128,7 @@ const DISMISS_KEY = 'promo-card-dismissed:';
 })
 export class PromoCard {
   private readonly store = inject(StoreService);
+  private readonly consent = inject(ConsentService);
 
   readonly variant = input<'floating' | 'inline'>('inline');
   /** Destino do "Ver a oferta" (so no flutuante). */
@@ -158,6 +161,12 @@ export class PromoCard {
 
     if (this.variant() !== 'floating') {
       return promotion;
+    }
+
+    // O banner de cookies tambem fica preso no rodape: o card espera a decisao,
+    // e entra pulando depois dela, sem os dois se sobreporem no celular.
+    if (this.consent.bannerVisible()) {
+      return null;
     }
 
     // Lido por campanha, e so quando ela chega: a oferta pode vir depois da espera.
@@ -196,6 +205,9 @@ export class PromoCard {
   protected readonly tone = computed(() =>
     this.remaining()?.lastHour ? 'from-[#7F1D1D] to-state-danger' : 'from-brand-navy to-brand-navy-light',
   );
+
+  /** O azul-claro do nome some no vermelho: na ultima hora, branco. */
+  protected readonly nameTone = computed(() => (this.remaining()?.lastHour ? 'text-white' : 'text-brand-teal-light'));
 
   constructor() {
     const destroyRef = inject(DestroyRef);

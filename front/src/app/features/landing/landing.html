@@ -96,22 +96,47 @@
       <div class="w-full md:w-7/12" animateOnScroll="animate-fade-in-up">
         <ui-section-header overline="Quem será sua Mentora" title="Lidiane Delcastanher" />
 
-        <p class="mb-6 mt-6 text-lg leading-relaxed text-slate-600">
-          Com <strong class="text-brand-navy">+20 anos de experiência</strong>, atua de forma multisetorial
-          (Indústria, Tecnologia e Setor Público) focada em reestruturação de RH e consolidação de culturas
-          de performance.
-        </p>
-        <p class="mb-8 text-lg leading-relaxed text-slate-600">
-          Administradora com MBA em Gestão de Pessoas e Pós-Graduação em Performance Organizacional.
-          É CEO da Delcastanher Serviços Administrativos e coautora do livro
-          <i>"Trajetória e Cotidiano dos Líderes do Brasil"</i>.
-        </p>
+        <!-- Spec 032: textos definidos pelo usuário em 15/11/2026. -->
+        <div class="mb-8 mt-6 space-y-5 text-lg leading-relaxed text-slate-600" data-testid="mentora-bio">
+          <p>
+            Com <strong class="text-brand-navy">mais de 20 anos de experiência</strong>, atua de forma
+            multissetorial nos segmentos de Indústria, Tecnologia e Setor Público, com foco na estruturação e
+            reestruturação de Recursos Humanos, desenvolvimento de lideranças, gestão estratégica de pessoas e
+            consolidação de culturas de alta performance.
+          </p>
+          <p>
+            Administradora, com MBA em Gestão de Pessoas e Pós-Graduação em Performance Organizacional, é CEO da
+            <strong class="text-brand-navy">Delcastanher Serviços Administrativos e Treinamentos</strong>. Possui
+            trajetória marcada pela participação em diversas
+            <strong class="text-brand-navy">imersões, programas e experiências de desenvolvimento em Liderança e
+            Recursos Humanos</strong>.
+          </p>
+          <p>
+            É coautora do livro <i>"Trajetória e Cotidiano dos Líderes do Brasil"</i> e também integra uma
+            publicação em formato de revista, ampliando sua contribuição para o compartilhamento de
+            conhecimento, experiências e reflexões sobre gestão e liderança.
+          </p>
+          <p>
+            Sua atuação conecta estratégia, pessoas e resultados, transformando conhecimento em práticas que
+            impulsionam organizações e desenvolvem profissionais.
+          </p>
+        </div>
 
-        <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-          @for (stat of stats; track stat.label) {
+        <!-- 2x2 em toda largura (Spec 032): "Mentora e Instrutora" não cabe em 4 colunas ao lado da foto. -->
+        <div class="grid grid-cols-2 gap-4" data-testid="mentora-cards">
+          @for (stat of stats; track stat.value) {
             <ui-glass-card padding="sm" [accent]="false">
-              <p class="mb-1 text-3xl font-extrabold tracking-tight text-gradient-brand">{{ stat.value }}</p>
-              <p class="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">{{ stat.label }}</p>
+              @if (stat.kind === 'number') {
+                <p class="mb-1 text-3xl font-extrabold tracking-tight text-gradient-brand">{{ stat.value }}</p>
+              } @else {
+                <p class="mb-1 text-lg font-extrabold uppercase leading-tight tracking-tight text-brand-navy md:text-xl">
+                  {{ stat.value }}
+                </p>
+              }
+              @if (stat.label) {
+                <!-- Espaçamento menor no celular: "DESENVOLVIMENTO" não cabe no card de 360 px com 0.15em. -->
+                <p class="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-500 sm:tracking-[0.15em]">{{ stat.label }}</p>
+              }
             </ui-glass-card>
           }
         </div>
