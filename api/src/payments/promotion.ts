@@ -19,12 +19,19 @@ export interface PromotionPeriod {
  * arredondada para o centavo mais proximo. Sem campanha (nula ou zero), o
  * preco volta igual.
  */
-export function applyDiscount(priceCents: number, percentOff: number | null): number {
+export function applyDiscount(
+  priceCents: number,
+  percentOff: number | null,
+): number {
   if (percentOff === null || percentOff === 0) {
     return priceCents;
   }
 
-  if (!Number.isInteger(percentOff) || percentOff < 0 || percentOff > MAX_PERCENT_OFF) {
+  if (
+    !Number.isInteger(percentOff) ||
+    percentOff < 0 ||
+    percentOff > MAX_PERCENT_OFF
+  ) {
     throw new RangeError(`Porcentagem de desconto inválida: ${percentOff}.`);
   }
 
@@ -33,7 +40,9 @@ export function applyDiscount(priceCents: number, percentOff: number | null): nu
 
 /** Fim de fato: o marcado, ou o encerramento antecipado quando houver. */
 export function effectiveEnd(period: PromotionPeriod): Date {
-  return period.endedEarlyAt && period.endedEarlyAt < period.endsAt ? period.endedEarlyAt : period.endsAt;
+  return period.endedEarlyAt && period.endedEarlyAt < period.endsAt
+    ? period.endedEarlyAt
+    : period.endsAt;
 }
 
 /**
@@ -54,8 +63,14 @@ export function isRunning(period: PromotionPeriod, now: Date): boolean {
  * O 409 leva `code` e o valor novo, para a tela distinguir este caso dos
  * outros 409 do pedido e mostrar o preco certo sem outra consulta.
  */
-export function assertExpectedAmount(expectedAmountCents: number | undefined, amountCents: number): void {
-  if (expectedAmountCents === undefined || expectedAmountCents === amountCents) {
+export function assertExpectedAmount(
+  expectedAmountCents: number | undefined,
+  amountCents: number,
+): void {
+  if (
+    expectedAmountCents === undefined ||
+    expectedAmountCents === amountCents
+  ) {
     return;
   }
 
@@ -99,7 +114,12 @@ export function orderPromotionColumns(
         discountPercentSnapshot: promotion.percentOff,
         listAmountCents,
       }
-    : { promotionId: null, promotionNameSnapshot: null, discountPercentSnapshot: null, listAmountCents: null };
+    : {
+        promotionId: null,
+        promotionNameSnapshot: null,
+        discountPercentSnapshot: null,
+        listAmountCents: null,
+      };
 }
 
 /** A campanha de um pedido, como recibo, e-mail e financeiro a mostram. */
@@ -115,8 +135,14 @@ export function orderPromotionView(row: {
   discountPercentSnapshot?: number | null;
   listAmountCents?: number | null;
 }): OrderPromotionView | null {
-  return row.promotionNameSnapshot && row.discountPercentSnapshot != null && row.listAmountCents != null
-    ? { name: row.promotionNameSnapshot, percentOff: row.discountPercentSnapshot, listAmountCents: row.listAmountCents }
+  return row.promotionNameSnapshot &&
+    row.discountPercentSnapshot != null &&
+    row.listAmountCents != null
+    ? {
+        name: row.promotionNameSnapshot,
+        percentOff: row.discountPercentSnapshot,
+        listAmountCents: row.listAmountCents,
+      }
     : null;
 }
 

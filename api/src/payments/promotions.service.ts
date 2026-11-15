@@ -1,6 +1,16 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { MAX_PERCENT_OFF, PromotionPeriod, isRunning, overlaps } from './promotion';
+import {
+  MAX_PERCENT_OFF,
+  PromotionPeriod,
+  isRunning,
+  overlaps,
+} from './promotion';
 
 /** Campanha como o banco a guarda. */
 export interface PromotionRow extends PromotionPeriod {
@@ -60,9 +70,13 @@ export const START_TOLERANCE_MS = 5 * 60 * 1000;
 const OVERLAP_LOCK_KEY = 32032;
 
 const OVERLAP_MESSAGE = 'Já existe uma campanha nesse período.';
-const RUNNING_LOCKED_MESSAGE = 'Com a campanha no ar, só o nome e o fim podem mudar.';
+const RUNNING_LOCKED_MESSAGE =
+  'Com a campanha no ar, só o nome e o fim podem mudar.';
 
-export function promotionStatus(period: PromotionPeriod, now: Date): PromotionStatus {
+export function promotionStatus(
+  period: PromotionPeriod,
+  now: Date,
+): PromotionStatus {
   if (now < period.startsAt) {
     return 'SCHEDULED';
   }
@@ -92,9 +106,9 @@ export class PromotionsService {
 
   /** Todas as campanhas, da mais recente a mais antiga, com os totais. */
   async list(now: Date = new Date()): Promise<PromotionListItem[]> {
-    const rows = ((await this.prisma.promotion.findMany()) as PromotionRow[]).sort(
-      (a, b) => b.startsAt.getTime() - a.startsAt.getTime(),
-    );
+    const rows = (
+      (await this.prisma.promotion.findMany()) as PromotionRow[]
+    ).sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime());
 
     if (rows.length === 0) {
       return [];
@@ -102,7 +116,10 @@ export class PromotionsService {
 
     const groups = await this.prisma.order.groupBy({
       by: ['promotionId'],
-      where: { promotionId: { in: rows.map((promotion) => promotion.id) }, status: 'PAID' },
+      where: {
+        promotionId: { in: rows.map((promotion) => promotion.id) },
+        status: 'PAID',
+      },
       _count: { _all: true },
       _sum: { amountCents: true, listAmountCents: true },
     });
@@ -115,7 +132,8 @@ export class PromotionsService {
           {
             paidOrders: group._count._all,
             revenueCents,
-            discountCents: (group._sum.listAmountCents ?? revenueCents) - revenueCents,
+            discountCents:
+              (group._sum.listAmountCents ?? revenueCents) - revenueCents,
           },
         ];
       }),
@@ -123,11 +141,19 @@ export class PromotionsService {
 
     return rows.map((promotion) => ({
       ...this.toView(promotion, now),
-      totals: totals.get(promotion.id) ?? { paidOrders: 0, revenueCents: 0, discountCents: 0 },
+      totals: totals.get(promotion.id) ?? {
+        paidOrders: 0,
+        revenueCents: 0,
+        discountCents: 0,
+      },
     }));
   }
 
-  async create(input: CreatePromotionInput, adminUid: string, now: Date = new Date()): Promise<PromotionView> {
+  async create(
+    input: CreatePromotionInput,
+    adminUid: string,
+    now: Date = new Date(),
+  ): Promise<PromotionView> {
     this.validatePercent(input.percentOff);
 
     const startsAt = this.validateStart(input.startsAt, now);
@@ -136,9 +162,13 @@ export class PromotionsService {
 
     return this.prisma.$transaction(async (tx) => {
       await this.lock(tx);
-      await this.assertNoOverlap(tx, { startsAt, endsAt: input.endsAt, endedEarlyAt: null });
+      await this.assertNoOverlap(tx, {
+        startsAt,
+        endsAt: input.endsAt,
+        endedEarlyAt: null,
+      });
 
-      const created = (await tx.promotion.create({
+      const created = await tx.promotion.create({
         data: {
           name: input.name.trim(),
           percentOff: input.percentOff,
@@ -146,7 +176,7 @@ export class PromotionsService {
           endsAt: input.endsAt,
           createdById: adminUid,
         },
-      })) as PromotionRow;
+      });
 
       return this.toView(created, now);
     });
@@ -157,7 +187,11 @@ export class PromotionsService {
    * so o nome e o fim — pedidos ja entraram com aquela porcentagem; encerrada,
    * nada.
    */
-  async update(id: string, input: UpdatePromotionInput, now: Date = new Date()): Promise<PromotionView> {
+  async update(
+    id: string,
+    input: UpdatePromotionInput,
+    now: Date = new Date(),
+  ): Promise<PromotionView> {
     return this.prisma.$transaction(async (tx) => {
       await this.lock(tx);
 
@@ -169,9 +203,12 @@ export class PromotionsService {
       }
 
       if (status === 'RUNNING') {
-        const percentChanged = input.percentOff !== undefined && input.percentOff !== current.percentOff;
+        const percentChanged =
+          input.percentOff !== undefined &&
+          input.percentOff !== current.percentOff;
         const startChanged =
-          input.startsAt !== undefined && input.startsAt.getTime() !== current.startsAt.getTime();
+          input.startsAt !== undefined &&
+          input.startsAt.getTime() !== current.startsAt.getTime();
 
         if (percentChanged || startChanged) {
           throw new ConflictException(RUNNING_LOCKED_MESSAGE);
@@ -195,17 +232,23 @@ export class PromotionsService {
       const endsAt = input.endsAt ?? current.endsAt;
 
       this.validateEnd(startsAt, endsAt);
-      await this.assertNoOverlap(tx, { startsAt, endsAt, endedEarlyAt: null }, id);
+      await this.assertNoOverlap(
+        tx,
+        { startsAt, endsAt, endedEarlyAt: null },
+        id,
+      );
 
-      const saved = (await tx.promotion.update({
+      const saved = await tx.promotion.update({
         where: { id },
         data: {
           ...(input.name !== undefined ? { name: input.name.trim() } : {}),
-          ...(status === 'SCHEDULED' && input.percentOff !== undefined ? { percentOff: input.percentOff } : {}),
+          ...(status === 'SCHEDULED' && input.percentOff !== undefined
+            ? { percentOff: input.percentOff }
+            : {}),
           startsAt,
           endsAt,
         },
-      })) as PromotionRow;
+      });
 
       return this.toView(saved, now);
     });
@@ -216,7 +259,9 @@ export class PromotionsService {
     const current = await this.find(this.prisma, id);
 
     if (promotionStatus(current, now) !== 'SCHEDULED') {
-      throw new ConflictException('Só uma campanha que ainda não começou pode ser apagada.');
+      throw new ConflictException(
+        'Só uma campanha que ainda não começou pode ser apagada.',
+      );
     }
 
     await this.prisma.promotion.delete({ where: { id } });
@@ -230,16 +275,21 @@ export class PromotionsService {
       throw new ConflictException('Só uma campanha no ar pode ser encerrada.');
     }
 
-    const saved = (await this.prisma.promotion.update({
+    const saved = await this.prisma.promotion.update({
       where: { id },
       data: { endedEarlyAt: now },
-    })) as PromotionRow;
+    });
 
     return this.toView(saved, now);
   }
 
-  private async find(db: Pick<PrismaService, 'promotion'>, id: string): Promise<PromotionRow> {
-    const found = (await db.promotion.findUnique({ where: { id } })) as PromotionRow | null;
+  private async find(
+    db: Pick<PrismaService, 'promotion'>,
+    id: string,
+  ): Promise<PromotionRow> {
+    const found = await db.promotion.findUnique({
+      where: { id },
+    });
 
     if (!found) {
       throw new NotFoundException('Campanha não encontrada.');
@@ -258,17 +308,28 @@ export class PromotionsService {
     ignoreId?: string,
   ): Promise<void> {
     const others = (await tx.promotion.findMany({
-      where: { endsAt: { gt: period.startsAt }, startsAt: { lt: period.endsAt } },
+      where: {
+        endsAt: { gt: period.startsAt },
+        startsAt: { lt: period.endsAt },
+      },
     })) as PromotionRow[];
 
-    if (others.some((other) => other.id !== ignoreId && overlaps(other, period))) {
+    if (
+      others.some((other) => other.id !== ignoreId && overlaps(other, period))
+    ) {
       throw new ConflictException(OVERLAP_MESSAGE);
     }
   }
 
   private validatePercent(percentOff: number): void {
-    if (!Number.isInteger(percentOff) || percentOff < 1 || percentOff > MAX_PERCENT_OFF) {
-      throw new BadRequestException(`O desconto deve ser um número inteiro de 1 a ${MAX_PERCENT_OFF}%.`);
+    if (
+      !Number.isInteger(percentOff) ||
+      percentOff < 1 ||
+      percentOff > MAX_PERCENT_OFF
+    ) {
+      throw new BadRequestException(
+        `O desconto deve ser um número inteiro de 1 a ${MAX_PERCENT_OFF}%.`,
+      );
     }
   }
 

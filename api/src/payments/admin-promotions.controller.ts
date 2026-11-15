@@ -11,23 +11,38 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
-import { IsDate, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsDate,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { MAX_PERCENT_OFF } from './promotion';
-import { PromotionListItem, PromotionView, PromotionsService } from './promotions.service';
+import {
+  PromotionListItem,
+  PromotionView,
+  PromotionsService,
+} from './promotions.service';
 import { StoreOffer, StoreService } from './store.service';
 
-const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+const trim = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
 
 /**
  * Datas chegam em ISO 8601 com fuso (o painel converte o horario de Brasilia,
  * decisao 7). `Date` invalida vira `Invalid Date`, que o `@IsDate` recusa.
  */
-const toDate = ({ value }: { value: unknown }) => (typeof value === 'string' ? new Date(value) : value);
+const toDate = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? new Date(value) : value;
 
 export class CreatePromotionDto {
   @Transform(trim)
@@ -39,7 +54,9 @@ export class CreatePromotionDto {
   @Type(() => Number)
   @IsInt({ message: 'O desconto deve ser um número inteiro.' })
   @Min(1, { message: `O desconto deve ser de 1 a ${MAX_PERCENT_OFF}%.` })
-  @Max(MAX_PERCENT_OFF, { message: `O desconto deve ser de 1 a ${MAX_PERCENT_OFF}%.` })
+  @Max(MAX_PERCENT_OFF, {
+    message: `O desconto deve ser de 1 a ${MAX_PERCENT_OFF}%.`,
+  })
   percentOff!: number;
 
   @Transform(toDate)
@@ -64,7 +81,9 @@ export class UpdatePromotionDto {
   @Type(() => Number)
   @IsInt({ message: 'O desconto deve ser um número inteiro.' })
   @Min(1, { message: `O desconto deve ser de 1 a ${MAX_PERCENT_OFF}%.` })
-  @Max(MAX_PERCENT_OFF, { message: `O desconto deve ser de 1 a ${MAX_PERCENT_OFF}%.` })
+  @Max(MAX_PERCENT_OFF, {
+    message: `O desconto deve ser de 1 a ${MAX_PERCENT_OFF}%.`,
+  })
   percentOff?: number;
 
   @IsOptional()
@@ -82,7 +101,9 @@ export class PreviewPromotionQuery {
   @Type(() => Number)
   @IsInt({ message: 'O desconto deve ser um número inteiro.' })
   @Min(1, { message: `O desconto deve ser de 1 a ${MAX_PERCENT_OFF}%.` })
-  @Max(MAX_PERCENT_OFF, { message: `O desconto deve ser de 1 a ${MAX_PERCENT_OFF}%.` })
+  @Max(MAX_PERCENT_OFF, {
+    message: `O desconto deve ser de 1 a ${MAX_PERCENT_OFF}%.`,
+  })
   percentOff!: number;
 }
 
@@ -109,23 +130,38 @@ export class AdminPromotionsController {
    * mesma conta da loja, para nao haver uma segunda no front.
    */
   @Get('preview')
-  preview(@Query() query: PreviewPromotionQuery): Promise<Omit<StoreOffer, 'promotion'>> {
+  preview(
+    @Query() query: PreviewPromotionQuery,
+  ): Promise<Omit<StoreOffer, 'promotion'>> {
     return this.store.prices(query.percentOff);
   }
 
   @Post()
-  create(@CurrentUser() user: AuthUser, @Body() dto: CreatePromotionDto): Promise<PromotionView> {
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreatePromotionDto,
+  ): Promise<PromotionView> {
     return this.promotions.create(
-      { name: dto.name, percentOff: dto.percentOff, startsAt: dto.startsAt, endsAt: dto.endsAt },
+      {
+        name: dto.name,
+        percentOff: dto.percentOff,
+        startsAt: dto.startsAt,
+        endsAt: dto.endsAt,
+      },
       user.uid,
     );
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePromotionDto): Promise<PromotionView> {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePromotionDto,
+  ): Promise<PromotionView> {
     // `@IsOptional` deixa passar `null`; campo nulo e "nao mudar", como ausente.
     const input = Object.fromEntries(
-      Object.entries(dto).filter(([, value]) => value !== undefined && value !== null),
+      Object.entries(dto).filter(
+        ([, value]) => value !== undefined && value !== null,
+      ),
     );
 
     return this.promotions.update(id, input);
