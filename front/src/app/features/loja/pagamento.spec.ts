@@ -178,6 +178,66 @@ describe('Pagamento — endereço para a nota fiscal', () => {
       },
     });
   });
+  /** Spec 032, decisao 6: o total desta tela vai junto, so para a API recusar. */
+  async function payPix(): Promise<void> {
+    type('zip', '01310-100');
+    backend.expectOne('https://viacep.com.br/ws/01310100/json/').flush(VIACEP);
+    fixture.detectChanges();
+    type('number', '1000');
+    payButton().click();
+    await fixture.whenStable();
+  }
+
+  it('manda o total da tela como expectedAmountCents', async () => {
+    await payPix();
+
+    const order = backend.expectOne(req => req.method === 'POST' && req.url.endsWith('/orders'));
+
+    expect(typeof order.request.body.expectedAmountCents).toBe('number');
+  });
+
+  it('preco mudou (409): rele a oferta sem cache, mostra o valor novo e nao sai da tela', async () => {
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate');
+
+    await payPix();
+    backend
+      .expectOne(req => req.method === 'POST' && req.url.endsWith('/orders'))
+      .flush(
+        { code: 'PRICE_CHANGED', amountCents: 98900, message: 'O preço mudou. Confira o novo valor antes de pagar.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    await fixture.whenStable();
+
+    const offer = backend.expectOne(req => req.url.endsWith('/store/offer'));
+
+    expect(offer.request.params.has('t')).toBeTrue();
+    offer.flush({ modules: [], bundle: null, promotion: null });
+    await fixture.whenStable();
+    backend.match(req => req.url.endsWith('/store/catalog')).forEach(req =>
+      req.flush([
+        {
+          id: 'mod-1',
+          order: 1,
+          title: 'Fundamentos',
+          summary: '',
+          lessonCount: 1,
+          priceCents: 98900,
+          listPriceCents: 98900,
+          purchasable: true,
+          access: { unlocked: false, expiresAt: null },
+        },
+      ]),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (el().textContent ?? '').replace(/\s+/g, ' ').replace(/ /g, ' ');
+
+    expect(text).toContain('O preço mudou enquanto você escolhia. Agora o total sai por R$ 989,00');
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(field('number').value).toBe('1000');
+  });
 });
 
 /**

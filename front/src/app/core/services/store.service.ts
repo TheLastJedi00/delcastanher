@@ -190,6 +190,22 @@ export interface CreateOrderPayload {
   testKey?: string;
   /** Falha do navegador no lugar do `card`: o pedido nasce `FAILED`. */
   clientError?: { stage: ClientErrorStage; message: string };
+  /**
+   * Total que a tela mostrou (Spec 032, decisao 6). So serve para a API
+   * recusar com 409 se o preco mudou; quem define o valor e o servidor.
+   */
+  expectedAmountCents?: number;
+}
+
+/**
+ * O preco mudou entre a tela e o clique (Spec 032, decisao 6): a campanha
+ * acabou ou comecou. Nada foi cobrado, e `amountCents` e o valor novo.
+ */
+export class PriceChangedError {
+  constructor(
+    readonly message: string,
+    readonly amountCents: number,
+  ) {}
 }
 
 /** Etapas do navegador no caminho do cartao, como os logs as nomeiam. */
@@ -379,8 +395,12 @@ export class StoreService {
    * Vitrine publica: modulos avulsos e pacote com o lote vigente (Spec 019,
    * decisao 10). Sem sessao — o `/planos` usa a mesma chamada que a loja.
    */
-  loadOffer(): Observable<StoreOffer> {
-    return this.http.get<StoreOffer>(`${environment.apiUrl}/store/offer`).pipe(
+  loadOffer(options: { fresh?: boolean } = {}): Observable<StoreOffer> {
+    // `fresh` passa pelo cache de 30 s da oferta (navegador e CDN): no fim da
+    // campanha e depois de um 409 de preco, a tela precisa do preco de agora.
+    const params = options.fresh ? { params: { t: Date.now() } } : {};
+
+    return this.http.get<StoreOffer>(`${environment.apiUrl}/store/offer`, params).pipe(
       tap(offer => this.offerState.set(offer)),
       catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
     );
@@ -485,7 +505,16 @@ export class StoreService {
   createOrder(payload: CreateOrderPayload): Observable<OrderView> {
     return this.http.post<OrderView>(`${environment.apiUrl}/orders`, payload).pipe(
       tap(order => this.orderState.set(order)),
-      catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
+      catchError((error: HttpErrorResponse) => {
+        const body = error.error as { code?: string; amountCents?: number } | null;
+
+        // Spec 032, decisao 6: o preco mudou; a tela recarrega e mostra o novo.
+        if (error.status === 409 && body?.code === 'PRICE_CHANGED' && typeof body.amountCents === 'number') {
+          return throwError(() => new PriceChangedError(this.toMessage(error), body.amountCents as number));
+        }
+
+        return throwError(() => this.toMessage(error));
+      }),
     );
   }
 
