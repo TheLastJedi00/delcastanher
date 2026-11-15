@@ -391,6 +391,41 @@ describe('BundlesService.placeOrder (Spec 019, decisoes 5 e 6)', () => {
     expect(placed.order.items).toHaveLength(12);
   });
 
+  /** Spec 032, decisoes 4 e 5. */
+  it('com campanha, o valor do lote sai com desconto e o rateio e sobre ele', async () => {
+    const { service, tx } = await buildPlace();
+
+    await service.placeOrder(
+      { ...PLACE, promotion: { id: 'promo-1', name: 'Black Friday', percentOff: 30 } },
+      NOW,
+    );
+    const data = tx.order.create.mock.calls[0][0].data as Record<string, unknown>;
+    const items = (data.items as { create: { priceCents: number }[] }).create;
+
+    expect(data).toMatchObject({
+      amountCents: 41300,
+      listAmountCents: 59000,
+      promotionId: 'promo-1',
+      promotionNameSnapshot: 'Black Friday',
+      discountPercentSnapshot: 30,
+    });
+    expect(items.reduce((sum, item) => sum + item.priceCents, 0)).toBe(41300);
+  });
+
+  it('sem campanha, as colunas da campanha ficam nulas', async () => {
+    const { service, tx } = await buildPlace();
+
+    await service.placeOrder(PLACE, NOW);
+
+    expect(tx.order.create.mock.calls[0][0].data).toMatchObject({
+      amountCents: 59000,
+      listAmountCents: null,
+      promotionId: null,
+      promotionNameSnapshot: null,
+      discountPercentSnapshot: null,
+    });
+  });
+
   it('com o Fundador esgotado, o pedido entra no 2º Lote', async () => {
     const { service, tx } = await buildPlace({ groups: [{ bundleTierId: 't1', _count: { _all: 20 } }] });
 

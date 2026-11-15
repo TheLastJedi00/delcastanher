@@ -43,6 +43,40 @@ export function isRunning(period: PromotionPeriod, now: Date): boolean {
   return period.startsAt <= now && now < effectiveEnd(period);
 }
 
+/** O que o pedido precisa saber da campanha vigente. */
+export interface AppliedPromotion {
+  id: string;
+  name: string;
+  percentOff: number;
+}
+
+/** Colunas da campanha no pedido (decisao 5). */
+export interface OrderPromotionColumns {
+  promotionId: string | null;
+  promotionNameSnapshot: string | null;
+  discountPercentSnapshot: number | null;
+  listAmountCents: number | null;
+}
+
+/**
+ * As colunas da campanha para gravar no pedido: preenchidas em campanha,
+ * nulas fora dela — inclusive o `listAmountCents`, para "nulo" significar
+ * sempre "sem desconto", e nunca "desconto de zero".
+ */
+export function orderPromotionColumns(
+  promotion: AppliedPromotion | null,
+  listAmountCents: number,
+): OrderPromotionColumns {
+  return promotion
+    ? {
+        promotionId: promotion.id,
+        promotionNameSnapshot: promotion.name,
+        discountPercentSnapshot: promotion.percentOff,
+        listAmountCents,
+      }
+    : { promotionId: null, promotionNameSnapshot: null, discountPercentSnapshot: null, listAmountCents: null };
+}
+
 /** Os dois periodos se cruzam? Encostados nao cruzam (decisao 2). */
 export function overlaps(a: PromotionPeriod, b: PromotionPeriod): boolean {
   return a.startsAt < effectiveEnd(b) && b.startsAt < effectiveEnd(a);

@@ -17,6 +17,8 @@ import { ActiveCredential, MercadoPagoConnectionService } from './mercado-pago-c
 import { CreateOrderInput, MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.service';
 import { PaymentLogService } from './payment-log.service';
 import { PaymentTestService, TEST_PAYMENT_CENTS } from './payment-test.service';
+import { AppliedPromotion, applyDiscount, orderPromotionColumns } from './promotion';
+import { PromotionsService } from './promotions.service';
 import { toOrderRecipient } from './order-recipient';
 import { PurchaseEmailService } from './purchase-email.service';
 import { MercadoPagoOrder, PixDetails, rejectionMessage, toOrderStatus } from './payments.types';
@@ -126,7 +128,19 @@ export class OrdersService {
     private readonly purchaseEmail: PurchaseEmailService,
     private readonly paymentLog: PaymentLogService,
     private readonly paymentTest: PaymentTestService,
+    private readonly promotions: PromotionsService,
   ) {}
+
+  /**
+   * Campanha vigente no instante do pedido (Spec 032, decisao 6): o pedido
+   * vale pelo preco desse instante, e um PIX gerado na campanha e honrado
+   * mesmo pago depois do fim.
+   */
+  private async currentPromotion(): Promise<AppliedPromotion | null> {
+    const promotion = await this.promotions.current();
+
+    return promotion ? { id: promotion.id, name: promotion.name, percentOff: promotion.percentOff } : null;
+  }
 
   /** Cria o pedido, cobra e devolve o desfecho — ou o QR, no caso do PIX. */
   async create(user: AuthUser, dto: CreateOrderDto): Promise<OrderView> {
@@ -138,12 +152,20 @@ export class OrdersService {
       return this.createBundleOrder(user, dto);
     }
 
-    const items = await this.resolveItems(user, dto);
+    const listed = await this.resolveItems(user, dto);
 
     this.validatePayment(dto);
 
     const credential = await this.sellerCredential();
 
+    // Spec 032, decisao 4: o desconto e por item, para o item ser sempre o que
+    // o aluno ve ao lado do modulo; o total e a soma deles.
+    const promotion = await this.currentPromotion();
+    const items = listed.map((item) => ({
+      ...item,
+      priceCents: applyDiscount(item.priceCents, promotion?.percentOff ?? null),
+    }));
+    const listAmountCents = listed.reduce((total, item) => total + item.priceCents, 0);
     const amountCents = items.reduce((total, item) => total + item.priceCents, 0);
 
     // Decisao 11: um pendente por vez. Dois PIX abertos para os mesmos modulos
@@ -157,6 +179,7 @@ export class OrdersService {
       data: {
         userId: user.uid,
         amountCents,
+        ...orderPromotionColumns(promotion, listAmountCents),
         method: dto.method,
         installments: dto.method === 'CREDIT_CARD' ? (dto.card?.installments ?? 1) : 1,
         mpConnectionId: credential.connectionId,
@@ -360,6 +383,7 @@ export class OrdersService {
       mpConnectionId: credential.connectionId,
       recipient: toOrderRecipient(dto.payer),
       attemptId: dto.attemptId ?? null,
+      promotion: await this.currentPromotion(),
     });
     const order = placed as unknown as OrderRow;
 

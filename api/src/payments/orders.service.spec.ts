@@ -11,6 +11,7 @@ import { MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.serv
 import { OrdersService } from './orders.service';
 import { PaymentLogService } from './payment-log.service';
 import { PaymentTestService } from './payment-test.service';
+import { PromotionsService } from './promotions.service';
 
 const ALUNO: AuthUser = {
   uid: 'uid-aluno',
@@ -124,6 +125,8 @@ interface BuildOptions {
   placed?: unknown;
   /** Sem conta recebedora conectada (Spec 020, decisao 7). */
   noConnection?: boolean;
+  /** Campanha de desconto no ar (Spec 032). */
+  promotion?: { id: string; name: string; percentOff: number } | null;
 }
 
 function build(options: BuildOptions = {}) {
@@ -211,6 +214,8 @@ function build(options: BuildOptions = {}) {
     placeOrder: jest.fn().mockResolvedValue(options.placed ?? PLACED),
   };
 
+  const promotions = { current: jest.fn().mockResolvedValue(options.promotion ?? null) };
+
   const connections = {
     activeCredential: jest
       .fn()
@@ -234,6 +239,7 @@ function build(options: BuildOptions = {}) {
       { provide: PurchaseEmailService, useValue: purchaseEmail },
       { provide: PaymentLogService, useValue: paymentLog },
       { provide: PaymentTestService, useValue: paymentTest },
+      { provide: PromotionsService, useValue: promotions },
     ],
   })
     .compile()
@@ -248,6 +254,7 @@ function build(options: BuildOptions = {}) {
       purchaseEmail,
       paymentLog,
       paymentTest,
+      promotions,
     }));
 }
 
@@ -670,6 +677,7 @@ describe('OrdersService — pedido de pacote', () => {
       mpConnectionId: 'conn-1',
       recipient: RECIPIENT,
       attemptId: null,
+      promotion: null,
     });
     // O caminho de modulos avulsos nao participa: nem cria pedido nem cancela.
     expect(prisma.order.create).not.toHaveBeenCalled();
@@ -1450,5 +1458,66 @@ describe('OrdersService — modulo de teste', () => {
       where: { userId: 'uid-admin', status: 'PENDING' },
       data: { status: 'CANCELLED' },
     });
+  });
+});
+
+/** Spec 032, decisoes 4 e 5: o desconto da campanha no pedido. */
+describe('OrdersService — campanha de desconto', () => {
+  const BLACK_FRIDAY = { id: 'promo-1', name: 'Black Friday', percentOff: 30 };
+
+  it('avulso: cada item sai com desconto, e o pedido guarda o cheio e a campanha', async () => {
+    const { service, prisma, gateway } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(ALUNO, pixOrder());
+
+    const data = prisma.order.create.mock.calls[0][0].data;
+
+    expect(data.items.create).toEqual([
+      { moduleId: 'mod-1', priceCents: 13930, titleSnapshot: 'Fundamentos' },
+      { moduleId: 'mod-2', priceCents: 13930, titleSnapshot: 'Pratica' },
+    ]);
+    expect(data).toMatchObject({
+      amountCents: 27860,
+      listAmountCents: 39800,
+      promotionId: 'promo-1',
+      promotionNameSnapshot: 'Black Friday',
+      discountPercentSnapshot: 30,
+    });
+    expect(gateway.createOrder.mock.calls[0][0].amountCents).toBe(27860);
+  });
+
+  it('avulso fora de campanha: as colunas da campanha ficam nulas', async () => {
+    const { service, prisma } = await build();
+
+    await service.create(ALUNO, pixOrder());
+
+    expect(prisma.order.create.mock.calls[0][0].data).toMatchObject({
+      amountCents: 39800,
+      listAmountCents: null,
+      promotionId: null,
+      promotionNameSnapshot: null,
+      discountPercentSnapshot: null,
+    });
+  });
+
+  it('pacote: a campanha vai ao BundlesService, que calcula o valor', async () => {
+    const { service, bundles } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(ALUNO, { bundleSlug: 'imersao-rh-lancamento', method: 'PIX', payer: PAYER });
+
+    expect(bundles.placeOrder.mock.calls[0][0].promotion).toEqual(BLACK_FRIDAY);
+  });
+
+  it('o pagamento de teste nunca recebe desconto', async () => {
+    const { service, prisma, promotions } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(
+      { ...ALUNO, uid: 'uid-admin', role: 'admin' },
+      { testKey: 'chave-certa', method: 'PIX', payer: PAYER },
+    );
+
+    expect(prisma.order.create.mock.calls[0][0].data.amountCents).toBe(100);
+    expect(prisma.order.create.mock.calls[0][0].data.promotionId).toBeUndefined();
+    expect(promotions.current).not.toHaveBeenCalled();
   });
 });
