@@ -1,6 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, finalize, tap, throwError } from 'rxjs';
+import { OrderPromotion } from './store.service';
 import { environment } from '../../../environments/environment';
 import type { InvoiceSummary } from './admin-invoices.service';
 
@@ -81,6 +82,10 @@ export interface FinanceTotals {
   conversionRate: number;
   buyers: number;
   attempts: number;
+  /** Desconto concedido no periodo (Spec 032, decisao 10): cheio menos cobrado. */
+  discountCents: number;
+  /** Pedidos pagos com campanha no periodo. */
+  promotionOrders: number;
 }
 
 export interface FinanceMethodBreakdown {
@@ -164,6 +169,8 @@ export interface FinanceOrderItem {
   confirmationEmailedAt?: string | null;
   /** Pagamento do modulo de teste (Spec 030): fora da receita. */
   testPayment?: boolean;
+  /** Campanha do pedido (Spec 032); nula fora dela. `amountCents` e o cobrado. */
+  promotion?: OrderPromotion | null;
 }
 
 export interface FinanceOrderListResult {

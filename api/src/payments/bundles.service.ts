@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { OrderStatus, PaymentMethodKind, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { OrderRecipient } from './order-recipient';
+import { AppliedPromotion, applyDiscount, assertExpectedAmount, orderPromotionColumns } from './promotion';
 
 /** Lote como as regras desta spec o leem. */
 export interface TierRow {
@@ -17,13 +18,21 @@ export interface TierRow {
 export interface OfferTier extends TierRow {
   /** Nulo no lote sem limite: nao ha escassez a anunciar. */
   remaining: number | null;
+  /**
+   * Preco cheio do lote (Spec 032, decisao 4). Em campanha, `priceCents` e o
+   * com desconto e este e o riscado; fora dela, os dois sao iguais.
+   */
+  listPriceCents: number;
 }
 
 /** Modulo do pacote na vitrine publica: nada alem do que a pagina exibe. */
 export interface OfferModule {
   order: number;
   title: string;
+  /** Com o desconto da campanha, quando houver (Spec 032, decisao 4). */
   priceCents: number | null;
+  /** Preco cheio; igual a `priceCents` fora de campanha. */
+  listPriceCents: number | null;
 }
 
 /** Pacote ativo como `GET /store/offer` o devolve (decisao 10). */
@@ -130,6 +139,19 @@ export function allocateByWeight(totalCents: number, weights: number[]): number[
   return parts;
 }
 
+/** Modulo na vitrine com o preco da campanha e o cheio (Spec 032, decisao 4). */
+export function discountedModule(
+  module: { order: number; title: string; priceCents: number | null },
+  percentOff: number | null,
+): OfferModule {
+  return {
+    order: module.order,
+    title: module.title,
+    priceCents: module.priceCents === null ? null : applyDiscount(module.priceCents, percentOff),
+    listPriceCents: module.priceCents,
+  };
+}
+
 /** Lote no painel: com as vagas ocupadas e se e o vigente (decisao 13). */
 export interface AdminBundleTier extends TierRow {
   occupied: number;
@@ -160,6 +182,10 @@ export interface PlaceBundleOrderInput {
   recipient?: OrderRecipient;
   /** Clique em pagar que gerou o pedido (Spec 028, decisao 9). */
   attemptId?: string | null;
+  /** Campanha vigente, lida pelo `OrdersService` (Spec 032, decisao 4). */
+  promotion?: AppliedPromotion | null;
+  /** Valor que a tela mostrou (Spec 032, decisao 6). */
+  expectedAmountCents?: number;
 }
 
 /** Linha gravada do pedido de pacote, com os itens rateados. */
@@ -250,15 +276,24 @@ export class BundlesService {
 
       // Na ordem da trilha: e a ordem do recibo e do resumo na tela.
       const modules = bundle.modules.map(({ module }) => module).sort((a, b) => a.order - b.order);
+      // Spec 032, decisao 4: o rateio e sobre o valor ja com desconto, para a
+      // soma dos itens continuar sendo o cobrado.
+      const promotion = input.promotion ?? null;
+      const amountCents = applyDiscount(tier.priceCents, promotion?.percentOff ?? null);
+
+      // Dentro da transacao: o throw desfaz tambem o cancelamento do pendente.
+      assertExpectedAmount(input.expectedAmountCents, amountCents);
+
       const parts = allocateByWeight(
-        tier.priceCents,
+        amountCents,
         modules.map((module) => module.priceCents ?? 0),
       );
 
       const order = await tx.order.create({
         data: {
           userId: input.userId,
-          amountCents: tier.priceCents,
+          amountCents,
+          ...orderPromotionColumns(promotion, tier.priceCents),
           method: input.method,
           installments: input.installments,
           bundleId: bundle.id,
@@ -380,8 +415,15 @@ export class BundlesService {
       .sort((a, b) => a.order - b.order);
   }
 
-  /** Pacote ativo com o lote vigente, para a vitrine publica e a loja. */
-  async offer(now: Date = new Date()): Promise<BundleOffer | null> {
+  /**
+   * Pacote ativo com o lote vigente, para a vitrine publica e a loja.
+   *
+   * `percentOff` e o da campanha vigente (Spec 032), lido por quem chama: o
+   * preco do lote e dos modulos sai com desconto, e o cheio vai junto para o
+   * risco. A ancora (`modulesTotalCents`) continua a soma cheia; quem decide
+   * nao mostra-la em campanha e a vitrine (decisao 8).
+   */
+  async offer(now: Date = new Date(), percentOff: number | null = null): Promise<BundleOffer | null> {
     const bundle = await this.prisma.bundle.findFirst({
       where: { active: true },
       orderBy: { createdAt: 'asc' },
@@ -412,9 +454,9 @@ export class BundlesService {
       : null;
 
     const modules = bundle.modules
-      .map(({ module }) => ({ order: module.order, title: module.title, priceCents: module.priceCents }))
+      .map(({ module }) => discountedModule(module, percentOff))
       .sort((a, b) => a.order - b.order);
-    const unpriced = modules.some((module) => module.priceCents === null);
+    const unpriced = modules.some((module) => module.listPriceCents === null);
 
     return {
       slug: bundle.slug,
@@ -422,10 +464,12 @@ export class BundlesService {
       modules,
       modulesTotalCents: unpriced
         ? null
-        : modules.reduce((sum, module) => sum + (module.priceCents as number), 0),
+        : modules.reduce((sum, module) => sum + (module.listPriceCents as number), 0),
       tier: current
         ? {
             ...current,
+            priceCents: applyDiscount(current.priceCents, percentOff),
+            listPriceCents: current.priceCents,
             remaining:
               current.capacity === null ? null : current.capacity - (occupied.get(current.id) ?? 0),
           }

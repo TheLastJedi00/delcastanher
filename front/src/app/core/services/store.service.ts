@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Observable, catchError, finalize, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -10,8 +11,13 @@ export interface StoreModuleItem {
   title: string;
   summary: string;
   lessonCount: number;
-  /** Nulo = "a definir": o modulo aparece como "em breve" (Spec 014, decisao 1). */
+  /**
+   * Nulo = "a definir": o modulo aparece como "em breve" (Spec 014, decisao 1).
+   * Em campanha, ja com o desconto (Spec 032, decisao 4).
+   */
   priceCents: number | null;
+  /** Preco cheio, o riscado em campanha; igual a `priceCents` fora dela. */
+  listPriceCents: number | null;
   purchasable: boolean;
   access: { unlocked: boolean; expiresAt: string | null };
 }
@@ -20,7 +26,10 @@ export interface StoreModuleItem {
 export interface OfferModule {
   order: number;
   title: string;
+  /** Com o desconto da campanha, quando houver (Spec 032, decisao 4). */
   priceCents: number | null;
+  /** Preco cheio; igual a `priceCents` fora de campanha. */
+  listPriceCents: number | null;
 }
 
 /** Lote vigente, com as vagas que sobram. `remaining` nulo = sem limite. */
@@ -28,7 +37,10 @@ export interface OfferTier {
   id: string;
   order: number;
   name: string;
+  /** Com o desconto da campanha, quando houver (Spec 032, decisao 4). */
   priceCents: number;
+  /** Preco cheio do lote; igual a `priceCents` fora de campanha. */
+  listPriceCents: number;
   capacity: number | null;
   remaining: number | null;
 }
@@ -48,6 +60,27 @@ export interface BundleOffer {
 export interface StoreOffer {
   modules: OfferModule[];
   bundle: BundleOffer | null;
+  /** Campanha no ar, ou nula (Spec 032). */
+  promotion: PublicPromotion | null;
+}
+
+/**
+ * Campanha como a vitrine a anuncia (Spec 032, decisao 7). `serverNow` e o
+ * relogio do servidor no instante da resposta: a contagem regressiva usa a
+ * diferenca entre os dois, e nao o relogio do aparelho, que pode estar errado.
+ */
+export interface PublicPromotion {
+  name: string;
+  percentOff: number;
+  endsAt: string;
+  serverNow: string;
+}
+
+/** Campanha de um pedido, para o valor cheio riscado (Spec 032, decisao 12). */
+export interface OrderPromotion {
+  name: string;
+  percentOff: number;
+  listAmountCents: number;
 }
 
 /**
@@ -115,6 +148,8 @@ export interface OrderView {
   bundle: { title: string; tierName: string } | null;
   /** Pedido do modulo de teste (Spec 030): nenhum modulo liberado. */
   testPayment?: boolean;
+  /** Campanha do pedido (Spec 032, decisao 12); nula fora dela. */
+  promotion?: OrderPromotion | null;
 }
 
 /** Dados do comprador. Nenhum campo de cartao aqui (decisao 8). */
@@ -158,6 +193,22 @@ export interface CreateOrderPayload {
   testKey?: string;
   /** Falha do navegador no lugar do `card`: o pedido nasce `FAILED`. */
   clientError?: { stage: ClientErrorStage; message: string };
+  /**
+   * Total que a tela mostrou (Spec 032, decisao 6). So serve para a API
+   * recusar com 409 se o preco mudou; quem define o valor e o servidor.
+   */
+  expectedAmountCents?: number;
+}
+
+/**
+ * O preco mudou entre a tela e o clique (Spec 032, decisao 6): a campanha
+ * acabou ou comecou. Nada foi cobrado, e `amountCents` e o valor novo.
+ */
+export class PriceChangedError {
+  constructor(
+    readonly message: string,
+    readonly amountCents: number,
+  ) {}
 }
 
 /** Etapas do navegador no caminho do cartao, como os logs as nomeiam. */
@@ -174,6 +225,12 @@ export interface ClientLogEntry {
   message: string;
   detail?: Record<string, unknown>;
 }
+
+/** Folga depois do fim da campanha antes de reler a oferta (decisao 7). */
+export const PROMOTION_REFRESH_SLACK_MS = 1000;
+
+/** Teto do `setTimeout` (~24,8 dias): campanha mais longa nao agenda a releitura. */
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 /** Estados em que nao ha mais o que esperar do gateway. */
 const TERMINAL: OrderStatus[] = ['PAID', 'REJECTED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'FAILED'];
@@ -207,6 +264,20 @@ export function formatPrice(cents: number | null): string {
 @Injectable({ providedIn: 'root' })
 export class StoreService {
   private readonly http = inject(HttpClient);
+  private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
+  /** Releitura agendada para o fim da campanha (Spec 032, decisao 7). */
+  private promotionTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Relogio do servidor menos o do aparelho, da ultima oferta lida (Spec 032,
+   * decisao 7). A contagem regressiva soma isto ao `Date.now()`: o relogio do
+   * aparelho pode estar errado, o do servidor e o que decide o preco.
+   */
+  private readonly clockOffsetState = signal(0);
+  readonly clockOffsetMs = this.clockOffsetState.asReadonly();
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.clearPromotionTimer());
+  }
 
   private readonly catalogState = signal<StoreModuleItem[]>([]);
   private readonly selectedState = signal<Set<string>>(new Set());
@@ -229,6 +300,9 @@ export class StoreService {
   readonly config = this.configState.asReadonly();
   readonly order = this.orderState.asReadonly();
   readonly offer = this.offerState.asReadonly();
+
+  /** Campanha no ar segundo a ultima oferta lida (Spec 032), ou nula. */
+  readonly promotion = computed(() => this.offerState()?.promotion ?? null);
 
   /** Pacote ativo da vitrine, ou nulo se nao ha (ou se a oferta nao carregou). */
   readonly bundleOffer = computed(() => this.offerState()?.bundle ?? null);
@@ -283,6 +357,24 @@ export class StoreService {
     return this.selectedModules().reduce((total, module) => total + (module.priceCents ?? 0), 0);
   });
 
+  /**
+   * Total cheio do carrinho, o riscado do resumo em campanha (Spec 032,
+   * decisao 8). Igual ao `totalCents` fora dela.
+   */
+  readonly listTotalCents = computed(() => {
+    const test = this.testState();
+
+    if (test) {
+      return test.product.priceCents;
+    }
+
+    if (this.bundleState()) {
+      return this.selectedBundle()?.tier?.listPriceCents ?? 0;
+    }
+
+    return this.selectedModules().reduce((total, module) => total + (module.listPriceCents ?? 0), 0);
+  });
+
   readonly hasSelection = computed(
     () => this.testState() !== null || this.bundleState() !== null || this.selectedState().size > 0,
   );
@@ -326,11 +418,64 @@ export class StoreService {
    * Vitrine publica: modulos avulsos e pacote com o lote vigente (Spec 019,
    * decisao 10). Sem sessao — o `/planos` usa a mesma chamada que a loja.
    */
-  loadOffer(): Observable<StoreOffer> {
-    return this.http.get<StoreOffer>(`${environment.apiUrl}/store/offer`).pipe(
-      tap(offer => this.offerState.set(offer)),
+  loadOffer(options: { fresh?: boolean } = {}): Observable<StoreOffer> {
+    // `fresh` passa pelo cache de 30 s da oferta (navegador e CDN): no fim da
+    // campanha e depois de um 409 de preco, a tela precisa do preco de agora.
+    const params = options.fresh ? { params: { t: Date.now() } } : {};
+
+    return this.http.get<StoreOffer>(`${environment.apiUrl}/store/offer`, params).pipe(
+      tap(offer => {
+        this.offerState.set(offer);
+        this.schedulePromotionEnd(offer.promotion);
+      }),
       catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
     );
+  }
+
+  /**
+   * No fim da campanha, rele a oferta sem cache — e o catalogo, se a loja o
+   * carregou —, para o preco voltar ao normal sem recarregar a pagina (Spec
+   * 032, decisao 7). Quem decide que acabou e o servidor: a releitura traz a
+   * oferta de agora, com ou sem campanha.
+   *
+   * O prazo e `endsAt - serverNow`, os dois do servidor: nao depende do relogio
+   * do aparelho. So no navegador; no SSR nao ha o que agendar.
+   */
+  private schedulePromotionEnd(promotion: PublicPromotion | null): void {
+    this.clearPromotionTimer();
+
+    if (!promotion) {
+      return;
+    }
+
+    const serverNow = Date.parse(promotion.serverNow);
+
+    this.clockOffsetState.set(serverNow - Date.now());
+
+    const delay = Date.parse(promotion.endsAt) - serverNow + PROMOTION_REFRESH_SLACK_MS;
+
+    if (!this.browser || delay > MAX_TIMEOUT_MS) {
+      return;
+    }
+
+    this.promotionTimer = setTimeout(
+      () => {
+        this.promotionTimer = null;
+        this.loadOffer({ fresh: true }).subscribe({ error: () => undefined });
+
+        if (this.catalogState().length > 0) {
+          this.loadCatalog().subscribe({ error: () => undefined });
+        }
+      },
+      Math.max(delay, 0),
+    );
+  }
+
+  private clearPromotionTimer(): void {
+    if (this.promotionTimer !== null) {
+      clearTimeout(this.promotionTimer);
+      this.promotionTimer = null;
+    }
   }
 
   /** Chave publica e ambiente. Carregado uma vez por sessao. */
@@ -432,7 +577,16 @@ export class StoreService {
   createOrder(payload: CreateOrderPayload): Observable<OrderView> {
     return this.http.post<OrderView>(`${environment.apiUrl}/orders`, payload).pipe(
       tap(order => this.orderState.set(order)),
-      catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
+      catchError((error: HttpErrorResponse) => {
+        const body = error.error as { code?: string; amountCents?: number } | null;
+
+        // Spec 032, decisao 6: o preco mudou; a tela recarrega e mostra o novo.
+        if (error.status === 409 && body?.code === 'PRICE_CHANGED' && typeof body.amountCents === 'number') {
+          return throwError(() => new PriceChangedError(this.toMessage(error), body.amountCents as number));
+        }
+
+        return throwError(() => this.toMessage(error));
+      }),
     );
   }
 

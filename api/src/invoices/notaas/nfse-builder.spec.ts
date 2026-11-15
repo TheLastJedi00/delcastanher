@@ -109,6 +109,18 @@ describe('buildNfse', () => {
     expect(buildNfse(ORDER, FISCAL).valores).toEqual({ total: 398, aliquotaIss: 2 });
   });
 
+  /**
+   * Spec 032, decisao 11: pedido da campanha sai pelo valor cobrado, sem
+   * desconto incondicional — o valor cheio do pedido nao chega a nota.
+   */
+  it('pedido com desconto sai com o valor cobrado, sem campo de desconto', () => {
+    const order = { ...ORDER, amountCents: 69230, listAmountCents: 98900 } as NfseOrder;
+    const nfse = buildNfse(order, FISCAL);
+
+    expect(nfse.valores).toEqual({ total: 692.3, aliquotaIss: 2 });
+    expect(JSON.stringify(nfse)).not.toMatch(/desconto|989/i);
+  });
+
   it('tribISSQN entra quando definido', () => {
     expect(buildNfse(ORDER, { ...FISCAL, tribIssqn: 1 }).valores.tribISSQN).toBe(1);
   });

@@ -153,3 +153,15 @@ describe('CreateOrderDto — modulo de teste', () => {
     expect((await errorsOf(payload)).length).toBeGreaterThan(0);
   });
 });
+
+/** Spec 032, decisao 6: o valor que a tela mostrou. */
+describe('CreateOrderDto — valor esperado', () => {
+  it('aceita sem o campo e com um inteiro de centavos', async () => {
+    expect(await errorsOf({ moduleIds: ['mod-1'] })).toEqual([]);
+    expect(await errorsOf({ moduleIds: ['mod-1'], expectedAmountCents: 69230 })).toEqual([]);
+  });
+
+  it.each([[-1], [12.5], ['692,30']])('recusa %p', async (value) => {
+    expect((await errorsOf({ moduleIds: ['mod-1'], expectedAmountCents: value })).length).toBeGreaterThan(0);
+  });
+});

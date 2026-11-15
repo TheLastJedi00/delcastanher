@@ -29,6 +29,8 @@ const RESUMO: FinanceSummary = {
     conversionRate: 67,
     buyers: 2,
     attempts: 3,
+    discountCents: 0,
+    promotionOrders: 0,
   },
   previous: null,
   byMethod: [{ method: 'PIX', grossCents: 39800, paidOrders: 2, feeCents: 394 }],
@@ -490,5 +492,80 @@ describe('AdminFinanceiro — pedido de teste', () => {
     expect(rows[0].querySelector('[data-testid="etiqueta-teste"]')).not.toBeNull();
     expect(rows[0].textContent).toContain('Módulo de teste');
     expect(rows[1].querySelector('[data-testid="etiqueta-teste"]')).toBeNull();
+  });
+
+  /** Spec 032, decisao 10: o selo da campanha e os descontos do periodo. */
+  it('mostra o selo da campanha no pedido e os descontos concedidos no resumo', () => {
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AdminFinanceiro);
+    const linha = {
+      status: 'PAID',
+      method: 'PIX',
+      installments: 1,
+      buyerName: 'Ana',
+      buyerEmail: 'ana@exemplo.com',
+      modules: ['Fundamentos'],
+      bundle: null,
+      mpOrderId: null,
+      mpPaymentId: null,
+      mpStatusDetail: null,
+      createdAt: '2026-11-27T12:00:00.000Z',
+      paidAt: '2026-11-27T12:00:00.000Z',
+      refundedAt: null,
+    };
+
+    fixture.detectChanges();
+    http
+      .match(req => req.url === `${environment.apiUrl}/admin/finance/summary`)
+      .forEach(req => req.flush({ ...RESUMO, totals: { ...RESUMO.totals, discountCents: 29670, promotionOrders: 1 } }));
+    http.match(req => req.url === `${environment.apiUrl}/admin/finance/orders`).forEach(req =>
+      req.flush({
+        items: [
+          {
+            ...linha,
+            id: 'ord-bf',
+            amountCents: 69230,
+            promotion: { name: 'Black Friday', percentOff: 30, listAmountCents: 98900 },
+          },
+          { ...linha, id: 'ord-n', amountCents: 19700, promotion: null },
+        ],
+        total: 2,
+        page: 1,
+        pageSize: 20,
+      }),
+    );
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const rows = Array.from(el.querySelectorAll('tbody tr')).filter(tr => tr.textContent?.includes('ana@exemplo.com'));
+
+    expect(rows[0].querySelector('[data-testid="etiqueta-campanha"]')?.textContent).toContain('Black Friday −30%');
+    expect(rows[1].querySelector('[data-testid="etiqueta-campanha"]')).toBeNull();
+    expect(el.querySelector('[data-testid="descontos-concedidos"]')?.textContent?.replace(/\s+/g, ' ')).toContain(
+      'R$ 296,70 · 1',
+    );
+    // O card da campanha esta na pagina e carrega a lista.
+    expect(el.querySelector('app-campanha-desconto')).not.toBeNull();
+    http.match(req => req.url === `${environment.apiUrl}/admin/promotions`).forEach(req => req.flush([]));
+  });
+
+  it('sem pedido da campanha no periodo, a linha de descontos nao aparece', () => {
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AdminFinanceiro);
+
+    fixture.detectChanges();
+    http.match(req => req.url === `${environment.apiUrl}/admin/finance/summary`).forEach(req => req.flush(RESUMO));
+    http.match(req => req.url === `${environment.apiUrl}/admin/finance/orders`).forEach(req => req.flush(PEDIDOS));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="descontos-concedidos"]')).toBeNull();
   });
 });

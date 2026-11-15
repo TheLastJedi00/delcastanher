@@ -26,6 +26,8 @@ const RESUMO: FinanceSummary = {
     conversionRate: 67,
     buyers: 2,
     attempts: 3,
+    discountCents: 0,
+    promotionOrders: 0,
   },
   previous: null,
   byMethod: [],

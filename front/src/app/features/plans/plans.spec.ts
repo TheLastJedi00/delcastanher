@@ -15,18 +15,20 @@ const MODULES = PRICES.map((priceCents, index) => ({
   order: index + 1,
   title: `Módulo ${index + 1}`,
   priceCents,
+  listPriceCents: priceCents,
 }));
 
 /** Oferta com o preco unico da Spec 027. */
 function offer(): StoreOffer {
   return {
     modules: MODULES,
+    promotion: null,
     bundle: {
       slug: 'imersao-rh-lancamento',
       title: 'Imersão RH Estratégico — Pacote completo',
       modules: MODULES,
       modulesTotalCents: 256400,
-      tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, capacity: null, remaining: null },
+      tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 98900, listPriceCents: 98900, capacity: null, remaining: null },
       nextTier: null,
     },
   };
@@ -40,7 +42,7 @@ function launchOffer(): StoreOffer {
     ...current,
     bundle: {
       ...current.bundle!,
-      tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
+      tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, listPriceCents: 59000, capacity: 20, remaining: 7 },
       nextTier: { name: '2º Lote', priceCents: 79700 },
     },
   };
@@ -88,6 +90,40 @@ describe('Plans', () => {
     expect(text()).toContain('R$ 989,00');
     expect(text()).toContain('R$ 2.564,00');
     expect(text()).toContain('em até 12x no cartão');
+  });
+
+  /** Spec 032, decisao 8. */
+  it('em campanha, pacote e modulos com o cheio riscado e o prazo', () => {
+    const base = offer();
+    const modules = base.modules.map(module => ({
+      ...module,
+      priceCents: Math.round(((module.listPriceCents as number) * 70) / 100),
+    }));
+
+    respond({
+      ...base,
+      modules,
+      promotion: {
+        name: 'Black Friday',
+        percentOff: 30,
+        endsAt: '2026-12-01T02:59:00.000Z',
+        serverNow: '2026-11-28T12:00:00.000Z',
+      },
+      bundle: {
+        ...(base.bundle as NonNullable<StoreOffer['bundle']>),
+        modules,
+        tier: { id: 't4', order: 4, name: 'Preço único', priceCents: 69230, listPriceCents: 98900, capacity: null, remaining: null },
+      },
+    });
+
+    expect(text()).toContain('R$ 692,30');
+    expect(text()).toContain('Oferta válida até 30/11 às 23h59');
+    expect(text()).not.toContain('Valor dos módulos separadamente');
+    // O modulo de R$ 197 sai por R$ 137,90, com o cheio riscado.
+    const riscados = Array.from(el().querySelectorAll('s')).map(node => node.textContent?.replace(/ /g, ' '));
+
+    expect(riscados).toContain('R$ 197,00');
+    expect(text()).toContain('R$ 137,90');
   });
 
   it('não promete o valor da parcela', () => {

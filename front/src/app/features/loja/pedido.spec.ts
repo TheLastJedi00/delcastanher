@@ -78,3 +78,31 @@ describe('Pedido — modulo de teste', () => {
     expect(el.textContent).not.toContain('já estão liberados');
   });
 });
+
+/** Spec 032, decisao 12: o pedido da campanha mostra o cheio riscado. */
+describe('Pedido — campanha de desconto', () => {
+  const text = (el: HTMLElement) => (el.textContent ?? '').replace(/\s+/g, ' ').replace(/ /g, ' ');
+
+  it('aprovado: diz quanto economizou, e o rodape traz o cheio riscado e a campanha', () => {
+    const el = render({
+      status: 'PAID',
+      method: 'PIX',
+      amountCents: 69230,
+      paidAt: '2026-11-28T12:00:00.000Z',
+      promotion: { name: 'Black Friday', percentOff: 30, listAmountCents: 98900 },
+    });
+
+    expect(el.querySelector('[data-testid="economia"]')?.textContent?.replace(/ /g, ' ')).toContain(
+      'Você economizou R$ 296,70 com a Black Friday.',
+    );
+    expect(el.querySelector('s')?.textContent?.replace(/ /g, ' ')).toBe('R$ 989,00');
+    expect(text(el)).toContain('R$ 692,30 · Black Friday −30%');
+  });
+
+  it('sem campanha, nem economia nem risco', () => {
+    const el = render({ status: 'PAID', method: 'PIX', paidAt: '2026-11-28T12:00:00.000Z', promotion: null });
+
+    expect(el.querySelector('[data-testid="economia"]')).toBeNull();
+    expect(el.querySelector('s')).toBeNull();
+  });
+});

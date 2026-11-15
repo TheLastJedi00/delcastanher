@@ -73,6 +73,13 @@ const POLL_MS = 5000;
                   }
                 </ul>
 
+                <!-- Spec 032, decisao 12: o desconto que a campanha deu. -->
+                @if (pedido.promotion; as promo) {
+                  <p class="mt-4 text-sm font-medium text-brand-teal-deep" data-testid="economia">
+                    Você economizou {{ price(promo.listAmountCents - pedido.amountCents) }} com a {{ promo.name }}.
+                  </p>
+                }
+
                 <div class="mt-6 flex flex-wrap gap-3">
                   <a routerLink="/ava">
                     <ui-button variant="primary">Ir para a área do aluno</ui-button>
@@ -202,7 +209,12 @@ const POLL_MS = 5000;
         }
 
         <p class="mt-6 text-xs text-slate-400">
-          Pedido {{ pedido.id }} · {{ price(pedido.amountCents) }}
+          Pedido {{ pedido.id }} ·
+          @if (pedido.promotion; as promo) {
+            <s>{{ price(promo.listAmountCents) }}</s> {{ price(pedido.amountCents) }} · {{ promo.name }} −{{ promo.percentOff }}%
+          } @else {
+            {{ price(pedido.amountCents) }}
+          }
           @if (pedido.mpPaymentId) {
             · Mercado Pago {{ pedido.mpPaymentId }}
           }

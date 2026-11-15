@@ -1,5 +1,5 @@
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { OrderAddress, StoreModuleItem, StoreOffer, StoreService, formatPrice } from './store.service';
 
@@ -22,6 +22,7 @@ const CATALOG: StoreModuleItem[] = [
     summary: 'Base do RH estratégico',
     lessonCount: 4,
     priceCents: 19900,
+    listPriceCents: 19900,
     purchasable: true,
     access: { unlocked: false, expiresAt: null },
   },
@@ -32,6 +33,7 @@ const CATALOG: StoreModuleItem[] = [
     summary: 'Casos reais',
     lessonCount: 5,
     priceCents: 24900,
+    listPriceCents: 24900,
     purchasable: true,
     access: { unlocked: false, expiresAt: null },
   },
@@ -42,6 +44,7 @@ const CATALOG: StoreModuleItem[] = [
     summary: 'Em preparação',
     lessonCount: 0,
     priceCents: null,
+    listPriceCents: null,
     purchasable: false,
     access: { unlocked: false, expiresAt: null },
   },
@@ -50,12 +53,13 @@ const CATALOG: StoreModuleItem[] = [
 /** Oferta com o Pacote de Lancamento no Fundador (Spec 019). */
 const OFFER: StoreOffer = {
   modules: [],
+  promotion: null,
   bundle: {
     slug: 'imersao-rh-lancamento',
     title: 'Pacote de Lançamento — Imersão RH Estratégico',
     modules: [],
     modulesTotalCents: 256400,
-    tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, capacity: 20, remaining: 7 },
+    tier: { id: 't1', order: 1, name: 'Lote Fundador', priceCents: 59000, listPriceCents: 59000, capacity: 20, remaining: 7 },
     nextTier: { name: '2º Lote', priceCents: 79700 },
   },
 };
@@ -301,4 +305,58 @@ describe('formatPrice', () => {
   it('diz "A definir" para preco nulo, e nunca zero', () => {
     expect(formatPrice(null)).toBe('A definir');
   });
+});
+
+/** Spec 032, decisao 7: no fim da campanha, a oferta e relida sem cache. */
+describe('StoreService — fim da campanha', () => {
+  const PROMO_OFFER = (endsAt: string, serverNow: string): StoreOffer => ({
+    modules: [],
+    bundle: null,
+    promotion: { name: 'Black Friday', percentOff: 30, endsAt, serverNow },
+  });
+
+  let service: StoreService;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    service = TestBed.inject(StoreService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  it('rele a oferta sem cache quando o prazo do servidor acaba, pelo relogio do servidor', fakeAsync(() => {
+    // O relogio do aparelho e o de hoje, e o servidor diz outra data: o prazo
+    // vem de endsAt - serverNow, e a diferenca dos relogios fica guardada.
+    service.loadOffer().subscribe();
+    http
+      .expectOne(req => req.url.endsWith('/store/offer'))
+      .flush(PROMO_OFFER('2026-11-28T12:00:05.000Z', '2026-11-28T12:00:00.000Z'));
+
+    expect(service.clockOffsetMs()).toBeCloseTo(Date.parse('2026-11-28T12:00:00.000Z') - Date.now(), -2);
+
+    tick(5000);
+    http.expectNone(req => req.url.endsWith('/store/offer'));
+
+    tick(1000);
+    const fresh = http.expectOne(req => req.url.endsWith('/store/offer'));
+
+    expect(fresh.request.params.has('t')).toBeTrue();
+    fresh.flush({ modules: [], bundle: null, promotion: null });
+
+    expect(service.promotion()).toBeNull();
+    tick(60_000);
+    http.verify();
+  }));
+
+  it('uma oferta nova cancela a releitura agendada pela anterior', fakeAsync(() => {
+    service.loadOffer().subscribe();
+    http
+      .expectOne(req => req.url.endsWith('/store/offer'))
+      .flush(PROMO_OFFER('2026-11-28T12:00:05.000Z', '2026-11-28T12:00:00.000Z'));
+    service.loadOffer().subscribe();
+    http.expectOne(req => req.url.endsWith('/store/offer')).flush({ modules: [], bundle: null, promotion: null });
+
+    tick(10_000);
+    http.verify();
+  }));
 });

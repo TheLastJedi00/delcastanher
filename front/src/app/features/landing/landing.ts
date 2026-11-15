@@ -49,6 +49,14 @@ interface Pillar {
   description: string;
   icon: string;
 }
+import { PromoCard } from '../../shared/ui/promo-card/promo-card';
+
+/** Card da secao da mentora: numero em destaque, ou texto curto (Spec 032). */
+interface MentorStat {
+  kind: 'number' | 'text';
+  value: string;
+  label?: string;
+}
 
 @Component({
   selector: 'app-landing',
@@ -66,6 +74,7 @@ interface Pillar {
     SectionHeader,
     AnimateOnScroll,
     YoutubeFacade,
+    PromoCard,
   ],
   templateUrl: './landing.html',
 })
@@ -81,11 +90,16 @@ export class Landing {
     { label: 'Planos', href: '/planos', routerLink: '/planos' },
   ];
 
-  readonly stats = [
-    { value: '+20', label: 'Anos de Exp.' },
-    { value: '+50', label: 'Empresas' },
-    { value: '03', label: 'Setores' },
-    { value: '01', label: 'Livro Publicado' },
+  /**
+   * Cards da secao "Quem sera sua Mentora" (Spec 032, textos do usuario em
+   * 15/11/2026). `number` e o destaque em algarismo, com o gradiente da marca;
+   * `text`, uma expressao curta, que no tamanho do numero quebraria mal.
+   */
+  readonly stats: MentorStat[] = [
+    { kind: 'number', value: '+20', label: 'Anos de experiência' },
+    { kind: 'text', value: 'Mentora e Instrutora' },
+    { kind: 'number', value: '01', label: 'Livro como coautora' },
+    { kind: 'text', value: 'RH & Liderança', label: 'Imersões e desenvolvimento' },
   ];
 
   readonly pillars: Pillar[] = [

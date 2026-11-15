@@ -18,6 +18,7 @@ import { Button } from '../../shared/ui/button/button';
 import { Card } from '../../shared/ui/card/card';
 import { PaymentTrust } from '../../shared/ui/payment-trust/payment-trust';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
+import { SalePrice } from '../../shared/ui/sale-price/sale-price';
 import { CepService } from '../../core/services/cep.service';
 import {
   CardBrand,
@@ -31,6 +32,7 @@ import {
   CreateOrderPayload,
   OrderView,
   PaymentMethodKind,
+  PriceChangedError,
   StoreService,
   formatPrice,
 } from '../../core/services/store.service';
@@ -172,7 +174,7 @@ function toCents(reais: number): number {
 @Component({
   selector: 'app-pagamento',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, PageContainer, Card, Button, PaymentTrust],
+  imports: [ReactiveFormsModule, PageContainer, Card, Button, PaymentTrust, SalePrice],
   template: `
     <ui-page-container>
       <h1 class="text-3xl font-semibold text-brand-navy">Pagamento</h1>
@@ -447,7 +449,7 @@ function toCents(reais: number): number {
                    Sem lotes desde a Spec 027, quem muda o preço é o painel. -->
               @if (priceChange(); as change) {
                 <div class="mt-4 rounded-xl bg-state-warning/10 px-4 py-3 text-sm text-slate-800" role="alert">
-                  O preço do pacote mudou enquanto você escolhia. Agora ele sai por
+                  O preço mudou enquanto você escolhia. Agora o total sai por
                   <strong>{{ change.to }}</strong> (antes, {{ change.from }}).
                   Confira o valor e clique de novo para continuar.
                 </div>
@@ -522,7 +524,14 @@ function toCents(reais: number): number {
 
             <div class="mt-4 pt-4 border-t border-brand-navy/10 flex justify-between items-baseline">
               <span class="text-slate-700">Total</span>
-              <span class="text-2xl font-semibold text-brand-navy">{{ total() }}</span>
+              <!-- Spec 032: em campanha, o total cheio riscado e o prazo. -->
+              <ui-sale-price
+                align="end"
+                data-testid="total-pagamento"
+                [priceCents]="store.totalCents()"
+                [listPriceCents]="store.listTotalCents()"
+                [percentOff]="test() ? null : (store.promotion()?.percentOff ?? null)"
+                [endsAt]="store.promotion()?.endsAt ?? null" />
             </div>
 
             <p class="mt-3 text-xs text-slate-500">
@@ -555,7 +564,7 @@ function toCents(reais: number): number {
   ],
 })
 export class Pagamento implements OnInit {
-  private readonly store = inject(StoreService);
+  protected readonly store = inject(StoreService);
   private readonly mp = inject(MercadoPagoLoader);
   private readonly users = inject(UserService);
   private readonly router = inject(Router);
@@ -922,12 +931,26 @@ export class Pagamento implements OnInit {
       payer: this.payer(),
       deviceId: this.mp.deviceId(),
       attemptId: this.attemptId,
+      // Spec 032, decisao 6: o total desta tela. O teste de R$ 1,00 nao confere.
+      ...(this.test() ? {} : { expectedAmountCents: this.store.totalCents() }),
       ...extra,
     };
 
-    const order = await new Promise<OrderView>((resolve, reject) => {
-      this.store.createOrder(payload).subscribe({ next: resolve, error: reject });
-    });
+    let order: OrderView;
+
+    try {
+      order = await new Promise<OrderView>((resolve, reject) => {
+        this.store.createOrder(payload).subscribe({ next: resolve, error: reject });
+      });
+    } catch (error) {
+      if (error instanceof PriceChangedError) {
+        await this.showNewPrice(payload.expectedAmountCents ?? error.amountCents, error.amountCents);
+
+        return;
+      }
+
+      throw error;
+    }
 
     if (order.status === 'REJECTED' || order.status === 'FAILED') {
       this.errorState.set(order.message ?? 'O pagamento não foi aprovado. Tente outro cartão ou pague com PIX.');
@@ -937,6 +960,30 @@ export class Pagamento implements OnInit {
 
     this.store.clearSelection();
     this.router.navigate(['/loja/pedido', order.id]);
+  }
+
+  /**
+   * A API recusou porque o preco mudou (Spec 032, decisao 6): a campanha
+   * acabou ou comecou entre esta tela e o clique. Nada foi cobrado. Rele os
+   * precos sem cache, diz o valor novo e refaz as parcelas; o formulario fica
+   * como o comprador o preencheu, e o proximo clique e a confirmacao.
+   */
+  private async showNewPrice(fromCents: number, toCents: number): Promise<void> {
+    await new Promise<void>(resolve => {
+      this.store.loadOffer({ fresh: true }).subscribe({ next: () => resolve(), error: () => resolve() });
+    });
+
+    if (this.store.selection().kind === 'modules') {
+      await new Promise<void>(resolve => {
+        this.store.loadCatalog().subscribe({ next: () => resolve(), error: () => resolve() });
+      });
+    }
+
+    this.priceChangeState.set({ from: formatPrice(fromCents), to: formatPrice(toCents) });
+
+    if (this.methodState() === 'CREDIT_CARD' && this.lastBin) {
+      this.installmentsState.set(await this.mp.installments(toCents, this.lastBin, this.maxInstallments()));
+    }
   }
 
   /** O formulario de cartao nao montou: o pedido nasce `FAILED`, com o motivo. */

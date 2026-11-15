@@ -11,6 +11,7 @@ import { MercadoPagoGatewayError, MercadoPagoService } from './mercado-pago.serv
 import { OrdersService } from './orders.service';
 import { PaymentLogService } from './payment-log.service';
 import { PaymentTestService } from './payment-test.service';
+import { PromotionsService } from './promotions.service';
 
 const ALUNO: AuthUser = {
   uid: 'uid-aluno',
@@ -124,6 +125,8 @@ interface BuildOptions {
   placed?: unknown;
   /** Sem conta recebedora conectada (Spec 020, decisao 7). */
   noConnection?: boolean;
+  /** Campanha de desconto no ar (Spec 032). */
+  promotion?: { id: string; name: string; percentOff: number } | null;
 }
 
 function build(options: BuildOptions = {}) {
@@ -211,6 +214,8 @@ function build(options: BuildOptions = {}) {
     placeOrder: jest.fn().mockResolvedValue(options.placed ?? PLACED),
   };
 
+  const promotions = { current: jest.fn().mockResolvedValue(options.promotion ?? null) };
+
   const connections = {
     activeCredential: jest
       .fn()
@@ -234,6 +239,7 @@ function build(options: BuildOptions = {}) {
       { provide: PurchaseEmailService, useValue: purchaseEmail },
       { provide: PaymentLogService, useValue: paymentLog },
       { provide: PaymentTestService, useValue: paymentTest },
+      { provide: PromotionsService, useValue: promotions },
     ],
   })
     .compile()
@@ -248,6 +254,7 @@ function build(options: BuildOptions = {}) {
       purchaseEmail,
       paymentLog,
       paymentTest,
+      promotions,
     }));
 }
 
@@ -670,6 +677,7 @@ describe('OrdersService — pedido de pacote', () => {
       mpConnectionId: 'conn-1',
       recipient: RECIPIENT,
       attemptId: null,
+      promotion: null,
     });
     // O caminho de modulos avulsos nao participa: nem cria pedido nem cancela.
     expect(prisma.order.create).not.toHaveBeenCalled();
@@ -1450,5 +1458,145 @@ describe('OrdersService — modulo de teste', () => {
       where: { userId: 'uid-admin', status: 'PENDING' },
       data: { status: 'CANCELLED' },
     });
+  });
+});
+
+/** Spec 032, decisoes 4 e 5: o desconto da campanha no pedido. */
+describe('OrdersService — campanha de desconto', () => {
+  const BLACK_FRIDAY = { id: 'promo-1', name: 'Black Friday', percentOff: 30 };
+
+  it('avulso: cada item sai com desconto, e o pedido guarda o cheio e a campanha', async () => {
+    const { service, prisma, gateway } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(ALUNO, pixOrder());
+
+    const data = prisma.order.create.mock.calls[0][0].data;
+
+    expect(data.items.create).toEqual([
+      { moduleId: 'mod-1', priceCents: 13930, titleSnapshot: 'Fundamentos' },
+      { moduleId: 'mod-2', priceCents: 13930, titleSnapshot: 'Pratica' },
+    ]);
+    expect(data).toMatchObject({
+      amountCents: 27860,
+      listAmountCents: 39800,
+      promotionId: 'promo-1',
+      promotionNameSnapshot: 'Black Friday',
+      discountPercentSnapshot: 30,
+    });
+    expect(gateway.createOrder.mock.calls[0][0].amountCents).toBe(27860);
+  });
+
+  it('avulso fora de campanha: as colunas da campanha ficam nulas', async () => {
+    const { service, prisma } = await build();
+
+    await service.create(ALUNO, pixOrder());
+
+    expect(prisma.order.create.mock.calls[0][0].data).toMatchObject({
+      amountCents: 39800,
+      listAmountCents: null,
+      promotionId: null,
+      promotionNameSnapshot: null,
+      discountPercentSnapshot: null,
+    });
+  });
+
+  it('pacote: a campanha vai ao BundlesService, que calcula o valor', async () => {
+    const { service, bundles } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(ALUNO, { bundleSlug: 'imersao-rh-lancamento', method: 'PIX', payer: PAYER });
+
+    expect(bundles.placeOrder.mock.calls[0][0].promotion).toEqual(BLACK_FRIDAY);
+  });
+
+  it('o pagamento de teste nunca recebe desconto', async () => {
+    const { service, prisma, promotions } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(
+      { ...ALUNO, uid: 'uid-admin', role: 'admin' },
+      { testKey: 'chave-certa', method: 'PIX', payer: PAYER },
+    );
+
+    expect(prisma.order.create.mock.calls[0][0].data.amountCents).toBe(100);
+    expect(prisma.order.create.mock.calls[0][0].data.promotionId).toBeUndefined();
+    expect(promotions.current).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Spec 032, decisao 6: o valor que a tela mostrou so serve para recusar. Se a
+ * campanha acabou (ou comecou) entre a tela e o clique, nada e cobrado.
+ */
+describe('OrdersService — preco mudou entre a tela e o clique', () => {
+  const BLACK_FRIDAY = { id: 'promo-1', name: 'Black Friday', percentOff: 30 };
+
+  it('avulso com o valor esperado igual segue e cobra', async () => {
+    const { service, gateway } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(ALUNO, { ...pixOrder(), expectedAmountCents: 27860 });
+
+    expect(gateway.createOrder).toHaveBeenCalled();
+  });
+
+  it('avulso com o valor esperado diferente responde 409 com o valor novo, sem gravar nem cobrar', async () => {
+    const { service, prisma, gateway } = await build();
+
+    await expect(service.create(ALUNO, { ...pixOrder(), expectedAmountCents: 27860 })).rejects.toMatchObject({
+      status: 409,
+      response: {
+        code: 'PRICE_CHANGED',
+        amountCents: 39800,
+        message: 'O preço mudou. Confira o novo valor antes de pagar.',
+      },
+    });
+    expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    expect(prisma.order.create).not.toHaveBeenCalled();
+    expect(gateway.createOrder).not.toHaveBeenCalled();
+  });
+
+  it('pacote: o valor esperado vai ao BundlesService, que confere dentro da transacao', async () => {
+    const { service, bundles } = await build();
+
+    await service.create(ALUNO, {
+      bundleSlug: 'imersao-rh-lancamento',
+      method: 'PIX',
+      payer: PAYER,
+      expectedAmountCents: 59000,
+    });
+
+    expect(bundles.placeOrder.mock.calls[0][0].expectedAmountCents).toBe(59000);
+  });
+
+  it('sem o campo (front antigo durante o deploy), segue como antes', async () => {
+    const { service, gateway } = await build({ promotion: BLACK_FRIDAY });
+
+    await service.create(ALUNO, pixOrder());
+
+    expect(gateway.createOrder).toHaveBeenCalled();
+  });
+});
+
+/** Spec 032, decisao 12: a tela do pedido mostra o cheio riscado. */
+describe('OrdersService — campanha na tela do pedido', () => {
+  it('o pedido da campanha devolve a campanha com o valor cheio', async () => {
+    const { service } = await build({
+      storedOrder: {
+        ...PLACED.order,
+        status: 'PAID',
+        amountCents: 41300,
+        listAmountCents: 59000,
+        promotionNameSnapshot: 'Black Friday',
+        discountPercentSnapshot: 30,
+      },
+    });
+
+    const view = await service.findOne(ALUNO, 'ord-b');
+
+    expect(view.promotion).toEqual({ name: 'Black Friday', percentOff: 30, listAmountCents: 59000 });
+  });
+
+  it('pedido sem campanha devolve a campanha nula', async () => {
+    const { service } = await build({ storedOrder: { ...PLACED.order, status: 'PAID' } });
+
+    expect((await service.findOne(ALUNO, 'ord-b')).promotion).toBeNull();
   });
 });

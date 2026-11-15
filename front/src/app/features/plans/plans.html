@@ -26,6 +26,9 @@
       <span class="blob-teal -right-20 top-0 h-80 w-80" aria-hidden="true"></span>
 
       <div class="relative mx-auto max-w-5xl">
+        <!-- Spec 032, decisão 9: a campanha em linha, acima do preço. -->
+        <ui-promo-card class="mb-6 block" />
+
         <article class="relative overflow-hidden rounded-3xl border border-brand-teal/30 bg-white p-6 shadow-card md:p-10" animateOnScroll="animate-fade-in-up">
           <span class="absolute inset-x-0 top-0 h-1 bg-gradient-brand" aria-hidden="true"></span>
 
@@ -43,6 +46,7 @@
               <ui-bundle-price
                 [loading]="offerState() === 'loading'"
                 [tier]="tier()"
+                [promotion]="promotion()"
                 [anchorCents]="bundle()?.modulesTotalCents ?? null" />
 
               <div class="mt-6">
@@ -97,7 +101,12 @@
                 </div>
 
                 <div class="flex shrink-0 flex-col items-end gap-1">
-                  <span class="text-lg font-extrabold text-brand-navy">{{ price(module.priceCents) }}</span>
+                  <ui-sale-price
+                    size="sm"
+                    align="end"
+                    [priceCents]="module.priceCents"
+                    [listPriceCents]="module.listPriceCents"
+                    [percentOff]="promotion()?.percentOff ?? null" />
                   @if (module.priceCents !== null) {
                     <a
                       [routerLink]="['/loja']"
@@ -169,4 +178,7 @@
   </main>
 
   <ui-footer />
+
+  <!-- Spec 032, decisão 9: o "Ver a oferta" leva ao pacote desta página. -->
+  <ui-promo-card variant="floating" />
 </div>

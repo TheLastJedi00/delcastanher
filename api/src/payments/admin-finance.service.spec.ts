@@ -18,6 +18,9 @@ interface FakeOrder {
   items?: { moduleId: string; priceCents: number }[];
   /** Pedido do modulo de teste (Spec 030). */
   testPayment?: boolean;
+  /** Campanha de desconto (Spec 032): nulos fora dela. */
+  promotionId?: string | null;
+  listAmountCents?: number | null;
 }
 
 /** Acesso do cenario, no formato em que `module_access` o guarda. */
@@ -55,6 +58,10 @@ function matches(value: unknown, condition: unknown): boolean {
 
   if (typeof condition === 'object' && condition !== null) {
     const clause = condition as Record<string, unknown>;
+
+    if ('not' in clause && clause.not === null) {
+      return value !== null && value !== undefined;
+    }
 
     if (Array.isArray(clause.in)) {
       return clause.in.includes(value);
@@ -119,6 +126,9 @@ function fakePrisma(scenario: Scenario) {
           _sum: {
             amountCents: rows.length
               ? rows.reduce((total, order) => total + order.amountCents, 0)
+              : null,
+            listAmountCents: rows.some((order) => order.listAmountCents != null)
+              ? rows.reduce((total, order) => total + (order.listAmountCents ?? 0), 0)
               : null,
           },
           _count: { _all: rows.length },
@@ -903,5 +913,41 @@ describe('AdminFinanceService — pedido de teste fora do resumo', () => {
     expect(summary.series.reduce((total, point) => total + point.grossCents, 0)).toBe(19900);
     expect(summary.byMethod.find((row) => row.method === 'CREDIT_CARD')?.paidOrders ?? 0).toBe(0);
     expect(summary.totals.conversionRate).toBe(100);
+  });
+});
+
+/** Spec 032, decisao 10: o desconto concedido no periodo. */
+describe('AdminFinanceService — descontos da campanha', () => {
+  const naCampanha = (id: string, overrides: Partial<FakeOrder> = {}) =>
+    pago(id, { amountCents: 69230, listAmountCents: 98900, promotionId: 'promo-1', ...overrides });
+
+  it('soma o cheio menos o cobrado dos pedidos pagos da campanha no periodo', async () => {
+    const { service } = await build({
+      orders: [naCampanha('a'), naCampanha('b'), pago('c')],
+      rates: [PIX_RATE],
+    });
+
+    const summary = await service.summary({ ...SETEMBRO, granularity: 'day' });
+
+    expect(summary.totals.discountCents).toBe(59340);
+    expect(summary.totals.promotionOrders).toBe(2);
+    // O bruto continua sendo o cobrado.
+    expect(summary.totals.grossCents).toBe(69230 * 2 + 19900);
+  });
+
+  it('estornado, de teste ou pago fora do periodo nao entra', async () => {
+    const { service } = await build({
+      orders: [
+        naCampanha('a', { status: 'REFUNDED', refundedAt: new Date('2026-09-12T12:00:00Z') }),
+        naCampanha('b', { testPayment: true }),
+        naCampanha('c', { paidAt: new Date('2026-08-10T12:00:00Z') }),
+      ],
+      rates: [PIX_RATE],
+    });
+
+    const summary = await service.summary({ ...SETEMBRO, granularity: 'day' });
+
+    expect(summary.totals.discountCents).toBe(0);
+    expect(summary.totals.promotionOrders).toBe(0);
   });
 });

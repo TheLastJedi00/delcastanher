@@ -178,6 +178,7 @@ describe('BundlesService.offer (Spec 019, decisoes 4 e 10)', () => {
       order: 1,
       name: 'Lote Fundador',
       priceCents: 59000,
+      listPriceCents: 59000,
       capacity: 20,
       remaining: 7,
     });
@@ -220,7 +221,27 @@ describe('BundlesService.offer (Spec 019, decisoes 4 e 10)', () => {
 
     const offer = await service.offer(NOW);
 
-    expect(Object.keys(offer?.modules[0] ?? {}).sort()).toEqual(['order', 'priceCents', 'title']);
+    expect(Object.keys(offer?.modules[0] ?? {}).sort()).toEqual(['listPriceCents', 'order', 'priceCents', 'title']);
+  });
+
+  /** Spec 032, decisao 4. */
+  it('sem campanha, o preco cheio e igual ao cobrado', async () => {
+    const { service } = await buildOffer(bundleRow());
+
+    const offer = await service.offer(NOW);
+
+    expect(offer?.tier).toMatchObject({ priceCents: 59000, listPriceCents: 59000 });
+    expect(offer?.modules[0]).toMatchObject({ priceCents: 19700, listPriceCents: 19700 });
+  });
+
+  it('com campanha, o lote e os modulos saem com desconto, e a ancora continua a soma cheia', async () => {
+    const { service } = await buildOffer(bundleRow());
+
+    const offer = await service.offer(NOW, 30);
+
+    expect(offer?.tier).toMatchObject({ priceCents: 41300, listPriceCents: 59000 });
+    expect(offer?.modules[0]).toEqual({ order: 1, title: 'Módulo 1', priceCents: 13790, listPriceCents: 19700 });
+    expect(offer?.modulesTotalCents).toBe(256400);
   });
 });
 
@@ -368,6 +389,69 @@ describe('BundlesService.placeOrder (Spec 019, decisoes 5 e 6)', () => {
     );
     expect(items.reduce((sum, item) => sum + item.priceCents, 0)).toBe(59000);
     expect(placed.order.items).toHaveLength(12);
+  });
+
+  /** Spec 032, decisoes 4 e 5. */
+  it('com campanha, o valor do lote sai com desconto e o rateio e sobre ele', async () => {
+    const { service, tx } = await buildPlace();
+
+    await service.placeOrder(
+      { ...PLACE, promotion: { id: 'promo-1', name: 'Black Friday', percentOff: 30 } },
+      NOW,
+    );
+    const data = tx.order.create.mock.calls[0][0].data as Record<string, unknown>;
+    const items = (data.items as { create: { priceCents: number }[] }).create;
+
+    expect(data).toMatchObject({
+      amountCents: 41300,
+      listAmountCents: 59000,
+      promotionId: 'promo-1',
+      promotionNameSnapshot: 'Black Friday',
+      discountPercentSnapshot: 30,
+    });
+    expect(items.reduce((sum, item) => sum + item.priceCents, 0)).toBe(41300);
+  });
+
+  it('sem campanha, as colunas da campanha ficam nulas', async () => {
+    const { service, tx } = await buildPlace();
+
+    await service.placeOrder(PLACE, NOW);
+
+    expect(tx.order.create.mock.calls[0][0].data).toMatchObject({
+      amountCents: 59000,
+      listAmountCents: null,
+      promotionId: null,
+      promotionNameSnapshot: null,
+      discountPercentSnapshot: null,
+    });
+  });
+
+  /** Spec 032, decisao 6. */
+  it('valor esperado diferente do calculado responde 409 e nao grava o pedido', async () => {
+    const { service, tx } = await buildPlace();
+
+    await expect(
+      service.placeOrder(
+        { ...PLACE, expectedAmountCents: 41300 },
+        NOW,
+      ),
+    ).rejects.toMatchObject({ status: 409, response: { code: 'PRICE_CHANGED', amountCents: 59000 } });
+    expect(tx.order.create).not.toHaveBeenCalled();
+  });
+
+  it('valor esperado igual ao calculado grava normalmente', async () => {
+    const { service, tx } = await buildPlace();
+
+    await service.placeOrder(
+      {
+        ...PLACE,
+        expectedAmountCents: 41300,
+        promotion: { id: 'promo-1', name: 'Black Friday', percentOff: 30 },
+      },
+      NOW,
+    );
+
+    expect(tx.order.create).toHaveBeenCalled();
   });
 
   it('com o Fundador esgotado, o pedido entra no 2º Lote', async () => {

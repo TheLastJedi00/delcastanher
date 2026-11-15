@@ -158,6 +158,8 @@ export class CourseDetail {
   protected readonly offerState = signal<'loading' | 'ready' | 'error'>('loading');
   protected readonly bundle = computed(() => this.store.offer()?.bundle ?? null);
   protected readonly tier = computed(() => this.bundle()?.tier ?? null);
+  /** Campanha no ar (Spec 032). */
+  protected readonly promotion = this.store.promotion;
 
   /**
    * Menor preco entre os modulos avulsos a venda, lido da oferta: muda sozinho

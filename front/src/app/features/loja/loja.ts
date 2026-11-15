@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { LAUNCH_BUNDLE_COPY } from '../../core/mocks/plans.mock';
 import { Badge } from '../../shared/ui/badge/badge';
 import { BundlePrice } from '../../shared/ui/bundle-price/bundle-price';
+import { SalePrice } from '../../shared/ui/sale-price/sale-price';
 import { Button } from '../../shared/ui/button/button';
 import { Card } from '../../shared/ui/card/card';
 import { PageContainer } from '../../shared/ui/page-container/page-container';
@@ -20,10 +21,12 @@ import { UserService } from '../../core/services/user.service';
  * exclusiva: o pacote **ou** modulos avulsos, porque o pedido e um ou outro
  * (decisao 12).
  */
+import { PromoCard } from '../../shared/ui/promo-card/promo-card';
+
 @Component({
   selector: 'app-loja',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageContainer, Card, Button, Badge, BundlePrice],
+  imports: [PageContainer, Card, Button, Badge, BundlePrice, SalePrice, PromoCard],
   template: `
     <ui-page-container>
       <header class="mb-8">
@@ -33,6 +36,10 @@ import { UserService } from '../../core/services/user.service';
           do pagamento. Leve o pacote com os 12 módulos, ou só os temas de que você precisa agora.
         </p>
       </header>
+
+      <!-- Spec 032, decisão 9: só em linha. O flutuante cobriria o resumo
+           fixo e o botão de pagar, à direita. -->
+      <ui-promo-card class="mb-8 block" />
 
       @if (loading() && catalog().length === 0) {
         <p class="text-slate-500" role="status">Carregando os módulos…</p>
@@ -77,6 +84,7 @@ import { UserService } from '../../core/services/user.service';
                       <div>
                         <ui-bundle-price
                           [tier]="pack.tier"
+                          [promotion]="promotion()"
                           [anchorCents]="pack.modulesTotalCents"
                           [maxInstallments]="maxInstallments()" />
                       </div>
@@ -148,7 +156,11 @@ import { UserService } from '../../core/services/user.service';
                   </div>
 
                   <div class="text-right shrink-0">
-                    <p class="text-xl font-semibold text-brand-navy">{{ price(module.priceCents) }}</p>
+                    <ui-sale-price
+                      align="end"
+                      [priceCents]="module.priceCents"
+                      [listPriceCents]="module.listPriceCents"
+                      [percentOff]="promotion()?.percentOff ?? null" />
                     @if (module.priceCents !== null && !module.access.unlocked) {
                       <p class="text-xs text-slate-500">acesso por 6 meses</p>
                     }
@@ -176,7 +188,14 @@ import { UserService } from '../../core/services/user.service';
 
             <div class="mt-4 pt-4 border-t border-brand-navy/10 flex justify-between items-baseline">
               <span class="text-slate-700">Total</span>
-              <span class="text-2xl font-semibold text-brand-navy">{{ price(totalCents()) }}</span>
+              <ui-sale-price
+                size="md"
+                align="end"
+                data-testid="total-resumo"
+                [priceCents]="totalCents()"
+                [listPriceCents]="listTotalCents()"
+                [percentOff]="promotion()?.percentOff ?? null"
+                [endsAt]="promotion()?.endsAt ?? null" />
             </div>
           } @else if (selected().length === 0) {
             <p class="mt-3 text-sm text-slate-600">
@@ -194,7 +213,14 @@ import { UserService } from '../../core/services/user.service';
 
             <div class="mt-4 pt-4 border-t border-brand-navy/10 flex justify-between items-baseline">
               <span class="text-slate-700">Total</span>
-              <span class="text-2xl font-semibold text-brand-navy">{{ price(totalCents()) }}</span>
+              <ui-sale-price
+                size="md"
+                align="end"
+                data-testid="total-resumo"
+                [priceCents]="totalCents()"
+                [listPriceCents]="listTotalCents()"
+                [percentOff]="promotion()?.percentOff ?? null"
+                [endsAt]="promotion()?.endsAt ?? null" />
             </div>
 
             <!-- Decisão 12: com três ou mais avulsos acima do pacote, ele
@@ -249,6 +275,9 @@ export class Loja implements OnInit {
   readonly loading = this.store.loading;
   readonly error = this.store.error;
   readonly totalCents = this.store.totalCents;
+  readonly listTotalCents = this.store.listTotalCents;
+  /** Campanha no ar (Spec 032): preco riscado no pacote, nos modulos e no total. */
+  readonly promotion = this.store.promotion;
   readonly selected = this.store.selectedModules;
   readonly bundle = this.store.bundleOffer;
   readonly selectedBundle = this.store.selectedBundle;

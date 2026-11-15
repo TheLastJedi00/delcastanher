@@ -3,6 +3,7 @@ import { PaymentMethodKind } from '../generated/prisma/client';
 import { INVOICE_SUMMARY_SELECT, InvoiceSummaryRow, toInvoiceSummary } from '../invoices/invoice-view';
 import { PrismaService } from '../prisma/prisma.service';
 import { percentageOf } from '../progress/completion';
+import { orderPromotionView } from './promotion';
 import {
   FinanceComparison,
   FinanceCourtesyBreakdown,
@@ -70,6 +71,9 @@ const CSV_HEADER = [
   'Codigo de verificacao',
   // Spec 030: o pagamento do modulo de teste.
   'Teste',
+  // Spec 032: vazias fora de campanha.
+  'Campanha',
+  'Valor cheio (R$)',
 ];
 
 /**
@@ -131,6 +135,9 @@ interface OrderRow {
   bundleTitleSnapshot?: string | null;
   tierNameSnapshot?: string | null;
   invoice?: InvoiceSummaryRow | null;
+  promotionNameSnapshot?: string | null;
+  discountPercentSnapshot?: number | null;
+  listAmountCents?: number | null;
 }
 
 /** Linha da serie, como o Postgres a devolve. */
@@ -338,6 +345,8 @@ export class AdminFinanceService {
         item.invoice?.number ?? '',
         item.invoice?.accessKey ?? '',
         item.testPayment ? 'sim' : 'não',
+        item.promotion ? `${item.promotion.name} -${item.promotion.percentOff}%` : '',
+        item.promotion ? csvMoney(item.promotion.listAmountCents) : '',
       ]
         .map(csvField)
         .join(CSV_SEPARATOR);
@@ -426,12 +435,13 @@ export class AdminFinanceService {
       invoice: row.invoice ? toInvoiceSummary(row.invoice) : null,
       confirmationEmailedAt: row.confirmationEmailedAt ?? null,
       testPayment: row.testPayment ?? false,
+      promotion: orderPromotionView(row),
     };
   }
 
   /** Os indicadores do topo. */
   private async totalsOf(period: ResolvedPeriod, fee: FeeResult): Promise<FinanceTotals> {
-    const [paid, refunded, undated, pendingOrders, rejectedOrders, failedOrders, attempts, buyers] =
+    const [paid, refunded, undated, pendingOrders, rejectedOrders, failedOrders, attempts, buyers, promoted] =
       await Promise.all([
         this.prisma.order.aggregate({
           where: {
@@ -495,6 +505,17 @@ export class AdminFinanceService {
             status: 'PAID',
           },
         }),
+        // Spec 032, decisao 10: a mesma base do bruto, so com os da campanha.
+        this.prisma.order.aggregate({
+          where: {
+            testPayment: false,
+            status: 'PAID',
+            paidAt: { gte: period.from, lt: period.to },
+            promotionId: { not: null },
+          },
+          _sum: { amountCents: true, listAmountCents: true },
+          _count: { _all: true },
+        }),
       ]);
 
     const grossCents = paid._sum.amountCents ?? 0;
@@ -522,6 +543,8 @@ export class AdminFinanceService {
       conversionRate: percentageOf(buyers.length, attempts.length),
       buyers: buyers.length,
       attempts: attempts.length,
+      discountCents: (promoted._sum.listAmountCents ?? 0) - (promoted._sum.amountCents ?? 0),
+      promotionOrders: promoted._count._all,
     };
   }
 

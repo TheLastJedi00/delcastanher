@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { StoreService, formatPrice } from '../../core/services/store.service';
 import { AnimateOnScroll } from '../../shared/directives/animate-on-scroll';
 import { BundlePrice } from '../../shared/ui/bundle-price/bundle-price';
+import { SalePrice } from '../../shared/ui/sale-price/sale-price';
 import { Button } from '../../shared/ui/button/button';
 import { Footer } from '../../shared/ui/footer/footer';
 import { NavHeader, NavLink } from '../../shared/ui/nav-header/nav-header';
@@ -24,10 +25,14 @@ type OfferState = 'loading' | 'ready' | 'error';
  * oferta e lida no navegador, depois da primeira renderizacao, e ate la a area
  * de preco e um esqueleto do mesmo tamanho (decisao 10).
  */
+import { PromoCard } from '../../shared/ui/promo-card/promo-card';
+
 @Component({
   selector: 'app-plans',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    SalePrice,
+    PromoCard,
     RouterLink,
     NavHeader,
     Footer,
@@ -62,6 +67,8 @@ export class Plans {
   protected readonly bundle = computed(() => this.store.offer()?.bundle ?? null);
   protected readonly modules = computed(() => this.store.offer()?.modules ?? []);
   protected readonly tier = computed(() => this.bundle()?.tier ?? null);
+  /** Campanha no ar (Spec 032): preco riscado no pacote e nos modulos. */
+  protected readonly promotion = this.store.promotion;
 
   constructor() {
     // So no navegador: no prerender nao ha chamada, e o HTML sai com o
