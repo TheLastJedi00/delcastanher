@@ -262,6 +262,9 @@ export class StoreService {
   readonly order = this.orderState.asReadonly();
   readonly offer = this.offerState.asReadonly();
 
+  /** Campanha no ar segundo a ultima oferta lida (Spec 032), ou nula. */
+  readonly promotion = computed(() => this.offerState()?.promotion ?? null);
+
   /** Pacote ativo da vitrine, ou nulo se nao ha (ou se a oferta nao carregou). */
   readonly bundleOffer = computed(() => this.offerState()?.bundle ?? null);
 
@@ -313,6 +316,24 @@ export class StoreService {
     }
 
     return this.selectedModules().reduce((total, module) => total + (module.priceCents ?? 0), 0);
+  });
+
+  /**
+   * Total cheio do carrinho, o riscado do resumo em campanha (Spec 032,
+   * decisao 8). Igual ao `totalCents` fora dela.
+   */
+  readonly listTotalCents = computed(() => {
+    const test = this.testState();
+
+    if (test) {
+      return test.product.priceCents;
+    }
+
+    if (this.bundleState()) {
+      return this.selectedBundle()?.tier?.listPriceCents ?? 0;
+    }
+
+    return this.selectedModules().reduce((total, module) => total + (module.listPriceCents ?? 0), 0);
   });
 
   readonly hasSelection = computed(

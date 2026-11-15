@@ -43,6 +43,7 @@
               <ui-bundle-price
                 [loading]="offerState() === 'loading'"
                 [tier]="tier()"
+                [promotion]="promotion()"
                 [anchorCents]="bundle()?.modulesTotalCents ?? null" />
 
               <div class="mt-6">
@@ -97,7 +98,12 @@
                 </div>
 
                 <div class="flex shrink-0 flex-col items-end gap-1">
-                  <span class="text-lg font-extrabold text-brand-navy">{{ price(module.priceCents) }}</span>
+                  <ui-sale-price
+                    size="sm"
+                    align="end"
+                    [priceCents]="module.priceCents"
+                    [listPriceCents]="module.listPriceCents"
+                    [percentOff]="promotion()?.percentOff ?? null" />
                   @if (module.priceCents !== null) {
                     <a
                       [routerLink]="['/loja']"

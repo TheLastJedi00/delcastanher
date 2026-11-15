@@ -204,6 +204,7 @@
                 class="mx-auto mb-8 max-w-xs"
                 [loading]="offerState() === 'loading'"
                 [tier]="tier()"
+                [promotion]="promotion()"
                 [anchorCents]="bundle()?.modulesTotalCents ?? null" />
 
               <a [routerLink]="checkoutLink" [queryParams]="checkoutQuery" class="block">
