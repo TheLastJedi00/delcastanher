@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Observable, catchError, finalize, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -225,6 +226,12 @@ export interface ClientLogEntry {
   detail?: Record<string, unknown>;
 }
 
+/** Folga depois do fim da campanha antes de reler a oferta (decisao 7). */
+export const PROMOTION_REFRESH_SLACK_MS = 1000;
+
+/** Teto do `setTimeout` (~24,8 dias): campanha mais longa nao agenda a releitura. */
+const MAX_TIMEOUT_MS = 2_147_483_647;
+
 /** Estados em que nao ha mais o que esperar do gateway. */
 const TERMINAL: OrderStatus[] = ['PAID', 'REJECTED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'FAILED'];
 
@@ -257,6 +264,20 @@ export function formatPrice(cents: number | null): string {
 @Injectable({ providedIn: 'root' })
 export class StoreService {
   private readonly http = inject(HttpClient);
+  private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
+  /** Releitura agendada para o fim da campanha (Spec 032, decisao 7). */
+  private promotionTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Relogio do servidor menos o do aparelho, da ultima oferta lida (Spec 032,
+   * decisao 7). A contagem regressiva soma isto ao `Date.now()`: o relogio do
+   * aparelho pode estar errado, o do servidor e o que decide o preco.
+   */
+  private readonly clockOffsetState = signal(0);
+  readonly clockOffsetMs = this.clockOffsetState.asReadonly();
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.clearPromotionTimer());
+  }
 
   private readonly catalogState = signal<StoreModuleItem[]>([]);
   private readonly selectedState = signal<Set<string>>(new Set());
@@ -403,9 +424,58 @@ export class StoreService {
     const params = options.fresh ? { params: { t: Date.now() } } : {};
 
     return this.http.get<StoreOffer>(`${environment.apiUrl}/store/offer`, params).pipe(
-      tap(offer => this.offerState.set(offer)),
+      tap(offer => {
+        this.offerState.set(offer);
+        this.schedulePromotionEnd(offer.promotion);
+      }),
       catchError((error: HttpErrorResponse) => throwError(() => this.toMessage(error))),
     );
+  }
+
+  /**
+   * No fim da campanha, rele a oferta sem cache — e o catalogo, se a loja o
+   * carregou —, para o preco voltar ao normal sem recarregar a pagina (Spec
+   * 032, decisao 7). Quem decide que acabou e o servidor: a releitura traz a
+   * oferta de agora, com ou sem campanha.
+   *
+   * O prazo e `endsAt - serverNow`, os dois do servidor: nao depende do relogio
+   * do aparelho. So no navegador; no SSR nao ha o que agendar.
+   */
+  private schedulePromotionEnd(promotion: PublicPromotion | null): void {
+    this.clearPromotionTimer();
+
+    if (!promotion) {
+      return;
+    }
+
+    const serverNow = Date.parse(promotion.serverNow);
+
+    this.clockOffsetState.set(serverNow - Date.now());
+
+    const delay = Date.parse(promotion.endsAt) - serverNow + PROMOTION_REFRESH_SLACK_MS;
+
+    if (!this.browser || delay > MAX_TIMEOUT_MS) {
+      return;
+    }
+
+    this.promotionTimer = setTimeout(
+      () => {
+        this.promotionTimer = null;
+        this.loadOffer({ fresh: true }).subscribe({ error: () => undefined });
+
+        if (this.catalogState().length > 0) {
+          this.loadCatalog().subscribe({ error: () => undefined });
+        }
+      },
+      Math.max(delay, 0),
+    );
+  }
+
+  private clearPromotionTimer(): void {
+    if (this.promotionTimer !== null) {
+      clearTimeout(this.promotionTimer);
+      this.promotionTimer = null;
+    }
   }
 
   /** Chave publica e ambiente. Carregado uma vez por sessao. */
