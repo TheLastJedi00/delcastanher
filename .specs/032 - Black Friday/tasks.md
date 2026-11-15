@@ -132,3 +132,13 @@ O usuário mandou um banner de referência e pediu impacto: preto com as cores d
 
 A foto do banner não entrou: o card é pequeno e a mentora já está na página. O selo mostra a porcentagem real da campanha, e não o "até 50%" do banner. Conferido no `ng serve` local, em 360 px e no desktop, nos estados normal e de última hora. CSS do componente dentro do limite de 4 kB; `ng test`: 783 testes; `ng build` ok.
 
+### Foto da Lidiane no card (15/11/2026, branch `feat/032-front-cards-foto`)
+
+A pedido do usuário, o card ganhou a foto da Lidiane: `front/public/assets/mentora-black-friday.jpg` (480×538, 47 KB).
+- **Origem:** `nova_mentora.jpeg`, recortada do rosto até um pouco abaixo do colar.
+- **Fundo:** o cinza-chumbo liso (média 45 de 255) foi levado ao preto **só nos pixels escuros e neutros** (pouca cor e abaixo do nível do fundo + 45). Pele, cabelo loiro, óculos, colar e a blusa branca são claros ou têm cor e ficaram intactos; o blazer, que já era preto, continua preto. A edição foi feita com o .NET do Windows (`System.Drawing`), sem baixar nada. O script fica fora do repositório.
+- **Flutuante:** a foto fica à direita no topo, com o selo do desconto sobre o ombro, como no banner, e esfuma no preto pela esquerda e por baixo.
+- **Em linha:** a foto fica entre o título e a contagem, com degradê elíptico, **só a partir do `md`**: no celular a faixa é estreita demais.
+- Para caber no limite de 4 kB de CSS do componente, duas das nove faíscas do fundo saíram.
+- Conferido no `ng serve` local em 360 px e em 1100 px. `ng test`: 783 testes; `ng build` ok.
+
